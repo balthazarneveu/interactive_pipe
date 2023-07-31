@@ -9,12 +9,7 @@ class Filter:
     Image processing single block is defined by the `apply` function to process multiple images
     """
 
-    def __init__(self,
-                 name,
-                 sliders=None,
-                 inputs=[0],
-                 outputs=[0],
-                 cache=True):
+    def __init__(self, name, sliders=None, inputs=[0], outputs=[0], cache=True):
         self.name = name
         self.cache = cache
         self.inputs = inputs
@@ -23,25 +18,19 @@ class Filter:
         self.cursor = None
         self.cursor_cbk = None
         self.reset_cache()
+        if sliders is None:
+            sliders = self.get_default_sliders()
         if sliders is not None:
             assert isinstance(sliders, dict)
             sliderslist, vrange = [], []
             for sli_name, sli_val in sliders.items():
                 sliderslist.append(sli_name)
                 vrange.append(sli_val)
-        else:
-            sliderslist = []
         assert isinstance(sliderslist, list)
         self.sliderslist = sliderslist
         self.defaultvalue = []
         self.vrange = []
         self.slidertype = []
-        if isinstance(vrange, tuple):
-            if len(sliderslist) == 1:
-                vrange = [vrange]
-            else:
-                vrange = [vrange] * len(sliderslist)
-                # REPLICATE
         for _vr in vrange:
             if isinstance(_vr, KeyboardSlider):
                 vr = _vr.vrange
@@ -57,14 +46,13 @@ class Filter:
                 self.defaultvalue.append(vr[2])
         self.values = copy.deepcopy(self.defaultvalue)
 
+    def get_default_sliders(self) -> dict:
+        """Useful to define default sliders"""
+        return {}
 
     def __repr__(self):
         descr = "%s\n" % self.name
-        if not (self.inputs == [
-                0,
-        ] and self.outputs == [
-                0,
-        ]):
+        if not (self.inputs == [0] and self.outputs == [0]):
             descr += "(" + (",".join(["%d" % it for it in self.inputs])) + ")"
             descr += "->" + \
                 "(" + ",".join(["%d" % it for it in self.outputs]) + ")\n"
