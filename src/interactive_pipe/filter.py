@@ -12,20 +12,16 @@ class Filter:
     def __init__(self,
                  name,
                  sliders=None,
-                 sliderslist=None,
-                 vrange=(-1., 1.),
-                 inputs=[
-                     0,
-                 ],
-                 outputs=[
-                     0,
-                 ],
-                 im_save=[0],
-                 suffixes=[""],
+                 inputs=[0],
+                 outputs=[0],
                  cache=True):
-        assert isinstance(vrange, tuple) or isinstance(vrange, list)
         self.name = name
         self.cache = cache
+        self.inputs = inputs
+        self.outputs = outputs
+        self.global_params = {}
+        self.cursor = None
+        self.cursor_cbk = None
         self.reset_cache()
         if sliders is not None:
             assert isinstance(sliders, dict)
@@ -34,8 +30,7 @@ class Filter:
                 sliderslist.append(sli_name)
                 vrange.append(sli_val)
         else:
-            if sliderslist is None:
-                sliderslist = []
+            sliderslist = []
         assert isinstance(sliderslist, list)
         self.sliderslist = sliderslist
         self.defaultvalue = []
@@ -61,13 +56,7 @@ class Filter:
                 self.vrange.append(vr[0:2])
                 self.defaultvalue.append(vr[2])
         self.values = copy.deepcopy(self.defaultvalue)
-        self.inputs = inputs
-        self.outputs = outputs
-        self.im_save = im_save
-        self.suffixes = suffixes
-        self.global_params = {}
-        self.cursor = None
-        self.cursor_cbk = None
+
 
     def __repr__(self):
         descr = "%s\n" % self.name
