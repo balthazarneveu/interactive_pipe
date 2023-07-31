@@ -23,15 +23,15 @@ def test_has_changed_with_none_stored_params():
 
 def test_has_changed_with_same_params():
     sc = StateChange(name='Sample_Filter')
-    sc.has_changed(new_params={'param1': 'value1'})
-    assert sc.has_changed(new_params={'param1': 'value1'}) == False
+    sc.has_changed({'param1': 'value1'})
+    assert sc.has_changed({'param1': 'value1'}) == False
     assert sc.update_needed == False
     assert repr(sc) == 'Sample_Filter: no update needed'
 
 
 def test_has_changed_with_different_params():
     sc = StateChange(name='Sample_Filter')
-    sc.has_changed(new_params={'param1': 'value1'})
-    assert sc.has_changed(new_params={'param1': 'value2'}) == True
+    sc.has_changed({'param1': 'value1'})
+    assert sc.has_changed({'param1': 'value2'}) == True
     assert sc.update_needed == True
     assert repr(sc) == 'Sample_Filter: needs update'
