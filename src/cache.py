@@ -1,8 +1,9 @@
 import logging
 from copy import deepcopy
+from typing import Any
 
 
-class CachedResults():
+class CachedResults:
     """
     Helper class to store the results of a Filter.
 
@@ -22,29 +23,45 @@ class CachedResults():
     Underlying class used in the interactive pipe cache mechanism.
     """
 
-    def __init__(self, name=None, debug=True):
+    def __init__(self, name: str = None):
         self.name = name
-        self.debug = debug
         self.result = None
         self.state_change = StateChange(name=name)
-        self.force_change = False
+        self._force_change = False
 
-    def force_update(self):
-        self.force_change = True
+    @property
+    def force_change(self) -> bool:
+        return self._force_change
 
-    def has_changed(self, new_params):
+    @force_change.setter
+    def force_change(self, value: bool) -> None:
+        self._force_change = value
+
+    @property
+    def has_changed(self, new_params: Any) -> bool:
+        """
+        Check if the parameters have changed and mark an update as needed if they have.
+
+        :param new_params: The new parameters to check.
+        :return: True if an update is needed or False otherwise.
+        """
         if self.result is None:  # if no result force initialization
-            self.force_update()
+            self.force_change = True
         change_state_from_params_check = self.state_change.has_changed(
             new_params)
         if self.force_change:
             self.state_change.update_needed = True
             self.force_change = False
-            return True
+            change_state_from_params_check = True
         return change_state_from_params_check
 
-    def update(self, new_result):
-        if self.debug and self.name is not None:
+    def update(self, new_result: Any) -> None:
+        """
+        Update the result.
+
+        :param new_result: The new result to store.
+        """
+        if self.name is not None:
             logging.debug(f"OVERRIDE CACHE RESULTS - {self.name}")
         self.result = new_result
 
