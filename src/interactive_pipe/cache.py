@@ -3,7 +3,6 @@ from copy import deepcopy
 from typing import Any, Dict
 
 
-
 class CachedResults:
     """
     Helper class to store the results of a Filter.
@@ -24,11 +23,12 @@ class CachedResults:
     Underlying class used in the interactive pipe cache mechanism.
     """
 
-    def __init__(self, name: str = None):
+    def __init__(self, name: str = None, safe_buffer_deepcopy: bool = False):
         self.name = name
         self.result = None
         self.state_change = StateChange(name=name)
         self._force_change = False
+        self.safe_buffer_deepcopy = safe_buffer_deepcopy
 
     @property
     def force_change(self) -> bool:
@@ -38,7 +38,6 @@ class CachedResults:
     def force_change(self, value: bool) -> None:
         self._force_change = value
 
-    @property
     def has_changed(self, new_params: Any) -> bool:
         """
         Check if the parameters have changed and mark an update as needed if they have.
@@ -64,12 +63,11 @@ class CachedResults:
         """
         if self.name is not None:
             logging.debug(f"OVERRIDE CACHE RESULTS - {self.name}")
-        self.result = new_result
+        self.result = new_result if not self.safe_buffer_deepcopy else deepcopy(
+            new_result)
 
     def __repr__(self) -> str:
         return self.name
-
-
 
 
 class StateChange:
@@ -100,6 +98,10 @@ class StateChange:
     @property
     def update_needed(self) -> bool:
         return self._update_needed
+
+    @update_needed.setter
+    def update_needed(self, value: bool) -> None:
+        self._update_needed = value
 
     def __repr__(self) -> str:
         return f"{self.name}: " + ("needs update" if self.update_needed else "no update needed")
