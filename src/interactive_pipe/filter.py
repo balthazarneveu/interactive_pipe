@@ -6,13 +6,14 @@ from sliders import KeyboardSlider
 
 
 class FilterCore:
-    def __init__(self, name, inputs: List[int] = [0], outputs: List[int] = [0], cache=True):
+    def __init__(self, name, inputs: List[int] = [0], outputs: List[int] = [0], cache=True, default_params=[]):
         self.name = name
         self.cache = cache
         self.inputs = inputs
         self.outputs = outputs
         self.global_params = {}
         self.reset_cache()
+        self.values = copy.deepcopy(default_params)
         pass
 
     def apply(self, *imgs, **kwargs) -> list:
@@ -26,10 +27,6 @@ class FilterCore:
         :return: output1, output2 ...
         """
         raise NotImplementedError("Need to implement the apply method")
-
-    def get_default_sliders(self) -> dict:
-        """Useful to define default sliders"""
-        return {}
 
     def set_global_params(self, global_params: dict):
         self.global_params = global_params
