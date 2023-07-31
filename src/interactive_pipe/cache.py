@@ -1,6 +1,7 @@
 import logging
 from copy import deepcopy
-from typing import Any
+from typing import Any, Dict
+
 
 
 class CachedResults:
@@ -69,21 +70,36 @@ class CachedResults:
         return self.name
 
 
-class StateChange():
+
+
+class StateChange:
     """
     Helper class to check if parameters whether or not input parameters have been updated.
-    Underlying class used in the interactive pipe cache mechanism
+    Underlying class used in the interactive pipe cache mechanism.
     """
 
-    def __init__(self, name=None):
+    def __init__(self, name: str = None):
         self.name = name
-        self.stored_params = None
-        self.update_needed = False
+        self._stored_params = None
+        self._update_needed = False
 
-    def has_changed(self, new_params) -> bool:
-        if self.stored_params is None or new_params != self.stored_params:
-            self.stored_params = deepcopy(new_params)
-            self.update_needed = True
+    def has_changed(self, new_params: Any) -> bool:
+        """
+        Check if the new parameters are different from the stored parameters.
+
+        :param new_params: The new parameters to check.
+        :return: True if the parameters have changed or False otherwise.
+        """
+        if self._stored_params is None or new_params != self._stored_params:
+            self._stored_params = deepcopy(new_params)
+            self._update_needed = True
         else:
-            self.update_needed = False
-        return self.update_needed
+            self._update_needed = False
+        return self._update_needed
+
+    @property
+    def update_needed(self) -> bool:
+        return self._update_needed
+
+    def __repr__(self) -> str:
+        return f"{self.name}: " + ("needs update" if self.update_needed else "no update needed")
