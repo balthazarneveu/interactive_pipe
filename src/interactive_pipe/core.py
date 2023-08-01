@@ -3,9 +3,12 @@ import sys
 import time
 import traceback
 from copy import deepcopy
-from typing import Dict, List, Optional, Callable
-
+from typing import Dict, List, Optional, Callable, Tuple
+from sliders import Slider
+import inspect
 from cache import CachedResults
+
+# TODO: fix docstring here
 
 
 class PureFilter:
@@ -30,7 +33,7 @@ class PureFilter:
     ```
     """
 
-    def __init__(self, apply_fn: Callable = None, name: Optional[str] = None, default_params=[]):
+    def __init__(self, apply_fn: Optional[Callable] = None, name: Optional[str] = None, default_params={}, global_params={}):
         """
         :param apply_fn: Callable
             ```
@@ -46,37 +49,63 @@ class PureFilter:
             :return: output1, output2 ...
 
             ```
-        :param name: optional, if None
+        :param name: optional, if None, using the apply_fn name (or finally the class Name)
         """
-        self.name = name if name else self.__class__.__name__
+        self.name = name if name else (
+            self.__class__.__name__ if not apply_fn else apply_fn.__name__)
         self.values = deepcopy(default_params)
+        assert isinstance(self.values, dict), f"{self.values}"
         if apply_fn is not None:
             self.apply = apply_fn
+        self.set_global_params(global_params)
+
+    def set_global_params(self, global_params: dict):
+        self.global_params = global_params
 
     def run(self, *imgs) -> list:
-        if isinstance(self.values, list):
-            out = self.apply(*imgs, *self.values)
-        elif isinstance(self.values, dict):
-            out = self.apply(*imgs, **self.values)
+        # Here we should check if
+        # the keyword args of the apply function matches
+        # match with self.values
+        assert isinstance(self.values, dict), f"{self.values}"
+        # TODO: skip computing signature everytime
+        args_names, kwargs_names = self.analyze_apply_fn_signature(self.apply)
+        for key, val in self.values.items():
+            assert key in kwargs_names.keys()
+        if "global_params" in kwargs_names.keys():
+            # special key to provide the context dictionary
+            out = self.apply(
+                *imgs, global_params=self.global_params, **self.values)
         else:
-            raise TypeError(f"{self.values} shall be a list or a dictionary")
+            out = self.apply(*imgs, **self.values)
         return out
+
+    @staticmethod
+    def analyze_apply_fn_signature(apply_fn: Callable) -> Tuple[dict, dict]:
+        signature = inspect.signature(apply_fn)
+        keyword_args = {
+            k: v.default
+            for k, v in signature.parameters.items()
+            if v.default is not inspect.Parameter.empty
+        }
+
+        positional_args = [
+            k
+            for k, v in signature.parameters.items()
+            if v.default is inspect.Parameter.empty
+        ]
+        return positional_args, keyword_args
 
 
 class FilterCore(PureFilter):
     """PureFilter + cache + global_params + routing nodes defined (inputs & outputs fields)"""
 
-    def __init__(self, apply_fn: Callable = None, name: Optional[str] = None, inputs: List[int] = [0], outputs: List[int] = [0], cache=True, default_params=[]):
+    def __init__(self, apply_fn: Callable = None, name: Optional[str] = None, inputs: List[int] = [0], outputs: List[int] = [0], cache=True, default_params={}):
         super().__init__(apply_fn=apply_fn, name=name, default_params=default_params)
         self.cache = cache
         self.inputs = inputs
         self.outputs = outputs
         self.cache = cache
         self.reset_cache()
-        self.set_global_params({})
-
-    def set_global_params(self, global_params: dict):
-        self.global_params = global_params
 
     def reset_cache(self):
         if self.cache:
@@ -106,6 +135,28 @@ class FilterCore(PureFilter):
                 "(" + ",".join(["%d" % it for it in self.outputs]) + ")\n"
         descr += "\n"
         return descr
+
+# @TODO: move out of core!
+
+
+class AutoFilter(FilterCore):
+    def __init__(self, apply_fn: Callable = None, inputs=None, outputs=None, name: str = None, cache: bool = True):
+        assert apply_fn is not None
+        args_names, kwargs_names = self.analyze_apply_fn_signature(apply_fn)
+        assert len(inputs) == len(args_names)
+        if inputs is None:
+            inputs = range(len(args_names))
+        outputs = []
+        default_params = {}
+        for key, val in kwargs_names.items():
+            if "global_params" in key:
+                continue
+            if isinstance(val, int) or isinstance(val, float) or isinstance(val, bool):
+                default_params[key] = val
+            elif isinstance(val, Slider):
+                default_params[key] = val.default_value
+        super().__init__(apply_fn=apply_fn, name=name, inputs=inputs,
+                         outputs=outputs, cache=cache, default_params=default_params)
 
 
 class PipelineEngine:

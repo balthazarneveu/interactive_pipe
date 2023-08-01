@@ -45,20 +45,6 @@ def test_filter_run_dict_missing_keys():
     assert result == [[1*8, 2*8, 3*8], [4*8, 5*8, 6*8]]
 
 
-def test_filter_run_list():
-    filter = MultiplyFilter(name="multiply", default_params=[2, 0])
-    img = [[1, 2, 3], [4, 5, 6]]
-    result = filter.run(img)
-    assert result == [[2, 4, 6], [8, 10, 12]]
-
-
-def test_filter_run_no_arg_provided():
-    filter = MultiplyFilter(name="multiply_default", default_params=[2])
-    img = [[1, 2, 3], [4, 5, 6]]
-    result = filter.run(img)
-    assert result == [[5+2, 5+4, 5+6], [5+8, 5+10, 5+12]]
-
-
 def test_filter_apply():
     filter = MultiplyFilter(name="multiply", default_params=[1, 0])
     img = [[1, 2, 3], [4, 5, 6]]
