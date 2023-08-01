@@ -1,50 +1,8 @@
 import copy
 from typing import List
 
-from cache import CachedResults
+from core import FilterCore
 from sliders import KeyboardSlider
-
-
-class FilterCore:
-    def __init__(self, name, inputs: List[int] = [0], outputs: List[int] = [0], cache=True, default_params=[]):
-        self.name = name
-        self.cache = cache
-        self.inputs = inputs
-        self.outputs = outputs
-        self.global_params = {}
-        self.reset_cache()
-        self.values = copy.deepcopy(default_params)
-        pass
-
-    def apply(self, *imgs, **kwargs) -> list:
-        """
-        :param imgs: img0, img1, img2, value1 , value2 , value3 ....
-            - (img0 is the result from the previous step)
-            - indexes of images processed is defined by `self.inputs`
-            - indexes of output images to be processed are defined by `self.outputs`
-            - then follow the parameters to be applied  `self.values` depicted by `self.sliderslist`
-        :param kwargs: dictionary containing all parameters
-        :return: output1, output2 ...
-        """
-        raise NotImplementedError("Need to implement the apply method")
-
-    def set_global_params(self, global_params: dict):
-        self.global_params = global_params
-
-    def reset_cache(self):
-        if self.cache:
-            self.cache_mem = CachedResults(self.name)
-        else:
-            self.cache_mem = None
-
-    def __repr__(self) -> str:
-        descr = "%s\n" % self.name
-        if not (self.inputs == [0] and self.outputs == [0]):
-            descr += "(" + (",".join(["%d" % it for it in self.inputs])) + ")"
-            descr += "->" + \
-                "(" + ",".join(["%d" % it for it in self.outputs]) + ")\n"
-        descr += "\n"
-        return descr
 
 
 class Filter(FilterCore):

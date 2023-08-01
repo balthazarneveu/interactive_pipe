@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional, Callable
 
 import yaml
-from pipe_core import PipelineCore
+from core import PipelineCore
 from yaml.loader import SafeLoader
 
 
