@@ -43,13 +43,17 @@ def test_pure_filter_no_params():
     res = filt.run(input_image)
     assert (res == (input_image - 6)).all()
     assert (res == mad(input_image)[0]).all()
+    # Modify parameters and re-execute
+    filt.values = {"coeff": 2, "bias": 8}
+    res = filt.run(input_image)
+    assert (res == (2*input_image + 8)).all()
 
 
 def test_pure_filter_using_params():
     # Default parameters are manually defined.
     # Pay attention when you type your dictionary keys,
     # it should match with the keyword args
-    # This is one of the motivation of using
+    # This is one of the motivation of using AutoFilter
     filt_forced_params = PureFilter(
         apply_fn=mad, default_params={"coeff": 2, "bias": 8})
     res = filt_forced_params.run(input_image)

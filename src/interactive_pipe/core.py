@@ -8,53 +8,55 @@ from sliders import Slider
 import inspect
 from cache import CachedResults
 
-# TODO: fix docstring here
+"""
+:param apply_fn: Callable
+    ```
+    def apply_fn(*imgs, global_context={}, **params) -> list:
+    '''
+    :param global_context: dictionary containing global context
+    :param imgs: img0, img1, img2 ...
+    - (img0, ... are the results from the previous step)
+
+    :param kwargs: value1 = ... , value2 = ..., value3 = ...
+        - dictionary containing all parameters
+        - follow the parameters to be applied  `self.values`
+    :return: output1, output2 ...
+
+    ```
+:param name: optional, if None, using the apply_fn name (or finally the class Name)
+"""
+
+"""
+You can implement your own apply method if you need complex class usage 
+otherwise, just use the `apply_fn`.
+```
+    def apply(self, *imgs, **kwargs) -> list:
+    '''
+    :param imgs: img0, img1, img2 ...
+        - (img0, ... are the results from the previous step)
+        - indexes of images processed is defined by `self.inputs`
+        - indexes of output images to be processed are defined by `self.outputs`
+
+    :param kwargs: value1 = ... , value2 = ..., value3 = ...
+        - dictionary containing all parameters
+        - follow the parameters to be applied  `self.values`
+    :return: output1, output2 ...
+    '''
+        raise NotImplementedError("Need to implement the apply method")
+
+```
+"""
+# TODO: fix docstring PureFilter
+
+# TODO: harmonization of default_params & values naming
+# TODO: harmonization of global_params as context
 
 
 class PureFilter:
-    """
-    You can implement your own apply method if you need complex class usage 
-    otherwise, just use the `apply_fn`.
-    ```
-        def apply(self, *imgs, **kwargs) -> list:
-        '''
-        :param imgs: img0, img1, img2 ...
-            - (img0, ... are the results from the previous step)
-            - indexes of images processed is defined by `self.inputs`
-            - indexes of output images to be processed are defined by `self.outputs`
-
-        :param kwargs: value1 = ... , value2 = ..., value3 = ...
-            - dictionary containing all parameters
-            - follow the parameters to be applied  `self.values`
-        :return: output1, output2 ...
-        '''
-            raise NotImplementedError("Need to implement the apply method")
-
-    ```
-    """
-
-    def __init__(self, apply_fn: Optional[Callable] = None, name: Optional[str] = None, default_params={}, global_params={}):
-        """
-        :param apply_fn: Callable
-            ```
-            def apply_fn(*imgs, global_context={}, **params) -> list:
-            '''
-            :param global_context: dictionary containing global context
-            :param imgs: img0, img1, img2 ...
-            - (img0, ... are the results from the previous step)
-
-            :param kwargs: value1 = ... , value2 = ..., value3 = ...
-                - dictionary containing all parameters
-                - follow the parameters to be applied  `self.values`
-            :return: output1, output2 ...
-
-            ```
-        :param name: optional, if None, using the apply_fn name (or finally the class Name)
-        """
+    def __init__(self, apply_fn: Optional[Callable] = None, name: Optional[str] = None, default_params: dict = {}, global_params: dict = {}):
         self.name = name if name else (
             self.__class__.__name__ if not apply_fn else apply_fn.__name__)
         self.values = deepcopy(default_params)
-        assert isinstance(self.values, dict), f"{self.values}"
         if apply_fn is not None:
             self.apply = apply_fn
         self.set_global_params(global_params)
@@ -69,11 +71,20 @@ class PureFilter:
         else:  # skip computing signature
             pass
 
+    @property
+    def values(self):
+        return self._values
+
+    @values.setter
+    def values(self, new_values):
+        assert isinstance(
+            new_values, dict), f"{new_values} is not a dictionary"
+        self._values = new_values
+
     def run(self, *imgs) -> list:
-        # Here we do check if the keyword args of the apply function match with self.values
+        # First we check if the keyword args of the apply function match with self.values
         assert isinstance(self.values, dict), f"{self.values}"
         self.check_apply_signature()
-
         for key, val in self.values.items():
             assert key in self.__kwargs_names.keys()
         if "global_params" in self.__kwargs_names.keys():
@@ -102,7 +113,7 @@ class PureFilter:
 
 
 class FilterCore(PureFilter):
-    """PureFilter + cache + global_params + routing nodes defined (inputs & outputs fields)"""
+    """PureFilter + cache + routing nodes defined (inputs & outputs fields)"""
 
     def __init__(self, apply_fn: Callable = None, name: Optional[str] = None, inputs: List[int] = [0], outputs: List[int] = [0], cache=True, default_params={}):
         super().__init__(apply_fn=apply_fn, name=name, default_params=default_params)
