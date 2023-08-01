@@ -86,7 +86,8 @@ class PureFilter:
         assert isinstance(self.values, dict), f"{self.values}"
         self.check_apply_signature()
         for key, val in self.values.items():
-            assert key in self.__kwargs_names.keys()
+            assert key in self.__kwargs_names.keys(
+            ), f"{key} not in {self.__kwargs_names.keys()}"
         if "global_params" in self.__kwargs_names.keys():
             # special key to provide the context dictionary
             out = self.apply(
@@ -115,9 +116,17 @@ class PureFilter:
 class FilterCore(PureFilter):
     """PureFilter + cache + routing nodes defined (inputs & outputs fields)"""
 
-    def __init__(self, apply_fn: Callable = None, name: Optional[str] = None, inputs: List[int] = [0], outputs: List[int] = [0], cache=True, default_params={}):
-        super().__init__(apply_fn=apply_fn, name=name, default_params=default_params)
-        self.cache = cache
+    def __init__(self,
+                 apply_fn: Callable = None,
+                 name: Optional[str] = None,
+                 default_params: dict = {},
+                 global_params: dict = {},
+                 inputs: List[int] = [0],
+                 outputs: List[int] = [0],
+                 cache=True,
+                 ):
+        super().__init__(apply_fn=apply_fn, name=name,
+                         default_params=default_params, global_params=global_params)
         self.inputs = inputs
         self.outputs = outputs
         self.cache = cache
@@ -130,6 +139,7 @@ class FilterCore(PureFilter):
             self.cache_mem = None
 
     def run(self, *imgs) -> list:
+        # TODO: support routing mechanism based on List[int] or List[str | generic routing object]
         assert len(imgs) == len(
             self.inputs), "number of inputs shall match what's expected"
         if self.inputs is None:
@@ -151,28 +161,6 @@ class FilterCore(PureFilter):
                 "(" + ",".join(["%d" % it for it in self.outputs]) + ")\n"
         descr += "\n"
         return descr
-
-# @TODO: move out of core!
-
-
-class AutoFilter(FilterCore):
-    def __init__(self, apply_fn: Callable = None, inputs=None, outputs=None, name: str = None, cache: bool = True):
-        assert apply_fn is not None
-        args_names, kwargs_names = self.analyze_apply_fn_signature(apply_fn)
-        assert len(inputs) == len(args_names)
-        if inputs is None:
-            inputs = range(len(args_names))
-        outputs = []
-        default_params = {}
-        for key, val in kwargs_names.items():
-            if "global_params" in key:
-                continue
-            if isinstance(val, int) or isinstance(val, float) or isinstance(val, bool):
-                default_params[key] = val
-            elif isinstance(val, Slider):
-                default_params[key] = val.default_value
-        super().__init__(apply_fn=apply_fn, name=name, inputs=inputs,
-                         outputs=outputs, cache=cache, default_params=default_params)
 
 
 class PipelineEngine:
@@ -262,7 +250,7 @@ class PipelineCore:
             filter.set_global_params(self.parameters)
             filter.reset_cache()
         self.inputs = inputs
-
+        # You need to set the values to their default_value
         if parameters is not None:
             self.set_parameters(parameters)
 
@@ -276,10 +264,13 @@ class PipelineCore:
         """
         for pa in self.filters:
             if pa.name in parameters.keys():
+                # directly set from the dictionary
                 pa.values = parameters[pa.name]
             else:
+                # FIXME: there's a very ugly mapping between slider_values (a list) & values (dictionary)
                 for idx, _pa_name in enumerate(pa.sliderslist):
-                    pa.values[idx] = pa.defaultvalue[idx]
+                    pa.values[list(pa.values.keys())[idx]
+                              ] = pa.defaultvalue[idx]
         self.parameters = parameters
         # for each slider, transmit global parameters
         for slider in self.filters:

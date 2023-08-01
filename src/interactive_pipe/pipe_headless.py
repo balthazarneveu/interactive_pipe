@@ -86,8 +86,9 @@ class HeadlessPipeline(PipelineCore):
         """
         ret = "\n{\n"
         for sl in self.filters:
-            ret += "\"%s\"" % sl.name + \
-                ":[" + ",".join(map(lambda x: "%f" % x, sl.values)) + "],\n"
+            # ret += "\"%s\"" % sl.name + \
+            #     ":[" + ",".join(map(lambda x: "%f" % x, sl.values)) + "],\n"
+            ret += f"{sl.name} : {sl.values},\n"
         ret = ret[:-2] + "\n"  # remove comma for yaml
         ret += "}"
         return ret
