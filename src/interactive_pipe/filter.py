@@ -10,8 +10,8 @@ class Filter(FilterCore):
     Image processing single block is defined by the `apply` function to process multiple images
     """
 
-    def __init__(self, name, sliders: dict = None, inputs: List[int] = [0], outputs: List[int] = [0], cache=True):
-        super().__init__(name, inputs=inputs, outputs=outputs, cache=cache)
+    def __init__(self, name=None, sliders: dict = None, inputs: List[int] = [0], outputs: List[int] = [0], cache=True):
+        super().__init__(name=name, inputs=inputs, outputs=outputs, cache=cache)
         self.cursor = None
         self.cursor_cbk = None
         if sliders is None:

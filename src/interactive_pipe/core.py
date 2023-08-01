@@ -3,41 +3,55 @@ import sys
 import time
 import traceback
 from copy import deepcopy
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Callable
 
 from cache import CachedResults
 
 
 class PureFilter:
-    def __init__(self, name: Optional[str] = None, cache=True, default_params=[]):
-        self.name = name if name else self.__class__.__name__
-        self.cache = cache
-        self.global_params = {}
-        self.reset_cache()
-        self.values = deepcopy(default_params)
-
-    def set_global_params(self, global_params: dict):
-        self.global_params = global_params
-
-    def reset_cache(self):
-        if self.cache:
-            self.cache_mem = CachedResults(self.name)
-        else:
-            self.cache_mem = None
-
-    def apply(self, *imgs, **kwargs) -> list:
-        """
+    """
+    You can implement your own apply method if you need complex class usage 
+    otherwise, just use the `apply_fn`.
+    ```
+        def apply(self, *imgs, **kwargs) -> list:
+        '''
         :param imgs: img0, img1, img2 ...
             - (img0, ... are the results from the previous step)
             - indexes of images processed is defined by `self.inputs`
             - indexes of output images to be processed are defined by `self.outputs`
 
-        :param kwargs: value1 = ... , value2 = ..., value3 = ... 
+        :param kwargs: value1 = ... , value2 = ..., value3 = ...
             - dictionary containing all parameters
             - follow the parameters to be applied  `self.values`
         :return: output1, output2 ...
+        '''
+            raise NotImplementedError("Need to implement the apply method")
+
+    ```
+    """
+
+    def __init__(self, apply_fn: Callable = None, name: Optional[str] = None, default_params=[]):
         """
-        raise NotImplementedError("Need to implement the apply method")
+        :param apply_fn: Callable
+            ```
+            def apply_fn(*imgs, global_context={}, **params) -> list:
+            '''
+            :param global_context: dictionary containing global context
+            :param imgs: img0, img1, img2 ...
+            - (img0, ... are the results from the previous step)
+
+            :param kwargs: value1 = ... , value2 = ..., value3 = ...
+                - dictionary containing all parameters
+                - follow the parameters to be applied  `self.values`
+            :return: output1, output2 ...
+
+            ```
+        :param name: optional, if None
+        """
+        self.name = name if name else self.__class__.__name__
+        self.values = deepcopy(default_params)
+        if apply_fn is not None:
+            self.apply = apply_fn
 
     def run(self, *imgs) -> list:
         if isinstance(self.values, list):
@@ -50,12 +64,25 @@ class PureFilter:
 
 
 class FilterCore(PureFilter):
-    """PureFilter + routing nodes defined (inputs & outputs fields)"""
+    """PureFilter + cache + global_params + routing nodes defined (inputs & outputs fields)"""
 
-    def __init__(self, name: Optional[str] = None, inputs: List[int] = [0], outputs: List[int] = [0], cache=True, default_params=[]):
-        super().__init__(name=name, cache=cache, default_params=default_params)
+    def __init__(self, apply_fn: Callable = None, name: Optional[str] = None, inputs: List[int] = [0], outputs: List[int] = [0], cache=True, default_params=[]):
+        super().__init__(apply_fn=apply_fn, name=name, default_params=default_params)
+        self.cache = cache
         self.inputs = inputs
         self.outputs = outputs
+        self.cache = cache
+        self.reset_cache()
+        self.set_global_params({})
+
+    def set_global_params(self, global_params: dict):
+        self.global_params = global_params
+
+    def reset_cache(self):
+        if self.cache:
+            self.cache_mem = CachedResults(self.name)
+        else:
+            self.cache_mem = None
 
     def run(self, *imgs) -> list:
         assert len(imgs) == len(
