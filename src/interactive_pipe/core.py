@@ -3,14 +3,14 @@ import sys
 import time
 import traceback
 from copy import deepcopy
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 
 from cache import CachedResults
 
 
 class FilterCore:
-    def __init__(self, name, inputs: List[int] = [0], outputs: List[int] = [0], cache=True, default_params=[]):
-        self.name = name
+    def __init__(self, name: Optional[str] = None, inputs: List[int] = [0], outputs: List[int] = [0], cache=True, default_params=[]):
+        self.name = name if name else self.__class__.__name__
         self.cache = cache
         self.inputs = inputs
         self.outputs = outputs
