@@ -46,7 +46,8 @@ def test_filter_run_dict_missing_keys():
 
 
 def test_filter_apply():
-    filter = MultiplyFilter(name="multiply", default_params=[1, 0])
+    filter = MultiplyFilter(name="multiply", default_params={
+                            "add": 0, "scalar": 1})
     img = [[1, 2, 3], [4, 5, 6]]
     result = filter.apply(img, scalar=2)
     assert result == [[5+2, 5+4, 5+6], [5+8, 5+10, 5+12]]

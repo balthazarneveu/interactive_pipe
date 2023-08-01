@@ -62,16 +62,21 @@ class PureFilter:
     def set_global_params(self, global_params: dict):
         self.global_params = global_params
 
+    def check_apply_signature(self):
+        if not hasattr(self, "__args_names") or not hasattr(self, "__kwargs_names"):
+            self.__args_names, self.__kwargs_names = self.analyze_apply_fn_signature(
+                self.apply)
+        else:  # skip computing signature
+            pass
+
     def run(self, *imgs) -> list:
-        # Here we should check if
-        # the keyword args of the apply function matches
-        # match with self.values
+        # Here we do check if the keyword args of the apply function match with self.values
         assert isinstance(self.values, dict), f"{self.values}"
-        # TODO: skip computing signature everytime
-        args_names, kwargs_names = self.analyze_apply_fn_signature(self.apply)
+        self.check_apply_signature()
+
         for key, val in self.values.items():
-            assert key in kwargs_names.keys()
-        if "global_params" in kwargs_names.keys():
+            assert key in self.__kwargs_names.keys()
+        if "global_params" in self.__kwargs_names.keys():
             # special key to provide the context dictionary
             out = self.apply(
                 *imgs, global_params=self.global_params, **self.values)
