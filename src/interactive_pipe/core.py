@@ -21,15 +21,34 @@ class FilterCore:
 
     def apply(self, *imgs, **kwargs) -> list:
         """
-        :param imgs: img0, img1, img2, value1 , value2 , value3 ....
-            - (img0 is the result from the previous step)
+        :param imgs: img0, img1, img2 ...
+            - (img0, ... are the results from the previous step)
             - indexes of images processed is defined by `self.inputs`
             - indexes of output images to be processed are defined by `self.outputs`
-            - then follow the parameters to be applied  `self.values` depicted by `self.sliderslist`
-        :param kwargs: dictionary containing all parameters
+
+        :param kwargs: value1 = ... , value2 = ..., value3 = ... 
+            - dictionary containing all parameters
+            - follow the parameters to be applied  `self.values`
         :return: output1, output2 ...
         """
         raise NotImplementedError("Need to implement the apply method")
+
+    def run(self, *imgs) -> list:
+        assert len(imgs) == len(
+            self.inputs), "number of inputs shall match what's expected"
+        if self.inputs is None:
+            filter_in = ()
+        else:
+            filter_in = imgs
+        if isinstance(self.values, list):
+            out = self.apply(*filter_in, *self.values)
+        elif isinstance(self.values, dict):
+            out = self.apply(*filter_in, **self.values)
+        else:
+            raise TypeError(f"{self.values} shall be a list or a dictionary")
+        assert len(out) >= len(
+            self.outputs), "number of outputs shall be at least greater or equal to what's expected by the filter"
+        return out
 
     def set_global_params(self, global_params: dict):
         self.global_params = global_params
@@ -85,11 +104,11 @@ class PipelineEngine:
                 logging.debug(
                     ("... " if previous_calculation else "!!! ") + f"Calculating {prc.name}")
                 try:
-                    if prc.inputs is None:
-                        out = prc.apply(prc.values)
-                    else:
-                        out = prc.apply(
-                            *[result[idi] if idi is not None else None for idi in prc.inputs] + prc.values)
+                    routing_in = []
+                    if prc.inputs:
+                        routing_in = [
+                            result[idi] if idi is not None else None for idi in prc.inputs]
+                    out = prc.run(*routing_in)
                 except Exception as e:
                     logging.error(f'Error in {prc.name} filter:')
                     logging.error(e)
