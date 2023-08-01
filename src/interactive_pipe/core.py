@@ -8,16 +8,22 @@ from typing import Dict, List, Optional
 from cache import CachedResults
 
 
-class FilterCore:
-    def __init__(self, name: Optional[str] = None, inputs: List[int] = [0], outputs: List[int] = [0], cache=True, default_params=[]):
+class PureFilter:
+    def __init__(self, name: Optional[str] = None, cache=True, default_params=[]):
         self.name = name if name else self.__class__.__name__
         self.cache = cache
-        self.inputs = inputs
-        self.outputs = outputs
         self.global_params = {}
         self.reset_cache()
         self.values = deepcopy(default_params)
-        pass
+
+    def set_global_params(self, global_params: dict):
+        self.global_params = global_params
+
+    def reset_cache(self):
+        if self.cache:
+            self.cache_mem = CachedResults(self.name)
+        else:
+            self.cache_mem = None
 
     def apply(self, *imgs, **kwargs) -> list:
         """
@@ -34,30 +40,36 @@ class FilterCore:
         raise NotImplementedError("Need to implement the apply method")
 
     def run(self, *imgs) -> list:
+        if isinstance(self.values, list):
+            out = self.apply(*imgs, *self.values)
+        elif isinstance(self.values, dict):
+            out = self.apply(*imgs, **self.values)
+        else:
+            raise TypeError(f"{self.values} shall be a list or a dictionary")
+        return out
+
+
+class FilterCore(PureFilter):
+    """PureFilter + routing nodes defined (inputs & outputs fields)"""
+
+    def __init__(self, name: Optional[str] = None, inputs: List[int] = [0], outputs: List[int] = [0], cache=True, default_params=[]):
+        super().__init__(name=name, cache=cache, default_params=default_params)
+        self.inputs = inputs
+        self.outputs = outputs
+
+    def run(self, *imgs) -> list:
         assert len(imgs) == len(
             self.inputs), "number of inputs shall match what's expected"
         if self.inputs is None:
             filter_in = ()
         else:
             filter_in = imgs
-        if isinstance(self.values, list):
-            out = self.apply(*filter_in, *self.values)
-        elif isinstance(self.values, dict):
-            out = self.apply(*filter_in, **self.values)
-        else:
-            raise TypeError(f"{self.values} shall be a list or a dictionary")
-        assert len(out) >= len(
-            self.outputs), "number of outputs shall be at least greater or equal to what's expected by the filter"
+        out = super().run(*filter_in)
+        if out is not None:
+            assert len(out) >= len(
+                self.outputs), "number of outputs shall be at least greater or equal to what's expected by the filter"
+        assert isinstance(out, list)
         return out
-
-    def set_global_params(self, global_params: dict):
-        self.global_params = global_params
-
-    def reset_cache(self):
-        if self.cache:
-            self.cache_mem = CachedResults(self.name)
-        else:
-            self.cache_mem = None
 
     def __repr__(self) -> str:
         descr = "%s\n" % self.name
