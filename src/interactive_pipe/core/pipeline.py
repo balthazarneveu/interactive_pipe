@@ -32,7 +32,7 @@ class PipelineCore:
     def parameters(self):
         parameters = {}
         for filt in self.filters:
-            parameters[filt.name] = parameters.values
+            parameters[filt.name] = filt.values
         return parameters
     
     @parameters.setter

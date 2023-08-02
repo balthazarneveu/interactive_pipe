@@ -37,7 +37,9 @@ class PureFilter:
     def values(self, new_values):
         assert isinstance(
             new_values, dict), f"{new_values} is not a dictionary"
-        self._values = new_values
+        if not hasattr(self, "_values"):
+            self._values = {}
+        self._values = {**self._values, **new_values}
 
     def run(self, *imgs) -> list:
         # First we check if the keyword args of the apply function match with self.values
