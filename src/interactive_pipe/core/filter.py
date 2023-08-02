@@ -9,14 +9,17 @@ from typing import Callable, Dict, List, Optional, Tuple
 from core.cache import CachedResults
 from core.sliders import Slider
 
-
+# TODO: global params shall not appear in the filter constructor!
+# This is just a way to provide a context to each filter so they communicate globally
+# and the pointer to the shared dictionary shall be shared at an upper level (pipeline)
 class PureFilter:
     def __init__(self, apply_fn: Optional[Callable] = None, name: Optional[str] = None, default_params: dict = {}, global_params: dict = {}):
         self.name = name if name else (
             self.__class__.__name__ if not apply_fn else apply_fn.__name__)
-        self.values = deepcopy(default_params)
         if apply_fn is not None:
             self.apply = apply_fn
+        self.__initialize_default_values() # initialize default values from .apply method
+        self.values = deepcopy(default_params)
         self.set_global_params(global_params)
 
     def set_global_params(self, global_params: dict):
@@ -28,7 +31,13 @@ class PureFilter:
                 self.apply)
         else:  # skip computing signature
             pass
-
+    def __initialize_default_values(self):
+        assert not hasattr(self, "_values")
+        self.check_apply_signature()
+        # print("INIT:",self.__kwargs_names)
+        self._values = self.__kwargs_names
+        if "global_params" in self.__kwargs_names.keys():
+            self._values.pop("global_params")
     @property
     def values(self):
         return self._values
@@ -37,8 +46,7 @@ class PureFilter:
     def values(self, new_values):
         assert isinstance(
             new_values, dict), f"{new_values} is not a dictionary"
-        if not hasattr(self, "_values"):
-            self._values = {}
+        
         self._values = {**self._values, **new_values}
 
     def run(self, *imgs) -> list:

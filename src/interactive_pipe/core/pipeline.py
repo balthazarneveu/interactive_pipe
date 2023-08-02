@@ -15,9 +15,10 @@ class PipelineCore:
                 "All elements in 'filters' must be instances of 'Filter'.")
         self.filters = filters
         self.engine = PipelineEngine(cache, safe_input_buffer_deepcopy=True)
+        self.global_params = global_params
         for filter in self.filters:
-            # link each global params
-            filter.set_global_params(global_params)
+            # link each filter to global params
+            filter.set_global_params(self.global_params)
             filter.reset_cache()
         self.inputs = inputs
         # You need to set the values to their default_value for each filter
