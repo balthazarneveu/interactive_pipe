@@ -76,7 +76,8 @@ def test_pure_filter_global_params():
     # Default parameters are used. This is similar to executing the mad function
     context = {"ratio": 100}
     filt = PureFilter(apply_fn=mad_with_context, default_params={
-                      "coeff": 2, "bias": 8}, global_params=context)
+                      "coeff": 2, "bias": 8})
+    filt.global_params = context
     res = filt.run(input_image)
     expected_output = (2*input_image + 8)/100
     assert (res == expected_output).all()

@@ -18,7 +18,7 @@ class PipelineCore:
         self.global_params = global_params
         for filter in self.filters:
             # link each filter to global params
-            filter.set_global_params(self.global_params)
+            filter.global_params = self.global_params
             filter.reset_cache()
         self.inputs = inputs
         # You need to set the values to their default_value for each filter
