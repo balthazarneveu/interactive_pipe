@@ -3,10 +3,10 @@ from typing import Any
 import pytest
 
 try:
-    from interactive_pipe.cache import StateChange
+    from interactive_pipe.core.cache import StateChange
 except:
     import helper
-    from cache import StateChange
+    from core.cache import StateChange
 
 
 def test_initial_state():

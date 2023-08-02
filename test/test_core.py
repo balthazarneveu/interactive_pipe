@@ -4,7 +4,7 @@ try:
     from interactive_pipe.core import FilterCore, PureFilter
 except:
     import helper
-    from core import FilterCore, PureFilter
+    from core.filter import FilterCore, PureFilter
 
 
 class MultiplyFilter(FilterCore):
