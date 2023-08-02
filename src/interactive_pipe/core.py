@@ -164,7 +164,7 @@ class FilterCore(PureFilter):
 
 
 class PipelineEngine:
-    def __init__(self, cache=False, safe_input_buffer_deepcopy=False) -> None:
+    def __init__(self, cache=False, safe_input_buffer_deepcopy=True) -> None:
         self.cache = cache
         self.safe_input_buffer_deepcopy = safe_input_buffer_deepcopy
 
@@ -230,6 +230,8 @@ class PipelineEngine:
         # Limit result using self.numfigs but with indices pointed by last filter
         logging.info("\n".join(performances))
         return result
+
+# TODO: write tests and execution samples.
 
 
 class PipelineCore:
