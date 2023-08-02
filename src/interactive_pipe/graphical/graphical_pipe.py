@@ -1,7 +1,7 @@
 from typing import List, Optional
-from filter import Filter
-from pipe_headless import HeadlessPipeline
-from sliders import KeyboardSlider
+from graphical.filter import Filter
+from headless.pipeline import HeadlessPipeline
+from core.sliders import KeyboardSlider
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import CheckButtons, Slider
