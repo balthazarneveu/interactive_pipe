@@ -4,7 +4,8 @@ from typing import Optional, Callable
 
 import yaml
 from core.pipeline import PipelineCore
-from yaml.loader import SafeLoader
+from data_objects.parameters import Parameters
+
 
 
 class HeadlessPipeline(PipelineCore):
@@ -12,29 +13,11 @@ class HeadlessPipeline(PipelineCore):
     - importing/exporting tuning
     - printing current parameters in the terminal
     """
-    @staticmethod
-    def check_path(path: Optional[Path] = None) -> Path:
-        # @TODO: pop up to ask a file path (opens a selection file dialog if path is None)
-        assert path is not None
-        assert isinstance(path, Path)
-        return path
 
-    @staticmethod
-    def safe_path_with_suffix(path: Path) -> Path:
-        # Protect against overwritting an existing file
-        idx = 1
-        orig_path = path
-        while path.is_file():
-            path = orig_path.with_name('%s_%d%s' % (
-                orig_path.stem, idx, orig_path.suffix))
-            idx += 1
-        return path
 
-    def export_tuning(self, path: Optional[Path] = None) -> None:
+    def export_tuning(self, path: Optional[Path] = None, override=False) -> None:
         """Export yaml tuning to disk 
         """
-        path = self.check_path(path)
-
         export_dict = {}
         for sl in self.filters:
             export_dict[sl.name] = sl.values
@@ -55,18 +38,13 @@ class HeadlessPipeline(PipelineCore):
                         data = self.parameters["tuning"][elt][0]
                         index = int(self.parameters["tuning"][elt][1])
                         saved_dict[elt] = export_dict[data][index]
-
-        with open(self.safe_path_with_suffix(path), 'w') as outfile:
-            yaml.dump(saved_dict, outfile, default_flow_style=False)
+        Parameters(saved_dict).save(path, override=True if path is None else override)
+       
 
     def import_tuning(self, path: Path = None) -> None:
         """Open a yaml tuning and apply to GUI
         """
-        path = self.check_path(path)
-        assert path.exists()
-        with open(path) as yaml_file:
-            forced_params = yaml.load(yaml_file, Loader=SafeLoader)
-        self.set_parameters(forced_params)
+        self.parameters = Parameters(None).load(path)
     #     self.update()
     #     self.reset_sliders(addslider=False, forcereset=False)
     #     self.redraw()
@@ -93,10 +71,13 @@ class HeadlessPipeline(PipelineCore):
         ret += "}"
         return ret
 
-    def save(self, path: Path = None, data_wrapper_fn: Callable = None) -> Path:
+    def save(self, path: Path = None, data_wrapper_fn: Callable = None, output_indexes: list = None, save_entire_buffer=False) -> Path:
         """Save full resolution image
         """
-        path = self.check_path(path)
+        if output_indexes is None:
+            output_indexes = self.filters[-1].outputs
+        if save_entire_buffer:
+            output_indexes = None # you may force specific buffer index you'd like to save
         result_full = self.run()
         if not isinstance(path, Path):
             path = Path(path)
@@ -104,13 +85,16 @@ class HeadlessPipeline(PipelineCore):
         if not isinstance(result_full, list):
             result_full = [result_full]
         for num, res_current in enumerate(result_full):
+            if output_indexes is not None and not num in output_indexes:
+                continue
             current_name = path.with_name(
                 path.stem + "_" + str(num) + path.suffix)
-            if data_wrapper_fn is not None:
-                data_wrapper_fn(res_current).save(current_name)
-            else:
-                assert hasattr(res_current, "save")
-                res_current.save(current_name)
+            if res_current is not None and not (isinstance(res_current, list) and len(res_current) == 0):
+                if data_wrapper_fn is not None:
+                    data_wrapper_fn(res_current).save(current_name)
+                else:
+                    assert hasattr(res_current, "save")
+                    res_current.save(current_name)
 
             # @ TODO: handle proper output suffixes namings
             logging.info("saved image %s" % current_name)
