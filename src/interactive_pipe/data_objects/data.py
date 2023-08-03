@@ -101,3 +101,7 @@ class Data:
                 orig_path.stem, idx, orig_path.suffix))
             idx += 1
         return path
+    
+    @staticmethod
+    def append_with_stem(path, extra):
+        return path.parent/(path.stem + extra + path.suffix)
