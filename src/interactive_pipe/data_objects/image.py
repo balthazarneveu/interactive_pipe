@@ -32,10 +32,10 @@ class Image(Data):
         self.title=title
     def _set_file_extensions(self):
         self.file_extensions = [".png", ".jpg", ".tif"]
-    def _save(self, path: Path):
-        self.save_image(self.data, self.append_with_stem(path, self.title))
-    def _load(self, path: Path):
-        return self.load_image(path)
+    def _save(self, path: Path, backend=None):
+        self.save_image(self.data, self.append_with_stem(path, self.title), backend=backend)
+    def _load(self, path: Path, backend=None):
+        return self.load_image(path, backend=backend)
     
     @staticmethod
     def save_image(data, path: Path, precision=8, backend=None):
@@ -51,6 +51,10 @@ class Image(Data):
     def rescale_dynamic(data, precision=8):
         amplitude = 2**precision-1
         return np.round(data*amplitude).clip(0, amplitude)
+    
+    @staticmethod
+    def normalize_dynamic(img, precision=8):
+        return img / (2.**precision-1)  # scale image data to [0, 1]
 
     @staticmethod
     def save_image_cv2(data, path: Path, precision=8):
@@ -74,12 +78,12 @@ class Image(Data):
     def load_image_cv2(path: Path, precision=8):
         img = cv2.imread(str(path))
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        return img / (2.**precision-1)  # scale image data to [0, 1]
+        return Image.normalize_dynamic(img, precision=precision)
 
     @staticmethod
     def load_image_PIL(path: Path, precision=8):
         img = PilImage.open(path)
-        return np.array(img) / (2.**precision-1)  # scale image data to [0, 1]
+        return Image.normalize_dynamic(np.array(img), precision=precision)
     
     @staticmethod
     def load_image(path: Path, precision=8, backend=None):

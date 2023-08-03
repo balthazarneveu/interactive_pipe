@@ -13,8 +13,6 @@ class HeadlessPipeline(PipelineCore):
     - importing/exporting tuning
     - printing current parameters in the terminal
     """
-
-
     def export_tuning(self, path: Optional[Path] = None, override=False) -> None:
         """Export yaml tuning to disk 
         """
@@ -44,20 +42,8 @@ class HeadlessPipeline(PipelineCore):
     def import_tuning(self, path: Path = None) -> None:
         """Open a yaml tuning and apply to GUI
         """
+        # TODO: inform an update of parameters
         self.parameters = Parameters.load_from_file(path)
-    #     self.update()
-    #     self.reset_sliders(addslider=False, forcereset=False)
-    #     self.redraw()
-
-    # def reset_sliders(self, **kwargs):
-    #     logging.info("Redraw sliders")
-
-    # def update(self):
-    #     logging.info("Update graphical inferface if needed")
-
-    # def redraw(self):
-    #     logging.info("Redraw graphical inferface")
-    #     # self.fig.canvas.draw()
 
     def __repr__(self):
         """Print tuning parameters
@@ -95,22 +81,6 @@ class HeadlessPipeline(PipelineCore):
                 else:
                     assert hasattr(res_current, "save")
                     res_current.save(current_name)
-
             # @ TODO: handle proper output suffixes namings
             logging.info("saved image %s" % current_name)
-            # if isinstance(res_current, Signal):
-            #     res_current.plot(out=current_name.with_suffix(".png"), ax=None, implot=None)
-            #     continue
-            # if isinstance(res_current, Image):
-            #     img = res_current.img
-            #     if res_current.cmap:
-            #         plt.imshow(img, norm=res_current.norm, cmap=res_current.cmap)
-            #         plt.colorbar()
-            #         plt.savefig(current_name)
-            #         plt.close()
-            #         continue
-            #     else:
-            #         res_current = img
-            # self.save_image(res_current.clip(0., 1.), current_name, precision=16 if "tif" in path.suffix.lower() else 8)
-
         return path

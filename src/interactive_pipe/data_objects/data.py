@@ -13,10 +13,10 @@ class Data:
             self.data = data
     
     @classmethod
-    def from_file(cls, path):
+    def from_file(cls, path, **kwargs):
         assert isinstance(path, Path)
         data_class = cls(None)
-        data_class.load(path)
+        data_class.load(path, **kwargs)
         return data_class
     
     @classmethod
