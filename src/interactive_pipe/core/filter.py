@@ -42,7 +42,6 @@ class PureFilter:
     def __initialize_default_values(self):
         assert not hasattr(self, "_values")
         self.check_apply_signature()
-        # print("INIT:",self.__kwargs_names)
         self._values = self.__kwargs_names
         if "global_params" in self.__kwargs_names.keys():
             self._values.pop("global_params")

@@ -3,12 +3,32 @@ from typing import Optional, Any
 from abc import abstractmethod
 
 class Data:
-    def __init__(self, data, *args, **kwargs) -> None:
-        self.data = data
+    def __init__(self, data, **kwargs) -> None:
         self._set_file_extensions()
+        if isinstance(data, Path):
+            self.data = self.load(data) # you can directly instantiate from a Path - similar to from_file
+        elif data is None:
+            pass
+        else:
+            self.data = data
+    
+    @classmethod
+    def from_file(cls, path):
+        assert isinstance(path, Path)
+        data_class = cls(None)
+        data_class.load(path)
+        return data_class
+    
+    @classmethod
+    def load_from_file(cls, path):
+        assert isinstance(path, Path)
+        data_class = cls(None)
+        return data_class.load(path)
+    
     @property
     def file_extensions(self):
         return self._file_extensions
+    
     @file_extensions.setter
     def file_extensions(self, new_file_extensions):
         if isinstance(new_file_extensions, str):
@@ -42,6 +62,7 @@ class Data:
         path = self.check_path(path, load=True, extensions=self.file_extensions)
         self.data = self._load(path, **kwargs)
         return self.data
+    
     @staticmethod
     def prompt_file(message="Please enter a file path: ")->str:
         return input(message)

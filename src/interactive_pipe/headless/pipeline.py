@@ -44,7 +44,7 @@ class HeadlessPipeline(PipelineCore):
     def import_tuning(self, path: Path = None) -> None:
         """Open a yaml tuning and apply to GUI
         """
-        self.parameters = Parameters(None).load(path)
+        self.parameters = Parameters.load_from_file(path)
     #     self.update()
     #     self.reset_sliders(addslider=False, forcereset=False)
     #     self.redraw()
