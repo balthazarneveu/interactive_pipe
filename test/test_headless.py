@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
-from copy import deepcopy
 import shutil
-
+from copy import deepcopy
+from sample_functions import get_sample_image
 try:
     from interactive_pipe.core.filter import FilterCore
     from interactive_pipe.core.engine import PipelineEngine
@@ -22,8 +22,6 @@ def mad(img, coeff=1, bias=0.):
     mad_res = img*coeff+bias
     return [mad_res]
 
-
-
 def blend(img1, img2, blend_coeff=0.4):
     blended = blend_coeff*img1+(1-blend_coeff)*img2
     return [blended]
@@ -32,13 +30,6 @@ def blend_image_out(img1, img2, blend_coeff=0.4):
     blended = blend_coeff*img1+(1-blend_coeff)*img2
     return [Image(blended, title=f"blend={blend_coeff:0.2f}")]
 
-
-def get_sample_image():
-    img = 0.5*np.ones((256, 512, 3))
-    img[:, 100:, 0] *= 0.5
-    img[150:, :, 2] *= 1.5
-    img[:200, :, :] *= 0.5
-    return img
 
 def test_headless_pipeline(tmp_path_factory):
     input_image = get_sample_image()

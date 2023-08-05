@@ -3,6 +3,7 @@ from typing import List, Callable
 
 from core.filter import FilterCore
 from core.sliders import KeyboardSlider, Slider
+from core.graph import analyze_apply_fn_signature
 
 
 class Filter(FilterCore):
@@ -62,7 +63,7 @@ class AutoFilter(FilterCore):
     def __init__(self, apply_fn: Callable = None, inputs=None, outputs=None, name: str = None, cache: bool = True):
         assert apply_fn is not None
         # @TODO: use self.check_apply_signature here!
-        args_names, kwargs_names = self.analyze_apply_fn_signature(apply_fn)
+        args_names, kwargs_names = analyze_apply_fn_signature(apply_fn)
         assert (len(inputs) if inputs else 0) == len(args_names)
         outputs = []
         default_params = {}

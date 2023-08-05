@@ -8,6 +8,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 from core.cache import CachedResults
 from core.sliders import Slider
+from core.graph import analyze_apply_fn_signature
 
 class PureFilter:
     def __init__(self, apply_fn: Optional[Callable] = None, name: Optional[str] = None, default_params: dict = {}):
@@ -35,7 +36,7 @@ class PureFilter:
 
     def check_apply_signature(self):
         if not hasattr(self, "__args_names") or not hasattr(self, "__kwargs_names"):
-            self.__args_names, self.__kwargs_names = self.analyze_apply_fn_signature(
+            self.__args_names, self.__kwargs_names = analyze_apply_fn_signature(
                 self.apply)
         else:  # skip computing signature
             pass
@@ -70,22 +71,6 @@ class PureFilter:
         else:
             out = self.apply(*imgs, **self.values)
         return out
-
-    @staticmethod
-    def analyze_apply_fn_signature(apply_fn: Callable) -> Tuple[dict, dict]:
-        signature = inspect.signature(apply_fn)
-        keyword_args = {
-            k: v.default
-            for k, v in signature.parameters.items()
-            if v.default is not inspect.Parameter.empty
-        }
-
-        positional_args = [
-            k
-            for k, v in signature.parameters.items()
-            if v.default is inspect.Parameter.empty
-        ]
-        return positional_args, keyword_args
 
 
 class FilterCore(PureFilter):
