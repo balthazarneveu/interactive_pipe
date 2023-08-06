@@ -48,7 +48,9 @@ class PipelineEngine:
                     if prc.inputs:
                         routing_in = [
                             result[idi] if idi is not None else None for idi in prc.inputs]
+                    logging.debug("in types->", [type(inp) for inp in routing_in])
                     out = prc.run(*routing_in)
+                    logging.debug("out types->", [type(ou) for ou in out])
                 except Exception as e:
                     logging.error(f'Error in {prc.name} filter:')
                     logging.error(e)
@@ -65,7 +67,7 @@ class PipelineEngine:
                     if ido >= len(result): # need to extend the array with empty lists
                         for _j in range(0, ido - len(result) + 1):
                             result.append([])
-                    if isinstance(out, list):
+                    if isinstance(out, list) or isinstance(out, tuple):
                         result[ido] = out[i]
                     # Simpler manner of defining a process fuction (do not return a list)
                     else:

@@ -1,5 +1,6 @@
 import ast
 import inspect
+import logging
 from typing import List, Callable, Tuple, Optional
 
 def get_name(node: ast.NodeVisitor) -> str|List[str]|None:
@@ -34,11 +35,23 @@ def get_call_graph(func:Callable, global_context=None) -> dict:
         module = inspect.getmodule(func)
         global_context = module.__dict__
     for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+            function_name = get_name(node.value.func)
+            input_names = [get_name(arg) for arg in node.value.args]
+            results.append({
+                "function_name": function_name,
+                "function_object": global_context[function_name],
+                "args": input_names,
+                "returns": [],
+                "output_names": [],
+            })
+            logging.debug(f"Function without assignment {function_name}")
+        elif isinstance(node, ast.Assign):
             targets = node.targets
             value = node.value
             if isinstance(value, ast.Call):
                 function_name = get_name(value.func)
+                logging.debug(f"classic function with assignment {function_name}")
                 assert function_name in global_context.keys()
                 input_names = [get_name(arg) for arg in value.args]
                 output_names = flatten_target_names(targets, mapping_function=get_name)

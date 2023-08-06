@@ -99,9 +99,12 @@ class FilterCore(PureFilter):
 
     def run(self, *imgs) -> list:
         # TODO: support routing mechanism based on List[int] or List[str | generic routing object]
-        assert len(imgs) == len(
-            self.inputs), "number of inputs shall match what's expected"
+        if imgs:
+            assert len(imgs) == len(
+                self.inputs), "number of inputs shall match what's expected"
         if self.inputs is None:
+            if imgs is not None:
+                assert len(imgs) == 0
             filter_in = ()
         else:
             filter_in = imgs
@@ -109,9 +112,11 @@ class FilterCore(PureFilter):
         if out is not None:
             assert len(out) >= len(
                 self.outputs), "number of outputs shall be at least greater or equal to what's expected by the filter"
-        assert isinstance(out, list)
-        return out
-
+        if isinstance(out, tuple) or isinstance(out, list):
+            return out
+        else:
+            logging.debug(f"need to return a tuple when you have a single element out {type(out)}")
+            return (out,)
     def __repr__(self) -> str:
         descr = "%s\n" % self.name
         if not (self.inputs == [0] and self.outputs == [0]):
