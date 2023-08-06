@@ -66,7 +66,8 @@ class HeadlessPipeline(PipelineCore):
             filters_names.append(filt_name)
         logging.debug(filters_count)
         logging.debug(filters_names)
-        data_class = cls(filters=filters, name=graph["function_name"], inputs=inputs)
+        outputs = [all_variables[output_name] for output_name in graph["returns"]]
+        data_class = cls(filters=filters, name=graph["function_name"], inputs=inputs, outputs=outputs)
         return data_class
     
     def export_tuning(self, path: Optional[Path] = None, override=False) -> None:
@@ -112,19 +113,32 @@ class HeadlessPipeline(PipelineCore):
         ret = ret[:-2] + "\n"  # remove comma for yaml
         ret += "}"
         return ret
+    def run(self):
+        result_full = super().run()
+        if self.outputs is not None:
+            output_indexes = self.outputs
+        else:
+            output_indexes = self.filters[-1].outputs
+        if output_indexes:
+            return tuple(result_full[idx] for idx in output_indexes)
+        else:
+            return None 
 
     def save(self, path: Path = None, data_wrapper_fn: Callable = None, output_indexes: list = None, save_entire_buffer=False) -> Path:
         """Save full resolution image
         """
         if output_indexes is None:
-            output_indexes = self.filters[-1].outputs
+            if self.outputs is not None:
+                output_indexes = self.outputs
+            else:
+                output_indexes = self.filters[-1].outputs
         if save_entire_buffer:
             output_indexes = None # you may force specific buffer index you'd like to save
-        result_full = self.run()
+        result_full = super().run()
         if not isinstance(path, Path):
             path = Path(path)
         self.export_tuning(path.with_suffix(".yaml"))
-        if not isinstance(result_full, list):
+        if not isinstance(result_full, list) or isinstance(result_full, tuple):
             result_full = [result_full]
         for num, res_current in enumerate(result_full):
             if output_indexes is not None and not num in output_indexes:

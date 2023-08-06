@@ -9,7 +9,7 @@ class PipelineCore:
     - optionally, some inputs to process
     """
 
-    def __init__(self, filters: List[FilterCore], name="pipeline", cache=False, inputs: Optional[list] = None, parameters: dict = {}, global_params={}):
+    def __init__(self, filters: List[FilterCore], name="pipeline", cache=False, inputs: Optional[list] = None, parameters: dict = {}, global_params={}, outputs:  Optional[list]=None):
         if not all(isinstance(f, FilterCore) for f in filters):
             raise ValueError(
                 "All elements in 'filters' must be instances of 'Filter'.")
@@ -21,6 +21,7 @@ class PipelineCore:
             filter.global_params = self.global_params
             filter.reset_cache()
         self.inputs = inputs
+        self.outputs = outputs # output indexes (routing)
         # You need to set the values to their default_value for each filter
         self.parameters = parameters
 

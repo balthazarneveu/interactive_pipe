@@ -77,4 +77,5 @@ class PipelineEngine:
 
         # Limit result using self.numfigs but with indices pointed by last filter
         logging.info("\n".join(performances))
+        logging.info(f"Full buffer: {len(result)}")
         return result
