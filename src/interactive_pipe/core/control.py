@@ -1,10 +1,10 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 from headless.pipeline import HeadlessPipeline
 from copy import deepcopy
 from abc import abstractmethod
 
 class Control():
-    def __init__(self, value_default: int|float|bool|str, value_range: List[int|float|str]=None, step=None) -> None:
+    def __init__(self, value_default: Union[int, float, bool,str], value_range: List[Union[int, float, str]]=None, step=None) -> None:
         self.value_default = value_default
         self._type = None
         if isinstance(value_default, float) or isinstance(value_default, int):

@@ -1,9 +1,9 @@
 import ast
 import inspect
 import logging
-from typing import List, Callable, Tuple, Optional
+from typing import List, Callable, Tuple, Optional, Union
 
-def get_name(node: ast.NodeVisitor) -> str|List[str]|None:
+def get_name(node: ast.NodeVisitor) -> Union[str, List[str], None]:
     if isinstance(node, ast.Name):
         return node.id
     elif isinstance(node, ast.Attribute):
@@ -13,7 +13,7 @@ def get_name(node: ast.NodeVisitor) -> str|List[str]|None:
     else:
         return None
     
-def flatten_target_names(targets: List[list|str|None], mapping_function: Optional[Callable]=None) -> List[str]:
+def flatten_target_names(targets: List[Union[list, str, None]], mapping_function: Optional[Callable]=None) -> List[str]:
     output_names = []
     for target in targets:
         target_name = mapping_function(target) if mapping_function else target
