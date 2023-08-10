@@ -67,7 +67,7 @@ class HeadlessPipeline(PipelineCore):
         logging.debug(filters_count)
         logging.debug(filters_names)
         outputs = [all_variables[output_name] for output_name in graph["returns"]]
-        data_class = cls(filters=filters, name=graph["function_name"], inputs=inputs, outputs=outputs)
+        data_class = cls(filters=filters, name=graph["function_name"], inputs=inputs, outputs=outputs, **kwargs)
         return data_class
     
     def export_tuning(self, path: Optional[Path] = None, override=False) -> None:
@@ -120,6 +120,8 @@ class HeadlessPipeline(PipelineCore):
         else:
             output_indexes = self.filters[-1].outputs
         if output_indexes:
+            if isinstance(output_indexes[0], list):
+                return [[result_full[out_index] for idx, out_index in enumerate(row)] for idy, row in enumerate(output_indexes)]
             return tuple(result_full[idx] for idx in output_indexes)
         else:
             return None 
