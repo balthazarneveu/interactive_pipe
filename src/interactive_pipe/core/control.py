@@ -1,10 +1,12 @@
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Callable
 from headless.pipeline import HeadlessPipeline
 from copy import deepcopy
 from abc import abstractmethod
+from core.filter import FilterCore
 
 class Control():
-    def __init__(self, value_default: Union[int, float, bool,str], value_range: List[Union[int, float, str]]=None, step=None) -> None:
+    counter = 0
+    def __init__(self, value_default: Union[int, float, bool,str], value_range: List[Union[int, float, str]]=None, name=None, step=None, filter_to_connect: Optional[FilterCore] = None, parameter_name_to_connect: Optional[str] = None) -> None:
         self.value_default = value_default
         self._type = None
         if isinstance(value_default, float) or isinstance(value_default, int):
@@ -38,6 +40,17 @@ class Control():
         self.step = step
         # init current value
         self.value = value_default
+        if name is None:
+            self.name = f"parameter {Control.counter}"
+        else:
+            self.name = name
+        Control.counter+=1
+        if filter_to_connect is not None:
+            assert parameter_name_to_connect is not None
+            self.connect_filter(filter_to_connect, parameter_name_to_connect)
+        else:
+            self.update_param_func = None
+        
 
     def check_value(self, value):
         if isinstance(value, int) and self._type == float:
@@ -66,10 +79,21 @@ class Control():
     
     @value.setter
     def value(self, value=None):            
-        self._value = deepcopy(self.check_value(value) if  value else self.value_default)
+        self._value = deepcopy(self.check_value(value) if value is not None else self.value_default)
     def reset(self):
         self.value = None
     @abstractmethod
     def update(self, new_value):
         # Plug button
         self.value = new_value
+        if self.update_param_func is not None:
+            self.update_param_func(self.value)
+    
+    def connect_parameter(self, update_param_func: Callable):
+        self.update_param_func = update_param_func
+    
+    def connect_filter(self, filter: FilterCore, parameter_name):
+        def update_param_func(val):
+            print(f"update filter {filter.name} - param {parameter_name} - value {val}")
+            filter.values = {parameter_name: val}
+        self.update_param_func = update_param_func
