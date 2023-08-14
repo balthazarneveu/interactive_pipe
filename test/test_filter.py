@@ -1,11 +1,8 @@
 import numpy as np
 import pytest
 
-try:
-    from interactive_pipe.core.filter import FilterCore, PureFilter
-except:
-    import helper
-    from core.filter import FilterCore, PureFilter
+from interactive_pipe.core.filter import FilterCore, PureFilter
+
 
 input_image = np.array([[1, 2, 3], [4, 5, 6]])
 

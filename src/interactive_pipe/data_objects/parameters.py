@@ -2,7 +2,7 @@ from pathlib import Path
 import yaml
 import json
 from yaml.loader import SafeLoader
-from data_objects.data import Data
+from interactive_pipe.data_objects.data import Data
 
 class Parameters(Data):
     def _set_file_extensions(self):

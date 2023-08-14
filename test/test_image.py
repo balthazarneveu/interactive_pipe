@@ -4,11 +4,7 @@ from pathlib import Path
 import numpy as np
 import shutil
 
-try:
-    from interactive_pipe.data_objects.image import Image, IMAGE_BACKENDS
-except:
-    import helper
-    from data_objects.image import Image, IMAGE_BACKENDS
+from interactive_pipe.data_objects.image import Image, IMAGE_BACKENDS
 
 @pytest.mark.parametrize("backend_load", IMAGE_BACKENDS)
 @pytest.mark.parametrize("backend_save", IMAGE_BACKENDS)

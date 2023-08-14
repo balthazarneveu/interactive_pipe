@@ -2,11 +2,7 @@ import pytest
 from pathlib import Path
 import shutil
 
-try:
-    from interactive_pipe.data_objects.parameters import Parameters
-except:
-    import helper
-    from data_objects.parameters import Parameters
+from interactive_pipe.data_objects.parameters import Parameters
 
 SAMPLE_DICT = {"key1": 25, "key2": {"key_2_1": 1, "key_2_2": True}, "key_3": [True, 1.256664, False]}
 

@@ -1,11 +1,6 @@
 import pytest
 
-try:
-    from interactive_pipe.core import FilterCore, PureFilter
-except:
-    import helper
-    from core.filter import FilterCore, PureFilter
-
+from interactive_pipe.core.filter import FilterCore, PureFilter
 
 class MultiplyFilter(FilterCore):
     def apply(self, img, scalar=8, add=5):

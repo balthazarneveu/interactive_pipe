@@ -3,20 +3,11 @@ import pytest
 import shutil
 from copy import deepcopy
 from sample_functions import get_sample_image
-try:
-    from interactive_pipe.core.filter import FilterCore
-    from interactive_pipe.core.engine import PipelineEngine
-    from interactive_pipe.core.pipeline import PipelineCore
-    from interactive_pipe.headless.pipeline import HeadlessPipeline
-    from interactive_pipe.data_objects.image import Image
-except:
-    import helper
-    from core.filter import FilterCore
-    from core.engine import PipelineEngine
-    from core.pipeline import PipelineCore
-    from headless.pipeline import HeadlessPipeline
-    from data_objects.image import Image
-
+from interactive_pipe.core.filter import FilterCore
+from interactive_pipe.core.engine import PipelineEngine
+from interactive_pipe.core.pipeline import PipelineCore
+from interactive_pipe.headless.pipeline import HeadlessPipeline
+from interactive_pipe.data_objects.image import Image
 
 def mad(img, coeff=1, bias=0.):
     mad_res = img*coeff+bias

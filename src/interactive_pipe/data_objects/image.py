@@ -21,7 +21,7 @@ except:
     logging.info("PIL is not available")
 assert len(image_backends)>0
 
-from data_objects.data import Data
+from interactive_pipe.data_objects.data import Data
 # TODO: can we get rid of cv2? use lighter PIL instead
 
 

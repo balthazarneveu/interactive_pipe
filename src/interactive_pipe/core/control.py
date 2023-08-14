@@ -1,8 +1,8 @@
 from typing import List, Optional, Union, Callable
-from headless.pipeline import HeadlessPipeline
+from interactive_pipe.headless.pipeline import HeadlessPipeline
 from copy import deepcopy
 from abc import abstractmethod
-from core.filter import FilterCore
+from interactive_pipe.core.filter import FilterCore
 
 class Control():
     counter = 0

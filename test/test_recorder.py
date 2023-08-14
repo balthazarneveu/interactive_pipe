@@ -5,21 +5,14 @@ from copy import deepcopy
 from typing import List
 from sample_functions import mad, split_horizontally, blend, get_sample_image, empty_output, constant_image_generator, empty_in_empty_out
 
-try:
-    from interactive_pipe.core.filter import FilterCore, PureFilter
-    from interactive_pipe.core.engine import PipelineEngine
-    from interactive_pipe.core.pipeline import PipelineCore
-    from interactive_pipe.core.graph import get_call_graph
-    from interactive_pipe.headless.pipeline import HeadlessPipeline
-    from interactive_pipe.data_objects.image import Image
-except:
-    import helper
-    from core.filter import FilterCore, PureFilter
-    from core.engine import PipelineEngine
-    from core.pipeline import PipelineCore
-    from headless.pipeline import HeadlessPipeline
-    from core.graph import get_call_graph
-    from data_objects.image import Image
+
+from interactive_pipe.core.filter import FilterCore, PureFilter
+from interactive_pipe.core.engine import PipelineEngine
+from interactive_pipe.core.pipeline import PipelineCore
+from interactive_pipe.core.graph import get_call_graph
+from interactive_pipe.headless.pipeline import HeadlessPipeline
+from interactive_pipe.data_objects.image import Image
+
 
 input_image = np.array([[1, 2, 3], [4, 5, 6]])
 

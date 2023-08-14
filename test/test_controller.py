@@ -1,10 +1,6 @@
 import pytest
 
-try:
-    from interactive_pipe.core.control import Control
-except:
-    import helper
-    from core.control import Control
+from interactive_pipe.core.control import Control
 
 def test_control_init():
     with pytest.raises(AssertionError):

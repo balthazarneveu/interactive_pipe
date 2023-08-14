@@ -1,9 +1,9 @@
 import copy
 from typing import List, Callable
 
-from core.filter import FilterCore
-from core.sliders import KeyboardSlider, Slider
-from core.graph import analyze_apply_fn_signature
+from interactive_pipe.core.filter import FilterCore
+from interactive_pipe.core.sliders import KeyboardSlider, Slider
+from interactive_pipe.core.graph import analyze_apply_fn_signature
 
 
 class Filter(FilterCore):

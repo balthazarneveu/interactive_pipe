@@ -1,6 +1,6 @@
 from typing import List, Optional, Callable, Dict
-from core.filter import FilterCore
-from core.engine import PipelineEngine
+from interactive_pipe.core.filter import FilterCore
+from interactive_pipe.core.engine import PipelineEngine
 
 class PipelineCore:
     """A pipeline is defined as the combination of:
@@ -12,7 +12,7 @@ class PipelineCore:
     def __init__(self, filters: List[FilterCore], name="pipeline", cache=False, inputs: Optional[list] = None, parameters: dict = {}, global_params={}, outputs:  Optional[list]=None):
         if not all(isinstance(f, FilterCore) for f in filters):
             raise ValueError(
-                "All elements in 'filters' must be instances of 'Filter'.")
+                f"All elements in 'filters' must be instances of 'Filter'. {[type(f) for f in filters]}")
         self.filters = filters
         self.engine = PipelineEngine(cache, safe_input_buffer_deepcopy=True)
         self.global_params = global_params

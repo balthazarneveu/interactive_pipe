@@ -2,11 +2,7 @@ from typing import Any
 
 import pytest
 
-try:
-    from interactive_pipe.core.cache import StateChange
-except:
-    import helper
-    from core.cache import StateChange
+from interactive_pipe.core.cache import StateChange
 
 
 def test_initial_state():

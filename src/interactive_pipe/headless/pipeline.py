@@ -1,12 +1,12 @@
 import logging
 from pathlib import Path
 from typing import Optional, Callable
-from core.filter import PureFilter, FilterCore
+from interactive_pipe.core.filter import PureFilter, FilterCore
 
 import yaml
-from core.pipeline import PipelineCore
-from data_objects.parameters import Parameters
-from core.graph import get_call_graph
+from interactive_pipe.core.pipeline import PipelineCore
+from interactive_pipe.data_objects.parameters import Parameters
+from interactive_pipe.core.graph import get_call_graph
 
 class HeadlessPipeline(PipelineCore):
     """Adds some useful I/O to the pipeline core such as
@@ -121,7 +121,7 @@ class HeadlessPipeline(PipelineCore):
             output_indexes = self.filters[-1].outputs
         if output_indexes:
             if isinstance(output_indexes[0], list):
-                return [[result_full[out_index] for idx, out_index in enumerate(row)] for idy, row in enumerate(output_indexes)]
+                return [[None if out_index is None else result_full[out_index] for idx, out_index in enumerate(row)] for idy, row in enumerate(output_indexes)]
             return tuple(result_full[idx] for idx in output_indexes)
         else:
             return None 

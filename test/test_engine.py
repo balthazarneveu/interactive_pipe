@@ -2,15 +2,9 @@ import numpy as np
 import pytest
 from copy import deepcopy
 
-try:
-    from interactive_pipe.core.filter import FilterCore
-    from interactive_pipe.core.engine import PipelineEngine
-    from interactive_pipe.core.pipeline import PipelineCore
-except:
-    import helper
-    from core.filter import FilterCore
-    from core.engine import PipelineEngine
-    from core.pipeline import PipelineCore
+from interactive_pipe.core.filter import FilterCore
+from interactive_pipe.core.engine import PipelineEngine
+from interactive_pipe.core.pipeline import PipelineCore
 
 input_image = np.array([[1, 2, 3], [4, 5, 6]])
 

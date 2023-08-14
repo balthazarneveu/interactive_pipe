@@ -4,10 +4,10 @@ import time
 import traceback
 from copy import deepcopy
 from typing import Dict, List, Optional, Callable, Tuple
-from core.sliders import Slider
+from interactive_pipe.core.sliders import Slider
 import inspect
-from core.cache import CachedResults
-from core.filter import FilterCore
+from interactive_pipe.core.cache import CachedResults
+from interactive_pipe.core.filter import FilterCore
 
 class PipelineEngine:
     def __init__(self, cache=False, safe_input_buffer_deepcopy=True) -> None:
