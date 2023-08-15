@@ -2,7 +2,7 @@ helper==2.5.0
 ipywidgets==8.0.7
 matplotlib>=3.5.3
 mplcursors==0.5.2
-numpy==1.24.1
+numpy>=1.21.6
 opencv_python_headless==4.8.0.74
 Pillow>=9.0.1
 PyQt5==5.15.9
