@@ -7,6 +7,8 @@ import yaml
 from interactive_pipe.core.pipeline import PipelineCore
 from interactive_pipe.data_objects.parameters import Parameters
 from interactive_pipe.core.graph import get_call_graph
+from interactive_pipe.core.filter import analyze_apply_fn_signature
+from interactive_pipe.core.control import Control
 
 class HeadlessPipeline(PipelineCore):
     """Adds some useful I/O to the pipeline core such as
@@ -44,6 +46,7 @@ class HeadlessPipeline(PipelineCore):
         filters = []
         filters_count = {}
         filters_names = []
+        control_list = []
         for filt_dict in graph["call_graph"]:
             # avoid duplicate filters names
             filt_name = filt_dict["function_name"]
@@ -62,14 +65,21 @@ class HeadlessPipeline(PipelineCore):
                 outputs = outputs_filt,
                 apply_fn=filt_dict["function_object"],
             )
+            func_kwargs = analyze_apply_fn_signature(filt_dict["function_object"])[1]
+            for param_name, param_value in func_kwargs.items():
+                if isinstance(param_value, Control):
+                    # print(param_name, param_value)
+                    param_value.connect_filter(filter, param_name)
+                    filter.values = {param_name: param_value.value_default}
+                    control_list.append(param_value)
             filters.append(filter)
             filters_names.append(filt_name)
         logging.debug(filters_count)
         logging.debug(filters_names)
         outputs = [all_variables[output_name] for output_name in graph["returns"]]
         data_class = cls(filters=filters, name=graph["function_name"], inputs=inputs, outputs=outputs, **kwargs)
+        data_class.controls = control_list
         return data_class
-    
     def export_tuning(self, path: Optional[Path] = None, override=False) -> None:
         """Export yaml tuning to disk 
         """

@@ -14,6 +14,8 @@ import sys
 class InteractivePipeQT():
     def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", inputs=None) -> None:
         self.app = QApplication(sys.argv)
+        if hasattr(pipeline, "controls"):
+            controls += pipeline.controls
         self.window = MainWindow(controls=controls, name=name, pipeline=pipeline)
 
     def run(self):
