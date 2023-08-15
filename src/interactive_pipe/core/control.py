@@ -1,5 +1,4 @@
 from typing import List, Optional, Union, Callable
-from interactive_pipe.headless.pipeline import HeadlessPipeline
 from copy import deepcopy
 from abc import abstractmethod
 from interactive_pipe.core.filter import FilterCore
