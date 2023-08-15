@@ -1,5 +1,4 @@
 helper==2.5.0
-ipython==8.14.0
 ipywidgets==8.0.7
 matplotlib==3.7.2
 mplcursors==0.5.2
@@ -16,4 +15,3 @@ pytest==6.2.5
 PyYAML==5.4.1
 PyYAML==6.0.1
 setuptools==59.6.0
-torch==2.1.0.dev20230727+cu121
