@@ -5,6 +5,20 @@ from interactive_pipe.core.filter import FilterCore
 
 class Control():
     counter = 0
+    _registry = {}  # Global registry to store controls for each function
+    
+    @classmethod
+    def register(cls, func_name, param_name, control_instance):
+        cls._registry.setdefault(func_name, {})[param_name] = control_instance
+
+    @classmethod
+    def get_controls(cls, func):
+        if isinstance(func, Callable):
+            func_name = func.__name__
+        else:
+            func_name = func
+        return cls._registry.get(func_name, {})
+
     def __init__(self, value_default: Union[int, float, bool,str], value_range: List[Union[int, float, str]]=None, name=None, step=None, filter_to_connect: Optional[FilterCore] = None, parameter_name_to_connect: Optional[str] = None) -> None:
         self.value_default = value_default
         self._type = None
