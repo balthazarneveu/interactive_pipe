@@ -1,9 +1,9 @@
 import logging
 from pathlib import Path
 from typing import Optional, Callable
-from interactive_pipe.core.filter import PureFilter, FilterCore
+from interactive_pipe.core.filter import FilterCore
 
-import yaml
+
 from interactive_pipe.core.pipeline import PipelineCore
 from interactive_pipe.data_objects.parameters import Parameters
 from interactive_pipe.core.graph import get_call_graph
@@ -66,9 +66,9 @@ class HeadlessPipeline(PipelineCore):
                 apply_fn=filt_dict["function_object"],
             )
             func_kwargs = analyze_apply_fn_signature(filt_dict["function_object"])[1]
-            for param_name, param_value in func_kwargs.items():
+            params_to_analyze = {**func_kwargs, **Control.get_controls(filt_name)}
+            for param_name, param_value in params_to_analyze.items():
                 if isinstance(param_value, Control):
-                    # print(param_name, param_value)
                     param_value.connect_filter(filter, param_name)
                     filter.values = {param_name: param_value.value_default}
                     control_list.append(param_value)
