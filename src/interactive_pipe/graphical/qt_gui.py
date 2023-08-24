@@ -8,18 +8,21 @@ import numpy as np
 from PyQt6 import QtGui
 from PyQt6.QtGui import QPixmap, QImage
 import sys
-
+import logging
 
 
 class InteractivePipeQT():
-    def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", inputs=None) -> None:
+    def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", inputs=None, custom_end=lambda :None) -> None:
         self.app = QApplication(sys.argv)
         if hasattr(pipeline, "controls"):
             controls += pipeline.controls
         self.window = MainWindow(controls=controls, name=name, pipeline=pipeline)
+        self.custom_end = custom_end
 
     def run(self):
-        sys.exit(self.app.exec())
+        ret = self.app.exec()
+        self.custom_end()
+        sys.exit(ret)
 
 
 
@@ -31,8 +34,9 @@ class MainWindow(QWidget):
         self.setMinimumWidth(1000)
         self.layout_obj = QFormLayout()
         self.setLayout(self.layout_obj)
-        if not isinstance(pipeline.outputs[0], list):
-            pipeline.outputs = [pipeline.outputs]
+        if pipeline.outputs:
+            if not isinstance(pipeline.outputs[0], list):
+                pipeline.outputs = [pipeline.outputs]
         self.image_grid_layout = QGridLayout(self)
         self.layout_obj.addRow(self.image_grid_layout)
         
@@ -129,11 +133,15 @@ class MainWindow(QWidget):
     def refresh(self):
         if self.pipeline is not None:
             out = self.pipeline.run()
+            ny, nx = len(out), 0
             for idy, img_row in enumerate(out):
                 if isinstance(img_row, list):
                     for idx, out_img in enumerate(img_row):
                         if out[idy][idx] is not None:
+                            print(idy, idx, out_img.shape)
                             out[idy][idx] = self.convert_image(out[idy][idx])
+                    nx = len(img_row)
                 else:
-                    out[idy] = self.convert_image(out[idy])
+                    out[idy] = [self.convert_image(out[idy])]
+            logging.info(f"{ny} x {nx} figures")
             self.set_images(out)
