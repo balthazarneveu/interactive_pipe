@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QApplication, QWidget, QSlider, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit
+from PyQt6.QtWidgets import QApplication, QWidget, QSlider, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit, QComboBox, QCheckBox
 from PyQt6.QtCore import Qt
 from interactive_pipe.core.control import Control
 from interactive_pipe.headless.pipeline import HeadlessPipeline
@@ -44,6 +44,44 @@ class MainWindow(QWidget):
         self.refresh()
         self.show()
 
+    # @TODO: use a factory here
+    def create_list_menu(self, ctrl, slider_name):
+        # Create a horizontal layout to hold the dropdown menu
+        hbox = QHBoxLayout()
+
+        # Create the combo box
+        combo_box = QComboBox(self)
+        
+        # Add items from the ctrl's value range to the combo box
+        for item in ctrl.value_range:
+            combo_box.addItem(item)
+        
+        # Set the default value for the combo box
+        index = combo_box.findText(ctrl.value_default)
+        if index >= 0:
+            combo_box.setCurrentIndex(index)
+        
+        # Connect the combo box's value changed signal to some update function if needed
+        combo_box.currentIndexChanged.connect(partial(self.update_parameter, slider_name))
+        # Add the combo box to the horizontal layout
+        hbox.addWidget(combo_box)
+        return hbox
+
+    def create_tick_box(self, ctrl, slider_name):
+        hbox = QHBoxLayout()
+
+        # Create the checkbox
+        checkbox = QCheckBox(slider_name, self)
+        
+        # Set the default state for the checkbox based on ctrl's default value
+        checkbox.setChecked(ctrl.value_default)
+        
+        checkbox.stateChanged.connect(partial(self.update_parameter, slider_name))
+        # checkbox.stateChanged.connect(partial(self.update_bool_value, slider_name, checkbox))
+        
+        # Add the checkbox to the horizontal layout
+        hbox.addWidget(checkbox)
+        return hbox
 
     def create_float_slider(self, ctrl, slider_name):
         # Create a horizontal layout to hold the slider and line edit
@@ -83,12 +121,17 @@ class MainWindow(QWidget):
     def init_sliders(self, controls: List[Control]):
         self.ctrl = {}
         self.result_label = {}
+        
         for ctrl in controls:
-            slider_name=  f"slider {ctrl.name}"
-            if ctrl._type == int:
+            slider_name = ctrl.name
+            if ctrl._type == bool:
+                slider = self.create_tick_box(ctrl, slider_name)
+            elif ctrl._type == int:
                 slider = self.create_int_slider(ctrl, slider_name)
             elif ctrl._type == float:
                 slider = self.create_float_slider(ctrl, slider_name)
+            elif ctrl._type == str:
+                slider = self.create_list_menu(ctrl, slider_name)
             self.ctrl[slider_name] = ctrl
             self.layout_obj.addRow(slider)
             self.result_label[slider_name] = QLabel('', self)
@@ -102,7 +145,12 @@ class MainWindow(QWidget):
         self.refresh()
 
     def update_parameter(self, idx, value):
-        self.ctrl[idx].update(value)
+        if self.ctrl[idx]._type == str:
+            self.ctrl[idx].update(self.ctrl[idx].value_range[value])
+        elif self.ctrl[idx]._type == bool:
+            self.ctrl[idx].update(bool(value))
+        else:
+            self.ctrl[idx].update(value)
         self.result_label[idx].setText(f'{idx} -> Current Value: {value} {self.ctrl[idx]}')
         self.refresh()
 
