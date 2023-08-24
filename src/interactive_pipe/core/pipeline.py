@@ -1,6 +1,7 @@
 from typing import List, Optional, Callable, Dict
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.engine import PipelineEngine
+import logging
 
 class PipelineCore:
     """A pipeline is defined as the combination of:
@@ -21,6 +22,10 @@ class PipelineCore:
             filter.global_params = self.global_params
             filter.reset_cache()
         self.inputs = inputs
+        if outputs is None:
+            outputs = self.filters[-1].outputs
+            logging.warning(f"Using last filter outputs {self.filters[-1]} {outputs}")
+            
         self.outputs = outputs # output indexes (routing)
         # You need to set the values to their default_value for each filter
         self.parameters = parameters
