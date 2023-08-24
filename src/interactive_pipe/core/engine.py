@@ -20,7 +20,10 @@ class PipelineEngine:
         if self.safe_input_buffer_deepcopy:
             # Want to be safe when there's no cache? always keep the input buffers of the first filter untouched
             logging.debug(f"<<< Deepcopy input images ")
-            result = deepcopy(imglst)
+            if imglst is not None:
+                result = deepcopy(imglst)
+            else:
+                result = []
         else:
             result = imglst
         skip_calculation = True
