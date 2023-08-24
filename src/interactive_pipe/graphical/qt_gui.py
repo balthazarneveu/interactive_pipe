@@ -1,12 +1,12 @@
-from PyQt6.QtWidgets import QApplication, QWidget, QSlider, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit, QComboBox, QCheckBox
-from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QApplication, QWidget, QSlider, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton
+from PyQt6.QtCore import Qt, QSize
 from interactive_pipe.core.control import Control
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from functools import partial
 from typing import List
 import numpy as np
 from PyQt6 import QtGui
-from PyQt6.QtGui import QPixmap, QImage
+from PyQt6.QtGui import QPixmap, QImage, QIcon
 import sys
 import logging
 
@@ -66,6 +66,30 @@ class MainWindow(QWidget):
         # Add the combo box to the horizontal layout
         hbox.addWidget(combo_box)
         return hbox
+
+    def create_icons_bar(self, ctrl, slider_name):
+        # Check if ctrl has the right type
+        if ctrl._type != str or not hasattr(ctrl, 'value_range'):
+            raise ValueError("Invalid control type or missing value range for icons bar creation.")
+        
+        # Create a horizontal layout to hold the icon buttons
+        hbox = QHBoxLayout()
+
+        # Iterate over the ctrl's value range to create buttons with icons
+        for idx, icon_name in enumerate(ctrl.value_range):
+            btn = QPushButton(self)
+            icon_path = str(ctrl.icons[idx])  # Assuming you have a folder named 'icons' with images named after the ctrl's value range
+            btn.setIcon(QIcon(icon_path))
+            btn.setIconSize(QSize(64, 64))  # Example size, adjust as needed
+            # btn.setCheckable(True)  # Making the button checkable if you want to show which one is currently selected
+
+            # Connect the button's clicked signal to some update function
+            btn.clicked.connect(partial(self.update_parameter, slider_name, idx))
+            
+            hbox.addWidget(btn)
+
+        return hbox
+
 
     def create_tick_box(self, ctrl, slider_name):
         hbox = QHBoxLayout()
@@ -131,7 +155,10 @@ class MainWindow(QWidget):
             elif ctrl._type == float:
                 slider = self.create_float_slider(ctrl, slider_name)
             elif ctrl._type == str:
-                slider = self.create_list_menu(ctrl, slider_name)
+                if ctrl.icons is not None:
+                    slider = self.create_icons_bar(ctrl, slider_name)
+                else:
+                    slider = self.create_list_menu(ctrl, slider_name)
             self.ctrl[slider_name] = ctrl
             self.layout_obj.addRow(slider)
             self.result_label[slider_name] = QLabel('', self)
@@ -143,6 +170,12 @@ class MainWindow(QWidget):
         self.ctrl[idx].update(float_value)
         line_edit.setText(str(float_value))
         self.refresh()
+
+    # def update_bool_value(self, idx, checkbox):
+    #     checked = checkbox.isChecked()
+    #     self.ctrl[idx].update(checked)
+    #     self.result_label[idx].setText(f'{idx} -> Current Value: {checked} {self.ctrl[idx]}')
+    #     self.refresh()
 
     def update_parameter(self, idx, value):
         if self.ctrl[idx]._type == str:
