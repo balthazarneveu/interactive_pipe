@@ -2,6 +2,7 @@ from typing import List, Optional, Union, Callable
 from copy import deepcopy
 from abc import abstractmethod
 from interactive_pipe.core.filter import FilterCore
+from pathlib import Path
 
 class Control():
     counter = 0
@@ -19,7 +20,7 @@ class Control():
             func_name = func
         return cls._registry.get(func_name, {})
 
-    def __init__(self, value_default: Union[int, float, bool,str], value_range: List[Union[int, float, str]]=None, name=None, step=None, filter_to_connect: Optional[FilterCore] = None, parameter_name_to_connect: Optional[str] = None) -> None:
+    def __init__(self, value_default: Union[int, float, bool,str], value_range: List[Union[int, float, str]]=None, name=None, step=None, filter_to_connect: Optional[FilterCore] = None, parameter_name_to_connect: Optional[str] = None, icons=None) -> None:
         self.value_default = value_default
         self._type = None
         if isinstance(value_default, bool):
@@ -53,6 +54,12 @@ class Control():
         self.step = step
         # init current value
         self.value = value_default
+        self.icons = icons
+        if self.icons is not None:
+            for icon in self.icons:
+                if isinstance(icon, str):
+                    icon = Path(icon)
+                assert icon.exists()
         if name is None:
             self.name = f"parameter {Control.counter}"
         else:
