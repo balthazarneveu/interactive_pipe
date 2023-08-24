@@ -22,7 +22,10 @@ class Control():
     def __init__(self, value_default: Union[int, float, bool,str], value_range: List[Union[int, float, str]]=None, name=None, step=None, filter_to_connect: Optional[FilterCore] = None, parameter_name_to_connect: Optional[str] = None) -> None:
         self.value_default = value_default
         self._type = None
-        if isinstance(value_default, float) or isinstance(value_default, int):
+        if isinstance(value_default, bool):
+            self._type = bool
+            assert value_range is None
+        elif isinstance(value_default, float) or isinstance(value_default, int):
             if value_range is None: # free range parameter!
                 self._type = int if isinstance(value_default, int) else float
             else:
@@ -36,9 +39,6 @@ class Control():
                 else:
                     self._type = float
                 assert value_default >= value_range[0] and value_default <= value_range[1]
-        elif isinstance(value_default, bool):
-            self._type = bool
-            assert value_range is None
         elif isinstance(value_default, str):
             # similar to an enum
             assert value_range
@@ -68,12 +68,15 @@ class Control():
     def check_value(self, value):
         if isinstance(value, int) and self._type == float:
             value = float(value)
-        assert isinstance(value, self._type)
+        assert isinstance(value, self._type), f"{type(value)} != {self._type}"
         if isinstance(value, float) or isinstance(value, int) and self.value_range:
             return max(self.value_range[0], min(value, self.value_range[1]))
         elif self._type == str:
             assert value in self.value_range, f"{value} shall be in {self.value_range}"
             return value
+        else:
+            return value
+
     def __repr__(self) -> str:
         if self._type in [float, int]:
             if self.value_range:
