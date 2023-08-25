@@ -225,7 +225,7 @@ class MainWindow(QWidget):
                         if img_widget is not None:
                             img_widget.setParent(None)
                 self.image_canvas = None
-            logging.warning("Need to fully re-initialize canvas")    
+            logging.warning("Need to fully re-initialize canvas") 
         if self.image_canvas is None:
             self.image_canvas = np.empty(expected_image_canvas_shape).tolist()
             for row, image_row in enumerate(image_grid):
