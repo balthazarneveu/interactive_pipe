@@ -30,6 +30,7 @@ class MainWindow(QWidget):
     def __init__(self, *args, controls=[], name="", pipeline=None, fullscreen=False, width=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.pipeline = pipeline
+        self.image_canvas = None
         self.setWindowTitle(name)
         if width is not None:
             self.setMinimumWidth(width)
@@ -193,14 +194,33 @@ class MainWindow(QWidget):
         self.result_label[idx].setText(f'{idx} -> Current Value: {value} {self.ctrl[idx]}')
         self.refresh()
 
-    def set_image(self, image_array):
-        h, w, c = image_array.shape
-        bytes_per_line = c * w
-        image = QtGui.QImage(image_array.data, w, h, bytes_per_line, QtGui.QImage.Format.Format_RGB888)
-        pixmap = QPixmap.fromImage(image)
-        self.image_label.setPixmap(pixmap)
-    
+    # def set_image(self, image_array):
+    #     h, w, c = image_array.shape
+    #     bytes_per_line = c * w
+    #     image = QtGui.QImage(image_array.data, w, h, bytes_per_line, QtGui.QImage.Format.Format_RGB888)
+    #     pixmap = QPixmap.fromImage(image)
+    #     self.image_label.setPixmap(pixmap)
+
+    def set_image_canvas(self, image_grid):
+        expected_image_canvas_shape  = (len(image_grid), max([len(image_row) for image_row in image_grid]))
+        if self.image_canvas is not None:
+            current_canvas_shape = (len(self.image_canvas), max([len(image_row) for image_row in self.image_canvas]))
+            if current_canvas_shape != expected_image_canvas_shape:
+                self.image_canvas = None
+                logging.warning("Need to re-initialize canvas")
+        if self.image_canvas is None:
+            self.image_canvas = np.empty(expected_image_canvas_shape).tolist()
+            for row, image_row in enumerate(image_grid):
+                for col, image_array in enumerate(image_row):
+                    if image_array is None:
+                        self.image_canvas[row][col] = None
+                        continue
+                    else:
+                        self.image_canvas[row][col] = QLabel(self)
+                    self.image_grid_layout.addWidget(self.image_canvas[row][col], row, col)
+
     def set_images(self, image_grid):
+        self.set_image_canvas(image_grid)
         for row, image_row in enumerate(image_grid):
             for col, image_array in enumerate(image_row):
                 if image_array is None:
@@ -208,10 +228,9 @@ class MainWindow(QWidget):
                 h, w, c = image_array.shape
                 bytes_per_line = c * w
                 image = QImage(image_array.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
-                pixmap = QPixmap.fromImage(image)
-                label = QLabel(self)
+                pixmap = QPixmap.fromImage(image)                
+                label = self.image_canvas[row][col]
                 label.setPixmap(pixmap)
-                self.image_grid_layout.addWidget(label, row, col)
 
     @staticmethod
     def convert_image(out_im):
