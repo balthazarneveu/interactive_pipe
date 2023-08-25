@@ -27,7 +27,7 @@ class InteractivePipeQT():
 
 
 class MainWindow(QWidget):
-    def __init__(self, *args, controls=[], name="", pipeline=None, fullscreen=False, width=None, **kwargs):
+    def __init__(self, *args, controls=[], name="", pipeline=None, fullscreen=False, width=None, center=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.pipeline = pipeline
         self.image_canvas = None
@@ -39,8 +39,28 @@ class MainWindow(QWidget):
         if pipeline.outputs:
             if not isinstance(pipeline.outputs[0], list):
                 pipeline.outputs = [pipeline.outputs]
-        self.image_grid_layout = QGridLayout(self)
-        self.layout_obj.addRow(self.image_grid_layout)
+        
+
+        if center:
+            self.image_grid_layout = QGridLayout()
+
+            # Create QHBoxLayout for horizontal centering
+            horizontal_centering_layout = QHBoxLayout()
+            horizontal_centering_layout.addStretch()  # Add stretch to left side
+            horizontal_centering_layout.addLayout(self.image_grid_layout)
+            horizontal_centering_layout.addStretch()  # Add stretch to right side
+
+            # Create QVBoxLayout for vertical centering
+            vertical_centering_layout = QVBoxLayout()
+            vertical_centering_layout.addStretch()  # Add stretch to top
+            vertical_centering_layout.addLayout(horizontal_centering_layout)
+            vertical_centering_layout.addStretch()  # Add stretch to bottom
+
+            self.layout_obj.addRow(vertical_centering_layout)
+        else:
+            self.image_grid_layout = QGridLayout(self)
+            self.layout_obj.addRow(self.image_grid_layout)
+
         self.init_sliders(controls)
         self.refresh()
         if width is None:
