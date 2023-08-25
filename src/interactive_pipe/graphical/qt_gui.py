@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QApplication, QWidget, QSlider, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton
+from PyQt6.QtWidgets import QApplication, QWidget, QSlider, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QVBoxLayout, QHBoxLayout
 from PyQt6.QtCore import Qt, QSize
 from interactive_pipe.core.control import Control
 from interactive_pipe.headless.pipeline import HeadlessPipeline
@@ -214,20 +214,18 @@ class MainWindow(QWidget):
         self.result_label[idx].setText(f'{idx} -> Current Value: {value} {self.ctrl[idx]}')
         self.refresh()
 
-    # def set_image(self, image_array):
-    #     h, w, c = image_array.shape
-    #     bytes_per_line = c * w
-    #     image = QtGui.QImage(image_array.data, w, h, bytes_per_line, QtGui.QImage.Format.Format_RGB888)
-    #     pixmap = QPixmap.fromImage(image)
-    #     self.image_label.setPixmap(pixmap)
 
     def set_image_canvas(self, image_grid):
         expected_image_canvas_shape  = (len(image_grid), max([len(image_row) for image_row in image_grid]))
         if self.image_canvas is not None:
             current_canvas_shape = (len(self.image_canvas), max([len(image_row) for image_row in self.image_canvas]))
             if current_canvas_shape != expected_image_canvas_shape:
+                for row_content in self.image_canvas:
+                    for img_widget in row_content:
+                        if img_widget is not None:
+                            img_widget.setParent(None)
                 self.image_canvas = None
-                logging.warning("Need to re-initialize canvas")
+            logging.warning("Need to fully re-initialize canvas")    
         if self.image_canvas is None:
             self.image_canvas = np.empty(expected_image_canvas_shape).tolist()
             for row, image_row in enumerate(image_grid):
