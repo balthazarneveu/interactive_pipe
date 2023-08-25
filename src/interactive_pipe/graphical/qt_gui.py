@@ -12,11 +12,11 @@ import logging
 
 
 class InteractivePipeQT():
-    def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", inputs=None, custom_end=lambda :None) -> None:
+    def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", inputs=None, custom_end=lambda :None, **kwargs) -> None:
         self.app = QApplication(sys.argv)
         if hasattr(pipeline, "controls"):
             controls += pipeline.controls
-        self.window = MainWindow(controls=controls, name=name, pipeline=pipeline)
+        self.window = MainWindow(controls=controls, name=name, pipeline=pipeline, **kwargs)
         self.custom_end = custom_end
 
     def run(self):
@@ -27,11 +27,12 @@ class InteractivePipeQT():
 
 
 class MainWindow(QWidget):
-    def __init__(self, *args, controls=[], name="", pipeline=None, **kwargs):
+    def __init__(self, *args, controls=[], name="", pipeline=None, fullscreen=False, width=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.pipeline = pipeline
         self.setWindowTitle(name)
-        self.setMinimumWidth(1000)
+        if width is not None:
+            self.setMinimumWidth(width)
         self.layout_obj = QFormLayout()
         self.setLayout(self.layout_obj)
         if pipeline.outputs:
@@ -39,10 +40,35 @@ class MainWindow(QWidget):
                 pipeline.outputs = [pipeline.outputs]
         self.image_grid_layout = QGridLayout(self)
         self.layout_obj.addRow(self.image_grid_layout)
-        
         self.init_sliders(controls)
         self.refresh()
+        if width is None:
+            self.showMaximized()
+        if fullscreen:
+            self.showFullScreen()
         self.show()
+
+    def init_sliders(self, controls: List[Control]):
+        self.ctrl = {}
+        self.result_label = {}
+        
+        for ctrl in controls:
+            slider_name = ctrl.name
+            if ctrl._type == bool:
+                slider = self.create_tick_box(ctrl, slider_name)
+            elif ctrl._type == int:
+                slider = self.create_int_slider(ctrl, slider_name)
+            elif ctrl._type == float:
+                slider = self.create_float_slider(ctrl, slider_name)
+            elif ctrl._type == str:
+                if ctrl.icons is not None:
+                    slider = self.create_icons_bar(ctrl, slider_name)
+                else:
+                    slider = self.create_list_menu(ctrl, slider_name)
+            self.ctrl[slider_name] = ctrl
+            self.layout_obj.addRow(slider)
+            self.result_label[slider_name] = QLabel('', self)
+            self.layout_obj.addRow(self.result_label[slider_name])
 
     # @TODO: use a factory here
     def create_list_menu(self, ctrl, slider_name):
@@ -142,27 +168,7 @@ class MainWindow(QWidget):
         slider.valueChanged.connect(partial(self.update_parameter, slider_name))
         return slider
     
-    def init_sliders(self, controls: List[Control]):
-        self.ctrl = {}
-        self.result_label = {}
-        
-        for ctrl in controls:
-            slider_name = ctrl.name
-            if ctrl._type == bool:
-                slider = self.create_tick_box(ctrl, slider_name)
-            elif ctrl._type == int:
-                slider = self.create_int_slider(ctrl, slider_name)
-            elif ctrl._type == float:
-                slider = self.create_float_slider(ctrl, slider_name)
-            elif ctrl._type == str:
-                if ctrl.icons is not None:
-                    slider = self.create_icons_bar(ctrl, slider_name)
-                else:
-                    slider = self.create_list_menu(ctrl, slider_name)
-            self.ctrl[slider_name] = ctrl
-            self.layout_obj.addRow(slider)
-            self.result_label[slider_name] = QLabel('', self)
-            self.layout_obj.addRow(self.result_label[slider_name])
+
     
     def update_float_value(self, idx, line_edit, value):
         # Convert the slider's integer value to a float and update the line edit
