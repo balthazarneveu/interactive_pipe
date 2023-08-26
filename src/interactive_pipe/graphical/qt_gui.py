@@ -1,28 +1,70 @@
 from PyQt6.QtWidgets import QApplication, QWidget, QSlider, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QVBoxLayout, QHBoxLayout
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, QUrl
+from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
+
 from interactive_pipe.core.control import Control
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from functools import partial
 from typing import List
 import numpy as np
-from PyQt6 import QtGui
 from PyQt6.QtGui import QPixmap, QImage, QIcon
 import sys
 import logging
+from pathlib import Path
+import time
 
 
 class InteractivePipeQT():
-    def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", inputs=None, custom_end=lambda :None, **kwargs) -> None:
+    def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", inputs=None, custom_end=lambda :None, audio=False, **kwargs) -> None:
         self.app = QApplication(sys.argv)
+        self.pipeline = pipeline
+        pipeline.global_params["__app"] = self.app
         if hasattr(pipeline, "controls"):
             controls += pipeline.controls
+        if audio:
+            self.audio()
         self.window = MainWindow(controls=controls, name=name, pipeline=pipeline, **kwargs)
         self.custom_end = custom_end
-
+    
     def run(self):
         ret = self.app.exec()
         self.custom_end()
         sys.exit(ret)
+
+    ### ---------------------------- AUDIO FEATURE ----------------------------------------
+    def audio(self):
+        self.player = QMediaPlayer()
+        self.audio_output = QAudioOutput()
+        self.player.setAudioOutput(self.audio_output)
+        self.audio_output.setVolume(50)
+        self.player.errorChanged.connect(self.handle_audio_error)
+        self.pipeline.global_params["__player"] = self.player
+        self.pipeline.global_params["__set_audio"] = self.__set_audio
+        self.pipeline.global_params["__play"] = self.__play
+        self.pipeline.global_params["__pause"] = self.__pause
+        self.pipeline.global_params["__stop"] = self.__stop
+    
+    def handle_audio_error(self):
+        print("Error: " + self.player.errorString())
+    
+    def __set_audio(self, file_path):
+        self.__stop()
+        time.sleep(0.01)
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+        assert file_path.exists()
+        self.player.setSource(QUrl.fromLocalFile(str(file_path)))
+        time.sleep(0.01)
+        self.player.setPosition(0)
+    def __play(self):
+        self.player.play()
+    
+    def __pause(self):
+        self.player.pause()
+
+    def __stop(self):
+        self.player.stop()  
+
 
 
 
@@ -30,6 +72,8 @@ class MainWindow(QWidget):
     def __init__(self, *args, controls=[], name="", pipeline=None, fullscreen=False, width=None, center=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.pipeline = pipeline
+        self.pipeline.global_params["__window"] = self
+        
         self.image_canvas = None
         self.setWindowTitle(name)
         if width is not None:
