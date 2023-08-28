@@ -1,19 +1,33 @@
 PYQTVERSION = None
+
 try:
-    from PyQt6.QtWidgets import QApplication, QWidget, QSlider, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QVBoxLayout, QHBoxLayout
-    from PyQt6.QtCore import Qt, QSize, QUrl
-    from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
-    from PyQt6.QtGui import QPixmap, QImage, QIcon
+    from PySide6.QtWidgets import QApplication, QWidget, QSlider, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QVBoxLayout, QHBoxLayout
+    from PySide6.QtCore import Qt, QSize, QUrl
+    from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
+    from PySide6.QtGui import QPixmap, QImage, QIcon
     PYQTVERSION = 6
 except:
+    logging.warning("Cannot import PySide")
+    
+if not PYQTVERSION:
     try:
-        from PyQt5.QtWidgets import QApplication, QWidget, QSlider, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QVBoxLayout, QHBoxLayout
-        from PyQt5.QtCore import Qt, QSize, QUrl
-        from PyQt5.QtGui import QPixmap, QImage, QIcon
-        from PyQt5.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaContent
-        PYQTVERSION = 5
+            from PyQt6.QtWidgets import QApplication, QWidget, QSlider, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QVBoxLayout, QHBoxLayout
+            from PyQt6.QtCore import Qt, QSize, QUrl
+            from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
+            from PyQt6.QtGui import QPixmap, QImage, QIcon
+            PYQTVERSION = 6
     except:
-        raise ModuleNotFoundError("No PyQt")
+        logging.warning("Cannot import PyQt")
+        try:
+            from PyQt5.QtWidgets import QApplication, QWidget, QSlider, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QVBoxLayout, QHBoxLayout
+            from PyQt5.QtCore import Qt, QSize, QUrl
+            from PyQt5.QtGui import QPixmap, QImage, QIcon
+            from PyQt5.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaContent
+            PYQTVERSION = 5
+        except:
+            raise ModuleNotFoundError("No PyQt")
+
+
 
 
 
