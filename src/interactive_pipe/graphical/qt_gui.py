@@ -1,13 +1,29 @@
-from PyQt6.QtWidgets import QApplication, QWidget, QSlider, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QVBoxLayout, QHBoxLayout
-from PyQt6.QtCore import Qt, QSize, QUrl
-from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
+PYQTVERSION = None
+try:
+    from PyQt6.QtWidgets import QApplication, QWidget, QSlider, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QVBoxLayout, QHBoxLayout
+    from PyQt6.QtCore import Qt, QSize, QUrl
+    from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
+    from PyQt6.QtGui import QPixmap, QImage, QIcon
+    PYQTVERSION = 6
+except:
+    try:
+        from PyQt5.QtWidgets import QApplication, QWidget, QSlider, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QVBoxLayout, QHBoxLayout
+        from PyQt5.QtCore import Qt, QSize, QUrl
+        from PyQt5.QtGui import QPixmap, QImage, QIcon
+        from PyQt5.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaContent
+        PYQTVERSION = 5
+    except:
+        raise ModuleNotFoundError("No PyQt")
+
+
+
 
 from interactive_pipe.core.control import Control
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from functools import partial
 from typing import List
 import numpy as np
-from PyQt6.QtGui import QPixmap, QImage, QIcon
+
 import sys
 import logging
 from pathlib import Path
@@ -35,11 +51,11 @@ class InteractivePipeQT(InteractivePipeGUI):
     # def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", custom_end=lambda :None, audio=False, **kwargs) -> None:
     #     super().__init__(pipeline=pipeline, controls=controls, name=name, custom_end=custom_end, audio=audio, **kwargs)
     
-    def init_app(self, **kwarg):
+    def init_app(self, **kwargs):
         self.app = QApplication(sys.argv)
         if self.audio:
             self.audio_player()
-        self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline)
+        self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, **kwargs)
 
     def run(self):
         ret = self.app.exec()
@@ -49,10 +65,15 @@ class InteractivePipeQT(InteractivePipeGUI):
     ### ---------------------------- AUDIO FEATURE ----------------------------------------
     def audio_player(self):
         self.player = QMediaPlayer()
-        self.audio_output = QAudioOutput()
-        self.player.setAudioOutput(self.audio_output)
-        self.audio_output.setVolume(50)
-        self.player.errorChanged.connect(self.handle_audio_error)
+        if PYQTVERSION == 6:
+            self.audio_output = QAudioOutput()
+            self.player.setAudioOutput(self.audio_output)
+            self.audio_output.setVolume(50)
+            self.player.errorChanged.connect(self.handle_audio_error)
+        else:
+            self.player.setVolume(50)
+            currentVolume = self.player.volume()
+            self.player.error.connect(self.handle_audio_error)
         self.pipeline.global_params["__player"] = self.player
         self.pipeline.global_params["__set_audio"] = self.__set_audio
         self.pipeline.global_params["__play"] = self.__play
@@ -68,9 +89,17 @@ class InteractivePipeQT(InteractivePipeGUI):
         if isinstance(file_path, str):
             file_path = Path(file_path)
         assert file_path.exists()
-        self.player.setSource(QUrl.fromLocalFile(str(file_path)))
+        file_path = Path.cwd() / file_path
+        media_url = QUrl.fromLocalFile(str(file_path))
+        if PYQTVERSION == 6:
+            self.player.setSource(media_url)
+        else:
+            content = QMediaContent(media_url)
+            self.player.setMedia(content)
+            self.player.play()
         time.sleep(0.01)
         self.player.setPosition(0)
+    
     def __play(self):
         self.player.play()
     
