@@ -13,26 +13,41 @@ import logging
 from pathlib import Path
 import time
 
-
-class InteractivePipeQT():
-    def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", inputs=None, custom_end=lambda :None, audio=False, **kwargs) -> None:
-        self.app = QApplication(sys.argv)
+class InteractivePipeGUI():
+    def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", custom_end=lambda :None, audio=False, **kwargs) -> None:
         self.pipeline = pipeline
-        pipeline.global_params["__app"] = self.app
+        self.custom_end = custom_end
+        self.audio = audio
+        self.name = name
         if hasattr(pipeline, "controls"):
             controls += pipeline.controls
-        if audio:
-            self.audio()
-        self.window = MainWindow(controls=controls, name=name, pipeline=pipeline, **kwargs)
-        self.custom_end = custom_end
+        self.controls = controls
+        self.init_app(**kwargs)
+        pipeline.global_params["__app"] = self.app
     
+    def init_app(self):
+        raise NotImplementedError
+    
+    def run(self):
+        raise NotImplementedError
+
+class InteractivePipeQT(InteractivePipeGUI):
+    # def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", custom_end=lambda :None, audio=False, **kwargs) -> None:
+    #     super().__init__(pipeline=pipeline, controls=controls, name=name, custom_end=custom_end, audio=audio, **kwargs)
+    
+    def init_app(self, **kwarg):
+        self.app = QApplication(sys.argv)
+        if self.audio:
+            self.audio_player()
+        self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline)
+
     def run(self):
         ret = self.app.exec()
         self.custom_end()
         sys.exit(ret)
 
     ### ---------------------------- AUDIO FEATURE ----------------------------------------
-    def audio(self):
+    def audio_player(self):
         self.player = QMediaPlayer()
         self.audio_output = QAudioOutput()
         self.player.setAudioOutput(self.audio_output)
