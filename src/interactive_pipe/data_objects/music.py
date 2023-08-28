@@ -2,7 +2,7 @@
 import dbus
 import sys
 from sys import platform
-
+import time
 
 class SpotifyInterface():
     def factory(type):
@@ -30,8 +30,15 @@ class SpotifyInterface():
 
 class SpotifyLinux():
     def __init__(self):
-        print("Spotify for linux")
         self.interface = SpotifyInterface.factory('org.mpris.MediaPlayer2.Player')
+    
+    def set_audio(self, audio_url):
+        self.pause()
+        if "http" in audio_url:
+            audio_url = "spotify:track:" + audio_url.split("track/")[1].split("?")[0]
+        self.interface.OpenUri(audio_url)
+        time.sleep(0.5)
+        self.pause()
 
     def next(self):
         self.interface.Next()
@@ -44,9 +51,6 @@ class SpotifyLinux():
 
     def pause(self):
         self.interface.Stop()
-
-    def get_current_playing(self):
-        return self.metadata.get_current_playing()
 
     def __del__(self):
         self.pause()
