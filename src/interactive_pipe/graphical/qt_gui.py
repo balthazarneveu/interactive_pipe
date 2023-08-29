@@ -161,7 +161,10 @@ class MainWindow(QWidget):
             self.layout_obj.addRow(slider)
             self.result_label[slider_name] = QLabel('', self)
             self.layout_obj.addRow(self.result_label[slider_name])   
+            self.update_label(slider_name)
 
+    def update_label(self, idx):
+        self.result_label[idx].setText(f'{self.ctrl[idx].name} = {self.ctrl[idx].value}')
 
     def update_parameter(self, idx, value):
         if self.ctrl[idx]._type == str:
@@ -174,7 +177,7 @@ class MainWindow(QWidget):
             self.ctrl[idx].update(value)
         else:
             raise NotImplementedError("{self.ctrl[idx]._type} not supported")
-        self.result_label[idx].setText(f'{self.ctrl[idx].name} = {self.ctrl[idx].value}')
+        self.update_label(idx)
         self.refresh()
 
 
@@ -188,7 +191,7 @@ class MainWindow(QWidget):
                         if img_widget is not None:
                             img_widget.setParent(None)
                 self.image_canvas = None
-                logging.warning("Need to fully re-initialize canvas") 
+                logging.warning("Need to fully re-initialize canvas")
         if self.image_canvas is None:
             self.image_canvas = np.empty(expected_image_canvas_shape).tolist()
             for row, image_row in enumerate(image_grid):
