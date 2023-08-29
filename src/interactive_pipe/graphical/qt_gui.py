@@ -33,7 +33,7 @@ if not PYQTVERSION:
 
 
 from interactive_pipe.core.control import Control
-from interactive_pipe.headless.pipeline import HeadlessPipeline
+from interactive_pipe.graphical.gui import InteractivePipeGUI
 from functools import partial
 from typing import List
 import numpy as np
@@ -43,28 +43,9 @@ import logging
 from pathlib import Path
 import time
 
-class InteractivePipeGUI():
-    def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", custom_end=lambda :None, audio=False, **kwargs) -> None:
-        self.pipeline = pipeline
-        self.custom_end = custom_end
-        self.audio = audio
-        self.name = name
-        if hasattr(pipeline, "controls"):
-            controls += pipeline.controls
-        self.controls = controls
-        self.init_app(**kwargs)
-        pipeline.global_params["__app"] = self.app
-    
-    def init_app(self):
-        raise NotImplementedError
-    
-    def run(self):
-        raise NotImplementedError
 
-class InteractivePipeQT(InteractivePipeGUI):
-    # def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", custom_end=lambda :None, audio=False, **kwargs) -> None:
-    #     super().__init__(pipeline=pipeline, controls=controls, name=name, custom_end=custom_end, audio=audio, **kwargs)
-    
+
+class InteractivePipeQT(InteractivePipeGUI):    
     def init_app(self, **kwargs):
         self.app = QApplication(sys.argv)
         if self.audio:
@@ -327,7 +308,7 @@ class MainWindow(QWidget):
                         if img_widget is not None:
                             img_widget.setParent(None)
                 self.image_canvas = None
-            logging.warning("Need to fully re-initialize canvas") 
+                logging.warning("Need to fully re-initialize canvas") 
         if self.image_canvas is None:
             self.image_canvas = np.empty(expected_image_canvas_shape).tolist()
             for row, image_row in enumerate(image_grid):
