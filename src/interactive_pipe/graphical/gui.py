@@ -10,7 +10,7 @@ class InteractivePipeGUI():
             controls += pipeline.controls
         self.controls = controls
         self.init_app(**kwargs)
-        pipeline.global_params["__app"] = self.app
+        pipeline.global_params["__app"] = self
     
     def init_app(self):
         raise NotImplementedError

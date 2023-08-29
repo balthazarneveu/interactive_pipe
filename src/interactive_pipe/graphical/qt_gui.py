@@ -1,4 +1,5 @@
 PYQTVERSION = None
+import logging
 
 try:
     from PySide6.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout
@@ -7,7 +8,7 @@ try:
     from PySide6.QtGui import QPixmap, QImage, QIcon
     PYQTVERSION = 6
 except:
-    logging.warning("Cannot import PySide")
+    logging.warning("Cannot import PySide 6")
     
 if not PYQTVERSION:
     try:
@@ -17,13 +18,14 @@ if not PYQTVERSION:
             from PyQt6.QtGui import QPixmap, QImage, QIcon
             PYQTVERSION = 6
     except:
-        logging.warning("Cannot import PyQt")
+        logging.warning("Cannot import PyQt 6")
         try:
             from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout
             from PyQt5.QtCore import QUrl
             from PyQt5.QtGui import QPixmap, QImage, QIcon
             from PyQt5.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaContent
             PYQTVERSION = 5
+            logging.warning("Using PyQt 5")
         except:
             raise ModuleNotFoundError("No PyQt")
 
@@ -226,7 +228,6 @@ class MainWindow(QWidget):
                 if isinstance(img_row, list):
                     for idx, out_img in enumerate(img_row):
                         if out[idy][idx] is not None:
-                            print(idy, idx, out_img.shape)
                             out[idy][idx] = self.convert_image(out[idy][idx])
                     nx = len(img_row)
                 else:
