@@ -63,7 +63,7 @@ class PureFilter:
         self.check_apply_signature()
         for key, val in self.values.items():
             assert key in self.__kwargs_names.keys(
-            ), f"{key} not in {self.__kwargs_names.keys()}"
+            ), f"{self.name} : {key} not in {self.__kwargs_names.keys()}"
         if "global_params" in self.__kwargs_names.keys():
             # special key to provide the context dictionary
             out = self.apply(
