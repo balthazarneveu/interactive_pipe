@@ -31,7 +31,7 @@ if not PYQTVERSION:
 
 
 from interactive_pipe.core.control import Control
-from interactive_pipe.graphical.gui import InteractivePipeGUI
+from interactive_pipe.graphical.gui import InteractivePipeGUI, InteractivePipeWindow
 from interactive_pipe.graphical.qt_control import ControlFactory
 
 from typing import List
@@ -49,7 +49,8 @@ class InteractivePipeQT(InteractivePipeGUI):
         if self.audio:
             self.audio_player()
         self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, **kwargs)
-
+        self.pipeline.global_params["__pipeline"] = self.pipeline
+        
     def run(self):
         ret = self.app.exec()
         self.custom_end()
@@ -104,13 +105,11 @@ class InteractivePipeQT(InteractivePipeGUI):
 
 
 
-class MainWindow(QWidget):
+class MainWindow(QWidget, InteractivePipeWindow):
     def __init__(self, *args, controls=[], name="", pipeline=None, fullscreen=False, width=None, center=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.pipeline = pipeline
         self.pipeline.global_params["__window"] = self
-        
-        self.image_canvas = None
         self.setWindowTitle(name)
         if width is not None:
             self.setMinimumWidth(width)
@@ -180,41 +179,20 @@ class MainWindow(QWidget):
         self.update_label(idx)
         self.refresh()
 
+    def add_image_placeholder(self, row, col):
+        self.image_canvas[row][col] = QLabel(self)
+        self.image_grid_layout.addWidget(self.image_canvas[row][col], row, col)
 
-    def set_image_canvas(self, image_grid):
-        expected_image_canvas_shape  = (len(image_grid), max([len(image_row) for image_row in image_grid]))
-        if self.image_canvas is not None:
-            current_canvas_shape = (len(self.image_canvas), max([len(image_row) for image_row in self.image_canvas]))
-            if current_canvas_shape != expected_image_canvas_shape:
-                for row_content in self.image_canvas:
-                    for img_widget in row_content:
-                        if img_widget is not None:
-                            img_widget.setParent(None)
-                self.image_canvas = None
-                logging.warning("Need to fully re-initialize canvas")
-        if self.image_canvas is None:
-            self.image_canvas = np.empty(expected_image_canvas_shape).tolist()
-            for row, image_row in enumerate(image_grid):
-                for col, image_array in enumerate(image_row):
-                    if image_array is None:
-                        self.image_canvas[row][col] = None
-                        continue
-                    else:
-                        self.image_canvas[row][col] = QLabel(self)
-                    self.image_grid_layout.addWidget(self.image_canvas[row][col], row, col)
+    def delete_image_placeholder(self, img_widget):
+        img_widget.setParent(None)
 
-    def set_images(self, image_grid):
-        self.set_image_canvas(image_grid)
-        for row, image_row in enumerate(image_grid):
-            for col, image_array in enumerate(image_row):
-                if image_array is None:
-                    continue
-                h, w, c = image_array.shape
-                bytes_per_line = c * w
-                image = QImage(image_array.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
-                pixmap = QPixmap.fromImage(image)                
-                label = self.image_canvas[row][col]
-                label.setPixmap(pixmap)
+    def update_image(self, image_array, row, col):
+        h, w, c = image_array.shape
+        bytes_per_line = c * w
+        image = QImage(image_array.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+        pixmap = QPixmap.fromImage(image)                
+        label = self.image_canvas[row][col]
+        label.setPixmap(pixmap)
 
     @staticmethod
     def convert_image(out_im):
@@ -223,14 +201,4 @@ class MainWindow(QWidget):
     def refresh(self):
         if self.pipeline is not None:
             out = self.pipeline.run()
-            ny, nx = len(out), 0
-            for idy, img_row in enumerate(out):
-                if isinstance(img_row, list):
-                    for idx, out_img in enumerate(img_row):
-                        if out[idy][idx] is not None:
-                            out[idy][idx] = self.convert_image(out[idy][idx])
-                    nx = len(img_row)
-                else:
-                    out[idy] = [self.convert_image(out[idy])]
-            logging.info(f"{ny} x {nx} figures")
-            self.set_images(out)
+            self.refresh_display(out)
