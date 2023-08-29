@@ -150,13 +150,11 @@ class MainWindow(QWidget):
     def init_sliders(self, controls: List[Control]):
         self.ctrl = {}
         self.result_label = {}
-        self.slider_instances = []
         control_factory = ControlFactory()
         for ctrl in controls:
             slider_name = ctrl.name
             slider_instance = control_factory.create_control(ctrl, self.update_parameter)
             slider = slider_instance.create()
-            self.slider_instances.append(slider_instance)
             self.ctrl[slider_name] = ctrl
             self.layout_obj.addRow(slider)
             self.result_label[slider_name] = QLabel('', self)
