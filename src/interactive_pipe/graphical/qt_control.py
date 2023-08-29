@@ -46,6 +46,25 @@ class BaseControl(QWidget):
         raise NotImplementedError("This method should be overridden by subclass to check the right slider control type")
 
 
+class ControlFactory:
+    @staticmethod
+    def create_control(control: Control, update_func):
+        control_type = control._type
+        name = control.name
+        control_class_map = {
+            bool: TickBoxControl,
+            int: IntSliderControl,
+            float: FloatSliderControl,
+            str: DropdownMenuControl if control.icons is None else IconButtonsControl
+        }
+        
+        if control_type not in control_class_map:
+            logging.warning(f"Unsupported control type: {control_type} for control named {name}")
+            return None
+        
+        control_class = control_class_map[control_type]
+        return control_class(name, control, update_func)
+
 
 class IntSliderControl(BaseControl):
     def check_control_type(self):
@@ -78,17 +97,11 @@ class FloatSliderControl(BaseControl):
         slider.setPageStep(10)
         slider.setTickPosition(QSlider.TickPosition.TicksAbove)
 
-        # Create a line edit to display the float value
-        self.display_widget = QLineEdit()
-        self.display_widget.setReadOnly(True)
-        self.display_widget.setText(str(self.ctrl.value_default))
-
         # Connect the slider's value changed signal to update the line edit
-        slider.valueChanged.connect(partial(self.update_func, self.name, self.display_widget))
+        slider.valueChanged.connect(partial(self.update_func, self.name))
 
         # Add the slider and line edit to the horizontal layout
         hbox.addWidget(slider)
-        hbox.addWidget(self.display_widget)
 
         self.control_widget = slider
 
@@ -168,6 +181,3 @@ class TickBoxControl(BaseControl):
         # Add the checkbox to the horizontal layout
         hbox.addWidget(checkbox)
         return hbox
-
-
-

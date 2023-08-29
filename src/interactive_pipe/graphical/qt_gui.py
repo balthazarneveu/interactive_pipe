@@ -30,7 +30,7 @@ if not PYQTVERSION:
 
 from interactive_pipe.core.control import Control
 from interactive_pipe.graphical.gui import InteractivePipeGUI
-from interactive_pipe.graphical.qt_control import TickBoxControl, DropdownMenuControl, FloatSliderControl, IconButtonsControl, IntSliderControl
+from interactive_pipe.graphical.qt_control import ControlFactory
 
 from typing import List
 import numpy as np
@@ -151,21 +151,10 @@ class MainWindow(QWidget):
         self.ctrl = {}
         self.result_label = {}
         self.slider_instances = []
-        
+        control_factory = ControlFactory()
         for ctrl in controls:
             slider_name = ctrl.name
-            slider_instance = None
-            if ctrl._type == bool:
-                slider_instance = TickBoxControl(slider_name, ctrl, self.update_parameter)
-            elif ctrl._type == int:
-                slider_instance = IntSliderControl(slider_name, ctrl, self.update_parameter)
-            elif ctrl._type == float:
-                slider_instance = FloatSliderControl(slider_name, ctrl, self.update_float_value)
-            elif ctrl._type == str:
-                if ctrl.icons is not None:
-                    slider_instance = IconButtonsControl(slider_name, ctrl, self.update_parameter)
-                else:
-                    slider_instance = DropdownMenuControl(slider_name, ctrl, self.update_parameter)
+            slider_instance = control_factory.create_control(ctrl, self.update_parameter)
             slider = slider_instance.create()
             self.slider_instances.append(slider_instance)
             self.ctrl[slider_name] = ctrl
@@ -173,23 +162,19 @@ class MainWindow(QWidget):
             self.result_label[slider_name] = QLabel('', self)
             self.layout_obj.addRow(self.result_label[slider_name])   
 
-    
-    def update_float_value(self, idx, line_edit, value):
-        # Convert the slider's integer value to a float and update the line edit
-        float_value = value / 100.0
-        self.ctrl[idx].update(float_value)
-        line_edit.setText(str(float_value))
-        self.refresh()
-
 
     def update_parameter(self, idx, value):
         if self.ctrl[idx]._type == str:
             self.ctrl[idx].update(self.ctrl[idx].value_range[value])
         elif self.ctrl[idx]._type == bool:
             self.ctrl[idx].update(bool(value))
-        else:
+        elif self.ctrl[idx]._type == float:
+                self.ctrl[idx].update(value/100.)
+        elif self.ctrl[idx]._type == int: 
             self.ctrl[idx].update(value)
-        self.result_label[idx].setText(f'{idx} -> Current Value: {value} {self.ctrl[idx]}')
+        else:
+            raise NotImplementedError("{self.ctrl[idx]._type} not supported")
+        self.result_label[idx].setText(f'{self.ctrl[idx].name} = {self.ctrl[idx].value}')
         self.refresh()
 
 
