@@ -33,6 +33,7 @@ if not PYQTVERSION:
 from interactive_pipe.core.control import Control
 from interactive_pipe.graphical.gui import InteractivePipeGUI, InteractivePipeWindow
 from interactive_pipe.graphical.qt_control import ControlFactory
+from interactive_pipe.headless.pipeline import HeadlessPipeline
 
 from typing import List
 import numpy as np
@@ -52,9 +53,12 @@ class InteractivePipeQT(InteractivePipeGUI):
         self.pipeline.global_params["__pipeline"] = self.pipeline
         
     def run(self):
+        assert self.pipeline._PipelineCore__initialized_inputs, "Did you forget to initialize the pipeline inputs?"
+        self.window.refresh()
         ret = self.app.exec()
         self.custom_end()
-        sys.exit(ret)
+        # sys.exit(ret)
+        return self.pipeline.results
 
     ### ---------------------------- AUDIO FEATURE ----------------------------------------
     def audio_player(self):
@@ -106,7 +110,7 @@ class InteractivePipeQT(InteractivePipeGUI):
 
 
 class MainWindow(QWidget, InteractivePipeWindow):
-    def __init__(self, *args, controls=[], name="", pipeline=None, fullscreen=False, width=None, center=True, **kwargs):
+    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline=None, fullscreen=False, width=None, center=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.pipeline = pipeline
         self.pipeline.global_params["__window"] = self
@@ -141,7 +145,10 @@ class MainWindow(QWidget, InteractivePipeWindow):
             self.layout_obj.addRow(self.image_grid_layout)
 
         self.init_sliders(controls)
-        self.refresh()
+        # if self.pipeline._PipelineCore__initialized_inputs:
+        #     # cannot refresh the pipeline if no input has been provided! ... not ok for inputless pipeline though!
+        #     self.refresh()
+        # # You will refresh the window  at the app level, only when running. no need to run the pipeline engine to initalize the GUI
         if width is None:
             self.showMaximized()
         if fullscreen:

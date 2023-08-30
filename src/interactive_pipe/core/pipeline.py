@@ -21,6 +21,7 @@ class PipelineCore:
             # link each filter to global params
             filter.global_params = self.global_params
             filter.reset_cache()
+        self.__initialized_inputs = False
         self.inputs = inputs
         if outputs is None:
             outputs = self.filters[-1].outputs
@@ -29,6 +30,8 @@ class PipelineCore:
         self.outputs = outputs # output indexes (routing)
         # You need to set the values to their default_value for each filter
         self.parameters = parameters
+        self.results = None
+        self.name = name
 
     def run(self) -> list:
         """Useful for standalone python acess without gui or disk write

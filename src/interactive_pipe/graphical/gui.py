@@ -21,7 +21,11 @@ class InteractivePipeGUI():
     
     def run(self):
         raise NotImplementedError
-
+    
+    def __call__(self, *args, **kwargs) -> None:
+        self.pipeline.inputs = list(args)
+        results = self.run()
+        return results
 
 class InteractivePipeWindow():
     def __init__(self, *args, **kwargs) -> None:
