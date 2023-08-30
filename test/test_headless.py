@@ -1,7 +1,4 @@
-import numpy as np
-import pytest
 import shutil
-from copy import deepcopy
 from sample_functions import get_sample_image
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.engine import PipelineEngine

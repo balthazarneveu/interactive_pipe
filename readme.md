@@ -263,3 +263,15 @@ sample_pipeline(input_image)
 ```
 You should see a GUI pop now!
 
+
+
+# Roadmap and todos
+- Bugfixes: 
+    - matplotlib redraw/refresh when clicks on buttons
+    - matplotlib correct canvas proportions
+- Routing mechanism based on keys rather than indexes (switch from list to dict)
+- Backport previous features
+    - 2D signal plots & signal class
+    - jupyter widgets backend
+    - keyboard sliders press
+    - R to reset slider 
