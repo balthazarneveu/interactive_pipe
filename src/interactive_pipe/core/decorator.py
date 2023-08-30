@@ -49,6 +49,6 @@ def interactive_pipeline(gui=None, **kwargs_pipe) -> Union[HeadlessPipeline, Int
 
         @functools.wraps(pipeline_function)
         def inner(*args, **kwargs):
-            return gui_pipeline.__call__(*args)
+            return gui_pipeline.__call__(*args, **kwargs)
         return inner
     return wrapper

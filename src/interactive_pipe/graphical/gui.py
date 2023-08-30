@@ -1,6 +1,7 @@
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 import logging
 import numpy as np
+from copy import deepcopy
 
 class InteractivePipeGUI():
     def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", custom_end=lambda :None, audio=False, **kwargs) -> None:
@@ -22,7 +23,9 @@ class InteractivePipeGUI():
     def run(self):
         raise NotImplementedError
     
-    def __call__(self, *args, **kwargs) -> None:
+    def __call__(self, *args, parameters={}, **kwargs) -> None:
+        self.pipeline.parameters = parameters
+        self.pipeline.parameters = self.pipeline.parameters_from_keyword_args(**kwargs)
         self.pipeline.inputs = list(args)
         results = self.run()
         return results
@@ -73,7 +76,8 @@ class InteractivePipeWindow():
                     continue
                 self.update_image(image_array, row, col)
 
-    def refresh_display(self, out):
+    def refresh_display(self, _out):
+        out = deepcopy(_out)
         # In case no canvas has been provided
         if isinstance(out, tuple):
             out = [list(out)]
