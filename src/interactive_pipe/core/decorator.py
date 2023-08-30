@@ -1,6 +1,7 @@
 from interactive_pipe.core.control import Control
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.graphical.gui import InteractivePipeGUI
+from interactive_pipe.core.graph import analyze_apply_fn_signature
 import functools
 import inspect
 from typing import Callable,Union
@@ -9,9 +10,14 @@ def interactive(**controls):
     """Function decorator to add some controls
     """
     def wrapper(func):
+        keyword_args = analyze_apply_fn_signature(func)[1]
+        keyword_names =  list(keyword_args.keys())
         for param_name, unknown_control in controls.items():
             if not isinstance(unknown_control, Control): # you may get a tuple, list or a boolean
                 controls[param_name] = Control.from_tuple(unknown_control, param_name=param_name)
+            assert param_name in keyword_names, f"typo: control {param_name} passed through the decorator does not match any of the function keyword args {keyword_names}"
+        
+        for param_name, unknown_control in controls.items():
             Control.register(func.__name__, param_name, controls[param_name])
         @functools.wraps(func)
         def inner(*args, **kwargs):
