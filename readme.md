@@ -29,8 +29,7 @@ Finally, we need to the glue to combo these filters. This is where the sample_pi
 By decorating it with `@interactive_pipeline(gui="qt")`, calling this function will magically turn into a GUI powered image processing pipeline.
 
 ```python
-from interactive_pipe.core.decorator import interactive, interactive_pipeline
-from interactive_pipe.core.control import Control
+from interactive_pipe import Control, interactive, interactive_pipeline
 import numpy as np
 
 
@@ -163,7 +162,7 @@ bnw, blended, exposed = sample_pipeline(input_image, blend_coeff=0.8, coeff=0.7,
 
 Creating a `pipeline` by decorating our `sample_pipeline` function.
 ```python
-from interactive_pipe.core.decorator import pipeline
+from interactive_pipe import pipeline
 @pipeline
 def sample_pipeline(input_image):
     exposed = exposure(input_image)
@@ -234,7 +233,7 @@ Let's simply decorate some more functions in `sample_pipeline.py`
 
 import numpy as np
 from image_filters import exposure, black_and_white, blend
-from interactive_pipe.core.decorator import interactive, interactive_pipeline
+from interactive_piper import interactive, interactive_pipeline, Control
 
 # Let's make each of the three library filters interactive.
 # Please note that image_filters.py was kept the same since the begining and does not depend on interactive_pipe
