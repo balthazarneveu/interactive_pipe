@@ -54,6 +54,7 @@ class Control():
     def __init__(self, value_default: Union[int, float, bool,str], value_range: List[Union[int, float, str]]=None, name=None, step=None, filter_to_connect: Optional[FilterCore] = None, parameter_name_to_connect: Optional[str] = None, icons=None) -> None:
         self.value_default = value_default
         self._type = None
+        self._auto_named = False
         if isinstance(value_default, bool):
             self._type = bool
             assert value_range is None
@@ -92,6 +93,7 @@ class Control():
                     icon = Path(icon)
                 assert icon.exists()
         if name is None:
+            self._auto_named = True
             self.name = f"parameter {Control.counter}"
         else:
             self.name = name
