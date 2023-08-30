@@ -1,6 +1,8 @@
 from interactive_pipe.core.control import Control
+from interactive_pipe.headless.pipeline import HeadlessPipeline
 import functools
 import inspect
+from typing import Callable
 
 def interactive(**controls):
     """Function decorator to add some controls
@@ -23,3 +25,7 @@ def interactive(**controls):
             return func(*bound_args.args, **bound_args.kwargs)
         return inner
     return wrapper
+
+
+def interactive_pipeline(pipeline_function:Callable, **kwargs) -> HeadlessPipeline:
+    return HeadlessPipeline.from_function(pipeline_function, **kwargs)

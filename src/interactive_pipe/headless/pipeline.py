@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Any, Optional, Callable
 from interactive_pipe.core.filter import FilterCore
 
 
@@ -80,6 +80,7 @@ class HeadlessPipeline(PipelineCore):
         data_class = cls(filters=filters, name=graph["function_name"], inputs=inputs, outputs=outputs, **kwargs)
         data_class.controls = control_list
         return data_class
+    
     def export_tuning(self, path: Optional[Path] = None, override=False) -> None:
         """Export yaml tuning to disk 
         """
@@ -166,3 +167,24 @@ class HeadlessPipeline(PipelineCore):
             # @ TODO: handle proper output suffixes namings
             logging.info("saved image %s" % current_name)
         return path
+
+    def parameters_from_keyword_args(self, **kwargs) -> dict:
+        new_param_dict = {}
+        for key, value in kwargs.items():
+            for filter_name, parameters_dict in self.parameters.items():
+                parameter_names = parameters_dict.keys()
+                if key in parameter_names:
+                    if not filter_name in new_param_dict.keys():
+                        new_param_dict[filter_name] = {}
+                    new_param_dict[filter_name][key] = value
+        return new_param_dict
+
+
+    def __call__(self, *inputs, parameters={}, **kwargs) -> Any:
+        # @TODO: we could check that the number of inputs matches what's expected here.
+        self.inputs = list(inputs)
+        if len(self.inputs) == 0:
+            self.inputs = None
+        self.parameters = parameters
+        self.parameters = self.parameters_from_keyword_args(**kwargs)
+        return self.run()
