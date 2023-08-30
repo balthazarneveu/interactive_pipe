@@ -32,8 +32,10 @@ class HeadlessPipeline(PipelineCore):
         graph = get_call_graph(pipe)
         all_variables = {}
         total_index = 0
+        function_inputs = {}
         for input_index, input_name in enumerate(graph["args"]):
             all_variables[input_name] = total_index
+            function_inputs[input_name] = total_index
             total_index+= 1
         for filt_dict in graph["call_graph"]:
             for key in ["args", "returns"]:
@@ -77,6 +79,9 @@ class HeadlessPipeline(PipelineCore):
         logging.debug(filters_count)
         logging.debug(filters_names)
         outputs = [all_variables[output_name] for output_name in graph["returns"]]
+        if len(function_inputs) == 0 and inputs is None:
+            logging.info("Auto deduced that there are no arguments provided to the function")
+            inputs = []
         data_class = cls(filters=filters, name=graph["function_name"], inputs=inputs, outputs=outputs, **kwargs)
         data_class.controls = control_list
         return data_class
