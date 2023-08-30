@@ -9,8 +9,10 @@ def interactive(**controls):
     """Function decorator to add some controls
     """
     def wrapper(func):
-        for param_name, control in controls.items():
-            Control.register(func.__name__, param_name, control)
+        for param_name, unknown_control in controls.items():
+            if not isinstance(unknown_control, Control): # you may get a tuple, list or a boolean
+                controls[param_name] = Control.from_tuple(unknown_control, param_name=param_name)
+            Control.register(func.__name__, param_name, controls[param_name])
         @functools.wraps(func)
         def inner(*args, **kwargs):
             # Combine args and kwargs into a single dictionary
