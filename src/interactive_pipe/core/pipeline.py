@@ -66,3 +66,20 @@ class PipelineCore:
             assert filter_name in available_filters_names, f"filter {filter_name} does not exist {available_filters_names}"
             self.filters[available_filters_names.index(filter_name)].values = new_parameters[filter_name]
     
+
+    @property
+    def inputs(self):
+        assert self.__initialized_inputs, "Cannot access unitialized inputs!"
+        return self.__inputs
+    
+    @inputs.setter
+    def inputs(self, inputs: list):
+        if inputs is not None:
+            self.__inputs = list(inputs) if not isinstance(inputs, list) else inputs
+            if len(self.__inputs) == 0:
+                self.__inputs = None # similar to having no input, but explicitly saying that we have initialized it.
+            self.__initialized_inputs = True
+        else:
+            self.__initialized_inputs = False
+
+        
