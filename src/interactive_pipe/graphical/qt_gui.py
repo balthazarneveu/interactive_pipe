@@ -57,7 +57,6 @@ class InteractivePipeQT(InteractivePipeGUI):
         self.window.refresh()
         ret = self.app.exec()
         self.custom_end()
-        # sys.exit(ret)
         return self.pipeline.results
 
     ### ---------------------------- AUDIO FEATURE ----------------------------------------

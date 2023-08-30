@@ -74,6 +74,9 @@ class InteractivePipeWindow():
                 self.update_image(image_array, row, col)
 
     def refresh_display(self, out):
+        # In case no canvas has been provided
+        if isinstance(out, tuple):
+            out = [list(out)]
         ny, nx = len(out), 0
         for idy, img_row in enumerate(out):
             if isinstance(img_row, list):

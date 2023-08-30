@@ -12,7 +12,9 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
 
     
     def run(self):
-       plt.show()
+        assert self.pipeline._PipelineCore__initialized_inputs, "Did you forget to initialize the pipeline inputs?"
+        self.window.refresh()
+        plt.show()
 
 
 
@@ -44,7 +46,7 @@ class MainWindow(InteractivePipeWindow):
             self.ctrl[slider_name] = ctrl
             self.next_slider_position -= self.next_slider_increment
         plt.subplots_adjust(left=0.05, bottom=self.separation, right=1-0.05)
-        self.refresh()
+        # self.refresh()
 
     def update_parameter(self, idx, value):
         self.ctrl[idx].update(value)
@@ -79,32 +81,6 @@ class MainWindow(InteractivePipeWindow):
             self.refresh_display(out)
         if self.need_redraw:
             plt.draw()
-            
-
-    # def refresh(self):
-    #     if self.pipeline is not None:
-    #         out = self.pipeline.run()
-    #         ny, nx = len(out), 0
-    #         # Clear existing image axes
-    #         for ax in self.image_axes:
-    #             ax.remove()
-    #         self.image_axes = []
-
-    #         for idy, img_row in enumerate(out):
-    #             if isinstance(img_row, list):
-    #                 for idx, out_img in enumerate(img_row):
-    #                     if out_img is not None:
-    #                         ax_img = self.fig.add_subplot(ny, nx, idy * nx + idx + 1)
-    #                         ax_img.imshow(self.convert_image(out_img))
-    #                         self.image_axes.append(ax_img)
-    #                 nx = len(img_row)
-    #             else:
-    #                 plt.subplots_adjust(left=0.05, bottom=0.4, right=1-0.05)
-    #                 ax_img = self.fig.add_subplot(1, ny, idy + 1)
-    #                 ax_img.imshow(self.convert_image(img_row))
-    #                 self.image_axes.append(ax_img)
-    #         logging.info(f"{ny} x {nx} figures")
-    #         plt.draw()
     
     def convert_image(self, img):
         return img
