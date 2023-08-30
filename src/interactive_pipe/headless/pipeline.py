@@ -2,7 +2,6 @@ import logging
 from pathlib import Path
 from typing import Any, Optional, Callable
 from interactive_pipe.core.filter import FilterCore
-from copy import deepcopy
 
 from interactive_pipe.core.pipeline import PipelineCore
 from interactive_pipe.data_objects.parameters import Parameters
@@ -145,7 +144,7 @@ class HeadlessPipeline(PipelineCore):
     
     def run(self):
         self.results = self.__run()
-        return deepcopy(self.results)
+        return self.results
 
     def save(self, path: Path = None, data_wrapper_fn: Callable = None, output_indexes: list = None, save_entire_buffer=False) -> Path:
         """Save full resolution image
