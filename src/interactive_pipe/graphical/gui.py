@@ -54,7 +54,7 @@ class InteractivePipeWindow():
                         if img_widget is not None:
                             self.delete_image_placeholder(img_widget)
                 self.image_canvas = None
-                logging.warning("Need to fully re-initialize canvas")
+                logging.debug("Need to fully re-initialize canvas")
     
     def set_image_canvas(self, image_grid):
         expected_image_canvas_shape  = (len(image_grid), max([len(image_row) for image_row in image_grid]))
