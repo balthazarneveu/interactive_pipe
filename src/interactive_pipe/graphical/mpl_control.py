@@ -38,7 +38,7 @@ class FloatSliderMatplotlibControl(SliderMatplotlibControl):
 
 class BoolCheckButtonMatplotlibControl(BaseControl):
     def check_control_type(self):
-        pass
+        assert self.ctrl._type == bool
 
     def create(self):
         current_state = [self.ctrl.value_default]
@@ -51,7 +51,7 @@ class BoolCheckButtonMatplotlibControl(BaseControl):
 
 class StringRadioButtonMatplotlibControl(BaseControl):
     def check_control_type(self):
-        pass
+        assert self.ctrl._type == str
 
     def create(self):
         options = self.ctrl.value_range

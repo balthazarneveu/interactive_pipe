@@ -1,20 +1,27 @@
+**Version 0.3**
+
 # Concept
 - Develop your algorithm while debugging with plots, while checking robustness & continuity to parameters change
 - Tune your algorithms and save your parameters for later batch processing
 - Ready to batch under the hood, the processing engine can be ran without GUI (therefore allowing to use the same code for tuning & batch processing if needed).
 
+# Setup
+`pip3 install -i https://test.pypi.org/simple/ interactive-pipe`   *:x: not officially on PyPi yet*
 
 # Status
-- :x: not on PyPi yet
 - supported backends 
-    - :ok: pyQt/pySide 
-    - :hammer: matplotlib
-    - :hammer: ipywidget for jupyter notebooks
+    - :ok: `gui='qt'` pyQt/pySide 
+    - :ok: `gui='mpl'` matplotlib
+    - :ok: `gui='nb'`  ipywidget for jupyter notebooks  
 - tested platforms
     - :ok: Linux (Ubuntu / KDE Neon)
     - :ok: RapsberryPi
+    - :ok: On google collab (use `gui='nb'`)
 
 # Tutorial
+*Since ipywidgets in notebooks are supported, the tutorial is also available in a [google collab notebook](https://colab.research.google.com/drive/1PZn8P_5TABVCugT3IcLespvZG-gxnFbO?usp=sharing)*
+
+
 
 ## Ultra short code
 Let's define 3 image processing very basic filters `exposure`, `black_and_white` & `blend`.
@@ -325,12 +332,15 @@ You should see a GUI pop now!
 
 
 # Roadmap and todos
-- Bugfixes: 
-    - matplotlib redraw/refresh when clicks on buttons
-    - matplotlib correct canvas proportions
+Want to contribute or interested in adding new features? Enter a new [Github issue](https://github.com/balthazarneveu/interactive_pipe/issues)
 - Routing mechanism based on keys rather than indexes (switch from list to dict)
 - Backport previous features
     - 2D signal plots & signal class
-    - jupyter widgets backend
     - keyboard sliders press
-    - R to reset slider 
+    - R to reset slider
+- Advanced feature
+    - Webcam based "slider" for dropdown menu (like "elephant" will trigget if an elephant is magically detected on the webcam)
+    - Animations/While loops/Video source (Time slider)
+- Exploratory backends
+    - Create a [textual](https://github.com/Textualize/textual) backend for simplified GUI (probably no images displayed)
+    - Create a [Kivy](https://kivy.org/) backend
