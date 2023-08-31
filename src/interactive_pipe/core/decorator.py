@@ -66,6 +66,8 @@ def interactive_pipeline(gui=None, **kwargs_pipe) -> Union[HeadlessPipeline, Int
             from interactive_pipe.graphical.qt_gui import InteractivePipeQT as InteractivePipeGui   
         elif gui == "mpl":
             from interactive_pipe.graphical.mpl_gui import InteractivePipeMatplotlib as InteractivePipeGui
+        elif gui == "nb":
+            from interactive_pipe.graphical.nb_gui import InteractivePipeJupyter as InteractivePipeGui
         else:
             raise NotImplementedError(f"Gui {gui} not available")
         gui_pipeline = InteractivePipeGui(pipeline=headless_pipeline)
