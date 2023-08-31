@@ -105,6 +105,9 @@ class Control():
         else:
             self.update_param_func = None
         
+        self.parameter_name_to_connect = parameter_name_to_connect
+        self.filter_to_connect = filter_to_connect
+        
 
     def check_value(self, value):
         if isinstance(value, int) and self._type == float:
@@ -154,3 +157,5 @@ class Control():
             logging.info(f"update filter {filter.name} - param {parameter_name} - value {val}")
             filter.values = {parameter_name: val}
         self.update_param_func = update_param_func
+        self.parameter_name_to_connect = parameter_name
+        self.filter_to_connect = filter
