@@ -4,7 +4,7 @@ from interactive_pipe.core.control import Control
 from typing import List
 import  logging
 from interactive_pipe.graphical.mpl_control import ControlFactory
-
+import numpy as np
 
 class InteractivePipeMatplotlib(InteractivePipeGUI):
     def init_app(self, **kwargs):
@@ -50,11 +50,12 @@ class MainWindow(InteractivePipeWindow):
 
     def update_parameter(self, idx, value):
         self.ctrl[idx].update(value)
+        if self.ctrl[idx]._type == bool or self.ctrl[idx]._type == str:
+            self.need_redraw = True
         self.refresh()
     
 
     def add_image_placeholder(self, row, col):
-        import numpy as np
         nrows, ncols = np.array(self.image_canvas).shape
         ax_img = self.fig.add_subplot(nrows, ncols, row * ncols + col + 1)
 
@@ -75,12 +76,14 @@ class MainWindow(InteractivePipeWindow):
 
 
     def refresh(self):
-        self.need_redraw = False
+        if not hasattr(self, "need_redraw"):
+            self.need_redraw = False
         if self.pipeline is not None:
             out = self.pipeline.run()
             self.refresh_display(out)
         if self.need_redraw:
             plt.draw()
+        self.need_redraw = False
     
     def convert_image(self, img):
         return img
