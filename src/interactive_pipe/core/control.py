@@ -3,6 +3,7 @@ from copy import deepcopy
 from abc import abstractmethod
 from interactive_pipe.core.filter import FilterCore
 from pathlib import Path
+import logging
 
 class Control():
     counter = 0
@@ -150,6 +151,6 @@ class Control():
     
     def connect_filter(self, filter: FilterCore, parameter_name):
         def update_param_func(val):
-            print(f"update filter {filter.name} - param {parameter_name} - value {val}")
+            logging.info(f"update filter {filter.name} - param {parameter_name} - value {val}")
             filter.values = {parameter_name: val}
         self.update_param_func = update_param_func
