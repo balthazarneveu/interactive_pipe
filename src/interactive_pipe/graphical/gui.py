@@ -31,8 +31,10 @@ class InteractivePipeGUI():
         return results
 
 class InteractivePipeWindow():
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, style=None, **kwargs) -> None:
         self.image_canvas = None
+        if style is not None:
+            logging.info("no support for style in Qt backend")
 
     def add_image_placeholder(self, row, col):
         raise NotImplementedError

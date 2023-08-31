@@ -109,7 +109,7 @@ class InteractivePipeQT(InteractivePipeGUI):
 
 
 class MainWindow(QWidget, InteractivePipeWindow):
-    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline=None, fullscreen=False, width=None, center=True, **kwargs):
+    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline=None, fullscreen=False, width=None, center=True, style=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.pipeline = pipeline
         self.pipeline.global_params["__window"] = self
