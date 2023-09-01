@@ -4,9 +4,11 @@ from interactive_pipe.data_objects.parameters import Parameters
 import logging
 import numpy as np
 from copy import deepcopy
+from typing import Callable
 
 
 class InteractivePipeGUI():
+    """Interactive pipe with a graphical user interface"""
     def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", custom_end=lambda :None, audio=False, **kwargs) -> None:
         self.pipeline = pipeline
         self.custom_end = custom_end
@@ -17,6 +19,7 @@ class InteractivePipeGUI():
         self.controls = controls
         self.pipeline.global_params["__app"] = self
         self.pipeline.global_params["__pipeline"] = self.pipeline
+        self.key_bindings = {}
         self.init_app(**kwargs)
         
     
@@ -25,25 +28,6 @@ class InteractivePipeGUI():
     
     def run(self):
         raise NotImplementedError
-    
-    def reset_parameters(self):
-        logging.debug("Reset parameters")
-    
-    def close(self):
-        logging.debug("Closing gui")
-
-    def load_parameters(self):
-        pth = Parameters.check_path(Parameters.prompt_file())
-        self.pipeline.import_tuning(pth)
-    def print_parameters(self):
-        print(self.pipeline.__repr__())
-    
-    def save_images(self):
-        pth = Image.check_path(Image.prompt_file(), load=False)
-        self.pipeline.save(pth, data_wrapper_fn=lambda im:Image(im), save_entire_buffer=True)
-
-    def help(self):
-        print(self.__doc__)
 
     def __call__(self, *args, parameters={}, **kwargs) -> None:
         self.pipeline.parameters = parameters
@@ -52,6 +36,43 @@ class InteractivePipeGUI():
         results = self.run()
         return results
 
+    def bind_key(self, key, func: Callable):
+        self.key_bindings[key] = func
+
+
+    # ---------------------------------------------------------------------
+    def reset_parameters(self):
+        """reset parameters"""
+        logging.debug("Reset parameters")
+    
+    def close(self):
+        """quit"""
+        logging.debug("Closing gui")
+    
+    def save_parameters(self):
+        """export parameters dictionary to a yaml/json file"""
+        self.pipeline.export_tuning()
+
+    def load_parameters(self):
+        """import parameters dictionary from a yaml/json file on disk"""
+        pth = Parameters.check_path(Parameters.prompt_file())
+        self.pipeline.import_tuning(pth)
+    
+    def print_parameters(self):
+        """print parameters dictionary in the console"""
+        print(self.pipeline.__repr__())
+    
+    def save_images(self):
+        """save images to disk"""
+        pth = Image.check_path(Image.prompt_file(), load=False)
+        self.pipeline.save(pth, data_wrapper_fn=lambda im:Image(im), save_entire_buffer=True)
+
+    def help(self):
+        """print this help in the console"""
+        for key, func in self.key_bindings.items():
+            print(f"{key}: {func.__doc__}")
+
+    # ---------------------------------------------------------------------
 class InteractivePipeWindow():
     def __init__(self, *args, style=None, **kwargs) -> None:
         self.image_canvas = None

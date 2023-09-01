@@ -9,18 +9,24 @@ from interactive_pipe.graphical.mpl_window import MatplotlibWindow
 
 class InteractivePipeMatplotlib(InteractivePipeGUI):
     """Interactive image pipe. Use sliders to fine tune your parameters
-    W to write full resolution image to disk
-    R to reset parameters
-    I to print parameters dictionary in the command line
-    E to export parameters dictionary to a yaml/json file
-    O to import parameters dictionary from a yaml/json file
-    H show help
     """
     def init_app(self, fullscreen=False, **kwargs):
         self.fullscreen = fullscreen
         self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, **kwargs)
-
+        self.default_key_bindings()
     
+    def set_default_key_bindings(self):
+        self.key_bindings = {
+            "h": self.help,
+            "r": self.reset_parameters,
+            "w": self.save_images,
+            "o": self.load_parameters,
+            "e": self.save_parameters,
+            "i": self.print_parameters,
+            "q": self.close,
+            "h": self.help
+        }
+
     def run(self):
         assert self.pipeline._PipelineCore__initialized_inputs, "Did you forget to initialize the pipeline inputs?"
         self.window.refresh()
@@ -33,10 +39,11 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
                 logging.warning("Cannot maximize screen")
         self.window.fig.canvas.mpl_disconnect(
                 self.window.fig.canvas.manager.key_press_handler_id)
-        self.window.fig.canvas.mpl_connect('key_press_event', self.press)
+        self.window.fig.canvas.mpl_connect('key_press_event', self.on_press)
         plt.show()
     
     def load_parameters(self):
+        """import parameters dictionary from a yaml/json file on disk"""
         super().load_parameters()
         self.window.need_redraw = True
         # @TODO: issue #18 - https://github.com/balthazarneveu/interactive_pipe/issues/18
@@ -55,30 +62,21 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
         self.window.reset_sliders()
 
     def reset_parameters(self):
+        """reset sliders to default parameters"""
         super().reset_parameters()
         for widget_idx, widget in self.window.ctrl.items():
             widget.value = widget.value_default
         self.window.reset_sliders()
 
     def close(self):
+        """close GUI"""
         super().close()
         plt.close(self.window.fig)
 
-    def press(self, event):
-        if event.key == 'r':
-            self.reset_parameters()
-        elif event.key == 's' or event.key == 'w':
-            self.save_images()
-        elif event.key == 'o':
-            self.load_parameters()
-        elif event.key == 'e':
-            self.pipeline.export_tuning()
-        elif event.key == 'h':
-            print(self.__doc__)
-        elif event.key == 'i':
-            self.print_parameters()
-        elif event.key == 'q':
-            self.close()
+    def on_press(self, event):
+        for key, func in self.key_bindings.items():
+            if event.key == key:
+                func()
             
 
 
