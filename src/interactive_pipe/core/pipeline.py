@@ -20,7 +20,7 @@ class PipelineCore:
         for filter in self.filters:
             # link each filter to global params
             filter.global_params = self.global_params
-            filter.reset_cache()
+        self.reset_cache()
         self.__initialized_inputs = False
         self.inputs = inputs
         if outputs is None:
@@ -32,6 +32,10 @@ class PipelineCore:
         self.parameters = parameters
         self.results = None
         self.name = name
+
+    def reset_cache(self):
+        for filter in self.filters:
+            filter.reset_cache()
 
     def run(self) -> list:
         """Useful for standalone python acess without gui or disk write

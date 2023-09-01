@@ -19,8 +19,12 @@ class InteractivePipeGUI():
         self.controls = controls
         self.pipeline.global_params["__app"] = self
         self.pipeline.global_params["__pipeline"] = self.pipeline
+        if not "__events" in self.pipeline.global_params.keys():
+            self.pipeline.global_params["__events"]={}
         self.key_bindings = {}
+        self.context_key_bindings = {}
         self.init_app(**kwargs)
+        self.reset_context_events()
         
     
     def init_app(self):
@@ -38,6 +42,37 @@ class InteractivePipeGUI():
 
     def bind_key(self, key, func: Callable):
         self.key_bindings[key] = func
+
+
+    def bind_key_to_context(self, key:str, context_param_name: str, doc: str):
+        self.context_key_bindings[key] = {
+            'param_name': context_param_name,
+            'doc': doc
+        }
+        self.pipeline.global_params["__events"][context_param_name] = False #Not triggered!
+
+    def reset_context_events(self):
+        for evkey in self.pipeline.global_params["__events"].keys():
+            self.pipeline.global_params["__events"][evkey] = False
+
+    def on_press(self, key_pressed, refresh_func=None):
+        for key, func in self.key_bindings.items():
+            if key_pressed == key:
+                func() # a GUI level function like reset parameters or export images
+        is_any_event_triggered = False
+        for key, event_dict in self.context_key_bindings.items():
+            
+            event_triggered = key_pressed == key
+            self.pipeline.global_params["__events"][event_dict["param_name"]] = event_triggered
+            if event_triggered:
+                logging.info(f"TRIGGERED A KEY EVENT {key_pressed} - {event_dict['doc']}")
+                is_any_event_triggered = True
+        if is_any_event_triggered:
+            self.pipeline.reset_cache()
+            refresh_func()
+        self.reset_context_events()
+
+
 
 
     # ---------------------------------------------------------------------
@@ -70,9 +105,13 @@ class InteractivePipeGUI():
     def help(self):
         """print this help in the console"""
         for key, func in self.key_bindings.items():
-            print(f"{key}: {func.__doc__}")
+            print(f"[{key}]: {func.__doc__}")
+        for key_context, event_dict in self.context_key_bindings.items():
+            print(f"[{key_context}]: {event_dict['doc']} (context['__event'][{event_dict['param_name']}])")
 
     # ---------------------------------------------------------------------
+
+
 class InteractivePipeWindow():
     def __init__(self, *args, style=None, **kwargs) -> None:
         self.image_canvas = None

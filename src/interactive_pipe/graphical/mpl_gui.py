@@ -74,9 +74,13 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
         plt.close(self.window.fig)
 
     def on_press(self, event):
-        for key, func in self.key_bindings.items():
-            if event.key == key:
-                func()
+        super().on_press(event.key, refresh_func=self.refresh)
+    
+    def refresh(self):
+        # main GUI needs to be able to force the underlying window to refres
+        # in case of a special key press event!
+        self.window.need_redraw = True
+        self.window.refresh()
             
 
 
