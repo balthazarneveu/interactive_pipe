@@ -22,7 +22,7 @@ class BaseControl:
 
 class SliderMatplotlibControl(BaseControl):
     def create(self):
-        slider = Slider(self.ax_control, self.name, self.ctrl.value_range[0], self.ctrl.value_range[1], valinit=self.ctrl.value_default, valstep=1 if self.ctrl._type == int else None)
+        slider = Slider(self.ax_control, self.name, self.ctrl.value_range[0], self.ctrl.value_range[1], valinit=self.ctrl.value, valstep=1 if self.ctrl._type == int else None)
         slider.on_changed(lambda val: self.update_func(self.name, val))
         return slider
 
@@ -41,11 +41,11 @@ class BoolCheckButtonMatplotlibControl(BaseControl):
         assert self.ctrl._type == bool
 
     def create(self):
-        current_state = [self.ctrl.value_default]
+        current_state = [self.ctrl.value]
         def on_click(label):
             current_state[0] = not current_state[0]
             self.update_func(self.name, current_state[0])
-        checks = CheckButtons(self.ax_control, [self.name], [self.ctrl.value_default])
+        checks = CheckButtons(self.ax_control, [self.name], [self.ctrl.value])
         checks.on_clicked(on_click)
         return checks
 
@@ -55,7 +55,7 @@ class StringRadioButtonMatplotlibControl(BaseControl):
 
     def create(self):
         options = self.ctrl.value_range
-        radio = RadioButtons(self.ax_control, options, active=options.index(self.ctrl.value_default) if self.ctrl.value_default in options else None)
+        radio = RadioButtons(self.ax_control, options, active=options.index(self.ctrl.value) if self.ctrl.value in options else None)
         radio.on_clicked(lambda val: self.update_func(self.name, val))
         
         return radio

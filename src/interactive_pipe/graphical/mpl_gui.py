@@ -13,8 +13,8 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
     W to write full resolution image to disk
     R to reset parameters
     I to print parameters dictionary in the command line
-    E to export parameters dictionary to a yaml file
-    O to import parameters dictionary from a yaml file (sliders will not update)
+    E to export parameters dictionary to a yaml/json file
+    O to import parameters dictionary from a yaml/json file
     H show help
     """
     def init_app(self, fullscreen=False, **kwargs):
@@ -40,8 +40,10 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
     def press(self, event):
         if False:
             pass
-        # elif event.key == 'r':
-        #     self.resetsliders(forcereset=True, addslider=False)
+        elif event.key == 'r':
+            for widget_idx, widget in self.window.ctrl.items():
+                widget.value = widget.value_default
+            self.window.reset_sliders()
         elif event.key == 's' or event.key == 'w':
             pth = Image.check_path(Image.prompt_file(), load=False)
             self.pipeline.save(pth, data_wrapper_fn=lambda im:Image(im), save_entire_buffer=True)
@@ -63,7 +65,7 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
                             matched = True
                 assert matched, f"could not match widget {widget_idx} with parameter to connect {widget.parameter_name_to_connect}"
             print("------------")
-            self.window.refresh()
+            self.window.reset_sliders()
         elif event.key == 'e':
             self.pipeline.export_tuning()
         elif event.key == 'h':
@@ -80,13 +82,21 @@ class MainWindow(MatplotlibWindow):
         self.fig, self.ax = plt.subplots()
         plt.axis('off')
         self.init_sliders()
-        plt.subplots_adjust(left=0.04, top=1, bottom=self.top_of_sliders + 2*self.spacer, right=1-0.04)
-    
-    def init_sliders(self):
+        
+    def reset_sliders(self):
+        self.__wipe_sliders()
+        self.init_sliders()
+        self.refresh()
+
+    def __wipe_sliders(self):
+        for ax in self.axes_controls:
+            ax.remove()
+    def init_sliders(self, dry_run_only=False):
+        plt.subplots_adjust(left=0, top=1, bottom=0, right=1)
         # Compute the space needed for slider (dry_run) -> go down
         self.spacer = 0.005
         self.footer_space = 0.01
-        self.next_slider_position = self.next_button_position = 0
+        self.next_slider_position = self.next_button_position = 0.
         self.__init_sliders(self.controls, dry_run=True)
         # Then go back up.
         self.next_slider_position *= -1
@@ -94,7 +104,7 @@ class MainWindow(MatplotlibWindow):
         # Then go through the slider and create dedicated figures & widgets
         self.top_of_sliders = max(self.next_slider_position,  self.next_button_position)
         self.__init_sliders(self.controls)
-        
+        plt.subplots_adjust(left=0.04, top=1, bottom=self.top_of_sliders + 2*self.spacer, right=1-0.04)
 
     def __init_sliders(self, controls: List[Control], dry_run=False):
         if not dry_run:
@@ -102,6 +112,7 @@ class MainWindow(MatplotlibWindow):
             self.result_label = {}
             control_factory = ControlFactory()
             self.sliders_list = {}
+            self.axes_controls = []
         
         for ctrl in controls:
             slider_name = ctrl.name
@@ -122,6 +133,7 @@ class MainWindow(MatplotlibWindow):
                 ax_control = self.fig.add_axes([x_start, y_start, width, height])
                 if ctrl._type == bool:
                     ax_control.xaxis.set_visible(True)
+                self.axes_controls.append(ax_control)
                 slider_instance = control_factory.create_control(ctrl, self.update_parameter, ax_control=ax_control)
                 slider = slider_instance.create()
                 self.sliders_list[slider_name] = slider # needed to keep the object alive
