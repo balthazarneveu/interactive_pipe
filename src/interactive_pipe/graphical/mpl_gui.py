@@ -13,7 +13,7 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
     def init_app(self, fullscreen=False, **kwargs):
         self.fullscreen = fullscreen
         self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, **kwargs)
-        self.default_key_bindings()
+        self.set_default_key_bindings()
     
     def set_default_key_bindings(self):
         self.key_bindings = {
