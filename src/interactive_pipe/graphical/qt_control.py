@@ -196,5 +196,5 @@ class TickBoxControl(BaseControl):
         return hbox
 
     def reset(self):
-        self.control_widget.setChecked(self.ctrl.value_default)
+        self.control_widget.setChecked(self.ctrl.value)
     

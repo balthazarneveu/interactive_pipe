@@ -49,8 +49,9 @@ class InteractivePipeQT(InteractivePipeGUI):
         self.app = QApplication(sys.argv)
         if self.audio:
             self.audio_player()
-        self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, **kwargs)
+        self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, main_gui=self, **kwargs)
         self.pipeline.global_params["__pipeline"] = self.pipeline
+        self.set_default_key_bindings()
         
     def run(self):
         assert self.pipeline._PipelineCore__initialized_inputs, "Did you forget to initialize the pipeline inputs?"
@@ -58,6 +59,48 @@ class InteractivePipeQT(InteractivePipeGUI):
         ret = self.app.exec()
         self.custom_end()
         return self.pipeline.results
+
+
+    def set_default_key_bindings(self):
+        self.key_bindings = {
+            "h": self.help,
+            "r": self.reset_parameters,
+            "w": self.save_images,
+            "o": self.load_parameters,
+            "e": self.save_parameters,
+            "i": self.print_parameters,
+            "q": self.close,
+            "h": self.help
+        }
+    def close(self):
+        """close GUI"""
+        self.app.quit()
+    
+
+
+    def reset_parameters(self):
+        """reset sliders to default parameters"""
+        super().reset_parameters()
+        for widget_idx, ctrl in self.window.ctrl.items():
+            ctrl.value = ctrl.value_default
+        self.window.reset_sliders()
+
+    
+    def load_parameters(self):
+        """import parameters dictionary from a yaml/json file on disk"""
+        super().load_parameters()
+        for widget_idx, widget in self.window.ctrl.items():
+            matched = False
+            for filtname, params in self.pipeline.parameters.items():
+                for param_name in params.keys():
+                    if param_name == widget.parameter_name_to_connect:
+                        print(f"MATCH & update {filtname} {widget_idx} with {self.pipeline.parameters[filtname][param_name]}")
+                        self.window.ctrl[widget_idx].update(self.pipeline.parameters[filtname][param_name])
+                        matched = True
+            assert matched, f"could not match widget {widget_idx} with parameter to connect {widget.parameter_name_to_connect}"
+        print("------------")
+        self.window.reset_sliders()
+    
 
     ### ---------------------------- AUDIO FEATURE ----------------------------------------
     def audio_player(self):
@@ -109,9 +152,10 @@ class InteractivePipeQT(InteractivePipeGUI):
 
 
 class MainWindow(QWidget, InteractivePipeWindow):
-    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline=None, fullscreen=False, width=None, center=True, style=None, **kwargs):
+    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline=None, fullscreen=False, width=None, center=True, style=None, main_gui=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.pipeline = pipeline
+        self.main_gui = main_gui
         self.pipeline.global_params["__window"] = self
         self.setWindowTitle(name)
         if width is not None:
@@ -154,14 +198,19 @@ class MainWindow(QWidget, InteractivePipeWindow):
             self.showFullScreen()
         self.show()
 
+    def keyPressEvent(self, event):
+        self.main_gui.on_press(event.text(), refresh_func=self.refresh)
+
     def init_sliders(self, controls: List[Control]):
         self.ctrl = {}
         self.result_label = {}
+        self.widget_list = {}
         control_factory = ControlFactory()
         for ctrl in controls:
             slider_name = ctrl.name
             slider_instance = control_factory.create_control(ctrl, self.update_parameter)
             slider = slider_instance.create()
+            self.widget_list[slider_name] = slider_instance
             self.ctrl[slider_name] = ctrl
             self.layout_obj.addRow(slider)
             self.result_label[slider_name] = QLabel('', self)
@@ -208,3 +257,8 @@ class MainWindow(QWidget, InteractivePipeWindow):
         if self.pipeline is not None:
             out = self.pipeline.run()
             self.refresh_display(out)
+    
+    def reset_sliders(self):
+        for widget_idx, ctrl in self.ctrl.items():
+            self.widget_list[widget_idx].reset()
+        self.refresh()
