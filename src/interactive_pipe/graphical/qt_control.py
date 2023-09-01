@@ -81,9 +81,14 @@ class IntSliderControl(BaseControl):
         self.control_widget = slider
         return self.control_widget
 
+    def reset(self):
+        self.control_widget.setValue(self.ctrl.value)
+
 class FloatSliderControl(BaseControl):
     def check_control_type(self):
         assert self.ctrl._type == float
+    def convert_value_to_int(self, val):
+        return int(val*100)
 
     def create(self):
         # Create a horizontal layout to hold the slider and line edit
@@ -91,8 +96,8 @@ class FloatSliderControl(BaseControl):
 
         # Create the slider with integer range and step size
         slider = QSlider(Qt.Orientation.Horizontal, self)
-        slider.setRange(int(self.ctrl.value_range[0] * 100), int(self.ctrl.value_range[1] * 100))
-        slider.setValue(int(self.ctrl.value_default * 100))
+        slider.setRange(self.convert_value_to_int(self.ctrl.value_range[0]), self.convert_value_to_int(self.ctrl.value_range[1]))
+        slider.setValue(self.convert_value_to_int(self.ctrl.value_default))
         slider.setSingleStep(5)
         slider.setPageStep(10)
         slider.setTickPosition(QSlider.TickPosition.TicksAbove)
@@ -104,8 +109,10 @@ class FloatSliderControl(BaseControl):
         hbox.addWidget(slider)
 
         self.control_widget = slider
-
         return hbox
+    
+    def reset(self):
+        self.control_widget.setValue(self.convert_value_to_int(self.ctrl.value))
 
 
 class IconButtonsControl(BaseControl):
@@ -120,7 +127,7 @@ class IconButtonsControl(BaseControl):
         
         # Create a horizontal layout to hold the icon buttons
         hbox = QHBoxLayout()
-
+        self.control_widgets = []
         # Iterate over the ctrl's value range to create buttons with icons
         for idx, icon_name in enumerate(self.ctrl.value_range):
             btn = QPushButton(self)
@@ -131,10 +138,13 @@ class IconButtonsControl(BaseControl):
 
             # Connect the button's clicked signal to some update function
             btn.clicked.connect(partial(self.update_func, self.name, idx))
-            
+            self.control_widgets.append(btn)
             hbox.addWidget(btn)
 
         return hbox
+    def reset(self):
+        for  widget in self.control_widgets:
+            pass
 
 class DropdownMenuControl(BaseControl):
     def check_control_type(self):
@@ -147,22 +157,25 @@ class DropdownMenuControl(BaseControl):
         hbox = QHBoxLayout()
 
         # Create the combo box
-        combo_box = QComboBox(self)
-        
+        self.control_widget = QComboBox(self)
         # Add items from the ctrl's value range to the combo box
         for item in self.ctrl.value_range:
-            combo_box.addItem(item)
-        
-        # Set the default value for the combo box
-        index = combo_box.findText(self.ctrl.value_default)
-        if index >= 0:
-            combo_box.setCurrentIndex(index)
+            self.control_widget.addItem(item)
+        self.reset()
         
         # Connect the combo box's value changed signal to some update function if needed
-        combo_box.currentIndexChanged.connect(partial(self.update_func, self.name))
+        self.control_widget.currentIndexChanged.connect(partial(self.update_func, self.name))
         # Add the combo box to the horizontal layout
-        hbox.addWidget(combo_box)
+        hbox.addWidget(self.control_widget)
         return hbox
+
+    def reset(self):
+        index = self.control_widget.findText(self.ctrl.value)
+        if index >= 0:
+            self.control_widget.setCurrentIndex(index)
+        self.control_widget.setCurrentIndex(index)
+
+
 
 
 class TickBoxControl(BaseControl):
@@ -172,12 +185,16 @@ class TickBoxControl(BaseControl):
         hbox = QHBoxLayout()
 
         # Create the checkbox
-        checkbox = QCheckBox(self.name, self)
+        self.control_widget = QCheckBox(self.name, self)
         
         # Set the default state for the checkbox based on ctrl's default value
-        checkbox.setChecked(self.ctrl.value_default)
-        checkbox.stateChanged.connect(partial(self.update_func, self.ctrl.name))
+        self.reset()
+        self.control_widget.stateChanged.connect(partial(self.update_func, self.ctrl.name))
 
         # Add the checkbox to the horizontal layout
-        hbox.addWidget(checkbox)
+        hbox.addWidget(self.control_widget)
         return hbox
+
+    def reset(self):
+        self.control_widget.setChecked(self.ctrl.value_default)
+    
