@@ -1,7 +1,10 @@
 from interactive_pipe.headless.pipeline import HeadlessPipeline
+from interactive_pipe.data_objects.image import Image
+from interactive_pipe.data_objects.parameters import Parameters
 import logging
 import numpy as np
 from copy import deepcopy
+
 
 class InteractivePipeGUI():
     def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", custom_end=lambda :None, audio=False, **kwargs) -> None:
@@ -23,6 +26,25 @@ class InteractivePipeGUI():
     def run(self):
         raise NotImplementedError
     
+    def reset_parameters(self):
+        logging.debug("Reset parameters")
+    
+    def close(self):
+        logging.debug("Closing gui")
+
+    def load_parameters(self):
+        pth = Parameters.check_path(Parameters.prompt_file())
+        self.pipeline.import_tuning(pth)
+    def print_parameters(self):
+        print(self.pipeline.__repr__())
+    
+    def save_images(self):
+        pth = Image.check_path(Image.prompt_file(), load=False)
+        self.pipeline.save(pth, data_wrapper_fn=lambda im:Image(im), save_entire_buffer=True)
+
+    def help(self):
+        print(self.__doc__)
+
     def __call__(self, *args, parameters={}, **kwargs) -> None:
         self.pipeline.parameters = parameters
         self.pipeline.parameters = self.pipeline.parameters_from_keyword_args(**kwargs)

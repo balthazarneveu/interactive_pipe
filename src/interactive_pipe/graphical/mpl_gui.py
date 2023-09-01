@@ -1,12 +1,11 @@
-from interactive_pipe.graphical.gui import InteractivePipeGUI, InteractivePipeWindow
+from interactive_pipe.graphical.gui import InteractivePipeGUI
 import matplotlib.pyplot as plt
 from interactive_pipe.core.control import Control
 from typing import List
 import  logging
 from interactive_pipe.graphical.mpl_control import ControlFactory
 from interactive_pipe.graphical.mpl_window import MatplotlibWindow
-from interactive_pipe.data_objects.image import Image
-from interactive_pipe.data_objects.parameters import Parameters
+
 
 class InteractivePipeMatplotlib(InteractivePipeGUI):
     """Interactive image pipe. Use sliders to fine tune your parameters
@@ -36,44 +35,51 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
                 self.window.fig.canvas.manager.key_press_handler_id)
         self.window.fig.canvas.mpl_connect('key_press_event', self.press)
         plt.show()
+    
+    def load_parameters(self):
+        super().load_parameters()
+        self.window.need_redraw = True
+        # @TODO: issue #18 - https://github.com/balthazarneveu/interactive_pipe/issues/18
+        # Requires mapping the parameters back into each Control objects
+        print("------------")
+        for widget_idx, widget in self.window.ctrl.items():
+            matched = False
+            for filtname, params in self.pipeline.parameters.items():
+                for param_name in params.keys():
+                    if param_name == widget.parameter_name_to_connect:
+                        print(f"MATCH & update {filtname} {widget_idx} with {self.pipeline.parameters[filtname][param_name]}")
+                        self.window.ctrl[widget_idx].update(self.pipeline.parameters[filtname][param_name])
+                        matched = True
+            assert matched, f"could not match widget {widget_idx} with parameter to connect {widget.parameter_name_to_connect}"
+        print("------------")
+        self.window.reset_sliders()
+
+    def reset_parameters(self):
+        super().reset_parameters()
+        for widget_idx, widget in self.window.ctrl.items():
+            widget.value = widget.value_default
+        self.window.reset_sliders()
+
+    def close(self):
+        super().close()
+        plt.close(self.window.fig)
 
     def press(self, event):
-        if False:
-            pass
-        elif event.key == 'r':
-            for widget_idx, widget in self.window.ctrl.items():
-                widget.value = widget.value_default
-            self.window.reset_sliders()
+        if event.key == 'r':
+            self.reset_parameters()
         elif event.key == 's' or event.key == 'w':
-            pth = Image.check_path(Image.prompt_file(), load=False)
-            self.pipeline.save(pth, data_wrapper_fn=lambda im:Image(im), save_entire_buffer=True)
+            self.save_images()
         elif event.key == 'o':
-            pth = Parameters.check_path(Parameters.prompt_file())
-            self.pipeline.import_tuning(pth)
-            self.window.pipeline = self.pipeline
-            self.window.need_redraw = True
-            # Requires mapping the parameters back into each Control objects
-            print("------------")
-            # @TODO: issue #18 - https://github.com/balthazarneveu/interactive_pipe/issues/18
-            for widget_idx, widget in self.window.ctrl.items():
-                matched = False
-                for filtname, params in self.pipeline.parameters.items():
-                    for param_name in params.keys():
-                        if param_name == widget.parameter_name_to_connect:
-                            print(f"MATCH & update {filtname} {widget_idx} with {self.pipeline.parameters[filtname][param_name]}")
-                            self.window.ctrl[widget_idx].update(self.pipeline.parameters[filtname][param_name])
-                            matched = True
-                assert matched, f"could not match widget {widget_idx} with parameter to connect {widget.parameter_name_to_connect}"
-            print("------------")
-            self.window.reset_sliders()
+            self.load_parameters()
         elif event.key == 'e':
             self.pipeline.export_tuning()
         elif event.key == 'h':
             print(self.__doc__)
         elif event.key == 'i':
-            print(self.pipeline.__repr__())
+            self.print_parameters()
         elif event.key == 'q':
-            plt.close(self.window.fig)
+            self.close()
+            
 
 
 class MainWindow(MatplotlibWindow):
@@ -97,16 +103,16 @@ class MainWindow(MatplotlibWindow):
         self.spacer = 0.005
         self.footer_space = 0.01
         self.next_slider_position = self.next_button_position = 0.
-        self.__init_sliders(self.controls, dry_run=True)
+        self.__init_sliders(dry_run=True)
         # Then go back up.
         self.next_slider_position *= -1
         self.next_button_position *= -1
         # Then go through the slider and create dedicated figures & widgets
         self.top_of_sliders = max(self.next_slider_position,  self.next_button_position)
-        self.__init_sliders(self.controls)
+        self.__init_sliders()
         plt.subplots_adjust(left=0.04, top=1, bottom=self.top_of_sliders + 2*self.spacer, right=1-0.04)
 
-    def __init_sliders(self, controls: List[Control], dry_run=False):
+    def __init_sliders(self, dry_run=False):
         if not dry_run:
             self.ctrl = {}
             self.result_label = {}
@@ -114,7 +120,7 @@ class MainWindow(MatplotlibWindow):
             self.sliders_list = {}
             self.axes_controls = []
         
-        for ctrl in controls:
+        for ctrl in self.controls:
             slider_name = ctrl.name
             if ctrl._type == bool or ctrl._type == str:
                 x_start = 0.01
