@@ -1,4 +1,4 @@
-from typing import List, Optional, Callable, Dict
+from typing import List, Optional, Dict
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.engine import PipelineEngine
 import logging
@@ -89,4 +89,63 @@ class PipelineCore:
         else:
             self.__initialized_inputs = False
 
+    def graph_representation(self, path=None, ortho=True):
+        def find_previous_key(searched_out):
+            last_filter_found = None
+            inp_name = None
+            for inp in input_indexes:
+                if searched_out == inp:
+                    last_filter_found = f"{inp}"
+                    inp_name = f"{inp}"
+            for prev_idx in range(idx):
+                filt_prev = self.filters[prev_idx]
+                for inp in filt_prev.outputs:
+                    if searched_out == inp:
+                        last_filter_found = filt_prev.name
+                        inp_name = f"{inp}"
+            return last_filter_found, inp_name
+        def edge_label(label):
+            return f"[{label}]"
+        try:
+            import graphviz
+        except Exception as exc:
+            logging.warning("cannot generate pipeline graph, need to install graphviz")
+            logging.warning(exc)
+            return None
+
+        dot = graphviz.Digraph(comment=self.name)
+        if ortho:
+            dot.attr(splines="ortho")
         
+        
+        with dot.subgraph(name='cluster_in') as inputs_graph:
+            inputs_graph.attr(style="dashed", color="gray", label="Inputs")
+            input_indexes = list(range(len(self.inputs)))
+            for inp in input_indexes:
+                inputs_graph.node(f"{inp}", f"🖴 {inp}",  shape="rect", color="gray", styleItem="dash")
+
+        with dot.subgraph(name='cluster_filters') as filter_graphs:
+            # filter_graphs.attr(color="transparent",)
+            filter_graphs.attr(color="gray", style="dashed", label=self.name)
+            for filt in self.filters:
+                all_params = []
+                for pa_name, pa_val in filt.values.items():
+                    all_params.append(f"\n✔️ {pa_name}")
+                filter_graphs.node(filt.name, f"⚙️ {filt.name}" + ("".join(all_params)), shape="rect")        
+            for idx, filt in enumerate(self.filters):
+                if filt.outputs is None:
+                    continue
+                for out in filt.inputs:
+                    last_filter_found, inp_name = find_previous_key(out)
+                    if last_filter_found is not None:
+                        dot.edge(last_filter_found, filt.name, label=edge_label(inp_name))
+        with dot.subgraph(name='cluster_out') as out_graph:
+            out_graph.attr(style="dashed", color="gray", label="Outputs")
+            for out in self.outputs:
+                out_graph.node(f"out {out}", f"🛢️ {out}", shape="rect", color="gray")
+        for out in self.outputs:
+            last_filter_found, inp_name = find_previous_key(out)
+            dot.edge(last_filter_found, f"out {out}", label=edge_label(inp_name))
+        if path is not None:
+            dot.render(path)  
+        return dot
