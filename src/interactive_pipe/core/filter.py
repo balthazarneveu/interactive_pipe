@@ -1,14 +1,9 @@
-import inspect
 import logging
-import sys
-import time
-import traceback
 from copy import deepcopy
 from typing import Callable, Dict, List, Optional, Tuple
 
 from interactive_pipe.core.cache import CachedResults
-from interactive_pipe.core.sliders import Slider
-from interactive_pipe.core.graph import analyze_apply_fn_signature
+from interactive_pipe.core.signature import analyze_apply_fn_signature
 
 class PureFilter:
     def __init__(self, apply_fn: Optional[Callable] = None, name: Optional[str] = None, default_params: dict = {}):

@@ -3,9 +3,7 @@ import sys
 import time
 import traceback
 from copy import deepcopy
-from typing import Dict, List, Optional, Callable, Tuple
-from interactive_pipe.core.sliders import Slider
-import inspect
+from typing import List
 from interactive_pipe.core.cache import CachedResults
 from interactive_pipe.core.filter import FilterCore
 

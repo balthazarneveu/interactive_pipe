@@ -2,6 +2,8 @@ import ast
 import inspect
 import logging
 from typing import List, Callable, Tuple, Optional, Union
+from interactive_pipe.core.filter import FilterCore
+from interactive_pipe.core.signature import analyze_apply_fn_signature
 
 def get_name(node: ast.NodeVisitor) -> Union[str, List[str], None]:
     if isinstance(node, ast.Name):
@@ -78,18 +80,3 @@ def get_call_graph(func:Callable, global_context=None) -> dict:
     }
 
     return graph
-
-def analyze_apply_fn_signature(apply_fn: Callable) -> Tuple[dict, dict]:
-    signature = inspect.signature(apply_fn)
-    keyword_args = {
-        k: v.default
-        for k, v in signature.parameters.items()
-        if v.default is not inspect.Parameter.empty
-    }
-
-    positional_args = [
-        k
-        for k, v in signature.parameters.items()
-        if v.default is inspect.Parameter.empty
-    ]
-    return positional_args, keyword_args
