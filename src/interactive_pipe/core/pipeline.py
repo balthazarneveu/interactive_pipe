@@ -82,7 +82,12 @@ class PipelineCore:
     @inputs.setter
     def inputs(self, inputs: list):
         if inputs is not None:
-            self.__inputs = list(inputs) if not isinstance(inputs, list) else inputs
+            if isinstance(inputs, dict):
+                self.__inputs = inputs
+            elif not isinstance(inputs, list):
+                self.__inputs = list(inputs)
+            else:
+                self.__inputs = inputs
             if len(self.__inputs) == 0:
                 self.__inputs = None # similar to having no input, but explicitly saying that we have initialized it.
             self.__initialized_inputs = True
@@ -120,8 +125,12 @@ class PipelineCore:
         dot = graphviz.Digraph(comment=self.name)
         if ortho:
             dot.attr(splines="ortho")
-        
-        input_indexes = list(range(len(self.inputs)))
+        if isinstance(self.inputs, dict):
+            input_indexes = self.inputs.keys()
+        elif isinstance(self.inputs, list) or isinstance(self.inputs, tuple):
+            input_indexes = list(range(len(self.inputs)))
+        else:
+            raise TypeError("inputs shall be a dictionary or a list/tuple")
         with dot.subgraph(name='cluster_in') as inputs_graph:
             inputs_graph.attr(style="dashed", color="gray", label="Inputs")
             for inp in input_indexes:

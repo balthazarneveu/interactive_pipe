@@ -192,11 +192,16 @@ class HeadlessPipeline(PipelineCore):
         return new_param_dict
 
 
-    def __call__(self, *inputs, parameters={}, **kwargs) -> Any:
-        # @TODO: we could check that the number of inputs matches what's expected here.
-        self.inputs = list(inputs)
-        if len(self.inputs) == 0:
-            self.inputs = None
+    def __call__(self, *inputs_tuple, inputs=None, parameters={}, **kwargs) -> Any:
+        if inputs is not None:
+            assert isinstance(inputs, dict)
+            self.inputs = inputs
+            logging.info(f"Dict style inputs {list(inputs.keys())}, {self.inputs}")
+        else:
+            # @TODO: we could check that the number of inputs matches what's expected here.
+            self.inputs = list(inputs_tuple)
+            if len(self.inputs) == 0:
+                self.inputs = None
         self.parameters = parameters
         self.parameters = self.parameters_from_keyword_args(**kwargs)
         return self.run()
