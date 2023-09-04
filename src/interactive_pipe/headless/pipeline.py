@@ -120,6 +120,8 @@ class HeadlessPipeline(PipelineCore):
     def __repr__(self):
         """Print tuning parameters
         """
+        for filt in self.filters:
+            print(filt)
         ret = "\n{\n"
         for sl in self.filters:
             # ret += "\"%s\"" % sl.name + \

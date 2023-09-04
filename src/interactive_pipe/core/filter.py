@@ -113,10 +113,8 @@ class FilterCore(PureFilter):
             logging.debug(f"need to return a tuple when you have a single element out {type(out)}")
             return (out,)
     def __repr__(self) -> str:
-        descr = "%s\n" % self.name
-        if not (self.inputs == [0] and self.outputs == [0]):
-            descr += "(" + (",".join(["%d" % it for it in self.inputs])) + ")"
-            descr += "->" + \
-                "(" + ",".join(["%d" % it for it in self.outputs]) + ")\n"
-        descr += "\n"
+        descr = f"{self.name}: "
+        descr += "(" + (", ".join([f"{it}" for it in self.inputs])) + ")"
+        descr += " -> " + "(" + ", ".join([f"{it}" for it in self.outputs]) + ")"
+        # descr += "\n"
         return descr
