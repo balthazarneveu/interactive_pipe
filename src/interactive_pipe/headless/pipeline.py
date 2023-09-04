@@ -157,12 +157,13 @@ class HeadlessPipeline(PipelineCore):
         if save_entire_buffer:
             output_indexes = None # you may force specific buffer index you'd like to save
         result_full = super().run()
+        if result_full is None:
+            return None
         if not isinstance(path, Path):
             path = Path(path)
         self.export_tuning(path.with_suffix(".yaml"))
-        if not isinstance(result_full, list) or isinstance(result_full, tuple):
-            result_full = [result_full]
-        for num, res_current in enumerate(result_full):
+        assert isinstance(result_full, dict)
+        for num, res_current in result_full.items():
             if output_indexes is not None and not num in output_indexes:
                 continue
             current_name = path.with_name(
