@@ -24,7 +24,8 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
             "e": self.save_parameters,
             "i": self.print_parameters,
             "q": self.close,
-            "h": self.help
+            "h": self.help,
+            "g": self.display_graph
         }
 
     def run(self):

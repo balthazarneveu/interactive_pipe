@@ -101,7 +101,9 @@ class InteractivePipeGUI():
         """save images to disk"""
         pth = Image.check_path(Image.prompt_file(), load=False)
         self.pipeline.save(pth, data_wrapper_fn=lambda im:Image(im), save_entire_buffer=True)
-
+    def display_graph(self):
+        """display execution graph"""
+        self.pipeline.graph_representation(view=True)
     def help(self):
         """print this help in the console"""
         for key, func in self.key_bindings.items():
