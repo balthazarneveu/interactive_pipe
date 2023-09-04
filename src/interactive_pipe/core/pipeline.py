@@ -90,17 +90,19 @@ class PipelineCore:
                     assert input_name in provided_keys, f"{input_name} is not among {provided_keys}"
                 self.__inputs = inputs
             elif isinstance(inputs, list) or isinstance(inputs, tuple):
-                # inputs is not a list
-                assert len(inputs) == len(self.inputs_routing)
+                # inputs is a list or a tuple
+                assert len(inputs) == len(self.inputs_routing), f"wrong amount of inputs\nprovided {len(inputs)} inputs vs expected:{len(self.inputs_routing)}"
                 self.__inputs = {}
                 for idx, input_name in enumerate(self.inputs_routing):
                     self.__inputs[input_name] = inputs[idx]
             else:
                 # single element
                 assert len(self.inputs_routing) == 1
-                self.__inputs[self.inputs_routing] = inputs
-            if len(self.__inputs) == 0:
+                self.__inputs = {self.inputs_routing[0]: inputs}
+            assert isinstance(self.__inputs, dict)
+            if len(self.__inputs.keys()) == 0:
                 self.__inputs = None # similar to having no input, but explicitly saying that we have initialized it.
             self.__initialized_inputs = True
         else:
             self.__initialized_inputs = False
+        self.reset_cache()
