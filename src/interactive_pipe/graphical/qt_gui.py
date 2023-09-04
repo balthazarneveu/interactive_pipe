@@ -33,8 +33,9 @@ if not PYQTVERSION:
 from interactive_pipe.core.control import Control
 from interactive_pipe.graphical.gui import InteractivePipeGUI, InteractivePipeWindow
 from interactive_pipe.graphical.qt_control import ControlFactory
+from interactive_pipe.graphical.keyboard import KeyboardSlider
 from interactive_pipe.headless.pipeline import HeadlessPipeline
-
+from functools import partial
 from typing import List
 import numpy as np
 
@@ -209,11 +210,21 @@ class MainWindow(QWidget, InteractivePipeWindow):
         control_factory = ControlFactory()
         for ctrl in controls:
             slider_name = ctrl.name
-            slider_instance = control_factory.create_control(ctrl, self.update_parameter)
-            slider = slider_instance.create()
-            self.widget_list[slider_name] = slider_instance
             self.ctrl[slider_name] = ctrl
-            self.layout_obj.addRow(slider)
+            if isinstance(ctrl, KeyboardSlider):
+                update_func = partial(self.key_update_parameter, slider_name, True)
+                update_func.__doc__ = f"decrease {ctrl.name}"
+                self.main_gui.bind_key(ctrl.keydown, update_func)
+                if ctrl.keyup is not None:
+                    update_func_up = partial(self.key_update_parameter, slider_name, False)
+                    update_func_up.__doc__ = f"increase {ctrl.name}"
+                    self.main_gui.bind_key(ctrl.keyup, update_func_up)
+            elif isinstance(ctrl, Control):
+                slider_instance = control_factory.create_control(ctrl, self.update_parameter)
+                slider = slider_instance.create()
+                self.widget_list[slider_name] = slider_instance
+                self.layout_obj.addRow(slider)
+            
             self.result_label[slider_name] = QLabel('', self)
             self.layout_obj.addRow(self.result_label[slider_name])   
             self.update_label(slider_name)
@@ -232,6 +243,14 @@ class MainWindow(QWidget, InteractivePipeWindow):
             self.ctrl[idx].update(value)
         else:
             raise NotImplementedError("{self.ctrl[idx]._type} not supported")
+        self.update_label(idx)
+        self.refresh()
+    
+    def key_update_parameter(self, idx, down):
+        if down:
+            self.ctrl[idx].on_key_down()
+        else:
+            self.ctrl[idx].on_key_up()
         self.update_label(idx)
         self.refresh()
 
@@ -261,5 +280,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
     
     def reset_sliders(self):
         for widget_idx, ctrl in self.ctrl.items():
-            self.widget_list[widget_idx].reset()
+            if widget_idx in self.widget_list.keys():
+                self.widget_list[widget_idx].reset()
+            self.update_label(widget_idx)
         self.refresh()
