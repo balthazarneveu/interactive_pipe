@@ -21,8 +21,11 @@ class PipelineCore:
             # link each filter to global params
             filter.global_params = self.global_params
         self.reset_cache()
-        assert inputs is not None
-        self.inputs_routing = inputs
+        if inputs is None:
+            logging.warning("Setting a pipeline without input -  use inputs=[] to get rid of this warning")
+            self.inputs_routing = []
+        else:
+            self.inputs_routing = inputs
 
         self.__initialized_inputs = False
         if outputs is None:
@@ -102,7 +105,8 @@ class PipelineCore:
             assert isinstance(self.__inputs, dict)
             if len(self.__inputs.keys()) == 0:
                 self.__inputs = None # similar to having no input, but explicitly saying that we have initialized it.
-            self.__initialized_inputs = True
         else:
-            self.__initialized_inputs = False
+            assert self.inputs_routing is None or ((isinstance(self.inputs_routing, tuple) or isinstance(self.inputs_routing, list)) and len(self.inputs_routing)==0)
+            self.__inputs = None
+        self.__initialized_inputs = True
         self.reset_cache()

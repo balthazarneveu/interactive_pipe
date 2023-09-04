@@ -215,7 +215,9 @@ class HeadlessPipeline(PipelineCore):
         else:
             # @TODO: we could check that the number of inputs matches what's expected here.
             self.inputs = list(inputs_tuple)
-            if len(self.inputs) == 0:
+            if self.inputs is None:
+                pass
+            elif len(self.inputs) == 0:
                 self.inputs = None
         self.parameters = parameters
         self.parameters = self.parameters_from_keyword_args(**kwargs)
