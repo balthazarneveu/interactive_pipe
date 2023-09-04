@@ -90,16 +90,18 @@ class PipelineCore:
             self.__initialized_inputs = False
 
     def graph_representation(self, path=None, ortho=True, view=False):
-        def find_previous_key(searched_out):
+        def find_previous_key(searched_out, current_index, debug=False):
             last_filter_found = None
             inp_name = None
             for inp in input_indexes:
                 if searched_out == inp:
                     last_filter_found = f"{inp}"
                     inp_name = f"{inp}"
-            for prev_idx in range(idx):
+            for prev_idx in range(current_index):
                 filt_prev = self.filters[prev_idx]
                 for inp in filt_prev.outputs:
+                    if debug:
+                        print(f"{searched_out}, {filt_prev.name} {inp}")
                     if searched_out == inp:
                         last_filter_found = filt_prev.name
                         inp_name = f"{inp}"
@@ -136,7 +138,7 @@ class PipelineCore:
                 if filt.outputs is None:
                     continue
                 for out in filt.inputs:
-                    last_filter_found, inp_name = find_previous_key(out)
+                    last_filter_found, inp_name = find_previous_key(out, idx)
                     if last_filter_found is not None:
                         dot.edge(last_filter_found, filt.name, label=edge_label(inp_name))
         out_list = []
@@ -153,7 +155,7 @@ class PipelineCore:
             for out in out_list:
                 out_graph.node(f"out {out}", f"🛢️ {out}", shape="rect", color="gray")
         for out in out_list:
-            last_filter_found, inp_name = find_previous_key(out)
+            last_filter_found, inp_name = find_previous_key(out, len(self.filters))
             if last_filter_found is not None:
                 dot.edge(last_filter_found, f"out {out}", label=edge_label(inp_name))
         if path is not None:
