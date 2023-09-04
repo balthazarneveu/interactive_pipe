@@ -4,7 +4,7 @@ from interactive_pipe.data_objects.parameters import Parameters
 import logging
 import numpy as np
 from copy import deepcopy
-from typing import Callable
+from typing import Any, Callable
 
 
 class InteractivePipeGUI():
@@ -36,7 +36,7 @@ class InteractivePipeGUI():
     def __call__(self, *args, parameters={}, **kwargs) -> None:
         self.pipeline.parameters = parameters
         self.pipeline.parameters = self.pipeline.parameters_from_keyword_args(**kwargs)
-        self.pipeline.inputs = list(args)
+        self.pipeline.inputs = args
         results = self.run()
         return results
 
@@ -71,9 +71,6 @@ class InteractivePipeGUI():
             self.pipeline.reset_cache()
             refresh_func()
         self.reset_context_events()
-
-
-
 
     # ---------------------------------------------------------------------
     def reset_parameters(self):

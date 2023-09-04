@@ -26,6 +26,7 @@ class HeadlessPipeline(PipelineCore):
         else:
             inputs = None
         return inputs
+    
     @classmethod
     def from_function(cls, pipe: Callable, inputs=None, **kwargs):
         assert isinstance(pipe, Callable)
@@ -33,9 +34,11 @@ class HeadlessPipeline(PipelineCore):
         all_variables = {}
         total_index = 0
         function_inputs = {}
+        input_routing = []
         for input_index, input_name in enumerate(graph["args"]):
             all_variables[input_name] = total_index
             function_inputs[input_name] = total_index
+            input_routing.append(total_index)
             total_index+= 1
         for filt_dict in graph["call_graph"]:
             for key in ["args", "returns"]:
@@ -81,8 +84,7 @@ class HeadlessPipeline(PipelineCore):
         outputs = [all_variables[output_name] for output_name in graph["returns"]]
         if len(function_inputs) == 0 and inputs is None:
             logging.info("Auto deduced that there are no arguments provided to the function")
-            inputs = []
-        data_class = cls(filters=filters, name=graph["function_name"], inputs=inputs, outputs=outputs, **kwargs)
+        data_class = cls(filters=filters, name=graph["function_name"], inputs=input_routing, outputs=outputs, **kwargs)
         data_class.controls = control_list
         return data_class
     
@@ -238,12 +240,8 @@ class HeadlessPipeline(PipelineCore):
         dot = graphviz.Digraph(comment=self.name)
         if ortho:
             dot.attr(splines="ortho")
-        if isinstance(self.inputs, dict):
-            input_indexes = self.inputs.keys()
-        elif isinstance(self.inputs, list) or isinstance(self.inputs, tuple):
-            input_indexes = list(range(len(self.inputs)))
-        else:
-            raise TypeError("inputs shall be a dictionary or a list/tuple")
+        assert self.inputs_routing is not None, "cannot plot the graph if input routing is not provided"
+        input_indexes = self.inputs_routing
         with dot.subgraph(name='cluster_in') as inputs_graph:
             inputs_graph.attr(style="dashed", color="gray", label="Inputs")
             for inp in input_indexes:

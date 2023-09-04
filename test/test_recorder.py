@@ -48,7 +48,8 @@ def test_graph_retrieval():
 @pytest.mark.parametrize("func", [pipe_func, pipe_func_inplace])
 def test_headless_pipeline_save(tmp_path_factory, func):
     input_image = get_sample_image()
-    pip = HeadlessPipeline.from_function(func, inputs=[input_image, 0.8*input_image])
+    pip = HeadlessPipeline.from_function(func)
+    pip.inputs = [input_image, 0.8*input_image]
     out_path = tmp_path_factory.mktemp("data_2")
     assert out_path.exists()
     pip.save(out_path/"_image.jpg", data_wrapper_fn=lambda x: Image(x))
@@ -58,16 +59,16 @@ def test_headless_pipeline_save(tmp_path_factory, func):
 def test_headless_pipeline_exec(func):
     input_image = get_sample_image()
     out_func = func(input_image, 0.8*input_image)
-    pip = HeadlessPipeline.from_function(func, inputs=[input_image, 0.8*input_image])
-    out = pip.run()
+    pip = HeadlessPipeline.from_function(func)
+    out = pip(input_image, 0.8*input_image)
     for idx in range(len(out)):
         assert (out_func[idx] == out[idx]).all()
 
 def headless_pipeline_exec(func=pipe_func):
     input_image = get_sample_image()
-    out_func = func(input_image, 0.8*input_image)
-    pip = HeadlessPipeline.from_function(func, inputs=[input_image, 0.8*input_image])
-    out = pip.run()
+    out_func = func(input_image)
+    pip = HeadlessPipeline.from_function(func)
+    out = pip(input_image, 0.8*input_image)
     for idx in range(len(out)):
         assert (out_func[idx] == out[idx]).all()
 

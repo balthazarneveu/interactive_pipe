@@ -21,8 +21,10 @@ class PipelineCore:
             # link each filter to global params
             filter.global_params = self.global_params
         self.reset_cache()
+        assert inputs is not None
+        self.inputs_routing = inputs
+
         self.__initialized_inputs = False
-        self.inputs = inputs
         if outputs is None:
             outputs = self.filters[-1].outputs
             logging.warning(f"Using last filter outputs {self.filters[-1]} {outputs}")
@@ -83,11 +85,20 @@ class PipelineCore:
     def inputs(self, inputs: list):
         if inputs is not None:
             if isinstance(inputs, dict):
+                provided_keys = list(inputs.keys())
+                for idx, input_name in enumerate(self.inputs_routing):
+                    assert input_name in provided_keys, f"{input_name} is not among {provided_keys}"
                 self.__inputs = inputs
-            elif not isinstance(inputs, list):
-                self.__inputs = list(inputs)
+            elif isinstance(inputs, list) or isinstance(inputs, tuple):
+                # inputs is not a list
+                assert len(inputs) == len(self.inputs_routing)
+                self.__inputs = {}
+                for idx, input_name in enumerate(self.inputs_routing):
+                    self.__inputs[input_name] = inputs[idx]
             else:
-                self.__inputs = inputs
+                # single element
+                assert len(self.inputs_routing) == 1
+                self.__inputs[self.inputs_routing] = inputs
             if len(self.__inputs) == 0:
                 self.__inputs = None # similar to having no input, but explicitly saying that we have initialized it.
             self.__initialized_inputs = True
