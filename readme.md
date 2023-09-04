@@ -5,8 +5,38 @@
 - Tune your algorithms and save your parameters for later batch processing
 - Ready to batch under the hood, the processing engine can be ran without GUI (therefore allowing to use the same code for tuning & batch processing if needed).
 
+
 # Setup
 `pip3 install -i https://test.pypi.org/simple/ interactive-pipe`   *:x: not officially on PyPi yet*
+
+
+## :scroll:  Features
+- Modular multi-image processing filters
+- Easily make graphical user interface without having to learn anything about pyQt or matplotlib
+- Support in jupyter notebooks
+- Tuning sliders & check buttons  with a GUI
+- Cache intermediate results in RAM for much faster processing
+
+### :soon: Upcoming features:
+- :soon: Debug: Display both colored images, heatmaps & graphs
+- :soon: `KeyboardSlider` : no slider on UI but exactly the same internal mechanism, update on key press . 
+
+### :test_tube: Experimental features
+- custom events on specific key press
+- Display the execution graph of the pipeline
+
+### :keyboard:   Keyboard shortcuts
+Shortcuts while using the GUI (QT & matplotlib backends)
+
+- `H` to show the help shortcuts in the terminal
+- `W` to write full resolution image to disk
+- `R` to reset parameters
+- `I` to print parameters dictionary in the command line
+- `E` to export parameters dictionary to a yaml file
+- `O` to import parameters dictionary from a yaml file (sliders will update)
+- `G` to export a pipeline diagram for your interactive pipe (requires graphviz)
+
+
 
 # Status
 - supported backends 
@@ -86,13 +116,23 @@ if __name__ == '__main__':
 
 
 
+### History
+- Interactive pipe was initially developped by [Balthazar Neveu](https://github.com/balthazarneveu) as part of the [irdrone project](https://github.com/wisescootering/infrareddrone/tree/master/interactive) based on matplotlib.
+- Later, more contributions were also made by [Giuseppe Moschetti](https://github.com/g-moschetti) and Sylvain Leroy.
+- Summer 2023: rewriting the whole core and supporting several graphical backends!
+
+
 
 # Roadmap and todos
 Want to contribute or interested in adding new features? Enter a new [Github issue](https://github.com/balthazarneveu/interactive_pipe/issues)
+
+## Short term roadmap
 - Routing mechanism based on keys rather than indexes (switch from list to dict)
 - Backport previous features
     - 2D signal plots & signal class
     - keyboard sliders press
+
+## Long term roadmap
 - Advanced feature
     - Webcam based "slider" for dropdown menu (like "elephant" will trigget if an elephant is magically detected on the webcam)
     - Animations/While loops/Video source (Time slider)

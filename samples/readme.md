@@ -316,3 +316,7 @@ input_image = np.array([0., 0.5, 0.8])*np.ones((512, 256, 3))
 sample_pipeline(input_image)
 ```
 You should see a GUI pop now!
+
+
+# Advanced tutorials
+- [Under the hood with interactive pipe!](https://colab.research.google.com/drive/1e4IB_jLGgGYonPXFuE9YdnaVNEC_1f19?usp=sharing) : discover what's going on if you want to write a full pipeline graph by yourself without using the somehow "magic" decorators. The point of this example is to discourage you from doing that or if you simply want to learn in depth or help contributing to the interactive pipe. The sample code is also available here: [samples/object_oriented_pipeline_declarations.py](/samples/object_oriented_pipeline_declarations.py)
