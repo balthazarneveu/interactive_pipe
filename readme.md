@@ -1,4 +1,4 @@
-**Version 0.4**
+**Version 0.4.2**
 
 # Concept
 - Develop your algorithm while debugging with plots, while checking robustness & continuity to parameters change
