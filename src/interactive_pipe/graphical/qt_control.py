@@ -143,7 +143,7 @@ class IconButtonsControl(BaseControl):
 
         return hbox
     def reset(self):
-        for  widget in self.control_widgets:
+        for _widget in self.control_widgets:
             pass
 
 class DropdownMenuControl(BaseControl):

@@ -17,15 +17,18 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
     
     def set_default_key_bindings(self):
         self.key_bindings = {
-            "h": self.help,
-            "r": self.reset_parameters,
-            "w": self.save_images,
-            "o": self.load_parameters,
-            "e": self.save_parameters,
-            "i": self.print_parameters,
-            "q": self.close,
-            "h": self.help,
-            "g": self.display_graph
+            **{
+                "h": self.help,
+                "r": self.reset_parameters,
+                "w": self.save_images,
+                "o": self.load_parameters,
+                "e": self.save_parameters,
+                "i": self.print_parameters,
+                "q": self.close,
+                "h": self.help,
+                "g": self.display_graph
+            },
+            **self.key_bindings
         }
 
     def run(self):

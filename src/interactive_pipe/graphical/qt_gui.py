@@ -62,7 +62,7 @@ class InteractivePipeQT(InteractivePipeGUI):
 
 
     def set_default_key_bindings(self):
-        self.key_bindings = {
+        self.key_bindings = {**{
             "h": self.help,
             "r": self.reset_parameters,
             "w": self.save_images,
@@ -72,7 +72,7 @@ class InteractivePipeQT(InteractivePipeGUI):
             "q": self.close,
             "h": self.help,
             "g": self.display_graph
-        }
+        }, **self.key_bindings}
     def close(self):
         """close GUI"""
         self.app.quit()
