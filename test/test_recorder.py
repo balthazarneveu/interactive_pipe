@@ -39,7 +39,6 @@ def pipe_func_inplace(img_a, img_b, param_1 = 0.8):
 
 def test_graph_retrieval():
     graph = get_call_graph(pipe_func)
-    # print(graph)
     assert graph["function_name"] == pipe_func.__name__
     assert graph["returns"] == ["final_up", "blended"]
     assert graph["args"] == ["img_a", "img_b"]
