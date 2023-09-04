@@ -15,15 +15,22 @@ class PipelineEngine:
     def run(self, filters: List[FilterCore], imglst=None):
         performances = []
         logging.debug(100 * "-")
-        if self.safe_input_buffer_deepcopy:
-            # Want to be safe when there's no cache? always keep the input buffers of the first filter untouched
-            logging.debug(f"<<< Deepcopy input images ")
-            if imglst is not None:
-                result = deepcopy(imglst)
-            else:
-                result = []
-        else:
-            result = imglst
+        result = {}
+        if imglst is not None:
+            if isinstance(imglst, list):
+                for input_index, inp in enumerate(imglst):
+                    if self.safe_input_buffer_deepcopy:
+                        result[input_index] = deepcopy(inp)
+                        logging.debug(f"<<< Deepcopy input images {input_index}")
+                    else:
+                        result[input_index] = inp
+            elif isinstance(imglst, dict):
+                if self.safe_input_buffer_deepcopy:
+                    logging.debug(f"<<< Deepcopy input images")
+                    result = deepcopy(imglst)
+                else:
+                    result = imglst
+
         skip_calculation = True
         previous_calculation = False
         for idx, prc in enumerate(filters):
@@ -65,9 +72,6 @@ class PipelineEngine:
             # put prc output at the right position within result vector
             if prc.outputs is not None:
                 for i, ido in enumerate(prc.outputs):
-                    if ido >= len(result): # need to extend the array with empty lists
-                        for _j in range(0, ido - len(result) + 1):
-                            result.append([])
                     if isinstance(out, list) or isinstance(out, tuple):
                         result[ido] = out[i]
                     # Simpler manner of defining a process fuction (do not return a list)
