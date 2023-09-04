@@ -89,7 +89,7 @@ class PipelineCore:
         else:
             self.__initialized_inputs = False
 
-    def graph_representation(self, path=None, ortho=True):
+    def graph_representation(self, path=None, ortho=True, view=False):
         def find_previous_key(searched_out):
             last_filter_found = None
             inp_name = None
@@ -139,13 +139,25 @@ class PipelineCore:
                     last_filter_found, inp_name = find_previous_key(out)
                     if last_filter_found is not None:
                         dot.edge(last_filter_found, filt.name, label=edge_label(inp_name))
+        out_list = []
+        for out_item in self.outputs:
+            out_row = out_item
+            if not isinstance(out_item, list) or isinstance(out_item, tuple):
+                out_row = [out_item]
+            for out in out_row:
+                if out is None:
+                    continue
+                out_list.append(out)
         with dot.subgraph(name='cluster_out') as out_graph:
             out_graph.attr(style="dashed", color="gray", label="Outputs")
-            for out in self.outputs:
+            for out in out_list:
                 out_graph.node(f"out {out}", f"🛢️ {out}", shape="rect", color="gray")
-        for out in self.outputs:
+        for out in out_list:
             last_filter_found, inp_name = find_previous_key(out)
-            dot.edge(last_filter_found, f"out {out}", label=edge_label(inp_name))
+            if last_filter_found is not None:
+                dot.edge(last_filter_found, f"out {out}", label=edge_label(inp_name))
         if path is not None:
-            dot.render(path)  
+            dot.render(path, view=view)
+        else:
+            dot.render(self.name, view=view)
         return dot
