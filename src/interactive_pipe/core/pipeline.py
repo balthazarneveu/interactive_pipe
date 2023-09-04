@@ -40,7 +40,7 @@ class PipelineCore:
     def run(self) -> list:
         """Useful for standalone python acess without gui or disk write
         """
-        return self.engine.run(self.filters, self.inputs)
+        return self.engine.run(self.filters, imglst=self.inputs)
     
     @property
     def parameters(self):
@@ -90,7 +90,7 @@ class PipelineCore:
             self.__initialized_inputs = False
 
     def graph_representation(self, path=None, ortho=True, view=False):
-        def find_previous_key(searched_out, current_index, debug=False):
+        def find_previous_key(searched_out, current_index, input_indexes, debug=False):
             last_filter_found = None
             inp_name = None
             for inp in input_indexes:
@@ -99,6 +99,8 @@ class PipelineCore:
                     inp_name = f"{inp}"
             for prev_idx in range(current_index):
                 filt_prev = self.filters[prev_idx]
+                if filt_prev.outputs is None:
+                    continue
                 for inp in filt_prev.outputs:
                     if debug:
                         print(f"{searched_out}, {filt_prev.name} {inp}")
@@ -119,10 +121,9 @@ class PipelineCore:
         if ortho:
             dot.attr(splines="ortho")
         
-        
+        input_indexes = list(range(len(self.inputs)))
         with dot.subgraph(name='cluster_in') as inputs_graph:
             inputs_graph.attr(style="dashed", color="gray", label="Inputs")
-            input_indexes = list(range(len(self.inputs)))
             for inp in input_indexes:
                 inputs_graph.node(f"{inp}", f"🖴 {inp}",  shape="rect", color="gray", styleItem="dash")
 
@@ -135,10 +136,10 @@ class PipelineCore:
                     all_params.append(f"\n✔️ {pa_name}")
                 filter_graphs.node(filt.name, f"⚙️ {filt.name}" + ("".join(all_params)), shape="rect")        
             for idx, filt in enumerate(self.filters):
-                if filt.outputs is None:
+                if filt.inputs is None:
                     continue
                 for out in filt.inputs:
-                    last_filter_found, inp_name = find_previous_key(out, idx)
+                    last_filter_found, inp_name = find_previous_key(out, idx, input_indexes)
                     if last_filter_found is not None:
                         dot.edge(last_filter_found, filt.name, label=edge_label(inp_name))
         out_list = []
@@ -155,7 +156,7 @@ class PipelineCore:
             for out in out_list:
                 out_graph.node(f"out {out}", f"🛢️ {out}", shape="rect", color="gray")
         for out in out_list:
-            last_filter_found, inp_name = find_previous_key(out, len(self.filters))
+            last_filter_found, inp_name = find_previous_key(out, len(self.filters), input_indexes)
             if last_filter_found is not None:
                 dot.edge(last_filter_found, f"out {out}", label=edge_label(inp_name))
         if path is not None:
