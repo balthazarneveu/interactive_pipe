@@ -10,8 +10,10 @@ from interactive_pipe.core.filter import analyze_apply_fn_signature
 from interactive_pipe.core.control import Control
 
 class HeadlessPipeline(PipelineCore):
-    """Adds some useful I/O to the pipeline core such as
-    - importing/exporting tuning
+    """Adds some powerful features to the pipeline core such as:
+    - creating a pipeline from a function as a sequential filter
+    - importing/exporting parameters ("tuning") as json or yaml
+    - saving output images
     - printing current parameters in the terminal
     - graph representation
     """
@@ -28,7 +30,7 @@ class HeadlessPipeline(PipelineCore):
         return inputs
     
     @classmethod
-    def from_function(cls, pipe: Callable, inputs=None, **kwargs):
+    def from_function(cls, pipe: Callable, inputs=None, __routing_by_indexes=False, **kwargs):
         assert isinstance(pipe, Callable)
         graph = get_call_graph(pipe)
         all_variables = {}
@@ -38,7 +40,10 @@ class HeadlessPipeline(PipelineCore):
         for input_index, input_name in enumerate(graph["args"]):
             all_variables[input_name] = total_index
             function_inputs[input_name] = total_index
-            input_routing.append(total_index)
+            if __routing_by_indexes:
+                input_routing.append(total_index)
+            else:
+                input_routing.append(input_name)
             total_index+= 1
         for filt_dict in graph["call_graph"]:
             for key in ["args", "returns"]:
@@ -61,8 +66,12 @@ class HeadlessPipeline(PipelineCore):
                 filt_name = filt_name + f"_{filters_count[filt_name]}"
             else:
                 filters_count[filt_name] = 0
-            inputs_filt = HeadlessPipeline.routing_indexes(filt_dict["args"], all_variables)
-            outputs_filt = HeadlessPipeline.routing_indexes(filt_dict["returns"], all_variables)
+            if __routing_by_indexes:
+                inputs_filt = HeadlessPipeline.routing_indexes(filt_dict["args"], all_variables)
+                outputs_filt = HeadlessPipeline.routing_indexes(filt_dict["returns"], all_variables)
+            else:
+                inputs_filt = filt_dict["args"]
+                outputs_filt = filt_dict["returns"]
             logging.debug("----------------->", filt_name, inputs_filt, outputs_filt)
             filter = FilterCore(
                 name=filt_name,
@@ -81,7 +90,10 @@ class HeadlessPipeline(PipelineCore):
             filters_names.append(filt_name)
         logging.debug(filters_count)
         logging.debug(filters_names)
-        outputs = [all_variables[output_name] for output_name in graph["returns"]]
+        if __routing_by_indexes:
+            outputs = [all_variables[output_name] for output_name in graph["returns"]]
+        else:
+            outputs = graph["returns"]
         if len(function_inputs) == 0 and inputs is None:
             logging.info("Auto deduced that there are no arguments provided to the function")
         data_class = cls(filters=filters, name=graph["function_name"], inputs=input_routing, outputs=outputs, **kwargs)
