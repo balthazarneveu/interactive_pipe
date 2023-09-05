@@ -114,9 +114,16 @@ class InteractivePipeQT(InteractivePipeGUI):
             self.full_screen_toggle = self.window.full_screen_flag
         self.full_screen_toggle = not self.full_screen_toggle
         if self.full_screen_toggle:
+            # Go to fullscreen
             self.window.full_screen()
         else:
-            self.window.update_window()
+            window_size = self.window.size
+            if window_size is not None and isinstance(window_size, str) and "full" in window_size.lower():
+                # Special case where the window naturally goes to fullscreen since user defined it...
+                # Force to go back to normal
+                self.window.showNormal()
+            else: # Go back to normal size
+                self.window.update_window()
         
 
     
