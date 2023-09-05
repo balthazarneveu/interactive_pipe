@@ -55,11 +55,11 @@ def pipeline(pipeline_function:Callable, **kwargs) -> HeadlessPipeline:
     return HeadlessPipeline.from_function(pipeline_function, **kwargs)
 
 
-def interactive_pipeline(gui=None, **kwargs_pipe) -> Union[HeadlessPipeline, InteractivePipeGUI]:
+def interactive_pipeline(gui=None, cache=False, **kwargs_gui) -> Union[HeadlessPipeline, InteractivePipeGUI]:
     """Function decorator to add some controls
     """
     def wrapper(pipeline_function):
-        headless_pipeline = HeadlessPipeline.from_function(pipeline_function, **kwargs_pipe)
+        headless_pipeline = HeadlessPipeline.from_function(pipeline_function, cache=cache)
         if gui is None:
             return headless_pipeline
         if gui == "qt":
@@ -70,7 +70,7 @@ def interactive_pipeline(gui=None, **kwargs_pipe) -> Union[HeadlessPipeline, Int
             from interactive_pipe.graphical.nb_gui import InteractivePipeJupyter as InteractivePipeGui
         else:
             raise NotImplementedError(f"Gui {gui} not available")
-        gui_pipeline = InteractivePipeGui(pipeline=headless_pipeline)
+        gui_pipeline = InteractivePipeGui(pipeline=headless_pipeline, name=pipeline_function.__name__, **kwargs_gui)
 
         @functools.wraps(pipeline_function)
         def inner(*args, **kwargs):

@@ -25,7 +25,7 @@ def blend(img0, img1, blend_coeff=(0.5, [0., 1.])):
     '''
     return  (1-blend_coeff)*img0+ blend_coeff*img1
 
-@interactive_pipeline(gui="qt")
+@interactive_pipeline(gui="qt", size="maximum")
 def sample_pipeline(input_image):
     exposed = exposure(input_image)
     bnw_image = black_and_white(input_image)
