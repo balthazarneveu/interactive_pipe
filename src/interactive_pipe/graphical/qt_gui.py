@@ -13,7 +13,7 @@ except:
 if not PYQTVERSION:
     try:
             from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout, QMessageBox
-            from PyQt6.QtCore import QUrl
+            from PyQt6.QtCore import QUrl, Qt
             from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
             from PyQt6.QtGui import QPixmap, QImage, QIcon
             PYQTVERSION = 6
@@ -21,7 +21,7 @@ if not PYQTVERSION:
         logging.warning("Cannot import PyQt 6")
         try:
             from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout, QMessageBox
-            from PyQt5.QtCore import QUrl
+            from PyQt5.QtCore import QUrl, Qt
             from PyQt5.QtGui import QPixmap, QImage, QIcon
             from PyQt5.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaContent
             PYQTVERSION = 5
