@@ -1,4 +1,4 @@
-**Version 0.5**
+**Version 0.5.2**
 
 # Concept
 - Develop your algorithm while debugging with plots, while checking robustness & continuity to parameters change
@@ -29,6 +29,7 @@
 Shortcuts while using the GUI (QT & matplotlib backends)
 
 - `F1` to show the help shortcuts in the terminal
+- `F11` toggle fullscreen mode
 - `W` to write full resolution image to disk
 - `R` to reset parameters
 - `I` to print parameters dictionary in the command line
