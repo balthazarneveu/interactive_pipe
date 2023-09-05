@@ -242,6 +242,8 @@ class MainWindow(QWidget, InteractivePipeWindow):
 
     @size.setter
     def size(self, _size):
+        if isinstance(_size, str):
+            assert "full" in _size.lower() or "max" in _size.lower(), f"size={_size} can only be among (full, fullscreen, maximized, max, maximum)"
         self._size = _size
         self.update_window()
 

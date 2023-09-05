@@ -1,4 +1,4 @@
-from interactive_pipe.graphical.gui import InteractivePipeGUI, InteractivePipeWindow
+from interactive_pipe.graphical.gui import InteractivePipeGUI
 import matplotlib.pyplot as plt
 from interactive_pipe.core.control import Control
 from typing import List
@@ -7,6 +7,7 @@ from interactive_pipe.graphical.nb_control import ControlFactory
 from IPython.display import display
 from ipywidgets import interact
 from interactive_pipe.graphical.mpl_window import MatplotlibWindow
+from typing import Optional, Tuple, Union
 
 class InteractivePipeJupyter(InteractivePipeGUI):
     def init_app(self, **kwargs):
@@ -20,9 +21,12 @@ class InteractivePipeJupyter(InteractivePipeGUI):
 
 # You will need %matplotlib inline
 class MainWindow(MatplotlibWindow):
-    def __init__(self,  controls=[], name="", pipeline=None, size=None, style: str=None, rc_params=None):
+    def __init__(self,  controls=[], name="", pipeline=None, size: Optional[Union[int, Tuple[int, int]]]=None, style: str=None, rc_params=None):
+        if size is not None and isinstance(size, int):
+            size = (size, size)
+        assert size is None or isinstance(size, tuple) or isinstance(size, list), "size should be a tuple or None"
+        
         super().__init__(controls=controls, name=name, pipeline=pipeline, style=style, rc_params=rc_params, size=size)
-        assert size is None or isinstance(size, tuple), "size should be a tuple or None"
         self.init_sliders(self.controls)
 
     def create_figure(self):
