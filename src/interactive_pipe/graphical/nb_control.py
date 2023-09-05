@@ -1,16 +1,16 @@
-from ipywidgets import Dropdown, FloatSlider, IntSlider, Checkbox
+from ipywidgets import Dropdown, FloatSlider, IntSlider, Checkbox, Layout
 from interactive_pipe.core.control import Control
 import  logging
 
 
 class BaseControl:
+    layout = Layout(width='500px')
     def __init__(self, name, ctrl: Control):
         super().__init__()
         self.name = name
         self.ctrl = ctrl
         self.control_widget = None
         self.check_control_type()
-        
 
     def create(self):
         raise NotImplementedError("This method should be overridden by subclass")
@@ -23,20 +23,22 @@ class IntSliderNotebookControl(BaseControl):
     def check_control_type(self):
         assert self.ctrl._type == int
     def create(self):
-        return IntSlider(min=self.ctrl.value_range[0], max=self.ctrl.value_range[1], value=self.ctrl.value_default)
+        style = {'description_width': 'initial'}
+        return IntSlider(min=self.ctrl.value_range[0], max=self.ctrl.value_range[1], value=self.ctrl.value_default, style=style, layout=self.layout)
 
 class FloatSliderNotebookControl(BaseControl):
     def check_control_type(self):
         assert self.ctrl._type == float
     def create(self):
-        return FloatSlider(min=self.ctrl.value_range[0], max=self.ctrl.value_range[1], value=self.ctrl.value_default)
+        style = {'description_width': 'initial'}
+        return FloatSlider(min=self.ctrl.value_range[0], max=self.ctrl.value_range[1], value=self.ctrl.value_default, style=style, layout=self.layout)
 
 class BoolCheckButtonNotebookControl(BaseControl):
     def check_control_type(self):
         assert self.ctrl._type == bool
 
     def create(self):
-        checks = Checkbox(self.ctrl.value_default)
+        checks = Checkbox(self.ctrl.value_default, layout=self.layout)
         return checks
 
 class DialogNotebookControl(BaseControl):
@@ -45,7 +47,7 @@ class DialogNotebookControl(BaseControl):
 
     def create(self):
         options = self.ctrl.value_range
-        radio = Dropdown(options=options, description=self.name)
+        radio = Dropdown(options=options, description=self.name, layout=self.layout)
         return radio
 
 class ControlFactory:
