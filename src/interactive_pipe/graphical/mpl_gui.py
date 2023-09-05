@@ -1,6 +1,6 @@
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 import matplotlib.pyplot as plt
-from interactive_pipe.core.control import Control
+from interactive_pipe.graphical.keyboard import KeyboardSlider
 from typing import List
 import  logging
 from interactive_pipe.graphical.mpl_control import ControlFactory
@@ -129,6 +129,11 @@ class MainWindow(MatplotlibWindow):
         
         for ctrl in self.controls:
             slider_name = ctrl.name
+            if not dry_run:
+                self.ctrl[slider_name] = ctrl
+            if isinstance(ctrl, KeyboardSlider):
+                self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
+                continue
             if ctrl._type == bool or ctrl._type == str:
                 x_start = 0.01
                 width = 0.08
@@ -150,14 +155,23 @@ class MainWindow(MatplotlibWindow):
                 slider_instance = control_factory.create_control(ctrl, self.update_parameter, ax_control=ax_control)
                 slider = slider_instance.create()
                 self.sliders_list[slider_name] = slider # needed to keep the object alive
-                self.ctrl[slider_name] = ctrl
         self.next_slider_position -= self.footer_space
         self.next_button_position -= self.footer_space
-
+    
     def update_parameter(self, idx, value):
+        """Required implementation for graphical controllers update"""
         self.ctrl[idx].update(value)
         if self.ctrl[idx]._type == bool or self.ctrl[idx]._type == str:
             self.need_redraw = True
+        self.refresh()
+
+    def key_update_parameter(self, idx, down):
+        """Required implementation for keyboard sliders update"""
+        if down:
+            self.ctrl[idx].on_key_down()
+        else:
+            self.ctrl[idx].on_key_up()
+        self.need_redraw = True
         self.refresh()
 
     def refresh(self):
