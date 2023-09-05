@@ -5,7 +5,7 @@ import matplotlib as mpl
 
 
 class MatplotlibWindow(InteractivePipeWindow):
-    def __init__(self,  controls=[], name="", pipeline=None, style: str=None, rc_params=None):
+    def __init__(self,  controls=[], name="", pipeline=None, size=None, style: str=None, rc_params=None):
         """
         style: dark_background, seaborn-v0_8-dark
         https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html
@@ -18,7 +18,7 @@ class MatplotlibWindow(InteractivePipeWindow):
             'font.size': 10
         }
         """
-        super().__init__(self)
+        super().__init__(self, size=size)
         self.controls = controls
         self.pipeline = pipeline
         self.name = name
@@ -27,7 +27,7 @@ class MatplotlibWindow(InteractivePipeWindow):
         if rc_params is not None:
             for key, val in rc_params.items():
                 plt.rcParams[key] = val
-        
+
     def add_image_placeholder(self, row, col):
         nrows, ncols = np.array(self.image_canvas).shape
         ax_img = self.fig.add_subplot(nrows, ncols, row * ncols + col + 1)

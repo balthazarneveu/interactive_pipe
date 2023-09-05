@@ -10,9 +10,8 @@ from interactive_pipe.graphical.mpl_window import MatplotlibWindow
 class InteractivePipeMatplotlib(InteractivePipeGUI):
     """Interactive image pipe. Use sliders to fine tune your parameters
     """
-    def init_app(self, fullscreen=False, **kwargs):
-        self.fullscreen = fullscreen
-        self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, main_gui=self, **kwargs)
+    def init_app(self, **kwargs):
+        self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, main_gui=self, size=self.size, **kwargs)
         self.set_default_key_bindings()
     
     def set_default_key_bindings(self):
@@ -33,7 +32,7 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
     def run(self):
         assert self.pipeline._PipelineCore__initialized_inputs, "Did you forget to initialize the pipeline inputs?"
         self.window.refresh()
-        if self.fullscreen:
+        if isinstance(self.size, str) and "full" in self.size.lower():
             try:
                 mng = plt.get_current_fig_manager()
                 mng.full_screen_toggle()
@@ -88,10 +87,10 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
 
 
 class MainWindow(MatplotlibWindow):
-    def __init__(self,  controls=[], name="", pipeline=None, style: str=None, rc_params=None, main_gui=None):
-        super().__init__(controls=controls, name=name, pipeline=pipeline, style=style, rc_params=rc_params)
+    def __init__(self,  controls=[], name="", pipeline=None, size=None, style: str=None, rc_params=None, main_gui=None, **kwargs):
+        super().__init__(controls=controls, name=name, pipeline=pipeline, style=style, size=size, rc_params=rc_params, **kwargs)
         self.main_gui = main_gui
-        self.fig, self.ax = plt.subplots()
+        self.fig, self.ax = plt.subplots(figsize=self.size if isinstance(self.size, tuple) else None)
         plt.axis('off')
         self.init_sliders()
 
