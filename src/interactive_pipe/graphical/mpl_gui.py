@@ -12,7 +12,7 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
     """
     def init_app(self, fullscreen=False, **kwargs):
         self.fullscreen = fullscreen
-        self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, **kwargs)
+        self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, main_gui=self, **kwargs)
         self.set_default_key_bindings()
     
     def set_default_key_bindings(self):
@@ -89,12 +89,13 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
 
 
 class MainWindow(MatplotlibWindow):
-    def __init__(self,  controls=[], name="", pipeline=None, style: str=None, rc_params=None):
+    def __init__(self,  controls=[], name="", pipeline=None, style: str=None, rc_params=None, main_gui=None):
         super().__init__(controls=controls, name=name, pipeline=pipeline, style=style, rc_params=rc_params)
+        self.main_gui = main_gui
         self.fig, self.ax = plt.subplots()
         plt.axis('off')
         self.init_sliders()
-        
+
     def reset_sliders(self):
         self.__wipe_sliders()
         self.init_sliders()
