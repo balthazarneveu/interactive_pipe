@@ -16,14 +16,16 @@
 - Support in jupyter notebooks
 - Tuning sliders & check buttons  with a GUI
 - Cache intermediate results in RAM for much faster processing
+- `KeyboardSlider` : no slider on UI but exactly the same internal mechanism, update on key press.
 
 ### :soon: Upcoming features:
-- :soon: Debug: Display both colored images, heatmaps & graphs
-- :soon: `KeyboardSlider` : no slider on UI but exactly the same internal mechanism, update on key press . 
+- :soon: Scientific visual debugging: Display both colored images, heatmaps & graphs
+
 
 ### :test_tube: Experimental features
 - custom events on specific key press
 - Display the execution graph of the pipeline
+- Play audio (Qt backend only). Play songs on spotify (linux only)
 
 ### :keyboard:   Keyboard shortcuts
 Shortcuts while using the GUI (QT & matplotlib backends)
@@ -99,7 +101,8 @@ def blend(img0, img1, blend_coeff=(0.5, [0., 1.])):
     '''
     return  (1-blend_coeff)*img0+ blend_coeff*img1
 
-@interactive_pipeline(gui="qt")
+# you can change the backend to mpl instead of Qt here.
+@interactive_pipeline(gui="qt", size="fullscreen")
 def sample_pipeline(input_image):
     exposed = exposure(input_image)
     bnw_image = black_and_white(input_image)
@@ -128,10 +131,9 @@ if __name__ == '__main__':
 Want to contribute or interested in adding new features? Enter a new [Github issue](https://github.com/balthazarneveu/interactive_pipe/issues)
 
 ## Short term roadmap
-- Routing mechanism based on keys rather than indexes (switch from list to dict)
 - Backport previous features
     - 2D signal plots & signal class
-    - keyboard sliders press
+    - Titles (for matplotlib at least)
 
 ## Long term roadmap
 - Advanced feature
