@@ -9,8 +9,8 @@ from ipywidgets import interact
 from interactive_pipe.graphical.mpl_window import MatplotlibWindow
 
 class InteractivePipeJupyter(InteractivePipeGUI):
-    def init_app(self, fullscreen=False, **kwargs):
-        self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, **kwargs)
+    def init_app(self, **kwargs):
+        self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, size=self.size, **kwargs)
 
     
     def run(self):
@@ -20,13 +20,14 @@ class InteractivePipeJupyter(InteractivePipeGUI):
 
 # You will need %matplotlib inline
 class MainWindow(MatplotlibWindow):
-    def __init__(self,  controls=[], name="", pipeline=None, style: str=None, rc_params=None):
-        super().__init__(controls=controls, name=name, pipeline=pipeline, style=style, rc_params=rc_params)
+    def __init__(self,  controls=[], name="", pipeline=None, size=None, style: str=None, rc_params=None):
+        super().__init__(controls=controls, name=name, pipeline=pipeline, style=style, rc_params=rc_params, size=size)
+        assert size is None or isinstance(size, tuple), "size should be a tuple or None"
         self.init_sliders(self.controls)
 
     def create_figure(self):
         if not hasattr(self, "fig"):
-            self.fig, self.ax = plt.subplots(figsize=(10, 10))
+            self.fig, self.ax = plt.subplots(figsize=self.size)
             plt.axis('off')
 
     def init_sliders(self, controls: List[Control], dry_run=False):
