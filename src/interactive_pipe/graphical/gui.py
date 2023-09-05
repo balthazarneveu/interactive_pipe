@@ -11,11 +11,12 @@ from functools import partial
 
 class InteractivePipeGUI():
     """Interactive pipe with a graphical user interface"""
-    def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", custom_end=lambda :None, audio=False, **kwargs) -> None:
+    def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", custom_end=lambda :None, audio=False, size=None, **kwargs) -> None:
         self.pipeline = pipeline
         self.custom_end = custom_end
         self.audio = audio
         self.name = name
+        self.size = size
         if hasattr(pipeline, "controls"):
             controls += pipeline.controls
         self.controls = controls
@@ -144,10 +145,19 @@ class InteractivePipeGUI():
 
 
 class InteractivePipeWindow():
-    def __init__(self, *args, style=None, **kwargs) -> None:
+    def __init__(self, *args, size=None, style=None, **kwargs) -> None:
         self.image_canvas = None
+        self._size = size
         if style is not None:
             logging.info("no support for style in Qt backend")
+
+    @property
+    def size(self):
+        return self._size
+
+    @size.setter
+    def size(self, _size):
+        self._size = _size
 
     def add_image_placeholder(self, row, col):
         raise NotImplementedError
