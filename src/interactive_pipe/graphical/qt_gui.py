@@ -49,7 +49,7 @@ class InteractivePipeQT(InteractivePipeGUI):
         self.app = QApplication(sys.argv)
         if self.audio:
             self.audio_player()
-        self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, main_gui=self, **kwargs)
+        self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, size=self.size, main_gui=self, **kwargs)
         self.pipeline.global_params["__pipeline"] = self.pipeline
         self.set_default_key_bindings()
         
@@ -64,6 +64,7 @@ class InteractivePipeQT(InteractivePipeGUI):
     def set_default_key_bindings(self):
         self.key_bindings = {**{
             "f1": self.help,
+            "f11": self.toggle_full_screen,
             "r": self.reset_parameters,
             "w": self.save_images,
             "o": self.load_parameters,
@@ -106,6 +107,18 @@ class InteractivePipeQT(InteractivePipeGUI):
     def print_message(self, message_list: List[str]):
         print("\n".join(message_list))
         QMessageBox.about(self.window, self.name, "\n".join(message_list))
+
+    def toggle_full_screen(self):
+        """toggle full screen"""
+        if not hasattr(self, "full_screen_toggle"):
+            self.full_screen_toggle = self.window.full_screen_flag
+        self.full_screen_toggle = not self.full_screen_toggle
+        if self.full_screen_toggle:
+            self.window.full_screen()
+        else:
+            self.window.update_window()
+        
+
     
     ### ---------------------------- AUDIO FEATURE ----------------------------------------
     def audio_player(self):
@@ -178,14 +191,13 @@ class MainWindow(QWidget, InteractivePipeWindow):
         Qt.Key_F12 : "f12",
         Qt.Key_Space : " ",
     }
-    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline=None, fullscreen=False, width=None, center=True, style=None, main_gui=None, **kwargs):
+    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline=None, size=None, center=True, style=None, main_gui=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.pipeline = pipeline
         self.main_gui = main_gui
         self.pipeline.global_params["__window"] = self
         self.setWindowTitle(name)
-        if width is not None:
-            self.setMinimumWidth(width)
+
         self.layout_obj = QFormLayout()
         self.setLayout(self.layout_obj)
         if pipeline.outputs:
@@ -218,12 +230,46 @@ class MainWindow(QWidget, InteractivePipeWindow):
         #     # cannot refresh the pipeline if no input has been provided! ... not ok for inputless pipeline though!
         #     self.refresh()
         # # You will refresh the window  at the app level, only when running. no need to run the pipeline engine to initalize the GUI
-        if width is None:
-            self.showMaximized()
-        if fullscreen:
-            self.showFullScreen()
+        self.full_screen_flag = False
+        self.size = size
+        
         self.setFocusPolicy(Qt.StrongFocus)
         self.show()
+
+    @property
+    def size(self):
+        return self._size
+
+    @size.setter
+    def size(self, _size):
+        self._size = _size
+        self.update_window()
+
+    def update_window(self):
+        self.full_screen_flag = False
+        if self.size is None:
+            self.showNormal()
+            return
+        if isinstance(self.size, str):
+            if "max" in self.size.lower():
+                self.maximize_screen()
+            if "full" in self.size.lower():
+                self.full_screen()
+        else:
+            self.showNormal()
+            if isinstance(self.size, int):
+                self.setMinimumWidth(self.size)
+            elif isinstance(self.size, tuple) or isinstance(self.size, list):
+                self.setMinimumWidth(self.size[0])
+                self.setMinimumHeight(self.size[1])
+    
+    def full_screen(self):
+        self.showFullScreen()
+        self.full_screen_flag = True
+    
+    def maximize_screen(self):
+        self.showMaximized()
+        self.full_screen_flag = False
 
     def keyPressEvent(self, event):
         mapped_str = None
