@@ -1,11 +1,10 @@
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 import matplotlib.pyplot as plt
 from interactive_pipe.graphical.keyboard import KeyboardSlider
-from typing import List
+from typing import List, Optional, Union, Tuple
 import  logging
 from interactive_pipe.graphical.mpl_control import ControlFactory
 from interactive_pipe.graphical.mpl_window import MatplotlibWindow
-
 
 class InteractivePipeMatplotlib(InteractivePipeGUI):
     """Interactive image pipe. Use sliders to fine tune your parameters
@@ -87,7 +86,11 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
 
 
 class MainWindow(MatplotlibWindow):
-    def __init__(self,  controls=[], name="", pipeline=None, size=None, style: str=None, rc_params=None, main_gui=None, **kwargs):
+    def __init__(self,  controls=[], name="", pipeline=None, size: Optional[Union[str, int, Tuple[int, int]]]=None, style: str=None, rc_params=None, main_gui=None, **kwargs):
+        if size is not None and isinstance(size, int):
+            size = (size, size)
+        if isinstance(size, str):
+            assert "full" in size.lower(), f"size={size} can be only fullscreen or full"
         super().__init__(controls=controls, name=name, pipeline=pipeline, style=style, size=size, rc_params=rc_params, **kwargs)
         self.main_gui = main_gui
         self.fig, self.ax = plt.subplots(figsize=self.size if isinstance(self.size, tuple) else None)
