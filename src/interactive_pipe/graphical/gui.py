@@ -4,7 +4,7 @@ from interactive_pipe.data_objects.parameters import Parameters
 import logging
 import numpy as np
 from copy import deepcopy
-from typing import Any, Callable
+from typing import Any, Callable, List
 
 
 class InteractivePipeGUI():
@@ -101,12 +101,22 @@ class InteractivePipeGUI():
     def display_graph(self):
         """display execution graph"""
         self.pipeline.graph_representation(view=True)
-    def help(self):
+    def help(self) -> List[str]:
         """print this help in the console"""
+        help = []
         for key, func in self.key_bindings.items():
-            print(f"[{key}]: {func.__doc__}")
+            if func.__doc__ is not None:
+                if func.__doc__.startswith("["):
+                    help.append(f"{func.__doc__}")
+                else:
+                    help.append(f"[{key}]    : {func.__doc__}")
         for key_context, event_dict in self.context_key_bindings.items():
-            print(f"[{key_context}]: {event_dict['doc']} (context['__event'][{event_dict['param_name']}])")
+            help.append(f"[{key_context}]    : {event_dict['doc']} (context['__event'][{event_dict['param_name']}])")
+        self.print_message(help)
+        return help
+    
+    def print_message(self, message_list: List[str]):
+        print("\n".join(message_list))
 
     # ---------------------------------------------------------------------
 

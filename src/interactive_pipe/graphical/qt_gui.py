@@ -2,7 +2,7 @@ PYQTVERSION = None
 import logging
 
 try:
-    from PySide6.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout
+    from PySide6.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout, QMessageBox
     from PySide6.QtCore import QUrl
     from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
     from PySide6.QtGui import QPixmap, QImage, QIcon
@@ -12,7 +12,7 @@ except:
     
 if not PYQTVERSION:
     try:
-            from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout
+            from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout, QMessageBox
             from PyQt6.QtCore import QUrl
             from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
             from PyQt6.QtGui import QPixmap, QImage, QIcon
@@ -20,7 +20,7 @@ if not PYQTVERSION:
     except:
         logging.warning("Cannot import PyQt 6")
         try:
-            from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout
+            from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout, QMessageBox
             from PyQt5.QtCore import QUrl
             from PyQt5.QtGui import QPixmap, QImage, QIcon
             from PyQt5.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaContent
@@ -103,7 +103,9 @@ class InteractivePipeQT(InteractivePipeGUI):
         print("------------")
         self.window.reset_sliders()
     
-
+    def print_message(self, message_list: List[str]):
+        print("\n".join(message_list))
+        QMessageBox.about(self.window, self.name, "\n".join(message_list))
     ### ---------------------------- AUDIO FEATURE ----------------------------------------
     def audio_player(self):
         self.player = QMediaPlayer()
@@ -212,13 +214,22 @@ class MainWindow(QWidget, InteractivePipeWindow):
             slider_name = ctrl.name
             self.ctrl[slider_name] = ctrl
             if isinstance(ctrl, KeyboardSlider):
-                update_func = partial(self.key_update_parameter, slider_name, True)
-                update_func.__doc__ = f"decrease {ctrl.name}"
-                self.main_gui.bind_key(ctrl.keydown, update_func)
-                if ctrl.keyup is not None:
-                    update_func_up = partial(self.key_update_parameter, slider_name, False)
-                    update_func_up.__doc__ = f"increase {ctrl.name}"
-                    self.main_gui.bind_key(ctrl.keyup, update_func_up)
+                toggle_only = True
+                doc = ""
+                for keyboard_key, down_flag in [(ctrl.keyup, False), (ctrl.keydown, True)]:
+                    if keyboard_key is not None:
+                        if not down_flag:
+                            toggle_only = False
+                        update_func = partial(self.key_update_parameter, slider_name, down_flag)
+                        if toggle_only:
+                            doc = f"toggle {ctrl.name}"
+                        elif down_flag:
+                            doc += f"[{ctrl.keydown}]/[{ctrl.keyup}]: {ctrl.name}"
+                        if len(doc) == 0:
+                            update_func.__doc__ = None
+                        else:
+                            update_func.__doc__ = doc
+                        self.main_gui.bind_key(keyboard_key, update_func)
             elif isinstance(ctrl, Control):
                 slider_instance = control_factory.create_control(ctrl, self.update_parameter)
                 slider = slider_instance.create()
