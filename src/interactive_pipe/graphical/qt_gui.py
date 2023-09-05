@@ -35,7 +35,6 @@ from interactive_pipe.graphical.gui import InteractivePipeGUI, InteractivePipeWi
 from interactive_pipe.graphical.qt_control import ControlFactory
 from interactive_pipe.graphical.keyboard import KeyboardSlider
 from interactive_pipe.headless.pipeline import HeadlessPipeline
-from functools import partial
 from typing import List
 import numpy as np
 
@@ -214,22 +213,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
             slider_name = ctrl.name
             self.ctrl[slider_name] = ctrl
             if isinstance(ctrl, KeyboardSlider):
-                toggle_only = True
-                doc = ""
-                for keyboard_key, down_flag in [(ctrl.keyup, False), (ctrl.keydown, True)]:
-                    if keyboard_key is not None:
-                        if not down_flag:
-                            toggle_only = False
-                        update_func = partial(self.key_update_parameter, slider_name, down_flag)
-                        if toggle_only:
-                            doc = f"toggle {ctrl.name}"
-                        elif down_flag:
-                            doc += f"[{ctrl.keydown}]/[{ctrl.keyup}]: {ctrl.name}"
-                        if len(doc) == 0:
-                            update_func.__doc__ = None
-                        else:
-                            update_func.__doc__ = doc
-                        self.main_gui.bind_key(keyboard_key, update_func)
+                self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
             elif isinstance(ctrl, Control):
                 slider_instance = control_factory.create_control(ctrl, self.update_parameter)
                 slider = slider_instance.create()
@@ -244,6 +228,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
         self.result_label[idx].setText(f'{self.ctrl[idx].name} = {self.ctrl[idx].value}')
 
     def update_parameter(self, idx, value):
+        """Required implementation for graphical controllers update"""
         if self.ctrl[idx]._type == str:
             self.ctrl[idx].update(self.ctrl[idx].value_range[value])
         elif self.ctrl[idx]._type == bool:
@@ -258,6 +243,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
         self.refresh()
     
     def key_update_parameter(self, idx, down):
+        """Required implementation for keyboard sliders update"""
         if down:
             self.ctrl[idx].on_key_down()
         else:
