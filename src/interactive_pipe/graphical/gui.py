@@ -1,10 +1,12 @@
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.parameters import Parameters
+from interactive_pipe.graphical.keyboard import KeyboardSlider
 import logging
 import numpy as np
 from copy import deepcopy
 from typing import Any, Callable, List
+from functools import partial
 
 
 class InteractivePipeGUI():
@@ -71,6 +73,26 @@ class InteractivePipeGUI():
             self.pipeline.reset_cache()
             refresh_func()
         self.reset_context_events()
+
+    def bind_keyboard_slider(self, ctrl: KeyboardSlider, key_update_parameter_func: Callable):
+        assert isinstance(ctrl, KeyboardSlider)
+        toggle_only = True
+        doc = ""
+        slider_name = ctrl.name
+        for keyboard_key, down_flag in [(ctrl.keyup, False), (ctrl.keydown, True)]:
+            if keyboard_key is not None:
+                if not down_flag:
+                    toggle_only = False
+                update_func = partial(key_update_parameter_func, slider_name, down_flag)
+                if toggle_only:
+                    doc = f"toggle {ctrl.name}"
+                elif down_flag:
+                    doc += f"[{ctrl.keydown}]/[{ctrl.keyup}]: {ctrl.name}"
+                if len(doc) == 0:
+                    update_func.__doc__ = None
+                else:
+                    update_func.__doc__ = doc
+                self.bind_key(keyboard_key, update_func)
 
     # ---------------------------------------------------------------------
     def reset_parameters(self):
