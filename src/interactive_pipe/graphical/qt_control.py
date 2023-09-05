@@ -31,12 +31,13 @@ if not PYQTVERSION:
 
 
 class BaseControl(QWidget):
-    def __init__(self, name, ctrl: Control, update_func):
+    def __init__(self, name, ctrl: Control, update_func, silent=False):
         super().__init__()
         self.name = name
         self.ctrl = ctrl
         self.update_func = update_func
         self.control_widget = None
+        self.silent = silent
         self.check_control_type()
 
     def create(self):
@@ -66,12 +67,23 @@ class ControlFactory:
         return control_class(name, control, update_func)
 
 
+class SilentSlider(QSlider):
+    def __init__(self, *args, silent_keys=(Qt.Key_Left, Qt.Key_Right, Qt.Key_Up,  Qt.Key_Down, Qt.Key_PageUp, Qt.Key_PageDown), **kwargs):
+        super().__init__(*args, **kwargs)
+        self.silent_keys = silent_keys
+    
+    def keyPressEvent(self, event):
+        if event.key() in self.silent_keys:
+            return
+        super(SilentSlider, self).keyPressEvent(event)
+
 class IntSliderControl(BaseControl):
     def check_control_type(self):
         assert self.ctrl._type == int
 
     def create(self):
-        slider = QSlider(Qt.Orientation.Horizontal, self)
+        slider_class = SilentSlider if self.silent else QSlider
+        slider = slider_class(Qt.Orientation.Horizontal, self)
         slider.setRange(self.ctrl.value_range[0],  self.ctrl.value_range[1])
         slider.setValue(self.ctrl.value_default)
         slider.setSingleStep(5)
@@ -93,9 +105,10 @@ class FloatSliderControl(BaseControl):
     def create(self):
         # Create a horizontal layout to hold the slider and line edit
         hbox = QHBoxLayout()
+        slider_class = SilentSlider if self.silent else QSlider
 
         # Create the slider with integer range and step size
-        slider = QSlider(Qt.Orientation.Horizontal, self)
+        slider = slider_class(Qt.Orientation.Horizontal, self)
         slider.setRange(self.convert_value_to_int(self.ctrl.value_range[0]), self.convert_value_to_int(self.ctrl.value_range[1]))
         slider.setValue(self.convert_value_to_int(self.ctrl.value_default))
         slider.setSingleStep(5)

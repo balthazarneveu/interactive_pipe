@@ -3,7 +3,7 @@ import logging
 
 try:
     from PySide6.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout, QMessageBox
-    from PySide6.QtCore import QUrl
+    from PySide6.QtCore import QUrl, Qt
     from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
     from PySide6.QtGui import QPixmap, QImage, QIcon
     PYQTVERSION = 6
@@ -63,16 +63,17 @@ class InteractivePipeQT(InteractivePipeGUI):
 
     def set_default_key_bindings(self):
         self.key_bindings = {**{
-            "h": self.help,
+            "f1": self.help,
             "r": self.reset_parameters,
             "w": self.save_images,
             "o": self.load_parameters,
             "e": self.save_parameters,
             "i": self.print_parameters,
             "q": self.close,
-            "h": self.help,
             "g": self.display_graph
         }, **self.key_bindings}
+    
+
     def close(self):
         """close GUI"""
         self.app.quit()
@@ -105,6 +106,7 @@ class InteractivePipeQT(InteractivePipeGUI):
     def print_message(self, message_list: List[str]):
         print("\n".join(message_list))
         QMessageBox.about(self.window, self.name, "\n".join(message_list))
+    
     ### ---------------------------- AUDIO FEATURE ----------------------------------------
     def audio_player(self):
         self.player = QMediaPlayer()
@@ -155,6 +157,27 @@ class InteractivePipeQT(InteractivePipeGUI):
 
 
 class MainWindow(QWidget, InteractivePipeWindow):
+    key_mapping_dict = {
+        Qt.Key_Up: "up",
+        Qt.Key_Down: "down",
+        Qt.Key_Left: "left",
+        Qt.Key_Right: "right",
+        Qt.Key_PageUp: "pageup",
+        Qt.Key_PageDown: "pagedown",
+        Qt.Key_F1 : "f1",
+        Qt.Key_F2 : "f2",
+        Qt.Key_F3 : "f3",
+        Qt.Key_F4 : "f4",
+        Qt.Key_F5 : "f5",
+        Qt.Key_F6 : "f6",
+        Qt.Key_F7 : "f7",
+        Qt.Key_F8 : "f8",
+        Qt.Key_F9 : "f9",
+        Qt.Key_F10 : "f10",
+        Qt.Key_F11 : "f11",
+        Qt.Key_F12 : "f12",
+        Qt.Key_Space : " ",
+    }
     def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline=None, fullscreen=False, width=None, center=True, style=None, main_gui=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.pipeline = pipeline
@@ -199,10 +222,20 @@ class MainWindow(QWidget, InteractivePipeWindow):
             self.showMaximized()
         if fullscreen:
             self.showFullScreen()
+        self.setFocusPolicy(Qt.StrongFocus)
         self.show()
 
     def keyPressEvent(self, event):
-        self.main_gui.on_press(event.text(), refresh_func=self.refresh)
+        mapped_str = None
+
+        current_key = event.key()
+        for qt_key, str_mapping in self.key_mapping_dict.items():
+            if current_key ==qt_key:
+                mapped_str = str_mapping
+                logging.debug(f"matched Qt key{mapped_str}")  
+        if mapped_str is None:
+            mapped_str = event.text()   
+        self.main_gui.on_press(mapped_str, refresh_func=self.refresh)
 
     def init_sliders(self, controls: List[Control]):
         self.ctrl = {}

@@ -72,6 +72,7 @@ class Control():
                     self._type = int
                 else:
                     self._type = float
+                    self.step = (value_range[1] - value_range[0])/100.
                 assert value_default >= value_range[0] and value_default <= value_range[1]
         elif isinstance(value_default, str):
             # similar to an enum
@@ -84,7 +85,8 @@ class Control():
         else:
             raise TypeError("Wrong value type")
         self.value_range = value_range
-        self.step = step
+        if step is not None:
+            self.step = step
         # init current value
         self.value = value_default
         self.icons = icons
