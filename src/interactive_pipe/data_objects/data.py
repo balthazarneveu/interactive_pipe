@@ -14,7 +14,7 @@ class Data:
     
     @classmethod
     def from_file(cls, path, **kwargs):
-        assert isinstance(path, Path)
+        assert isinstance(path, Path), "not a path"
         data_class = cls(None)
         data_class.load(path, **kwargs)
         return data_class
