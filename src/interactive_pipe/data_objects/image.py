@@ -21,20 +21,36 @@ except:
     logging.info("PIL is not available")
 assert len(image_backends)>0
 
-from interactive_pipe.data_objects.data import Data
-# TODO: can we get rid of cv2? use lighter PIL instead
+try:
+    import matplotlib.pyplot as plt
+except:
+    logging.info("matplotlib is not available, won't be able to show images")
+    
 
+from interactive_pipe.data_objects.data import Data
 
     
 class Image(Data):
     def __init__(self, data, title="") -> None:
         super().__init__(data)
         self.title=title
+        self.path = None
+    
     def _set_file_extensions(self):
         self.file_extensions = [".png", ".jpg", ".tif"]
+    
     def _save(self, path: Path, backend=None):
-        self.save_image(self.data, self.append_with_stem(path, self.title), backend=backend)
-    def _load(self, path: Path, backend=None):
+        assert path is not None, "Save requires a path"
+        if self.title is not None:
+            self.path = self.append_with_stem(path, self.title)
+        else:
+            self.path = path
+        self.save_image(self.data, self.path, backend=backend)
+    
+    def _load(self, path: Path, backend=None, title=None) -> np.ndarray:
+        if title is not None:
+            self.title = title
+        self.path = path
         return self.load_image(path, backend=backend)
     
     @staticmethod
@@ -75,18 +91,18 @@ class Image(Data):
     
 
     @staticmethod
-    def load_image_cv2(path: Path, precision=8):
+    def load_image_cv2(path: Path, precision=8) -> np.ndarray:
         img = cv2.imread(str(path))
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         return Image.normalize_dynamic(img, precision=precision)
 
     @staticmethod
-    def load_image_PIL(path: Path, precision=8):
+    def load_image_PIL(path: Path, precision=8) -> np.ndarray:
         img = PilImage.open(path)
         return Image.normalize_dynamic(np.array(img), precision=precision)
     
     @staticmethod
-    def load_image(path: Path, precision=8, backend=None):
+    def load_image(path: Path, precision=8, backend=None) -> np.ndarray:
         if backend is None:
             backend = IMAGE_BACKEND_PILLOW
         assert backend in IMAGE_BACKENDS
@@ -94,3 +110,10 @@ class Image(Data):
             return Image.load_image_cv2(path)
         if backend == IMAGE_BACKEND_PILLOW:
             return Image.load_image_PIL(path, precision)
+    
+    def show(self):
+        plt.figure()
+        plt.imshow(self.data)
+        ttl = (f"{self.title} -" if self.title else "") + f"{self.data.shape}"
+        plt.title(ttl)
+        plt.show()
