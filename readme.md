@@ -1,4 +1,4 @@
-**Version 0.5.2**
+**Version 0.5.3**
 
 # Concept
 - Develop your algorithm while debugging with plots, while checking robustness & continuity to parameters change
@@ -25,7 +25,8 @@
 ### :test_tube: Experimental features
 - custom events on specific key press
 - Display the execution graph of the pipeline
-- Play audio (Qt backend only). Play songs on spotify (linux only)
+- [thirdparty/music](/src/interactive_pipe/thirdparty/music.py) Play audio (Qt backend only). Play songs on spotify (linux only) when the spotify app is running.
+- [thirdparty/images_openai_api](/src/interactive_pipe/thirdparty/images_openai_api.py) Generate images from prompt using OpenAI API image generation DALL-E Model (:dollar:  paid service ~ 2cents/image) 
 
 ### :keyboard:   Keyboard shortcuts
 Shortcuts while using the GUI (QT & matplotlib backends)
