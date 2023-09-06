@@ -84,7 +84,6 @@ class ImageFromPrompt(Image):
 
     @staticmethod
     def __generate_image_to_disk(prompt, path=None, size=(256, 256), api_key=None, silent=False) -> Path:
-        assert openai.api_key is not None
         assert isinstance(prompt, str), f"{prompt}"
         if ImageFromPrompt.check_file_existence(path):
             logging.info(f"Already cached image {path}")
