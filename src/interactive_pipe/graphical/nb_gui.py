@@ -1,6 +1,6 @@
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 import matplotlib.pyplot as plt
-from interactive_pipe.core.control import Control
+from interactive_pipe.headless.control import Control
 from typing import List
 from interactive_pipe.graphical.nb_control import ControlFactory
 

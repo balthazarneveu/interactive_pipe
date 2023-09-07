@@ -1,4 +1,4 @@
-from interactive_pipe.core.control import Control
+from interactive_pipe.headless.control import Control
 from interactive_pipe.headless.control_abbreviation import control_from_tuple
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.graphical.gui import InteractivePipeGUI

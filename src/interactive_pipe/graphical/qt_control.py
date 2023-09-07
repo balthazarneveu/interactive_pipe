@@ -1,6 +1,6 @@
 
 from functools import partial
-from interactive_pipe.core.control import Control
+from interactive_pipe.headless.control import Control
 import logging
 
 PYQTVERSION = None

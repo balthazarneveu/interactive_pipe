@@ -11,10 +11,11 @@ The following document allows you to understand how the `interactive_pipe` libra
 
 - **core**: *Function classes*
     - **These classes are supposed to run without any terminal access. interaction, user interaction or even harddrive accesses.**
-    - Build a `PipelineCore` from a list of `FilterCore` where the parameter variation range can be defined with `Controls`
+    - Build a `PipelineCore` from a list of `FilterCore`
    
 - **headless**: *Adds I/O features & keyboard interations & useful helpers to simplify things*
     - **These classes are supposed to simplify pipeline declaration & allow you to control the pipeline from a terminal (like a server without screen or X11 forwarding).**
+    - parameters variation range can be defined with `Controls`
     - :keyboard: add keyboard controls
     - :floppy_disk: allow loading/saving images & parameters from/to disk
 
@@ -27,10 +28,10 @@ Core of the library to define pure pipeline processings & parameters controls in
 - [`FilterCore`](/src/interactive_pipe/core/filter.py) adds two features to the `PureFilter`: 
     - the routing mechanism needed to interconnect several filters in a pipeline
     - a cache `.cache_mem` to store the result of previous execution. `CachedResults` uses `StateChange` to check whether or not parameters have been updated.
-- [`Control`](/src/interactive_pipe/core/control.py) and [`KeyboardControl`](/src/interactive_pipe/core/keyboard.py) define how a parameter can vary (default_value, range, step, which key to press). In the graphical interface, these controls will later be interpreted & materialized as widgets (slider, buttons, checkboxes) or a keyboard interaction.
 - [`PipelineCore`](/src/interactive_pipe/core/pipeline.py) is defined by a sequence of filters interconnected to each other through a routing definition. Pipeline execution is performed using a [`PipelineEngine`](src/interactive_pipe/core/engine.py) which will:
     - simply take the outputs from previous filters and feed it to the next filter's `.apply_fn` and provide the updated parameters.
     - deal with the cache mechanism to avoid unnecessary computations.
+
 
 
 ## Headless
@@ -38,6 +39,8 @@ Core of the library to define pure pipeline processings & parameters controls in
 - saving results to disk / loading results & parameters from disk 
 - visualizing execution graphs (*requires graphviz*)
 - initialize a pipeline from a function. This is one of the powerful features of `interactive_pipe` which allows defining a pipeline & its routing mechanism from a single function (+all filters defined as functions only).
+
+[`Control`](/src/interactive_pipe/headless/control.py) and [`KeyboardControl`](/src/interactive_pipe/headless/keyboard.py) define how a parameter can vary (default_value, range, step, which key to press). In the graphical interface, these controls will later be interpreted & materialized as widgets (slider, buttons, checkboxes) or a keyboard interaction.
 
 A simple terminal should be enough to use it... This is the right class to use if you want to do batch processing for instance.
 
@@ -60,6 +63,7 @@ Note: [`InteractivePipeGUI`](/src/interactive_pipe/graphical/gui.py) & [`Interac
 # Detailed description
 ## Core
 An pure pipeline execution without graphical interface related stuffs
+An example using the core: [object_oriented_pipeline_declarations.py](/samples/object_oriented_pipeline_declarations.py)
 ### [`filter.py`](/src/interactive_pipe/core/filter.py) & [`signature.py`](/src/interactive_pipe/core/signature.py)
 - `PureFilter`: The most minimalistic filter object used to execute the user defined `apply_fn`. Keyword arguments of `apply_fn` are provided through parameters stored as the data member `.values`.
     - Allows to `.run` the `apply_fn` based on the `.values` dictionary. 
@@ -85,17 +89,6 @@ Tests: [:test_tube: test_filter.py](/test/test_filter.py)  [:test_tube: test_cor
 
 Tests: [:test_tube: test_cache.py](/test/test_cache.py) 
 
-### [`control.py`](/src/interactive_pipe/core/control.py) and [`keyboard.py`](/src/interactive_pipe/core/keyboard.py)
-- [`Control`](/src/interactive_pipe/core/control.py)  [:test_tube:](/test/test_controller.py) 
-    - Defines a parameter by its `.value_default` and it's potential variations (`.value_range`) and (`.step`). 
-    - Supported types are:
-        - `int` /`float` later materialized as a slider
-        - `bool` later materialized as a checkbox 
-        - `str` later materialized as a dropdown menu.
-- [`KeyboardControl(Control)`](/src/interactive_pipe/core/keyboard.py)
-    - extends a `Control` by defining two keyboard keys to increase / decrease a parameter. 
-    - the `.modulo` attributes allows "wrapping around" the parameter (when you go above the maximum/end, you'll come back to the mininum/start, and vice versa). This can be handy for instance if you're switching between a few images with pageup/pagedown.
-    - When using a bool, a single key is required to turn on/off the parameter.
 
 ### [`pipeline.py`](/src/interactive_pipe/core/pipeline.py) & [`engine.py`](src/interactive_pipe/core/engine.py) 
 [`PipelineCore`](/src/interactive_pipe/core/pipeline.py) is defined by a sequence of filters interconnected to each other through a routing definition. Execution is performed using a [`PipelineEngine`](src/interactive_pipe/core/engine.py) which will simply take the outputs from previous filters and feed it to the next filter `apply_fn`.
@@ -111,11 +104,25 @@ Tests: [:test_tube: test_cache.py](/test/test_cache.py)
 
 > This is called headless as it is still not related to graphical user interface.
 
-- [`HeadlessPipeline`](/src/interactive_pipe/headless/pipeline.py) extends `PipelineCore` with useful features
+### [`HeadlessPipeline`](/src/interactive_pipe/headless/pipeline.py) 
+`HeadlessPipeline` extends `PipelineCore` with useful features
     - saving results to disk / loading results & parameters from disk 
     - visualizing execution graphs (*requires graphviz*) with `.graph_representation`. This works particularly well in jupyter notebooks.
     - initialize a pipeline from a function. This is one of the powerful features of `interactive_pipe` which allows defining a pipeline & its routing mechanism from a single function (+all filters defined as functions only).
     - you need to set the inputs before calling `.run`. A simpler way to do this is to use the `.__call__` method instead so you can use the pipeline as if it was a normal function.
+
+
+### [`control.py`](/src/interactive_pipe/headless/control.py) and [`keyboard.py`](/src/interactive_pipe/headless/keyboard.py)
+- [`Control`](/src/interactive_pipe/headless/control.py)  [:test_tube:](/test/test_controller.py) 
+    - Defines a parameter by its `.value_default` and it's potential variations (`.value_range`) and (`.step`). 
+    - Supported types are:
+        - `int` /`float` later materialized as a slider
+        - `bool` later materialized as a checkbox 
+        - `str` later materialized as a dropdown menu.
+- [`KeyboardControl(Control)`](/src/interactive_pipe/headless/keyboard.py)
+    - extends a `Control` by defining two keyboard keys to increase / decrease a parameter. 
+    - the `.modulo` attributes allows "wrapping around" the parameter (when you go above the maximum/end, you'll come back to the mininum/start, and vice versa). This can be handy for instance if you're switching between a few images with pageup/pagedown.
+    - When using a bool, a single key is required to turn on/off the parameter.
 
 > Note: A simple terminal should be enough to use it... This is the right class to use if you want to do batch processing for instance.
 

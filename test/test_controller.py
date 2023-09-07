@@ -1,6 +1,6 @@
 import pytest
 
-from interactive_pipe.core.control import Control
+from interactive_pipe.headless.control import Control
 
 def test_control_init():
     with pytest.raises(AssertionError):

@@ -1,4 +1,4 @@
-from interactive_pipe.core.control import Control
+from interactive_pipe.headless.control import Control
 
 def control_from_tuple(short_params, param_name :str =None):
     '''

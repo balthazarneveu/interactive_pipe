@@ -30,7 +30,7 @@ if not PYQTVERSION:
             raise ModuleNotFoundError("No PyQt")
 
 
-from interactive_pipe.core.control import Control
+from interactive_pipe.headless.control import Control
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.window import InteractivePipeWindow
 from interactive_pipe.graphical.qt_control import ControlFactory
