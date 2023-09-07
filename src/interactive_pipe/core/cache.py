@@ -18,12 +18,15 @@ class CachedResults:
     - update results only when the state of the sliders has been changed
     - keep cached Filters results in memory
 
-    Please note that only pointers are copied when updating the cache, no deepcopy is performed here
+    Please note that if you use safe_buffer_deepcopy=False,
+    only pointers are copied when updating the cache, no deepcopy is performed here.
+    You should only use safe_buffer_deepcopy=False 
+    if you're 100% sure you don't do inplace modifications.
 
     Underlying class used in the interactive pipe cache mechanism.
     """
 
-    def __init__(self, name: str = None, safe_buffer_deepcopy: bool = False):
+    def __init__(self, name: str = None, safe_buffer_deepcopy: bool = True):
         self.name = name
         self.result = None
         self.state_change = StateChange(name=name)
