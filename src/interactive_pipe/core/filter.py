@@ -1,6 +1,6 @@
 import logging
 from copy import deepcopy
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, List, Optional, Union, Tuple, Any
 
 from interactive_pipe.core.cache import CachedResults
 from interactive_pipe.core.signature import analyze_apply_fn_signature
@@ -52,7 +52,7 @@ class PureFilter:
         
         self._values = {**self._values, **new_values}
 
-    def run(self, *imgs) -> list:
+    def run(self, *imgs) -> Tuple[Any]:
         # First we check if the keyword args of the apply function match with self.values
         assert isinstance(self.values, dict), f"{self.values}"
         self.check_apply_signature()
@@ -69,14 +69,13 @@ class PureFilter:
 
 
 class FilterCore(PureFilter):
-    """PureFilter + cache + routing nodes defined (inputs & outputs fields)"""
-
+    """PureFilter with cache storage + routing nodes defined (inputs & outputs fields)"""
     def __init__(self,
                  apply_fn: Callable = None,
                  name: Optional[str] = None,
                  default_params: dict = {},
-                 inputs: List[int] = [0],
-                 outputs: List[int] = [0],
+                 inputs: List[Union[int, str]] = [0],
+                 outputs: List[Union[int, str]] = [0],
                  cache=True,
                  ):
         super().__init__(apply_fn=apply_fn, name=name,
@@ -92,8 +91,7 @@ class FilterCore(PureFilter):
         else:
             self.cache_mem = None
 
-    def run(self, *imgs) -> list:
-        # TODO: support routing mechanism based on List[int] or List[str | generic routing object]
+    def run(self, *imgs) -> Tuple[Any]:
         if imgs:
             assert len(imgs) == len(
                 self.inputs), "number of inputs shall match what's expected"
@@ -112,6 +110,7 @@ class FilterCore(PureFilter):
         else:
             logging.debug(f"need to return a tuple when you have a single element out {type(out)}")
             return (out,)
+    
     def __repr__(self) -> str:
         descr = f"{self.name}: "
         descr += "(" + (", ".join([f"{it}" for it in self.inputs])) + ")"
