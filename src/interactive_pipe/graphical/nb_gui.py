@@ -14,10 +14,10 @@ class InteractivePipeJupyter(InteractivePipeGUI):
         self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, size=self.size, **kwargs)
 
     
-    def run(self):
+    def run(self) -> None:
         assert self.pipeline._PipelineCore__initialized_inputs, "Did you forget to initialize the pipeline inputs?"
         interact(self.window._interact_fn, **self.window.sliders_dict)
-
+        return None # do not return arrays in a jupyter notebook
 
 # You will need %matplotlib inline
 class MainWindow(MatplotlibWindow):

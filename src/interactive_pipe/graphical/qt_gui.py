@@ -31,7 +31,8 @@ if not PYQTVERSION:
 
 
 from interactive_pipe.core.control import Control
-from interactive_pipe.graphical.gui import InteractivePipeGUI, InteractivePipeWindow
+from interactive_pipe.graphical.gui import InteractivePipeGUI
+from interactive_pipe.graphical.window import InteractivePipeWindow
 from interactive_pipe.graphical.qt_control import ControlFactory
 from interactive_pipe.core.keyboard import KeyboardControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
@@ -53,7 +54,7 @@ class InteractivePipeQT(InteractivePipeGUI):
         self.pipeline.global_params["__pipeline"] = self.pipeline
         self.set_default_key_bindings()
         
-    def run(self):
+    def run(self) -> list:
         assert self.pipeline._PipelineCore__initialized_inputs, "Did you forget to initialize the pipeline inputs?"
         self.window.refresh()
         ret = self.app.exec()

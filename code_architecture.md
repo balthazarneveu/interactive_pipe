@@ -38,7 +38,7 @@ A simple terminal should be enough to use it... This is the right class to use i
     - `mpl` matplotlib used for scientific visualization.
     - `nb` based on [ipywidgets](https://ipywidgets.readthedocs.io/en/stable/) used in jupyter notebooks.
 
-Note: [`InteractivePipeGUI`](/src/interactive_pipe/graphical/gui.py) & [`InteractivePipeWindow`](/src/interactive_pipe/graphical/gui.py) have to be defined for each backend.
+Note: [`InteractivePipeGUI`](/src/interactive_pipe/graphical/gui.py) & [`InteractivePipeWindow`](/src/interactive_pipe/graphical/window.py) have to be defined for each backend.
 
 
 
@@ -160,9 +160,19 @@ It uses whatever image is available to save images (among [PIL](https://pypi.org
 Note: `InteractivePipeGUI` & `InteractivePipeWindow` have to be defined for each backend.
 
 - [`InteractivePipeGUI`](/src/interactive_pipe/graphical/gui.py) is the main app. 
+    - It adds an app with a GUI on top of a HeadlessPipeline. Widgets will update the pipeline parameters. Keyboard bindings will.
+    - It stores the headless pipeline & the list of controls.
     - It deals with key bindings (keyboard press triggers a function. function docstring is shown to the user when he presses "F1" help)
-    - it deals with printing the help 
-- [`InteractivePipeWindow`](/src/interactive_pipe/graphical/gui.py) is the window which displays the results & the sliders.
+    - it deals with printing the help.
+    - A few special methods may be redefined for some specific backend needs.
+    `reset_parameters`, `close`,
+    `save_parameters`, `load_parameters`, `print_parameters`
+    `display_graph`, `help`.
+    Docstring of these methods will be used in the "F1" help descriptions
+    - :clipboard: Redefining `print_message` will allow a window popup for instance.
+    
+
+- [`InteractivePipeWindow`](/src/interactive_pipe/graphical/window.py) is the window which displays the results & the sliders.
     - `.size` = `(w, h)`/ `fullscreen` / `maximized` defines the user expected window size.
     - It deals with the graphical refresh
     - It allows to refreshes the canvas (displaying two images side by side or four images in a 2x2 square fashion for instance.)
