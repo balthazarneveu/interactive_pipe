@@ -1,7 +1,7 @@
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.parameters import Parameters
-from interactive_pipe.core.keyboard import KeyboardControl
+from interactive_pipe.headless.keyboard import KeyboardControl
 import logging
 from typing import Callable, List
 from functools import partial

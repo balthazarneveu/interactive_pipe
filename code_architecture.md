@@ -6,6 +6,21 @@ The following document allows you to understand how the `interactive_pipe` libra
 :warning: Undocumented decorators as there may still be some changes. 
 
 # High level view
+
+
+
+- **core**: *Function classes*
+    - **These classes are supposed to run without any terminal access. interaction, user interaction or even harddrive accesses.**
+    - Build a `PipelineCore` from a list of `FilterCore` where the parameter variation range can be defined with `Controls`
+   
+- **headless**: *Adds I/O features & keyboard interations & useful helpers to simplify things*
+    - **These classes are supposed to simplify pipeline declaration & allow you to control the pipeline from a terminal (like a server without screen or X11 forwarding).**
+    - :keyboard: add keyboard controls
+    - :floppy_disk: allow loading/saving images & parameters from/to disk
+
+- **graphical**: *Adds a GUI to headless pipeline*
+    - **:computer: Requires a computer screen or a remote machine  with X11 forwarding.**
+    - Supports `qt` (pyqt or pyside), `mpl` (matplotlib), `nb` (jupyter notebooks) backends
 ## Core
 Core of the library to define pure pipeline processings & parameters controls in a class oriented fashion.
 - [`PureFilter`](/src/interactive_pipe/core/filter.py): The most minimalistic filter object used to execute the user defined `apply_fn` based on the `.values` dictionary stored as a class member.
