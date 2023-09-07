@@ -68,7 +68,6 @@ class PipelineEngine:
                 if self.cache and prc.cache_mem is not None:  # cache result if cache available
                     logging.debug(f"<-- Storing result from {prc.name}")
                     prc.cache_mem.update(out)
-            # TODO: use str keys & dict for routing mechanism
             # put prc output at the right position within result vector
             if prc.outputs is not None:
                 for i, ido in enumerate(prc.outputs):
