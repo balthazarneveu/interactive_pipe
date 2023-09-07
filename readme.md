@@ -16,7 +16,7 @@
 - Support in jupyter notebooks
 - Tuning sliders & check buttons  with a GUI
 - Cache intermediate results in RAM for much faster processing
-- `KeyboardSlider` : no slider on UI but exactly the same internal mechanism, update on key press.
+- `KeyboardControl` : no slider on UI but exactly the same internal mechanism, update on key press.
 
 ### :soon: Upcoming features:
 - :soon: Scientific visual debugging: Display both colored images, heatmaps & graphs

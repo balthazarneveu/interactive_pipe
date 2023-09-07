@@ -1,7 +1,7 @@
 from typing import List, Optional
 from graphical.filter import Filter
 from headless.pipeline import HeadlessPipeline
-from interactive_pipe.core.sliders import KeyboardSlider
+from interactive_pipe.core.sliders import KeyboardControl
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import CheckButtons, Slider
@@ -97,7 +97,7 @@ class Pipeline(HeadlessPipeline):
         self.check_button_redraw = False
         for pa in self.filters:
             for idx, pa_name in enumerate(pa.sliderslist):
-                if isinstance(pa_name, KeyboardSlider):
+                if isinstance(pa_name, KeyboardControl):
                     pass
                 if self.slidersplot[u] is None:
                     pass
@@ -173,7 +173,7 @@ class Pipeline(HeadlessPipeline):
         total_buttons = np.array([len([sl for sl in pa.defaultvalue if isinstance(sl, bool)])
                                   for pa in self.filters]).sum()
         total_kb = np.array(
-            [len([sl for sl in pa.slidertype if isinstance(sl, KeyboardSlider)]) for pa in self.filters]).sum()
+            [len([sl for sl in pa.slidertype if isinstance(sl, KeyboardControl)]) for pa in self.filters]).sum()
         total_sliders = total_sliders - total_buttons - total_kb
         slider_shrink_factor = np.clip(5. / max(total_sliders, 1), 0., 1.)
         button_shrink_factor = np.clip(5. / max(total_buttons, 1), 0., 1.)
@@ -187,7 +187,7 @@ class Pipeline(HeadlessPipeline):
                 if addslider:
                     defaultval = dfval
                     axcolor = 'lightgoldenrodyellow'
-                    if isinstance(pa.slidertype[idx], KeyboardSlider):
+                    if isinstance(pa.slidertype[idx], KeyboardControl):
                         self.axes.append(None)
                         self.slider_key.append((pa, idx, pa.slidertype[idx]))
                         self.slidersplot.append(None)

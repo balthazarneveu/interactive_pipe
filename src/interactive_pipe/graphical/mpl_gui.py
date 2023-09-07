@@ -1,6 +1,6 @@
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 import matplotlib.pyplot as plt
-from interactive_pipe.graphical.keyboard import KeyboardSlider
+from interactive_pipe.graphical.keyboard import KeyboardControl
 from typing import List, Optional, Union, Tuple
 import  logging
 from interactive_pipe.graphical.mpl_control import ControlFactory
@@ -132,7 +132,7 @@ class MainWindow(MatplotlibWindow):
             slider_name = ctrl.name
             if not dry_run:
                 self.ctrl[slider_name] = ctrl
-            if isinstance(ctrl, KeyboardSlider):
+            if isinstance(ctrl, KeyboardControl):
                 self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
                 continue
             if ctrl._type == bool or ctrl._type == str:
