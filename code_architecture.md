@@ -184,7 +184,7 @@ Note: `InteractivePipeGUI` & `InteractivePipeWindow` have to be defined for each
 | [qt_control.py](/src/interactive_pipe/graphical/qt_gui.py)   | [mpl_gui.py](/src/interactive_pipe/graphical/mpl_gui.py) | [nb_gui.py](/src/interactive_pipe/graphical/nb_gui.py) | Code for GUI & Window |
 | [qt_control.py](/src/interactive_pipe/graphical/qt_control.py) | [mpl_control.py](/src/interactive_pipe/graphical/mpl_control.py) | [nb_control.py](/src/interactive_pipe/graphical/nb_control.py) | Code for widget controls|
 
-## thirparty
+## thirdparty
 Some helpful helpers based on paid services
 ### [`ImageFromPrompt`](src/interactive_pipe/thirdparty/images_openai_api.py) 
 Extends the `Image` class to generate images from a text prompt using the OpenAI Dall-E online API, store to disk & directly load to memory as a numpy array.

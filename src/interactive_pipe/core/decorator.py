@@ -1,4 +1,5 @@
 from interactive_pipe.core.control import Control
+from interactive_pipe.core.control_abbreviation import control_from_tuple
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.core.graph import analyze_apply_fn_signature
@@ -20,7 +21,7 @@ def interactive(**decorator_controls):
                 controls[param_name] = unknown_keyword_arg
             else:
                 if isinstance(unknown_keyword_arg, list) or isinstance(unknown_keyword_arg, tuple):
-                    controls[param_name] = Control.from_tuple(unknown_keyword_arg, param_name=param_name)
+                    controls[param_name] = control_from_tuple(unknown_keyword_arg, param_name=param_name)
                     # NOTE: for keyword args, setting a boolean will not trigger a tickmark (although it is possible)
                     # Use (True) instead of True if you want to make a tickbox
 
@@ -30,7 +31,7 @@ def interactive(**decorator_controls):
             if isinstance(unknown_control, Control):
                 controls[param_name] = unknown_control
             else: # you may get a tuple, list or a boolean
-                controls[param_name] = Control.from_tuple(unknown_control, param_name=param_name)
+                controls[param_name] = control_from_tuple(unknown_control, param_name=param_name)
 
         for param_name, unknown_control in controls.items():
             Control.register(func.__name__, param_name, controls[param_name])
