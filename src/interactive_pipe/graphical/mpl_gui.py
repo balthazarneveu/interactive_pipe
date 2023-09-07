@@ -1,6 +1,6 @@
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 import matplotlib.pyplot as plt
-from interactive_pipe.graphical.keyboard import KeyboardControl
+from interactive_pipe.core.keyboard import KeyboardControl
 from typing import List, Optional, Union, Tuple
 import  logging
 from interactive_pipe.graphical.mpl_control import ControlFactory

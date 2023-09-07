@@ -1,7 +1,7 @@
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.parameters import Parameters
-from interactive_pipe.graphical.keyboard import KeyboardControl
+from interactive_pipe.core.keyboard import KeyboardControl
 import logging
 import numpy as np
 from copy import deepcopy
