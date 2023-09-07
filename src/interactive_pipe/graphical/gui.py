@@ -1,7 +1,7 @@
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.parameters import Parameters
-from interactive_pipe.graphical.keyboard import KeyboardSlider
+from interactive_pipe.graphical.keyboard import KeyboardControl
 import logging
 import numpy as np
 from copy import deepcopy
@@ -75,8 +75,8 @@ class InteractivePipeGUI():
             refresh_func()
         self.reset_context_events()
 
-    def bind_keyboard_slider(self, ctrl: KeyboardSlider, key_update_parameter_func: Callable):
-        assert isinstance(ctrl, KeyboardSlider)
+    def bind_keyboard_slider(self, ctrl: KeyboardControl, key_update_parameter_func: Callable):
+        assert isinstance(ctrl, KeyboardControl)
         toggle_only = True
         doc = ""
         slider_name = ctrl.name

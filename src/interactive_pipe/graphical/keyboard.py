@@ -2,7 +2,7 @@ from interactive_pipe.core.control import Control
 from typing import Union, List, Optional
 from interactive_pipe.core.filter import FilterCore
 
-class KeyboardSlider(Control):
+class KeyboardControl(Control):
     """
     Plug and play class to replace a slider by keyboard interaction
     """

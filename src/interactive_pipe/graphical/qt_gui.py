@@ -33,7 +33,7 @@ if not PYQTVERSION:
 from interactive_pipe.core.control import Control
 from interactive_pipe.graphical.gui import InteractivePipeGUI, InteractivePipeWindow
 from interactive_pipe.graphical.qt_control import ControlFactory
-from interactive_pipe.graphical.keyboard import KeyboardSlider
+from interactive_pipe.graphical.keyboard import KeyboardControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from typing import List
 import numpy as np
@@ -300,7 +300,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
         for ctrl in controls:
             slider_name = ctrl.name
             self.ctrl[slider_name] = ctrl
-            if isinstance(ctrl, KeyboardSlider):
+            if isinstance(ctrl, KeyboardControl):
                 self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
             elif isinstance(ctrl, Control):
                 slider_instance = control_factory.create_control(ctrl, self.update_parameter)
