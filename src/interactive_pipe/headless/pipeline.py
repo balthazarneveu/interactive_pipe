@@ -129,9 +129,8 @@ class HeadlessPipeline(PipelineCore):
        
 
     def import_tuning(self, path: Path = None) -> None:
-        """Open a yaml tuning and apply to GUI
+        """Open a json/yaml tuning file and set parameters
         """
-        # TODO: inform an update of parameters
         self.parameters = Parameters.load_from_file(path)
 
     def __repr__(self):
@@ -166,7 +165,7 @@ class HeadlessPipeline(PipelineCore):
         return self.results
 
     def save(self, path: Path = None, data_wrapper_fn: Callable = None, output_indexes: list = None, save_entire_buffer=False) -> Path:
-        """Save full resolution image
+        """Save images
         """
         if output_indexes is None:
             if self.outputs is not None:
