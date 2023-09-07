@@ -41,6 +41,7 @@ class PureFilter:
         self._values = self.__kwargs_names
         if "global_params" in self.__kwargs_names.keys():
             self._values.pop("global_params")
+    
     @property
     def values(self):
         return self._values

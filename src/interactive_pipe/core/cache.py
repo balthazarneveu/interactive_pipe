@@ -75,7 +75,8 @@ class CachedResults:
 
 class StateChange:
     """
-    Helper class to check if parameters whether or not input parameters have been updated.
+    Helper class to check whether or not input parameters have been updated.
+    
     Underlying class used in the interactive pipe cache mechanism.
     """
 

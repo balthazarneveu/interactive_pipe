@@ -10,7 +10,9 @@ from interactive_pipe.core.filter import analyze_apply_fn_signature
 from interactive_pipe.core.control import Control
 
 class HeadlessPipeline(PipelineCore):
-    """Adds some powerful features to the pipeline core such as:
+    """PipelineCore extensions - saving/loading to disk - graphs - init from interpreted functions
+    
+    Adds some powerful features to the pipeline core such as:
     - creating a pipeline from a function as a sequential filter
     - importing/exporting parameters ("tuning") as json or yaml
     - saving output images

@@ -1,4 +1,3 @@
-# from __future__ import absolute_import, unicode_literals
 import dbus
 import sys
 from sys import platform
@@ -15,14 +14,7 @@ class SpotifyInterface():
                 type
             )
         except dbus.exceptions.DBusException:
-            """
-                If we catch this exception, Spotify is not running.
-                Let the user know.
-            """
-            sys.exit(
-                "\nSome errors occured. Try restart or start Spotify.\n"
-            )
-
+            sys.exit("\nSome errors occured. Try restart or start Spotify.\n")
         return interface
     factory = staticmethod(factory)
 
@@ -56,7 +48,7 @@ class SpotifyLinux():
         self.pause()
 
 
-def get_music():
+def get_spotify_music():
     if 'linux' in platform:
         return SpotifyLinux()
     else:
