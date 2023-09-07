@@ -34,7 +34,7 @@ from interactive_pipe.core.control import Control
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.window import InteractivePipeWindow
 from interactive_pipe.graphical.qt_control import ControlFactory
-from interactive_pipe.core.keyboard import KeyboardControl
+from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from typing import List
 import numpy as np
