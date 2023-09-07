@@ -1,4 +1,4 @@
-from interactive_pipe.core.control import Control
+from interactive_pipe.headless.control import Control
 from interactive_pipe.core.decorator import interactive
 import numpy as np
 

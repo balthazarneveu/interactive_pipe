@@ -2,12 +2,11 @@ import logging
 from pathlib import Path
 from typing import Any, Optional, Callable
 from interactive_pipe.core.filter import FilterCore
-
 from interactive_pipe.core.pipeline import PipelineCore
 from interactive_pipe.data_objects.parameters import Parameters
 from interactive_pipe.core.graph import get_call_graph
 from interactive_pipe.core.filter import analyze_apply_fn_signature
-from interactive_pipe.core.control import Control
+from interactive_pipe.headless.control import Control
 
 class HeadlessPipeline(PipelineCore):
     """PipelineCore extensions - saving/loading to disk - graphs - init from interpreted functions

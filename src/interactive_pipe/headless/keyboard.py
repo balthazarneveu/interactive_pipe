@@ -1,4 +1,4 @@
-from interactive_pipe.core.control import Control
+from interactive_pipe.headless.control import Control
 from typing import Union, List, Optional
 from interactive_pipe.core.filter import FilterCore
 

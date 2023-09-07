@@ -1,5 +1,5 @@
 from matplotlib.widgets import Slider, CheckButtons, RadioButtons
-from interactive_pipe.core.control import Control
+from interactive_pipe.headless.control import Control
 import  logging
 
 class BaseControl:
