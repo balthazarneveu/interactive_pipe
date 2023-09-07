@@ -1,5 +1,5 @@
 from interactive_pipe.headless.control import Control
-from interactive_pipe.headless.control_abbreviation import control_from_tuple
+from interactive_pipe.helper.control_abbreviation import control_from_tuple
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.core.graph import analyze_apply_fn_signature

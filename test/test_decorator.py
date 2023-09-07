@@ -1,5 +1,5 @@
 from interactive_pipe.headless.control import Control
-from interactive_pipe.core.decorator import interactive
+from interactive_pipe import interactive
 import numpy as np
 
 @interactive(
