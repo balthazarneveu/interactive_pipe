@@ -19,11 +19,12 @@ Core of the library to define pure pipeline processings & parameters controls in
 
 
 ## Headless
-This is called headless as it is still not related to graphical user interface.
-- [`HeadlessPipeline`](/src/interactive_pipe/headless/pipeline.py) extends `PipelineCore` with useful features
-    - saving results to disk / loading results & parameters from disk 
-    - visualizing execution graphs (*requires graphviz*)
-    - initialize a pipeline from a function. This is one of the powerful features of `interactive_pipe` which allows defining a pipeline & its routing mechanism from a single function (+all filters defined as functions only).
+[`HeadlessPipeline`](/src/interactive_pipe/headless/pipeline.py) extends the minimalistic `PipelineCore` with useful features (mostly unrelated to Graphical User Interface but useful). 
+- saving results to disk / loading results & parameters from disk 
+- visualizing execution graphs (*requires graphviz*)
+- initialize a pipeline from a function. This is one of the powerful features of `interactive_pipe` which allows defining a pipeline & its routing mechanism from a single function (+all filters defined as functions only).
+
+A simple terminal should be enough to use it... This is the right class to use if you want to do batch processing for instance.
 
 ## Data objects
 [`Data`](/src/interactive_pipe/data_objects/data.py) is a generic class which allows reducing boiler plate code when dealing with file paths. Here are the following implementations
@@ -54,7 +55,9 @@ An pure pipeline execution without graphical interface related stuffs
     - Adds the routing definition (requires `.inputs` & `.outputs`). In a pipeline, this allows to tell how to inter-connect several filters together.
     - Adds a `.cache_mem` instance of `CachedResults` to store the result of previous execution.
     - *Note that cached update check (StateChange) is not actually used inside the run function.* It comes at the pipeline level. For some simple reason: the filter could check if the parameters have been updated... but it's far more difficult to check if the input changed when executing (without recomputing a hash every time which can be burdensome). In a pipeline scenario: the most elegant way is to inform the current filter instance that its inputs have been modified by previous filters... simply if previous filters have updated their results...
-    
+
+Tests: [:test_tube: test_filter.py](/test/test_filter.py)  [:test_tube: test_core.py](/test/test_core.py)
+
 ### [`cache.py`](/src/interactive_pipe/core/cache.py)
 - `CachedResults`: helper class to store the results of a Filter. 
     - Uses `StateChange` to monitor the parameters update.
@@ -65,9 +68,10 @@ An pure pipeline execution without graphical interface related stuffs
     - Please note that if you use `safe_buffer_deepcopy=False`, only pointers are copied when updating the cache, no deepcopy is performed here. You should only use safe_buffer_deepcopy=False if you're 100% sure you don't do inplace modifications. To avoid mistake, it's been set to True by default although it will take more RAM.
 - `StateChange`: helper class to check whether or not input parameters have been updated.
 
+Tests: [:test_tube: test_cache.py](/test/test_cache.py) 
 
 ### [`control.py`](/src/interactive_pipe/core/control.py) and [`keyboard.py`](/src/interactive_pipe/core/keyboard.py)
-- [`Control`](/src/interactive_pipe/core/control.py) 
+- [`Control`](/src/interactive_pipe/core/control.py)  [:test_tube:](/test/test_controller.py) 
     - Defines a parameter by its `.value_default` and it's potential variations (`.value_range`) and (`.step`). 
     - Supported types are:
         - `int` /`float` later materialized as a slider
@@ -78,15 +82,30 @@ An pure pipeline execution without graphical interface related stuffs
     - the `.modulo` attributes allows "wrapping around" the parameter (when you go above the maximum/end, you'll come back to the mininum/start, and vice versa). This can be handy for instance if you're switching between a few images with pageup/pagedown.
     - When using a bool, a single key is required to turn on/off the parameter.
 
-### [`pipeline.py`](/src/interactive_pipe/core/pipeline.py) & [`engine.py`](src/interactive_pipe/core/engine.py)
+### [`pipeline.py`](/src/interactive_pipe/core/pipeline.py) & [`engine.py`](src/interactive_pipe/core/engine.py) 
 [`PipelineCore`](/src/interactive_pipe/core/pipeline.py) is defined by a sequence of filters interconnected to each other through a routing definition. Execution is performed using a [`PipelineEngine`](src/interactive_pipe/core/engine.py) which will simply take the outputs from previous filters and feed it to the next filter `apply_fn`.
 - [`PipelineCore`](/src/interactive_pipe/core/pipeline.py) :
     - takes care of parameters updates & reset (then to dispatch the updated parameters to each filter)
     - stores the inputs provided to the pipeline & deals with inputs updates.
-- [`PipelineEngine`](src/interactive_pipe/core/engine.py)
+- [`PipelineEngine`](src/interactive_pipe/core/engine.py) [:test_tube:](/test/test_engine.py)
     - applies the defined routing (basically a execution graph)
     - takes care of the cache mechanism.
     - *No support of parallellism / threading, filters are computed sequentially*
+
+## headless
+
+> This is called headless as it is still not related to graphical user interface.
+
+- [`HeadlessPipeline`](/src/interactive_pipe/headless/pipeline.py) extends `PipelineCore` with useful features
+    - saving results to disk / loading results & parameters from disk 
+    - visualizing execution graphs (*requires graphviz*) with `.graph_representation`. This works particularly well in jupyter notebooks.
+    - initialize a pipeline from a function. This is one of the powerful features of `interactive_pipe` which allows defining a pipeline & its routing mechanism from a single function (+all filters defined as functions only).
+    - you need to set the inputs before calling `.run`. A simpler way to do this is to use the `.__call__` method instead so you can use the pipeline as if it was a normal function.
+
+> Note: A simple terminal should be enough to use it... This is the right class to use if you want to do batch processing for instance.
+
+Tests:  [:test_tube: test_headless.py](/test/test_headless.py)  [:test_tube: test_recorder.py](/test/test_recorder.py) 
+
 
 ## data_objects
 
@@ -102,6 +121,7 @@ Data class has to be re-implemented everytime.  `._set_file_extensions`, `._save
 ### [`Parameters`](/src/interactive_pipe/data_objects/parameters.py)
 `Parameters` class is used to store/reload dictionaries (usually pipeline parameters) to disk.
 - Supports json & [yaml](https://pypi.org/project/PyYAML/) formats.
+- Tests:  [:test_tube: test_parameters.py](/test/test_parameters.py)
 
 ### [`Image`](/src/interactive_pipe/data_objects/image.py)
 `Image` class deals with loading/saving images from disk.
@@ -109,6 +129,7 @@ It uses whatever image is available to save images (among [PIL](https://pypi.org
 - internal data is stored using [numpy arrays](https://pypi.org/project/numpy/) and by default images are normalized in the [0, 1] range and stored as float32 so this can be an assumption throughout the whole pipeline.
 - :soon: This code is expected to be extended to support pytorch tensors, moving data to/from GPU seamlessly when needed (when saving or visualizing to screen, not after each filter to avoid polluting the code...).
 - it has a `.show()` method, useful inside a jupyter notebook
+- Tests [:test_tube: test_image.py](/test/test_image.py) 
 
 ## graphical
 - Currently supported backends:
