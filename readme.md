@@ -129,7 +129,9 @@ if __name__ == '__main__':
 
 
 # Roadmap and todos
-Want to contribute or interested in adding new features? Enter a new [Github issue](https://github.com/balthazarneveu/interactive_pipe/issues)
+:bug: Want to contribute or interested in adding new features? Enter a new [Github issue](https://github.com/balthazarneveu/interactive_pipe/issues)
+
+:gift: Want to dig into the code? Take a look at [code_architecture.md](/code_architecture.md)
 
 ## Short term roadmap
 - Backport previous features
