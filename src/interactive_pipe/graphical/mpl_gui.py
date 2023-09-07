@@ -7,7 +7,7 @@ from interactive_pipe.graphical.mpl_control import ControlFactory
 from interactive_pipe.graphical.mpl_window import MatplotlibWindow
 
 class InteractivePipeMatplotlib(InteractivePipeGUI):
-    """Interactive image pipe. Use sliders to fine tune your parameters
+    """Interactive image pipe with matplotlib backend
     """
     def init_app(self, **kwargs):
         self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, main_gui=self, size=self.size, **kwargs)
@@ -28,7 +28,7 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
             **self.key_bindings
         }
 
-    def run(self):
+    def run(self) -> list:
         assert self.pipeline._PipelineCore__initialized_inputs, "Did you forget to initialize the pipeline inputs?"
         self.window.refresh()
         if isinstance(self.size, str) and "full" in self.size.lower():
@@ -42,6 +42,7 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
                 self.window.fig.canvas.manager.key_press_handler_id)
         self.window.fig.canvas.mpl_connect('key_press_event', self.on_press)
         plt.show()
+        return self.pipeline.results
     
     def load_parameters(self):
         """import parameters dictionary from a yaml/json file on disk"""

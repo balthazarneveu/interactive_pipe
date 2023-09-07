@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from interactive_pipe.graphical.gui import InteractivePipeWindow
+from interactive_pipe.graphical.window import InteractivePipeWindow
 import numpy as np
 import matplotlib as mpl
 

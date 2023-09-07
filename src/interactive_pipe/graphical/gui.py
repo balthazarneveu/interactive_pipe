@@ -3,14 +3,30 @@ from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.parameters import Parameters
 from interactive_pipe.core.keyboard import KeyboardControl
 import logging
-import numpy as np
-from copy import deepcopy
-from typing import Any, Callable, List
+from typing import Callable, List
 from functools import partial
 
 
 class InteractivePipeGUI():
-    """Interactive pipe with a graphical user interface"""
+    """Adds a generic graphical user interface to HeadlessPipeline.
+
+    Needs to be specified/customized for each backend.
+    It adds an app with a GUI on top of a HeadlessPipeline.
+    Widgets will update the pipeline parameters.
+    - It deals with key bindings
+     (keyboard press triggers a function. 
+     function docstring is shown to the user when he presses "F1" help)
+    - It deals with printing the help
+    - Initializing the app `init_app` usually requires creating the window object
+    A few special methods may be redefined for some specific backend needs.
+    `reset_parameters`, `close`,
+    `save_parameters`, `load_parameters`, `print_parameters`
+    `display_graph`, `help`
+    Docstring of these methods will be used in the "F1" help descriptions
+    - Redefining `print_message` will allow a window popup for instance.
+    
+    Do not re-implement the init function!
+    """
     def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", custom_end=lambda :None, audio=False, size=None, **kwargs) -> None:
         self.pipeline = pipeline
         self.custom_end = custom_end
@@ -31,9 +47,20 @@ class InteractivePipeGUI():
         
     
     def init_app(self):
+        """Init the app
+        Initializing the app requires
+        - creating the window object
+        - binding default keyboard keys
+        """
         raise NotImplementedError
     
-    def run(self):
+    def run(self) -> list:
+        """Once properly initialized
+        - Show the window
+        - Put it in full screen if needed
+        - execute the app (launch the main event loop)
+        Return results
+        """
         raise NotImplementedError
 
     def __call__(self, *args, parameters={}, **kwargs) -> None:
@@ -121,9 +148,11 @@ class InteractivePipeGUI():
         """save images to disk"""
         pth = Image.check_path(Image.prompt_file(), load=False)
         self.pipeline.save(pth, data_wrapper_fn=lambda im:Image(im), save_entire_buffer=True)
+    
     def display_graph(self):
         """display execution graph"""
         self.pipeline.graph_representation(view=True)
+    
     def help(self) -> List[str]:
         """print this help in the console"""
         help = []
@@ -142,78 +171,3 @@ class InteractivePipeGUI():
         print("\n".join(message_list))
 
     # ---------------------------------------------------------------------
-
-
-class InteractivePipeWindow():
-    def __init__(self, *args, size=None, style=None, **kwargs) -> None:
-        self.image_canvas = None
-        self._size = size
-        if style is not None:
-            logging.info("no support for style in Qt backend")
-
-    @property
-    def size(self):
-        return self._size
-
-    @size.setter
-    def size(self, _size):
-        self._size = _size
-
-    def add_image_placeholder(self, row, col):
-        raise NotImplementedError
-
-    def delete_image_placeholder(self, img_widget):
-        raise NotImplementedError
-    
-    def update_image(self, content, row, col):
-        raise NotImplementedError
-
-    def check_image_canvas_changes(self, expected_image_canvas_shape):
-        if self.image_canvas is not None:
-            current_canvas_shape = (len(self.image_canvas), max([len(image_row) for image_row in self.image_canvas]))
-            if current_canvas_shape != expected_image_canvas_shape:
-                for row_content in self.image_canvas:
-                    for img_widget in row_content:
-                        if img_widget is not None:
-                            self.delete_image_placeholder(img_widget)
-                self.image_canvas = None
-                logging.debug("Need to fully re-initialize canvas")
-    
-    def set_image_canvas(self, image_grid):
-        expected_image_canvas_shape  = (len(image_grid), max([len(image_row) for image_row in image_grid]))
-        # Check if the layout has been updated!
-        self.check_image_canvas_changes(expected_image_canvas_shape)
-        if self.image_canvas is None:
-            self.image_canvas = np.empty(expected_image_canvas_shape).tolist()
-            for row, image_row in enumerate(image_grid):
-                for col, image_array in enumerate(image_row):
-                    if image_array is None:
-                        self.image_canvas[row][col] = None
-                        continue
-                    else:
-                        self.add_image_placeholder(row, col)
-
-    def set_images(self, image_grid):
-        self.set_image_canvas(image_grid)
-        for row, image_row in enumerate(image_grid):
-            for col, image_array in enumerate(image_row):
-                if image_array is None:
-                    continue
-                self.update_image(image_array, row, col)
-
-    def refresh_display(self, _out):
-        out = deepcopy(_out)
-        # In case no canvas has been provided
-        if isinstance(out, tuple):
-            out = [list(out)]
-        ny, nx = len(out), 0
-        for idy, img_row in enumerate(out):
-            if isinstance(img_row, list):
-                for idx, out_img in enumerate(img_row):
-                    if out[idy][idx] is not None:
-                        out[idy][idx] = self.convert_image(out[idy][idx])
-                nx = len(img_row)
-            else:
-                out[idy] = [self.convert_image(out[idy])]
-        logging.info(f"{ny} x {nx} figures")
-        self.set_images(out)
