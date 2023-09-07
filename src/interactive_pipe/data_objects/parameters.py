@@ -1,26 +1,60 @@
 from pathlib import Path
-import yaml
+import logging
 import json
-from yaml.loader import SafeLoader
+YAML_SUPPORT = True
+YAML_NOT_DETECTED_MESSAGE = "yaml is not installed, consider installing it by pip install PyYAML"
+try:
+    import yaml
+    from yaml.loader import SafeLoader
+except:
+    YAML_SUPPORT = False
+    logging.warning(YAML_NOT_DETECTED_MESSAGE)
 from interactive_pipe.data_objects.data import Data
 
 class Parameters(Data):
     def _set_file_extensions(self):
-        self.file_extensions = ['.yaml', '.json']
+        self.file_extensions = ['.json']
+        if YAML_SUPPORT:
+            self.file_extensions.append(".yaml")
     def _load(self, path: Path):
-        with open(path) as file:
-            if path.suffix == '.yaml':
-                params = yaml.load(file, Loader=SafeLoader)
-            elif path.suffix == '.json':
-                params = json.load(file)
-            else:
-                raise ValueError(f"Unsupported file extension: {path.suffix}")
+        assert path.suffix in self.file_extensions, f"Unsupported file extension: {path.suffix}, {self.file_extensions}"
+        if path.suffix == '.json':
+            params = self.load_json(path)
+        elif path.suffix == '.yaml':
+            params = self.load_yaml(path)
+        else:
+            raise NotImplementedError(path.suffix)
         return params
+    
     def _save(self, path:Path):
+        assert path.suffix in self.file_extensions, f"Unsupported file extension: {path.suffix}, {self.file_extensions}"
+        if path.suffix == '.json':
+            self.save_json(self.data, path)
+        elif path.suffix == '.yaml':
+            self.save_yaml(self.data, path, default_flow_style=False)
+        else:
+            raise NotImplementedError(path.suffix)
+    
+    @staticmethod
+    def load_yaml(path:Path,) -> dict:
+        assert YAML_SUPPORT, YAML_NOT_DETECTED_MESSAGE
+        with open(path) as file:
+            params = yaml.load(file, Loader=SafeLoader)
+        return params
+    
+    @staticmethod
+    def save_yaml(data: dict, path:Path, **kwargs):
+        assert YAML_SUPPORT, YAML_NOT_DETECTED_MESSAGE
         with open(path, 'w') as outfile:
-            if path.suffix == '.yaml':
-                yaml.dump(self.data, outfile, default_flow_style=False)
-            elif path.suffix == '.json':
-                json.dump(self.data, outfile)
-            else:
-                raise ValueError(f"Unsupported file extension: {path.suffix}")
+            yaml.dump(data, outfile, **kwargs)
+    
+    @staticmethod
+    def load_json(path:Path,) -> dict:
+        with open(path) as file:
+            params = json.load(file)
+        return params
+
+    @staticmethod
+    def save_json(data: dict, path:Path):
+        with open(path, 'w') as outfile:
+            json.dump(data, outfile)
