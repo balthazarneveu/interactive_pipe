@@ -95,13 +95,13 @@ class Control():
     def __repr__(self) -> str:
         if self._type in [float, int]:
             if self.value_range:
-                return f"{self.value} - range {self.value_range} default = {self.value_default} type: {self._type}"
+                return f"{self.name} | {self.value} - range {self.value_range} default = {self.value_default} type: {self._type}"
             else:
-                return f"{self.value} - RANGELESS - default = {self.value_default} type: {self._type}"
+                return f"{self.name} | {self.value} - RANGELESS - default = {self.value_default} type: {self._type}"
         elif self._type == bool:
-            return f"Bool {self.value} - default {self.value_default}"
+            return f"{self.name} | Bool {self.value} - default {self.value_default}"
         elif self._type == str:
-            return  f"{self.value} - choices {self.value_range} default = {self.value_default} type: {self._type}"
+            return  f"{self.name} | {self.value} - choices {self.value_range} default = {self.value_default} type: {self._type}"
         else:
             raise NotImplementedError
     @property

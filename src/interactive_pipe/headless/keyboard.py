@@ -2,10 +2,21 @@ from interactive_pipe.headless.control import Control
 from typing import Union, List, Optional
 from interactive_pipe.core.filter import FilterCore
 
+
+
 class KeyboardControl(Control):
     """
     Plug and play class to replace a slider by keyboard interaction
     """
+    KEY_UP = "up",
+    KEY_DOWN = "down"
+    KEY_LEFT = "left"
+    KEY_RIGHT = "right"
+    KEY_PAGEUP = "pageup"
+    KEY_PAGEDOWN =  "pagedown"
+    KEY_SPACEBAR = " "
+    SPECIAL_KEYS_LIST = [KEY_UP, KEY_PAGEDOWN, KEY_LEFT, KEY_RIGHT, KEY_PAGEUP, KEY_PAGEDOWN, KEY_SPACEBAR] + [f"f{i}" for i in range(1, 13)]
+    
     def __init__(self, value_default: Union[int, float, bool,str], value_range: List[Union[int, float, str]]=None, keydown=None, keyup=None, modulo=False, name=None, step=None, filter_to_connect: Optional[FilterCore] = None, parameter_name_to_connect: Optional[str] = None) -> None:        
         super().__init__(value_default=value_default, value_range=value_range, name=name, step=step, filter_to_connect=filter_to_connect, parameter_name_to_connect=parameter_name_to_connect, icons=None)
         self.keyup = keyup
@@ -42,3 +53,15 @@ class KeyboardControl(Control):
     def on_key_up(self):
         if self.keyup is not None:
             self.on_key(down=False)
+    
+    def __repr__(self) -> str:
+        return super().__repr__() + f" | down:{'' if self.keydown is None else self.keydown} |  up:{'' if self.keyup is None else self.keyup}  | modulo:{self.modulo}"
+    
+    @staticmethod
+    def sanity_check_key(key):
+        key = key.lower()
+        assert isinstance(key, str), f"{key} shall be a string"
+        assert len(key) >0
+        if len(key) >1:
+            assert key in KeyboardControl.SPECIAL_KEYS_LIST, "key is not supported"
+        return key
