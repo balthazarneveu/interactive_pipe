@@ -8,14 +8,14 @@ class KeyboardControl(Control):
     """
     Plug and play class to replace a slider by keyboard interaction
     """
-    KEY_UP = "up",
+    KEY_UP = "up"
     KEY_DOWN = "down"
     KEY_LEFT = "left"
     KEY_RIGHT = "right"
     KEY_PAGEUP = "pageup"
     KEY_PAGEDOWN =  "pagedown"
     KEY_SPACEBAR = " "
-    SPECIAL_KEYS_LIST = [KEY_UP, KEY_PAGEDOWN, KEY_LEFT, KEY_RIGHT, KEY_PAGEUP, KEY_PAGEDOWN, KEY_SPACEBAR] + [f"f{i}" for i in range(1, 13)]
+    SPECIAL_KEYS_LIST = [KEY_UP, KEY_DOWN, KEY_PAGEDOWN, KEY_LEFT, KEY_RIGHT, KEY_PAGEUP, KEY_PAGEDOWN, KEY_SPACEBAR] + [f"f{i}" for i in range(1, 13)]
     
     def __init__(self, value_default: Union[int, float, bool,str], value_range: List[Union[int, float, str]]=None, keydown=None, keyup=None, modulo=False, name=None, step=None, filter_to_connect: Optional[FilterCore] = None, parameter_name_to_connect: Optional[str] = None) -> None:        
         super().__init__(value_default=value_default, value_range=value_range, name=name, step=step, filter_to_connect=filter_to_connect, parameter_name_to_connect=parameter_name_to_connect, icons=None)
@@ -63,5 +63,5 @@ class KeyboardControl(Control):
         key = key.lower()
         assert len(key) >0
         if len(key) >1:
-            assert key in KeyboardControl.SPECIAL_KEYS_LIST, "key is not supported"
+            assert key in KeyboardControl.SPECIAL_KEYS_LIST, f"{key} is not supported - use {KeyboardControl.SPECIAL_KEYS_LIST}"
         return key
