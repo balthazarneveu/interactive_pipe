@@ -179,12 +179,12 @@ class InteractivePipeQT(InteractivePipeGUI):
 
 class MainWindow(QWidget, InteractivePipeWindow):
     key_mapping_dict = {
-        Qt.Key_Up: "up",
-        Qt.Key_Down: "down",
-        Qt.Key_Left: "left",
-        Qt.Key_Right: "right",
-        Qt.Key_PageUp: "pageup",
-        Qt.Key_PageDown: "pagedown",
+        Qt.Key_Up: KeyboardControl.KEY_UP,
+        Qt.Key_Down: KeyboardControl.KEY_DOWN,
+        Qt.Key_Left: KeyboardControl.KEY_LEFT,
+        Qt.Key_Right: KeyboardControl.KEY_RIGHT,
+        Qt.Key_PageUp: KeyboardControl.KEY_PAGEUP,
+        Qt.Key_PageDown: KeyboardControl.KEY_PAGEDOWN,
         Qt.Key_F1 : "f1",
         Qt.Key_F2 : "f2",
         Qt.Key_F3 : "f3",
@@ -197,7 +197,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
         Qt.Key_F10 : "f10",
         Qt.Key_F11 : "f11",
         Qt.Key_F12 : "f12",
-        Qt.Key_Space : " ",
+        Qt.Key_Space : KeyboardControl.KEY_SPACEBAR,
     }
     def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline=None, size=None, center=True, style=None, main_gui=None, **kwargs):
         super().__init__(*args, **kwargs)
