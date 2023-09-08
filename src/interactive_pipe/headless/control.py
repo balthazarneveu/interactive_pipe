@@ -69,6 +69,7 @@ class Control():
             self.name = f"parameter {Control.counter}"
         else:
             self.name = name
+        assert isinstance(self.name, str), f"{self.name} shall be a string"
         Control.counter+=1
         if filter_to_connect is not None:
             assert parameter_name_to_connect is not None

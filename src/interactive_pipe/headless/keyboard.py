@@ -59,8 +59,8 @@ class KeyboardControl(Control):
     
     @staticmethod
     def sanity_check_key(key):
-        key = key.lower()
         assert isinstance(key, str), f"{key} shall be a string"
+        key = key.lower()
         assert len(key) >0
         if len(key) >1:
             assert key in KeyboardControl.SPECIAL_KEYS_LIST, "key is not supported"
