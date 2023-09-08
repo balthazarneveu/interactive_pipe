@@ -11,6 +11,8 @@ CHOICES = ["dog", "cat", "elephant", "rabbit"]
         (False, NAME, ("-", "+")),
         (10, [-15, 18], None, ("-", "+", True)),
         (10, [-15, 18], None, ["-", "+", True]),
+        (10, [-15, 18], None, ("pageup", "pagedown", True)),
+        (0, [-5, 8], None, ("up", "down", False)),
         ("dog", CHOICES, None, ["p", "n", True]),
         ("dog", CHOICES, None, ("p", "n", True)),
         ("dog", CHOICES, None, (None, "n", True)),
@@ -29,7 +31,9 @@ def test_abbreviation_keyboard(inp_tuple):
         ((False, NAME, 12), ValueError),
         ((False, NAME, "ctrl"), AssertionError), #un supported key
         ((False, NAME, "F25"), AssertionError), # un supported key,
-        ((True, NAME, [True, False], "+"), AssertionError)
+        ((True, NAME, [True, False], "+"), AssertionError),
+        (("dog", CHOICES, None, (True, "b", True)), AssertionError),
+        (("dog", CHOICES, None, ("w", "b", "z")), AssertionError),
     ]
 )
 def test_abbreviation_keyboard_expected_fail(inp_tuple_and_error_type):
@@ -62,6 +66,7 @@ def test_abbreviation_control(inp_tuple):
         ((True, "flag", [-2, 2]), AssertionError),
         ((True, [True, False], "flag"), AssertionError),
         (("dolphin", CHOICES), AssertionError),
+        ((-10, [-5, 8], None), AssertionError),
     ]
 )
 def test_abbreviation_control_expected_fail(inp_tuple_and_error_type):
