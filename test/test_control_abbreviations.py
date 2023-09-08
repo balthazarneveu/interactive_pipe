@@ -25,10 +25,26 @@ def test_abbreviation_keyboard(inp_tuple):
     assert isinstance(ctrl, KeyboardControl)
 
 
+@pytest.mark.parametrize(
+    "inp_tuple", [
+        ((-10, 10), "counter", ("-", "+")),
+        ((-10, 10, 3, -4), "counter_assym", ("-", "+", True)),
+        (CHOICES, None, ["p", "n", True]),
+        (CHOICES, None, ("p", "n", True)),
+        (CHOICES, None, (None, "n", True)),
+        (CHOICES, None, ("w", True)),
+        (CHOICES, None, ("w", None, True))
+    ]
+)
+def test_ultra_abbreviation_keyboard(inp_tuple):
+    ctrl = control_from_tuple(inp_tuple)
+    print(ctrl)
+    assert isinstance(ctrl, KeyboardControl)
+
 
 @pytest.mark.parametrize(
     "inp_tuple_and_error_type", [
-        ((False, NAME, 12), ValueError),
+        ((False, NAME, 12), TypeError),
         ((False, NAME, "ctrl"), AssertionError), #un supported key
         ((False, NAME, "F25"), AssertionError), # un supported key,
         ((True, NAME, [True, False], "+"), AssertionError),
@@ -58,6 +74,22 @@ def test_abbreviation_keyboard_expected_fail(inp_tuple_and_error_type):
 def test_abbreviation_control(inp_tuple):
     ctrl = control_from_tuple(inp_tuple)
     assert isinstance(ctrl, Control) and not isinstance(ctrl, KeyboardControl), f"wrong type {ctrl}"
+
+
+@pytest.mark.parametrize(
+    "inp_tuple", [
+        ([-2., 2.],),
+        ([-2, 2],),
+        ([-2, 2, None, -1],),
+        ([-10, 10, 4, -1],),
+        (CHOICES,)
+    ]
+)
+def test_ultra_abbreviation_control(inp_tuple):
+    ctrl = control_from_tuple(inp_tuple)
+    print(ctrl)
+    assert isinstance(ctrl, Control) and not isinstance(ctrl, KeyboardControl), f"wrong type {ctrl}"
+
 
 
 @pytest.mark.parametrize(

@@ -54,8 +54,7 @@ class Control():
         else:
             raise TypeError("Wrong value type")
         self.value_range = value_range
-        if step is not None:
-            self.step = step
+        self.step = step
         # init current value
         self.value = value_default
         self.icons = icons
@@ -96,13 +95,13 @@ class Control():
     def __repr__(self) -> str:
         if self._type in [float, int]:
             if self.value_range:
-                return f"{self.name} | {self.value} - range {self.value_range} default = {self.value_default} type: {self._type}"
+                return f"{self.name} | {self.value} - range {self.value_range} default = {self.value_default} type: {self._type} - step={self.step}"
             else:
-                return f"{self.name} | {self.value} - RANGELESS - default = {self.value_default} type: {self._type}"
+                return f"{self.name} | {self.value} - RANGELESS - default = {self.value_default} type: {self._type} - step={self.step}"
         elif self._type == bool:
             return f"{self.name} | Bool {self.value} - default {self.value_default}"
         elif self._type == str:
-            return  f"{self.name} | {self.value} - choices {self.value_range} default = {self.value_default} type: {self._type}"
+            return  f"{self.name} | {self.value} - choices {self.value_range} default = {self.value_default} type: {self._type} - step={self.step}"
         else:
             raise NotImplementedError
     @property
