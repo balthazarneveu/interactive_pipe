@@ -31,14 +31,14 @@ def analyze_expected_keyboard_argument(arg) -> Tuple[bool, Union[str, None], Uni
             logging.warning("Setting a Control with an empty list where it expects some key definition for KeyboardControl. Prefer simply ignoring this argument")
             keyboard_slider_flag = False
         else:
-            keydown = KeyboardControl.sanity_check_key(arg[0])
+            keydown = None if arg[0] is None else KeyboardControl.sanity_check_key(arg[0])
             if len(arg) == 2:
                 if isinstance(arg[1], bool):
                     modulo = arg[1]
                 else:
-                    keyup = KeyboardControl.sanity_check_key(arg[1])
+                    keyup = None if arg[1] is None else KeyboardControl.sanity_check_key(arg[1])
             elif len(arg) == 3:
-                keyup = KeyboardControl.sanity_check_key(arg[1])
+                keyup = None if arg[1] is None else KeyboardControl.sanity_check_key(arg[1])
                 assert isinstance(arg[2], bool), f"modulo shall be a boolean, found {arg[2]}"
                 modulo = arg[2]
             else:

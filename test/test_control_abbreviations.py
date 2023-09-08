@@ -12,12 +12,14 @@ CHOICES = ["dog", "cat", "elephant", "rabbit"]
         (10, [-15, 18], None, ("-", "+", True)),
         (10, [-15, 18], None, ["-", "+", True]),
         ("dog", CHOICES, None, ["p", "n", True]),
-        ("dog", CHOICES, None, ["p", "n", True])
+        ("dog", CHOICES, None, ("p", "n", True)),
+        ("dog", CHOICES, None, (None, "n", True)),
+        ("dog", CHOICES, None, ("w", True)),
+        ("dog", CHOICES, None, ("w", None, True))
     ]
 )
 def test_abbreviation_keyboard(inp_tuple):
     ctrl = control_from_tuple(inp_tuple)
-    print(ctrl)
     assert isinstance(ctrl, KeyboardControl)
 
 
