@@ -6,6 +6,7 @@ from interactive_pipe.core.graph import analyze_apply_fn_signature
 import functools
 import inspect
 from typing import Callable,Union
+import logging
 
 def interactive(**decorator_controls):
     """Function decorator to add some controls
@@ -21,7 +22,14 @@ def interactive(**decorator_controls):
                 controls[param_name] = unknown_keyword_arg
             else:
                 if isinstance(unknown_keyword_arg, list) or isinstance(unknown_keyword_arg, tuple):
-                    controls[param_name] = control_from_tuple(unknown_keyword_arg, param_name=param_name)
+                    try:
+                        controls[param_name] = control_from_tuple(unknown_keyword_arg, param_name=param_name)
+                    except Exception as exc_1:
+                        try:
+                            controls[param_name] = control_from_tuple((unknown_keyword_arg,), param_name=param_name)
+                        except Exception as exc:
+                            print(exc_1)
+                            raise Exception(exc)
                     # NOTE: for keyword args, setting a boolean will not trigger a tickmark (although it is possible)
                     # Use (True) instead of True if you want to make a tickbox
 
