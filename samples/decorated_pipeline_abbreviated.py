@@ -18,7 +18,7 @@ def black_and_white(img, bnw=(True, "black and white")):
     return np.repeat(np.expand_dims(np.average(img, axis=-1), -1), img.shape[-1], axis=-1) if bnw else img
 
 @interactive()
-def blend(img0, img1, blend_coeff=(0.5, [0., 1.])):
+def blend(img0, img1, blend_coeff=([0., 1.])):
     '''Blends between two image. 
     - when blend_coeff=0 -> image 0  [slider to the left ] 
     - when blend_coeff=1 -> image 1   [slider to the right] 
