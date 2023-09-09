@@ -158,7 +158,7 @@ class InteractivePipeGUI():
     
     def display_graph(self):
         """display execution graph"""
-        self.pipeline.graph_representation(view=True)
+        self.pipeline.graph_representation(view=True, ortho=False)
     
     def help(self) -> List[str]:
         """print this help in the console"""
