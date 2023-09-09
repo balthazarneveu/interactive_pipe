@@ -25,8 +25,10 @@ class Control():
         self.value_default = value_default
         self._type = None
         self._auto_named = False
+        self.step = step
         if isinstance(value_default, bool):
             self._type = bool
+            self.step = 1
             assert value_range is None
         elif isinstance(value_default, float) or isinstance(value_default, int):
             if value_range is None: # free range parameter!
@@ -37,11 +39,13 @@ class Control():
                 for choice in value_range:
                     assert isinstance(choice, float) or isinstance(choice, int)
                 if isinstance(value_default, int) and isinstance(value_range[0], int) and isinstance(value_range[1], int):
-                    self.step = 1
+                    if self.step is None:
+                        self.step = 1
                     self._type = int
                 else:
                     self._type = float
-                    self.step = (value_range[1] - value_range[0])/100.
+                    if self.step is None:
+                        self.step = (value_range[1] - value_range[0])/100.
                 assert value_default >= value_range[0] and value_default <= value_range[1]
         elif isinstance(value_default, str):
             # similar to an enum
@@ -51,10 +55,12 @@ class Control():
                 assert isinstance(choice, str)
             assert value_default in value_range, f"{value_default} shall be in {value_range}"
             self._type = str
+            if self.step is None:
+                step = 1
         else:
             raise TypeError("Wrong value type")
         self.value_range = value_range
-        self.step = step
+        
         # init current value
         self.value = value_default
         self.icons = icons

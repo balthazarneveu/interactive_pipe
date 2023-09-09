@@ -107,20 +107,27 @@ class InteractivePipeGUI():
         toggle_only = True
         doc = ""
         slider_name = ctrl.name
+        toggle_only = ctrl.keyup is None or ctrl.keydown is None
+        
         for keyboard_key, down_flag in [(ctrl.keyup, False), (ctrl.keydown, True)]:
-            if keyboard_key is not None:
-                if not down_flag:
-                    toggle_only = False
-                update_func = partial(key_update_parameter_func, slider_name, down_flag)
-                if toggle_only:
+            if keyboard_key is None:
+                continue
+            if toggle_only:
+                if ctrl._type == bool:
                     doc = f"toggle {ctrl.name}"
-                elif down_flag:
-                    doc += f"[{ctrl.keydown}]/[{ctrl.keyup}]: {ctrl.name}"
-                if len(doc) == 0:
-                    update_func.__doc__ = None
                 else:
-                    update_func.__doc__ = doc
-                self.bind_key(keyboard_key, update_func)
+                    if ctrl.keyup is None:
+                        doc = f"decrease {ctrl.name}"
+                    elif ctrl.keydow is None:
+                        doc = f"increase {ctrl.name}"
+            else:
+                if down_flag:
+                    doc = f"[{ctrl.keydown}]/[{ctrl.keyup}]: {ctrl.name}"
+                else:
+                    doc = None
+            update_func = partial(key_update_parameter_func, slider_name, down_flag)
+            self.bind_key(keyboard_key, update_func)
+            update_func.__doc__ = doc
 
     # ---------------------------------------------------------------------
     def reset_parameters(self):
