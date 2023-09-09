@@ -1,4 +1,4 @@
-**Version 0.5.3**
+**Version 0.5.4**
 
 # Concept
 - Develop your algorithm while debugging with plots, while checking robustness & continuity to parameters change
@@ -57,7 +57,7 @@ Shortcuts while using the GUI (QT & matplotlib backends)
 
 
 
-## Ultra short code
+## :rocket: Ultra short code
 Let's define 3 image processing very basic filters `exposure`, `black_and_white` & `blend`.
 
 By design:
@@ -117,9 +117,81 @@ if __name__ == '__main__':
 ```
 :heart: This code shall display you a GUI with three images. The middle one is the result of the blend
 
-> Note: If you write `def blend(img0, img1, blend_coeff=0.5):`, blend_coeff will simply not be a slider on the GUI no more.
 
 
+Notes:
+- If you write `def blend(img0, img1, blend_coeff=0.5):`, blend_coeff will simply not be a slider on the GUI no more.
+- If you write `blend_coeff=[0., 1.]` , blend_coeff will be a slider initalized to 0.5
+- If you write `bnw=(True, "black and white", "k")`, the checkbox will disappear and be replaced by a keypress event (press `k` to enable/disable black & white)
+
+-----------
+## :bulb: Some more tips
+
+```python
+from interactive_pipe import interactive, interactive_pipeline
+import numpy as np
+
+COLOR_DICT = {"red": [1., 0., 0.],  "green": [0., 1.,0.], "blue": [0., 0., 1.], "gray": [0.5, 0.5, 0.5]}
+@interactive()
+def generate_flat_colored_image(color_choice=["red", "green", "blue", "gray"], global_params={}):
+    '''Generate a constant colorful image
+    '''
+    flat_array =  np.array(COLOR_DICT.get(color_choice)) * np.ones((64, 64, 3))
+    global_params["avg"] = np.average(flat_array)
+    return flat_array
+```
+
+- Note that you can also create filters which take no inputs and simply "generate" images. 
+- The `color_choice` list will be turnt into a nice dropdown menu. Default value here will be red as this is the first element of the list!
+----------
+
+:bulb: Can filters communicate together?
+Yes, using the special keyword argument `global_params={}`. 
+- Check carefully how we stored the image average of the flat image in  global_params. 
+- This value will be available to other filters.
+`special_image_slice` is going to use that value to set the half bottom image to dark in case the average is high.
+
+```python
+@interactive()
+def special_image_slice(img, global_params={}):
+    if global_params["avg"] > 0.4:
+        out_img[out_img.shape[0]//2:, ...] = 0.
+    return out_img
+```
+---
+
+
+```python
+@interactive()
+def switch_image(img1, img2, img3, image_index=(0, [0, 2], None, ["pagedown", "pageup", True])):
+    '''Switch between 3 images
+    '''
+    return [img1, img2, img3][image_index]
+```
+Note that you can create a filter to switch between several images. In `["pagedown", "pageup", True]`, True means that the image_index will wrap around. (it will return to 0 as soon as it goes above the maximum value of 2).
+
+```python
+@interactive()
+def black_top_image_slice(img, top_slice_black=(True, "special", "k"), global_params={}):
+    out_img = img.copy()
+    if top_slice_black:
+        out_img[:out_img.shape[0]//2, ...] = 0.
+    return out_img
+
+
+@interactive_pipeline(gui="qt", size="fullscreen")
+def sample_pipeline_generated_image():
+    flat_img = generate_flat_colored_image()
+    top_slice_modified = black_top_image_slice(flat_img)
+    bottom_slice_modified_image = special_image_slice(flat_img)
+    chosen = switch_image(flat_img, top_slice_modified, bottom_slice_modified_image)
+    return chosen
+
+if __name__ == '__main__':
+    sample_pipeline_generated_image()
+```
+
+----------
 
 ### History
 - Interactive pipe was initially developped by [Balthazar Neveu](https://github.com/balthazarneveu) as part of the [irdrone project](https://github.com/wisescootering/infrareddrone/tree/master/interactive) based on matplotlib.
