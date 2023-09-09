@@ -56,8 +56,30 @@ def default_value_check(val):
         raise TypeError(f"{type(val)} is not supported")
 
 def control_from_tuple(short_params: Tuple, param_name :str =None) -> Union[Control,  KeyboardControl]:
-    '''
-    Define a Control or Keyboard control from a short declaration
+    '''Define a Control or Keyboard control from a short declaration
+    
+    - Classic mode:
+        - `(default_value, value_range: [min, max, step], optional_name, optional_keyboard: [keydown, up, modulo])`
+        - `(default_string, value_choices: [A, B, C...], optional_name, optional_keyboard: [keydown, up, modulo])`
+        - `(True/False, optional_name, optional_key)`
+    - Ultra short mode:
+        - `[min, max, step, optional_default_value)], optional_name, optional_keyboard: [keydown, up, modulo]`
+        - `[default_A, B, C, D...], optional_name, optional_keyboard:[keydown, up, modulo]`
+    
+    
+    Ultra short examples
+    ---------------------
+    - [-10, 10] -> slider from -10 to 10, default is 0 (middle cursor)
+    - [-10.5, 18., None, 15.] -> slider from -10.5 to 18., default is 15., no step provided
+    - [-5, 5], _name, ["-", "+", True] -> use keyboard -/+ to decrease the value. True indicates a wrap around(modulo). default=0 (in the middle)
+    - ["A", "B", "C"] -> dialog, default is A
+    - (True, _name) -> checkbox checked by default
+    - (False, ) -> checkbox, unchecked by default
+
+
+
+    Regular examples
+    ----------------
     (0., [-1, 1.], name),  (0., [-1, 1., 1], name)...
     (True, name)
 
