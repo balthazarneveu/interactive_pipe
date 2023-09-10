@@ -119,7 +119,7 @@ class MainWindow(MatplotlibWindow):
         # Then go through the slider and create dedicated figures & widgets
         self.top_of_sliders = max(self.next_slider_position,  self.next_button_position)
         self.__init_sliders()
-        plt.subplots_adjust(left=0.04, top=1, bottom=self.top_of_sliders + 2*self.spacer, right=1-0.04)
+        plt.subplots_adjust(left=0.04, top=0.97, bottom=self.top_of_sliders + 2*self.spacer, right=1-0.04)
 
     def __init_sliders(self, dry_run=False):
         if not dry_run:
