@@ -36,15 +36,26 @@ class MatplotlibWindow(InteractivePipeWindow):
     def delete_image_placeholder(self, ax):
         ax["ax"].remove()
         self.need_redraw = True
+    
+    def update_style(self, ax: plt.Axes, style:dict ={}):
+        if style is None:
+            return
+        title = style.get("title", None)
+        if title:
+            ax.set_title(title)
+
 
     def update_image(self, image_array, row, col):
         ax_dict = self.image_canvas[row][col]
+        img_name = self.pipeline.outputs[row][col]
+        current_style = self.pipeline.global_params["__output_styles"].get(img_name, {"title": img_name})
         img = self.convert_image(image_array)
         data =  ax_dict.get("data", None)
         if data:
             data.set_data(img)
         else:
             ax_dict["data"] = ax_dict["ax"].imshow(img)
+        self.update_style(ax_dict["ax"], style=current_style)
 
 
     def refresh(self):
