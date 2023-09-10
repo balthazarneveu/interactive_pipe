@@ -341,19 +341,27 @@ class MainWindow(QWidget, InteractivePipeWindow):
         self.refresh()
 
     def add_image_placeholder(self, row, col):
-        self.image_canvas[row][col] = QLabel(self)
-        self.image_grid_layout.addWidget(self.image_canvas[row][col], row, col)
+        image_label = QLabel(self)
+        text_label = QLabel(text=f"{row} {col}")
+        self.image_canvas[row][col] = {"image": image_label, "title": text_label}
+        self.image_grid_layout.addWidget(text_label, 2*row, col, alignment=Qt.AlignCenter)
+        self.image_grid_layout.addWidget(image_label, 2*row+1, col, alignment=Qt.AlignCenter)
+        
 
-    def delete_image_placeholder(self, img_widget):
-        img_widget.setParent(None)
+    def delete_image_placeholder(self, img_widget_dict):
+        for _, img_widget in img_widget_dict.items():
+            img_widget.setParent(None)
 
     def update_image(self, image_array, row, col):
         h, w, c = image_array.shape
         bytes_per_line = c * w
         image = QImage(image_array.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
         pixmap = QPixmap.fromImage(image)                
-        label = self.image_canvas[row][col]
-        label.setPixmap(pixmap)
+        image_label = self.image_canvas[row][col]["image"]
+        image_label.setPixmap(pixmap)
+        text_label = self.image_canvas[row][col]["title"]
+        text_label.setText(self.get_current_style(row, col).get("title", ""))
+        
 
     @staticmethod
     def convert_image(out_im):
