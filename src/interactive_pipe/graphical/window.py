@@ -11,11 +11,13 @@ class InteractivePipeWindow():
     - It allows to refreshes the canvas 
     (displaying two images side by side or four images in a 2x2 square fashion for instance.)
     """
-    def __init__(self, *args, size=None, style=None, **kwargs) -> None:
+    def __init__(self, *args, name=None, pipeline=None, size=None, style=None, **kwargs) -> None:
+        self.name = name
         self.image_canvas = None
         self._size = size
         if style is not None:
             logging.info("no support for style in Qt backend")
+        self.pipeline = pipeline
 
     @property
     def size(self):
@@ -33,6 +35,12 @@ class InteractivePipeWindow():
     
     def update_image(self, content, row, col):
         raise NotImplementedError
+
+
+    def get_current_style(self, row, col):
+        img_name = self.pipeline.outputs[row][col]
+        current_style = self.pipeline.global_params["__output_styles"].get(img_name, {"title": img_name})
+        return current_style
 
     def check_image_canvas_changes(self, expected_image_canvas_shape):
         if self.image_canvas is not None:

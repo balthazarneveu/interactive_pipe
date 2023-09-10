@@ -200,11 +200,11 @@ class MainWindow(QWidget, InteractivePipeWindow):
         Qt.Key_Space : KeyboardControl.KEY_SPACEBAR,
     }
     def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline=None, size=None, center=True, style=None, main_gui=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.pipeline = pipeline
+        QWidget.__init__(self, *args, **kwargs)
+        InteractivePipeWindow.__init__(self, name=name, pipeline=pipeline, size=size)
         self.main_gui = main_gui
         self.pipeline.global_params["__window"] = self
-        self.setWindowTitle(name)
+        self.setWindowTitle(self.name)
 
         self.layout_obj = QFormLayout()
         self.setLayout(self.layout_obj)
@@ -238,8 +238,8 @@ class MainWindow(QWidget, InteractivePipeWindow):
         #     # cannot refresh the pipeline if no input has been provided! ... not ok for inputless pipeline though!
         #     self.refresh()
         # # You will refresh the window  at the app level, only when running. no need to run the pipeline engine to initalize the GUI
-        self.full_screen_flag = False
         self.size = size
+        self.full_screen_flag = False
         
         self.setFocusPolicy(Qt.StrongFocus)
         self.show()

@@ -18,10 +18,8 @@ class MatplotlibWindow(InteractivePipeWindow):
             'font.size': 10
         }
         """
-        super().__init__(self, size=size)
+        super().__init__(self, size=size, pipeline=pipeline, name=name)
         self.controls = controls
-        self.pipeline = pipeline
-        self.name = name
         if style is not None:
             mpl.style.use(style)
         if rc_params is not None:
@@ -45,11 +43,11 @@ class MatplotlibWindow(InteractivePipeWindow):
             ax.set_title(title)
 
 
+    
     def update_image(self, image_array, row, col):
         ax_dict = self.image_canvas[row][col]
-        img_name = self.pipeline.outputs[row][col]
-        current_style = self.pipeline.global_params["__output_styles"].get(img_name, {"title": img_name})
         img = self.convert_image(image_array)
+        current_style = self.get_current_style(row, col)
         data =  ax_dict.get("data", None)
         if data:
             data.set_data(img)
