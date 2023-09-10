@@ -36,6 +36,7 @@ class InteractivePipeGUI():
         if hasattr(pipeline, "controls"):
             controls += pipeline.controls
         self.controls = controls
+        self.pipeline.global_params["__output_styles"] = {}
         self.pipeline.global_params["__app"] = self
         self.pipeline.global_params["__pipeline"] = self.pipeline
         if not "__events" in self.pipeline.global_params.keys():
