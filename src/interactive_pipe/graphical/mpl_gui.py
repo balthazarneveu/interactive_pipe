@@ -94,7 +94,7 @@ class MainWindow(MatplotlibWindow):
             assert "full" in size.lower(), f"size={size} can be only fullscreen or full"
         super().__init__(controls=controls, name=name, pipeline=pipeline, style=style, size=size, rc_params=rc_params, **kwargs)
         self.main_gui = main_gui
-        self.fig, self.ax = plt.subplots(figsize=self.size if isinstance(self.size, tuple) else None)
+        self.fig, self.ax = plt.subplots(figsize=self.size if isinstance(self.size, tuple) else None, num=self.name)
         plt.axis('off')
         self.init_sliders()
 
