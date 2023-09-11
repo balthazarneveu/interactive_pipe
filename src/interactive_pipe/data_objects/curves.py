@@ -172,7 +172,6 @@ class Curve(Data):
                 for curve in curves:
                     current_curve = self.__create_curve_from_abbreviation(curve)
                     curve_list.append(current_curve)
-                
         data = {
             "curves": curve_list,
             "xlabel": xlabel,
@@ -247,14 +246,51 @@ class Curve(Data):
     
     @staticmethod
     def save_figure_mpl(data, path: Path, figsize=None):
-        Curve._plot_curve(data, figsize=figsize)
+        fig, ax = plt.subplots(figsize=figsize)
+        Curve._plot_curve(data, ax=ax)
         plt.savefig(path)
 
+    def create_plot(self, ax=None):
+        plt_obj = Curve._plot_curve(self.data, ax=ax)
+        return plt_obj
 
+    def update_plot(self, plt_obj, ax=None):
+        Curve._update_plot(self.data, plt_obj, ax=ax)
+    
     @staticmethod
-    def _plot_curve(data, figsize=None):
-        fig = plt.figure(figsize=figsize)
-        lengend_flag = False
+    def _update_plot(data, plt_obj, ax=None):
+        texts = ax.get_legend().get_texts()
+        linear_index = 0
+        for curve_idx, curve in enumerate(data["curves"]):
+            if curve.data.get("x", None) is not None:
+                plt_obj[curve_idx][0].set_xdata(curve.data["x"])
+            if curve.data.get("y", None) is not None:
+                plt_obj[curve_idx][0].set_ydata(curve.data["y"])
+            # plt_obj.get_texts().set_text(curve.data["label"][curve_idx])
+            if curve.data["label"] is not None:
+                texts[linear_index].set_text(curve.data["label"])
+                linear_index+=1
+            
+        if ax is not None:
+            if data.get("title", None) is not None:
+                ax.set_title(data["title"])
+            if data.get("xlabel", None) is not None:
+                ax.set_xlabel(data["xlabel"])
+            if data.get("ylabel", None) is not None:
+                ax.set_ylabel(data["ylabel"])
+            if data.get("grid", None) is not None:
+                ax.grid(data["grid"])
+            if data.get("xlim", None) is not None:
+                ax.set_xlim(data["xlim"])
+            if data.get("ylim", None) is not None:
+                ax.set_ylim(data["ylim"])
+        
+        return plt_obj
+    
+    @staticmethod
+    def _plot_curve(data, ax=None):
+        legend_flag = False
+        plt_obj = []
         for curve in data["curves"]:
             if curve.data.get("x", None) is not None:
                 inps = [curve.data["x"], curve.data["y"],]
@@ -263,28 +299,32 @@ class Curve(Data):
             if curve.data.get("style", None) is not None:
                 inps.append(curve.data["style"])
             if curve.data.get("label", None) is not None:
-                lengend_flag=True
-            plt.plot(
-                *inps,
-                label=curve.data.get("label", None),
-                linewidth=curve.data.get("linewidth", None),
-                markersize=curve.data.get("markersize", None),
-                alpha=curve.data.get("alpha", None)
+                legend_flag=True
+            plt_obj.append(
+                ax.plot(
+                    *inps,
+                    label=curve.data.get("label", None),
+                    linewidth=curve.data.get("linewidth", None),
+                    markersize=curve.data.get("markersize", None),
+                    alpha=curve.data.get("alpha", None)
+                )
             )
-        if lengend_flag:
-            plt.legend()
+        if legend_flag:
+            ax.legend(loc='upper right')
         if data.get("title", None) is not None:
-            plt.title(data["title"])
+            ax.set_title(data["title"])
         if data.get("xlabel", None) is not None:
-            plt.xlabel(data["xlabel"])
+            ax.set_xlabel(data["xlabel"])
         if data.get("ylabel", None) is not None:
-            plt.ylabel(data["ylabel"])
+            ax.set_ylabel(data["ylabel"])
         if data.get("grid", None) is not None:
-            plt.grid(data["grid"])
+            ax.grid(data["grid"])
         if data.get("xlim", None) is not None:
-            plt.xlim(data["xlim"])
+            ax.set_xlim(data["xlim"])
         if data.get("ylim", None) is not None:
-            plt.ylim(data["ylim"])
+            ax.set_ylim(data["ylim"])
+        return plt_obj
     def show(self, figsize=None):
-        Curve._plot_curve(self.data, figsize=figsize)
+        fig, ax = plt.subplots(figsize=figsize)
+        Curve._plot_curve(self.data, ax=ax)
         plt.show()

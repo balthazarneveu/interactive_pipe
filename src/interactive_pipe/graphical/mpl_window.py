@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from interactive_pipe.graphical.window import InteractivePipeWindow
 import numpy as np
 import matplotlib as mpl
+from interactive_pipe.data_objects.curves import Curve
 
 
 class MatplotlibWindow(InteractivePipeWindow):
@@ -50,9 +51,15 @@ class MatplotlibWindow(InteractivePipeWindow):
         current_style = self.get_current_style(row, col)
         data =  ax_dict.get("data", None)
         if data:
-            data.set_data(img)
+            if isinstance(img, np.ndarray):
+                data.set_data(img)
+            elif isinstance(img, Curve):
+                img.update_plot(data, ax=ax_dict["ax"])
         else:
-            ax_dict["data"] = ax_dict["ax"].imshow(img)
+            if isinstance(img, np.ndarray):
+                ax_dict["data"] = ax_dict["ax"].imshow(img)
+            elif isinstance(img, Curve):
+                ax_dict["data"] = img.create_plot(ax=ax_dict["ax"])
         self.update_style(ax_dict["ax"], style=current_style)
 
 
@@ -67,4 +74,7 @@ class MatplotlibWindow(InteractivePipeWindow):
         self.need_redraw = False
     
     def convert_image(self, img):
-        return img.clip(0., 1.)
+        if isinstance(img, np.ndarray):
+            return img.clip(0., 1.)
+        else:
+            return img
