@@ -103,13 +103,16 @@ class FilterCore(PureFilter):
         else:
             filter_in = imgs
         out = super().run(*filter_in)
-        if out is not None:
+        if out is None:
+            return None
+        if isinstance(out, tuple) or isinstance(out, list):
             assert len(out) >= len(
                 self.outputs), "number of outputs shall be at least greater or equal to what's expected by the filter"
-        if isinstance(out, tuple) or isinstance(out, list):
             return out
+        
         else:
             logging.debug(f"need to return a tuple when you have a single element out {type(out)}")
+            assert len(self.outputs)==1, "returning a single element!" 
             return (out,)
     
     def __repr__(self) -> str:
