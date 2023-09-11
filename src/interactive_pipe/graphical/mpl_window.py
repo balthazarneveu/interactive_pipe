@@ -60,7 +60,8 @@ class MatplotlibWindow(InteractivePipeWindow):
                 ax_dict["data"] = ax_dict["ax"].imshow(img)
             elif isinstance(img, Curve):
                 ax_dict["data"] = img.create_plot(ax=ax_dict["ax"])
-        self.update_style(ax_dict["ax"], style=current_style)
+        if not (isinstance(img, Curve) and img.data["title"] is not None):
+            self.update_style(ax_dict["ax"], style=current_style)
 
 
     def refresh(self):

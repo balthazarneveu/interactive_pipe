@@ -266,11 +266,10 @@ class Curve(Data):
                 plt_obj[curve_idx][0].set_xdata(curve.data["x"])
             if curve.data.get("y", None) is not None:
                 plt_obj[curve_idx][0].set_ydata(curve.data["y"])
-            # plt_obj.get_texts().set_text(curve.data["label"][curve_idx])
             if curve.data["label"] is not None:
                 texts[linear_index].set_text(curve.data["label"])
                 linear_index+=1
-            
+
         if ax is not None:
             if data.get("title", None) is not None:
                 ax.set_title(data["title"])
