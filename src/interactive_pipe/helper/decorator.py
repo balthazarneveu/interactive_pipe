@@ -64,11 +64,13 @@ def pipeline(pipeline_function:Callable, **kwargs) -> HeadlessPipeline:
     return HeadlessPipeline.from_function(pipeline_function, **kwargs)
 
 
-def interactive_pipeline(gui=None, cache=False, **kwargs_gui) -> Union[HeadlessPipeline, InteractivePipeGUI]:
+def interactive_pipeline(gui=None, cache=False, output_canvas=None, **kwargs_gui) -> Union[HeadlessPipeline, InteractivePipeGUI]:
     """Function decorator to add some controls
     """
     def wrapper(pipeline_function):
         headless_pipeline = HeadlessPipeline.from_function(pipeline_function, cache=cache)
+        if output_canvas is not None:
+            headless_pipeline.outputs = output_canvas
         if gui is None:
             return headless_pipeline
         if gui == "qt":
