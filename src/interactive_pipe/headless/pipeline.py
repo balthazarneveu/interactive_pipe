@@ -130,7 +130,7 @@ class HeadlessPipeline(PipelineCore):
     def import_tuning(self, path: Path = None) -> None:
         """Open a json/yaml tuning file and set parameters
         """
-        self.parameters = Parameters.load_from_file(path)
+        self.parameters = Parameters.from_file(path).data
 
     def __repr__(self):
         """Print tuning parameters

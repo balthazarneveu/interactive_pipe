@@ -13,17 +13,11 @@ class Data:
             self.data = data
     
     @classmethod
-    def from_file(cls, path, **kwargs):
-        assert isinstance(path, Path), "not a path"
+    def from_file(cls, path=None, **kwargs):
+        assert path is None or isinstance(path, Path), "not a path or None"
         data_class = cls(None)
         data_class.load(path, **kwargs)
         return data_class
-    
-    @classmethod
-    def load_from_file(cls, path):
-        assert isinstance(path, Path)
-        data_class = cls(None)
-        return data_class.load(path)
     
     @property
     def file_extensions(self):

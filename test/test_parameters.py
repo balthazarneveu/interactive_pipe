@@ -14,7 +14,6 @@ def test_save(tmp_path, extension):
     assert file_path.is_file()
     params_reloaded = Parameters(file_path)
     assert params_reloaded.data == SAMPLE_DICT
-    assert Parameters.load_from_file(file_path) == SAMPLE_DICT
     assert Parameters.from_file(file_path).data == SAMPLE_DICT
 
 
