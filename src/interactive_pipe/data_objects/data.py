@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Optional, Any
 from abc import abstractmethod
+import pickle
 
 class Data:
     def __init__(self, data, **kwargs) -> None:
@@ -14,6 +15,8 @@ class Data:
     
     @classmethod
     def from_file(cls, path=None, **kwargs):
+        if isinstance(path, str):
+            path = Path(path)
         assert path is None or isinstance(path, Path), "not a path or None"
         data_class = cls(None)
         data_class.load(path, **kwargs)
@@ -99,3 +102,14 @@ class Data:
     @staticmethod
     def append_with_stem(path, extra):
         return path.parent/(path.stem + extra + path.suffix)
+
+    @staticmethod
+    def save_binary(data, path: Path):
+        assert path.suffix == ".pkl"
+        with open(path, 'wb') as handle:
+            pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    @staticmethod
+    def load_binary(path: Path):
+        with open(path, 'rb') as handle:
+            data = pickle.load(handle)
+        return data
