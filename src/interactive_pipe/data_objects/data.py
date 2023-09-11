@@ -56,7 +56,7 @@ class Data:
             path if (override or path is None) else self.safe_path_with_suffix(path),
             extensions=self.file_extensions
         )
-        self._save(path)
+        self._save(path, **kwargs)
 
     def load(self, path: Path = None, **kwargs):
         path = self.check_path(path, load=True, extensions=self.file_extensions)
