@@ -408,6 +408,7 @@ class Curve(Data):
         fig, ax = plt.subplots(figsize=figsize)
         Curve._plot_curve(data, ax=ax)
         plt.savefig(path)
+        plt.close(fig)
 
     def create_plot(self, ax=None):
         plt_obj = Curve._plot_curve(self.data, ax=ax)
