@@ -32,7 +32,12 @@ except:
 
 class SingleCurve(Data):
     """SingleCurve are 2D signals you can plot, defined by x and y numpy arrays
-    
+    Attributes:
+        .x
+        .y
+        .label
+        .alpha
+        .style
     You'd normally use matplotlib.plot(x, y, label)
     - .from_file("data.csv") containing x,y columns
     - save as:
@@ -82,8 +87,30 @@ class SingleCurve(Data):
         
     @label.setter
     def label(self, label):
-        assert isinstance(label, str)
+        assert label is None or isinstance(label, str)
         self.data["label"] = label
+    
+    @property
+    def style(self) -> str:
+        return self.data["style"]
+        
+    @style.setter
+    def style(self, style):
+        assert style is None or isinstance(style, str)
+        self.data["style"] = style
+    
+    @property
+    def alpha(self) -> float:
+        return self.data["alpha"]
+        
+    @alpha.setter
+    def alpha(self, alpha):
+        if alpha is None:
+            self.data["alpha"] = None
+        else:
+            assert isinstance(alpha, float) or isinstance(alpha, int), "alpha should be numerical"
+            assert alpha<=1 and alpha>=0, f"wrong alpha {alpha} value should be between [0, 1]"
+            self.data["alpha"] = alpha
         
     def _set_file_extensions(self):
         self.file_extensions = [".png", ".jpg", ".csv", ".pkl"]
@@ -174,6 +201,20 @@ class SingleCurve(Data):
 
 
 class Curve(Data):
+    """
+    Attributes
+        - `.grid`
+        - `.xlabel`
+        - `.ylabel`
+        - `.xlim`
+        - `.ylim`
+        - `.title`
+        - `.curves`
+    
+        It is possible to access a curve by simply using the bracket operator 
+        `.curves[index]` is equivalent to `[index]`
+
+    """
     def __init__(self, 
                  curves: List[SingleCurve],
                  xlabel:Optional[str]=None,
@@ -238,6 +279,95 @@ class Curve(Data):
             current_curve = SingleCurve(x=None, y=curve)
         assert current_curve is not None, f"could not create a single curve from abbreviation: {curve}"
         return current_curve
+
+    
+    
+    # .grid
+    # ---------------------------------------
+    @property
+    def grid(self) -> bool:
+        return self.data["grid"]
+    
+    @grid.setter
+    def grid(self, grid: bool):
+        self.data["grid"] = grid
+    
+    # .title
+    # ---------------------------------------
+    @property
+    def title(self) -> str:
+        return self.data["title"]
+    
+    @title.setter
+    def title(self, title: str):
+        self.data["title"] = title
+
+    # .xlim / .ylim
+    # ---------------------------------------
+    @property
+    def xlim(self) -> Tuple[int, int]:
+        return self.data["xlim"]
+    
+    @xlim.setter
+    def xlim(self, xlim: Tuple[int, int]):
+        self.data["xlim"] = xlim
+
+
+    @property
+    def ylim(self) -> Tuple[int, int]:
+        return self.data["ylim"]
+    
+    @ylim.setter
+    def ylim(self, ylim: Tuple[int, int]):
+        self.data["ylim"] = ylim
+
+    # .xlabel / .ylabel
+    # ---------------------------------------
+    @property
+    def xlabel(self) -> str:
+        return self.data["xlabel"]
+    
+    @xlabel.setter
+    def xlabel(self, xlabel: str):
+        self.data["xlabel"] = xlabel
+
+    @property
+    def ylabel(self) -> str:
+        return self.data["ylabel"]
+    
+    @ylabel.setter
+    def ylabel(self, ylabel: str):
+        self.data["ylabel"] = ylabel
+
+    # .curves
+    # ---------------------------------------
+    @property
+    def curves(self) ->  List[SingleCurve]:
+        return self.data["curves"]
+    
+    @curves.setter
+    def curves(self, curves: List[SingleCurve]):
+        self.data["curves"] = curves
+
+    # brackets []
+    # ---------------------------------------
+    def __getitem__(self, key:int) -> SingleCurve:
+        if isinstance(key, slice):
+            return [self.data["curves"][idx] for idx in range(*key.indices(len(self.data["curves"])))]
+        assert isinstance(key, int)
+        assert key < len(self.data["curves"]), f"cannot access curve {key}/{len(self.data['curves']-1)}"
+        return self.data["curves"][key]
+
+    def __setitem__(self, key:int, value):
+        if isinstance(key, slice):
+            for lin_index, idx in enumerate(range(*key.indices(len(value)))):
+                assert idx < len(self.data["curves"]), f"cannot access curve {idx}/{len(self.data['curves']-1)}"
+                self.data["curves"][idx] = value[lin_index]
+            return
+        assert isinstance(key, int)
+        assert key < len(self.data["curves"]), f"cannot access curve {key}/{len(self.data['curves']-1)}"
+        assert isinstance(value, SingleCurve)
+        self.data["curves"][key] = value
 
     def append(self, new_curve: SingleCurve):
         self.data["curves"].append(new_curve)
