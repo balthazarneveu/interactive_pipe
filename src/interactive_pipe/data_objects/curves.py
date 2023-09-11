@@ -23,7 +23,11 @@ try:
     import pandas as pd
     signal_backends.append(SIGNAL_BACKEND_PD)
 except:
-    logging.info("pandas is not available")
+    message = "pandas is not available."
+    message+= "\nto install see: https://pandas.pydata.org/docs/getting_started/install.html"
+    message+= "\npip install pandas"
+    message+= "\nyou won't be able to export curves as .csv spreadsheets"
+    logging.warning(message)
 
 
 class SingleCurve(Data):
@@ -39,10 +43,10 @@ class SingleCurve(Data):
                 x:Optional[Union[list[np.ndarray], np.ndarray]] =None,
                 y: Union[list[np.ndarray], np.ndarray]=None,
                 style: Optional[str]=None,
+                label: Optional[str]=None,
                 linewidth:Optional[int]=None,
                 markersize: Optional[int]=None,
-                alpha: Optional[float]=None,
-                label: Optional[str]=None
+                alpha: Optional[float]=None,         
     ):
         if x is not None and y is not None:
             assert len(x) == len(y), f"abciss {len(x)} and oordinate {len(y)} shall match"
@@ -56,7 +60,31 @@ class SingleCurve(Data):
             "alpha": alpha
         }
         super().__init__(data)
+    
+    @property
+    def x(self) -> np.ndarray:
+        return self.data["x"]
+    @x.setter
+    def x(self, x: np.ndarray):
+        self.data["x"] = x
+    
+    @property
+    def y(self) -> np.ndarray:
+        return self.data["y"]
 
+    @y.setter
+    def y(self, y: np.ndarray):
+        self.data["y"] = y
+    
+    @property
+    def label(self) -> str:
+        return self.data["label"]
+        
+    @label.setter
+    def label(self, label):
+        assert isinstance(label, str)
+        self.data["label"] = label
+        
     def _set_file_extensions(self):
         self.file_extensions = [".png", ".jpg", ".csv", ".pkl"]
 
@@ -143,6 +171,7 @@ class SingleCurve(Data):
         assert path.suffix == ".csv"
         df = SingleCurve.dataframe_from_data(data)
         df.to_csv(path, index=False)
+
 
 class Curve(Data):
     def __init__(self, 
