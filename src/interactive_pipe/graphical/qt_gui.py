@@ -1,4 +1,5 @@
 PYQTVERSION = None
+MPL_SUPPORT = False
 import logging
 
 try:
@@ -29,6 +30,14 @@ if not PYQTVERSION:
         except:
             raise ModuleNotFoundError("No PyQt")
 
+try:
+    from matplotlib.backends.backend_qtagg import (
+    FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
+    from matplotlib.figure import Figure
+    from interactive_pipe.data_objects.curves import Curve
+    MPL_SUPPORT = True
+except:
+    logging.warning("No support for Matplotlib widgets for Qt")
 
 from interactive_pipe.headless.control import Control
 from interactive_pipe.graphical.gui import InteractivePipeGUI
@@ -341,32 +350,57 @@ class MainWindow(QWidget, InteractivePipeWindow):
         self.refresh()
 
     def add_image_placeholder(self, row, col):
+        ax_placeholder = None
         image_label = QLabel(self)
         text_label = QLabel(text=f"{row} {col}")
-        self.image_canvas[row][col] = {"image": image_label, "title": text_label}
+        self.image_canvas[row][col] = {"image": image_label, "title": text_label, "ax_placeholder": ax_placeholder}
         self.image_grid_layout.addWidget(text_label, 2*row, col, alignment=Qt.AlignCenter)
         self.image_grid_layout.addWidget(image_label, 2*row+1, col, alignment=Qt.AlignCenter)
         
 
     def delete_image_placeholder(self, img_widget_dict):
-        for _, img_widget in img_widget_dict.items():
-            img_widget.setParent(None)
+        for obj_key, img_widget in img_widget_dict.items():
+            if obj_key == "plot_object":
+                img_widget = None
+            elif obj_key == "ax_placeholder" and img_widget is not None:
+                img_widget.remove()
+            elif img_widget is not None:
+                img_widget.setParent(None)
 
     def update_image(self, image_array, row, col):
-        h, w, c = image_array.shape
-        bytes_per_line = c * w
-        image = QImage(image_array.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
-        pixmap = QPixmap.fromImage(image)                
-        image_label = self.image_canvas[row][col]["image"]
-        image_label.setPixmap(pixmap)
+        if isinstance(image_array, np.ndarray):
+            h, w, c = image_array.shape
+            bytes_per_line = c * w
+            image = QImage(image_array.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+            pixmap = QPixmap.fromImage(image)                
+            image_label = self.image_canvas[row][col]["image"]
+            image_label.setPixmap(pixmap)
+        else:
+            if MPL_SUPPORT and isinstance(image_array, Curve):
+                image_label = FigureCanvas(Figure())
+                if self.image_canvas[row][col]["ax_placeholder"] is None:
+                    ax_placeholder = image_label.figure.subplots()
+                    self.image_canvas[row][col]["image"] = image_label
+                    self.image_grid_layout.addWidget(image_label, 2*row+1, col, alignment=Qt.AlignCenter)
+                    self.image_canvas[row][col]["ax_placeholder"] = ax_placeholder
+                ax = self.image_canvas[row][col]["ax_placeholder"]
+                plt_obj = self.image_canvas[row][col].get("plot_object", None)
+                if plt_obj is None:
+                    self.image_canvas[row][col]["plot_object"] = image_array.create_plot(ax=ax)
+                else:
+                    image_array.update_plot(plt_obj, ax=ax)
+                    ax.figure.canvas.draw()
+
         text_label = self.image_canvas[row][col]["title"]
         text_label.setText(self.get_current_style(row, col).get("title", ""))
         
 
     @staticmethod
     def convert_image(out_im):
-        return (out_im.clip(0., 1.)  * 255).astype(np.uint8)
-
+        if isinstance(out_im, np.ndarray):
+            return (out_im.clip(0., 1.)  * 255).astype(np.uint8)
+        else:
+            return out_im
     def refresh(self):
         if self.pipeline is not None:
             out = self.pipeline.run()
