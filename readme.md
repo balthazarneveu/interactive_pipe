@@ -1,4 +1,4 @@
-**Version 0.5.4**
+**Version 0.5.5**
 
 # Concept
 - Develop your algorithm while debugging with plots, while checking robustness & continuity to parameters change
@@ -17,6 +17,7 @@
 - Tuning sliders & check buttons  with a GUI
 - Cache intermediate results in RAM for much faster processing
 - `KeyboardControl` : no slider on UI but exactly the same internal mechanism, update on key press.
+- Support Curve plots (2D signals)
 
 ### :soon: Upcoming features:
 - :soon: Scientific visual debugging: Display both colored images, heatmaps & graphs
@@ -207,8 +208,7 @@ if __name__ == '__main__':
 
 ## Short term roadmap
 - Backport previous features
-    - 2D signal plots & signal class
-    - Titles (for matplotlib at least)
+    - Image class support in interactive pipe (Heatmaps/Float images)
 
 ## Long term roadmap
 - Advanced feature

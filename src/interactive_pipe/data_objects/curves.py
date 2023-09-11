@@ -45,8 +45,8 @@ class SingleCurve(Data):
         - .pkl (dict)
     """
     def __init__(self,
-                x:Optional[Union[list[np.ndarray], np.ndarray]] =None,
-                y: Union[list[np.ndarray], np.ndarray]=None,
+                x:Optional[Union[List[np.ndarray], np.ndarray]] =None,
+                y: Union[List[np.ndarray], np.ndarray]=None,
                 style: Optional[str]=None,
                 label: Optional[str]=None,
                 linewidth:Optional[int]=None,

@@ -151,7 +151,17 @@ It uses whatever image is available to save images (among [PIL](https://pypi.org
 - internal data is stored using [numpy arrays](https://pypi.org/project/numpy/) and by default images are normalized in the [0, 1] range and stored as float32 so this can be an assumption throughout the whole pipeline.
 - :soon: This code is expected to be extended to support pytorch tensors, moving data to/from GPU seamlessly when needed (when saving or visualizing to screen, not after each filter to avoid polluting the code...).
 - it has a `.show()` method, useful inside a jupyter notebook
-- Tests [:test_tube: test_image.py](/test/test_image.py) 
+- Tests [:test_tube: test_image.py](/test/test_image.py)
+
+### [`Curve`](/src/interactive_pipe/data_objects/curves.py)
+`Curve` class deals with multiple 2D signals.
+
+> It can be used in a standalone fashion to reduce the amount of code you'd write everytime you'd use matplotlib for 2D signal plots.
+
+It uses matplotlib to display graphs inside an interactive pipe graphical window.
+- it has a `.show()` method, useful inside a jupyter notebook
+- Tests [:test_tube: test_curves.py](/test/test_curves.py)
+
 
 ## graphical
 - Currently supported backends:
@@ -164,8 +174,8 @@ It uses whatever image is available to save images (among [PIL](https://pypi.org
 | `qt`  | `mpl`  | `nb`  | Feature                                                 |
 |:-----:|:------:|:----: |:------------------------------------------------------- |
 | :ok:  |  :x:   |  :x:  | Audio support                                           |
-| :question:   | :soon: | :soon:| 1D Signal plot                                          |
-| :question:   | :soon: | :soon:| Image Titles                                            |
+| :ok:   | :ok: | :ok:| 2D Signal plot using `Curve` class                                           |
+| :ok:   | :ok: | :ok: | Image Titles                                            |
 | :ok:  |  :x:   |  :x:  | `Controls` string list  with image icons                |
 | :ok:  |  :ok:  |  :x:  |Keyboard shortcuts to reset sliders, save to disk etc... |
 | :ok:  |  :ok:  |  :x:  | `KeyboardControl`                                       |
