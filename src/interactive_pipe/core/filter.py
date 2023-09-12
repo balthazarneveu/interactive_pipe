@@ -27,14 +27,14 @@ class PureFilter:
         assert isinstance(new_global_params, dict)
         self._global_params = new_global_params
 
-
-
     def check_apply_signature(self):
         if not hasattr(self, "__args_names") or not hasattr(self, "__kwargs_names"):
             self.__args_names, self.__kwargs_names = analyze_apply_fn_signature(
                 self.apply)
+            self.signature = (self.__args_names, self.__kwargs_names)
         else:  # skip computing signature
             pass
+    
     def __initialize_default_values(self):
         assert not hasattr(self, "_values")
         self.check_apply_signature()
@@ -50,7 +50,6 @@ class PureFilter:
     def values(self, new_values):
         assert isinstance(
             new_values, dict), f"{new_values} is not a dictionary"
-        
         self._values = {**self._values, **new_values}
 
     def run(self, *imgs) -> Tuple[Any]:
