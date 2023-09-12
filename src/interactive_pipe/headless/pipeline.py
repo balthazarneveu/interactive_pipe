@@ -74,14 +74,22 @@ class HeadlessPipeline(PipelineCore):
                 inputs_filt = filt_dict["args"]
                 outputs_filt = filt_dict["returns"]
             logging.debug("----------------->", filt_name, inputs_filt, outputs_filt)
-            filter = FilterCore(
-                name=filt_name,
-                inputs=inputs_filt,
-                outputs = outputs_filt,
-                apply_fn=filt_dict["function_object"],
-            )
-            func_kwargs = analyze_apply_fn_signature(filt_dict["function_object"])[1]
-            params_to_analyze = {**func_kwargs, **Control.get_controls(filt_name)}
+            if isinstance(filt_dict["function_object"], FilterCore):
+                filter = filt_dict["function_object"]
+                filter.inputs = inputs_filt
+                filter.outputs = outputs_filt
+                filter.name = filt_name
+                params_to_analyze = filter.controls
+            else:
+                # when using the @interactive decorator
+                filter = FilterCore(
+                    name=filt_name,
+                    inputs=inputs_filt,
+                    outputs = outputs_filt,
+                    apply_fn=filt_dict["function_object"],
+                )
+                func_kwargs = analyze_apply_fn_signature(filt_dict["function_object"])[1]
+                params_to_analyze = {**func_kwargs, **Control.get_controls(filt_name)}
             for param_name, param_value in params_to_analyze.items():
                 if isinstance(param_value, Control):
                     param_value.connect_filter(filter, param_name)
@@ -146,7 +154,17 @@ class HeadlessPipeline(PipelineCore):
         ret += "}"
         return ret
     
+    def update_parameters_from_controls(self):
+        if not hasattr(self, "controls"):
+            # Not having .controls attribute
+            # This happens for headless pipelines which have no list of controls
+            return
+        for ctrl in self.controls:
+            logging.info(f"{ctrl.filter_to_connect.name}, {ctrl.parameter_name_to_connect}, {ctrl.value}")
+            self.parameters = {ctrl.filter_to_connect.name: {ctrl.parameter_name_to_connect:  ctrl.value}}
+        
     def __run(self):
+        self.update_parameters_from_controls()
         result_full = super().run()
         if self.outputs is not None:
             output_indexes = self.outputs
