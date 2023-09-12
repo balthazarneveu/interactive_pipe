@@ -120,3 +120,12 @@ class FilterCore(PureFilter):
         descr += " -> " + "(" + ", ".join([f"{it}" for it in self.outputs]) + ")"
         # descr += "\n"
         return descr
+    
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        control_dict = {}
+        if hasattr(self, "controls"):
+            for ctrl_name, ctrl in self.controls.items():
+                control_dict[ctrl_name] = ctrl.value
+        merged_kwargs = {**kwargs, **control_dict}
+        out = self.apply(*args, **merged_kwargs)
+        return out
