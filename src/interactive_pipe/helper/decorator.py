@@ -3,6 +3,7 @@ from interactive_pipe.helper.control_abbreviation import control_from_tuple
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.core.graph import analyze_apply_fn_signature
+from interactive_pipe.core.filter import FilterCore
 import functools
 import inspect
 from typing import Callable,Union
@@ -100,6 +101,13 @@ def interactive(**decorator_controls):
             return func(*bound_args.args, **bound_args.kwargs)
         return inner
     return wrapper
+
+
+def filter_from_function(apply_fn, default_params={}, **kwargs) -> FilterCore:
+    controls = __get_controls_from_decorated_function_declaration(apply_fn, kwargs)
+    filter_instance = FilterCore(apply_fn=apply_fn, default_params=default_params)
+    filter_instance.controls = controls
+    return filter_instance
 
 
 def pipeline(pipeline_function:Callable, **kwargs) -> HeadlessPipeline:

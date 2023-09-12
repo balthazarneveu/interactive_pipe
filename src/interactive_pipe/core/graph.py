@@ -2,6 +2,7 @@ import ast
 import inspect
 import logging
 from typing import List, Callable, Tuple, Optional, Union
+from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.signature import analyze_apply_fn_signature
 
 def get_name(node: ast.NodeVisitor) -> Union[str, List[str], None]:
@@ -57,10 +58,25 @@ def get_call_graph(func:Callable, global_context=None) -> dict:
                 input_names = [get_name(arg) for arg in value.args]
                 output_names = flatten_target_names(targets, mapping_function=get_name)
                 function_object = global_context[function_name]
-                sig = analyze_apply_fn_signature(function_object)
+                if isinstance(function_object, FilterCore):
+                    # Case of a filter instance
+                    function_object.check_apply_signature()
+                    # ---> forcing filter instance .name to be the name of the object used in the func
+                    function_object.name = function_name
+                    # you could use instead: # function_name = function_object.name to keep the original name
+                    sig = function_object.signature
+                    function_object.inputs = input_names
+                    function_object.outputs = output_names
+                    function_apply = function_object
+                elif isinstance(function_object, Callable):
+                    # Case of a decorated function
+                    sig = analyze_apply_fn_signature(function_object)
+                    function_apply = global_context[function_name]
+                else:
+                    raise TypeError(f"Not supported {function_name} - should be function or FilterCore")
                 results.append({
                     "function_name": function_name,
-                    "function_object": global_context[function_name],
+                    "function_object": function_apply,
                     "signature" : {"args": sig[0], "kwargs": sig[1]},
                     "args": input_names,
                     "returns": output_names,
