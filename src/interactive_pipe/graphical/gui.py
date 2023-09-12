@@ -36,6 +36,9 @@ class InteractivePipeGUI():
         if hasattr(pipeline, "controls"):
             controls += pipeline.controls
         self.controls = controls
+        if self.pipeline.outputs:
+            if not isinstance(self.pipeline.outputs[0], list):
+                self.pipeline.outputs = [self.pipeline.outputs]
         self.pipeline.global_params["__output_styles"] = {}
         self.pipeline.global_params["__app"] = self
         self.pipeline.global_params["__pipeline"] = self.pipeline

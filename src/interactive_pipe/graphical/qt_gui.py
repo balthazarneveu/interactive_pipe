@@ -217,9 +217,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
 
         self.layout_obj = QFormLayout()
         self.setLayout(self.layout_obj)
-        if pipeline.outputs:
-            if not isinstance(pipeline.outputs[0], list):
-                pipeline.outputs = [pipeline.outputs]
+        
         
 
         if center:
