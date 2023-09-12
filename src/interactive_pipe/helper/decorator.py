@@ -106,6 +106,18 @@ def pipeline(pipeline_function:Callable, **kwargs) -> HeadlessPipeline:
     return HeadlessPipeline.from_function(pipeline_function, **kwargs)
 
 
+def get_interactive_pipeline_class(gui="qt"):
+    if gui == "qt":
+        from interactive_pipe.graphical.qt_gui import InteractivePipeQT as InteractivePipeGui   
+    elif gui == "mpl":
+        from interactive_pipe.graphical.mpl_gui import InteractivePipeMatplotlib as InteractivePipeGui
+    elif gui == "nb":
+        from interactive_pipe.graphical.nb_gui import InteractivePipeJupyter as InteractivePipeGui
+    else:
+        raise NotImplementedError(f"Gui {gui} not available")
+    return InteractivePipeGui
+
+
 def interactive_pipeline(gui=None, cache=False, output_canvas=None, **kwargs_gui) -> Union[HeadlessPipeline, InteractivePipeGUI]:
     """Function decorator to add some controls
     """
@@ -115,15 +127,9 @@ def interactive_pipeline(gui=None, cache=False, output_canvas=None, **kwargs_gui
             headless_pipeline.outputs = output_canvas
         if gui is None:
             return headless_pipeline
-        if gui == "qt":
-            from interactive_pipe.graphical.qt_gui import InteractivePipeQT as InteractivePipeGui   
-        elif gui == "mpl":
-            from interactive_pipe.graphical.mpl_gui import InteractivePipeMatplotlib as InteractivePipeGui
-        elif gui == "nb":
-            from interactive_pipe.graphical.nb_gui import InteractivePipeJupyter as InteractivePipeGui
         else:
-            raise NotImplementedError(f"Gui {gui} not available")
-        gui_pipeline = InteractivePipeGui(pipeline=headless_pipeline, name=pipeline_function.__name__, **kwargs_gui)
+            InteractivePipeGui = get_interactive_pipeline_class(gui)
+            gui_pipeline = InteractivePipeGui(pipeline=headless_pipeline, name=pipeline_function.__name__, **kwargs_gui)
 
         @functools.wraps(pipeline_function)
         def inner(*args, **kwargs):
