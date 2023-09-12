@@ -45,41 +45,46 @@ def __create_control_from_keyword_argument(
         __registered_controls_names.append(chosen_control.name)
     return chosen_control
 
+def __get_controls_from_decorated_function_declaration(func: Callable, decorator_controls: dict):
+    controls = {}
+    keyword_args = analyze_apply_fn_signature(func)[1]
+    keyword_names =  list(keyword_args.keys())
+    global __registered_controls_names
+    
+    # Analyze at 2 levels (function keyword args & decorator keyword args)  then register controls when necessary.
+    #-------------------------------------------
+    # @interactive(param_2=Control(...), )
+    # def func(img1, img2, param_1=Control(...)):
+    #-------------------------------------------
+    
+    # 1. Analyzing function keyword args 
+    # def func(img1, img2, param_1=Control(...))
+    
+    for param_name, unknown_keyword_arg in keyword_args.items():
+        chosen_control = __create_control_from_keyword_argument(param_name, unknown_keyword_arg)
+        if chosen_control is not None:
+            controls[param_name] = chosen_control
+        
+    
+    # 2. Analyzing decorator keyword args 
+    # @interactive(param_2=Control(...))
+    for param_name, unknown_keyword_arg in decorator_controls.items():
+        assert param_name in keyword_names, f"typo: control {param_name} passed through the decorator does not match any of the function keyword args {keyword_names}"
+        chosen_control = __create_control_from_keyword_argument(param_name, unknown_keyword_arg)
+        if chosen_control is not None:
+            controls[param_name] = chosen_control
+
+    for param_name, unknown_control in controls.items():
+        Control.register(func.__name__, param_name, controls[param_name])
+    return controls
+
 
 def interactive(**decorator_controls):
     """Function decorator to add some controls
     """
     def wrapper(func):
-        controls = {}
-        keyword_args = analyze_apply_fn_signature(func)[1]
-        keyword_names =  list(keyword_args.keys())
-        global __registered_controls_names
+        controls = __get_controls_from_decorated_function_declaration(func, decorator_controls)
         
-        # Analyze at 2 levels (function keyword args & decorator keyword args)  then register controls when necessary.
-        #-------------------------------------------
-        # @interactive(param_2=Control(...), )
-        # def func(img1, img2, param_1=Control(...)):
-        #-------------------------------------------
-        
-        # 1. Analyzing function keyword args 
-        # def func(img1, img2, param_1=Control(...))
-        
-        for param_name, unknown_keyword_arg in keyword_args.items():
-            chosen_control = __create_control_from_keyword_argument(param_name, unknown_keyword_arg)
-            if chosen_control is not None:
-                controls[param_name] = chosen_control
-           
-        
-        # 2. Analyzing decorator keyword args 
-        # @interactive(param_2=Control(...))
-        for param_name, unknown_keyword_arg in decorator_controls.items():
-            assert param_name in keyword_names, f"typo: control {param_name} passed through the decorator does not match any of the function keyword args {keyword_names}"
-            chosen_control = __create_control_from_keyword_argument(param_name, unknown_keyword_arg)
-            if chosen_control is not None:
-                controls[param_name] = chosen_control
-
-        for param_name, unknown_control in controls.items():
-            Control.register(func.__name__, param_name, controls[param_name])
         @functools.wraps(func)
         def inner(*args, **kwargs):
             # Combine args and kwargs into a single dictionary
