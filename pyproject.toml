@@ -5,11 +5,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "interactive_pipe"
-version = "0.5.5"
+version = "0.5.6"
 authors = [
   { name="Balthazar Neveu", email="balthazarneveu@gmail.com" },
 ]
-description = "Library to created flexible interactive image processing pipelines"
+description = "Library to create flexible interactive image processing pipelines and automatically add a graphical user interface without knowing anything about GUI coding!"
 readme = "readme.md"
 requires-python = ">=3.7"
 classifiers = [

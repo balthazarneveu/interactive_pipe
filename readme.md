@@ -1,35 +1,66 @@
-**Version 0.5.5**
+# `interactive_pipe`
+### Concept
+- Develop an algorithm while debugging visually with plots, while checking robustness & continuity to parameters change.
+- Magically create a graphical interface to easily demonstrate a concept or simply tune your algorithm.
 
-# Concept
-- Develop your algorithm while debugging with plots, while checking robustness & continuity to parameters change
-- Tune your algorithms and save your parameters for later batch processing
+:heart: **You do not need to learn anything about making a graphical user interface (GUI)** :heart:
+
+
+### Examples
+
+
+| Science notebook | Toddler DIY Jukebox on a raspberry Pi |
+|:-----: |:-----:|
+| ![science notebook](/doc/images/scientific_notebook.jpg) |  ![jukebox](/doc/images/jukebox.jpg)
+| Sliders are added automatically in your jupyter notebook. This works on Google Collab and the code takes about 40 lines of code.| Plays some music when you touch the icon. Images can be generated using the OpenAI Dall-E API helpers. Text overlay is added using OpenCV |
+| [Sample notebook](https://colab.research.google.com/drive/1AwHyjZH8MnzZqwsvbmxBoB15btuMIwtk?usp=sharing) | :soon: sample code |
+
+----------------------
+
+### Setup
+`pip3 install interactive-pipe`
+
+----------------------
+
+### Who is this for? 
+#### :mortar_board: Scientific education
+- Demonstrate concepts by interacting with curves / images.
+- Easy integration in Jupyter Notebooks (popular with Google Collab) 
+#### :gift: DIY hobbyist
+- You can also use the declarative nature of interactive pipe to make a graphical interface in a few lines of codes. 
+- For instance, it is possible to code a jukebox for a toddler on a RaspberryPi.
+#### :camera: Engineering *(computer vision, image/signal processing)*
+- While prototyping an algorithm or testing a neural network, you may be interested in making small experiments with visual checks. Instead of making a draft quick & dirty code that you'll never keep, you can use interactive pipe to show your team how your library works. A visual demo is always good, it shows that the algorithm is not buggy if anyone can play with it.
+- Tune your algorithms with a graphical interface and save your parameters for later batch processing.
 - Ready to batch under the hood, the processing engine can be ran without GUI (therefore allowing to use the same code for tuning & batch processing if needed).
+- Do not spoil your production code with a huge amount of graphical interface code, keep your algorithms library untouched and simply decorate it.
 
 
-# Setup
-`pip3 install -i https://test.pypi.org/simple/ interactive-pipe`   *:x: not officially on PyPi yet*
 
+
+----------------------
 
 ## :scroll:  Features
+**Version 0.5.6**
 - Modular multi-image processing filters
-- Easily make graphical user interface without having to learn anything about pyQt or matplotlib
+- Declarative: Easily make graphical user interface without having to learn anything about pyQt or matplotlib
 - Support in jupyter notebooks
 - Tuning sliders & check buttons  with a GUI
 - Cache intermediate results in RAM for much faster processing
 - `KeyboardControl` : no slider on UI but exactly the same internal mechanism, update on key press.
 - Support Curve plots (2D signals)
 
-### :soon: Upcoming features:
+#### :soon: Upcoming features:
 - :soon: Scientific visual debugging: Display both colored images, heatmaps & graphs
 
 
-### :test_tube: Experimental features
+#### :test_tube: Experimental features
 - custom events on specific key press
 - Display the execution graph of the pipeline
 - [thirdparty/music](/src/interactive_pipe/thirdparty/music.py) Play audio (Qt backend only). Play songs on spotify (linux only) when the spotify app is running.
 - [thirdparty/images_openai_api](/src/interactive_pipe/thirdparty/images_openai_api.py) Generate images from prompt using OpenAI API image generation DALL-E Model (:dollar:  paid service ~ 2cents/image) 
 
-### :keyboard:   Keyboard shortcuts
+#### :keyboard:   Keyboard shortcuts
 Shortcuts while using the GUI (QT & matplotlib backends)
 
 - `F1` to show the help shortcuts in the terminal
@@ -52,6 +83,21 @@ Shortcuts while using the GUI (QT & matplotlib backends)
     - :ok: Linux (Ubuntu / KDE Neon)
     - :ok: RapsberryPi
     - :ok: On google collab (use `gui='nb'`)
+
+
+
+| :star: | *PyQt / PySide* |  *Matplotlib*   | *Jupyter notebooks including Google collab*   |
+|:-----: |:-----:|:------:|:----: |
+| Backend name | `qt`  | `mpl`  | `nb`|
+| Preview | ![qt backend](/doc/images/qt_backend.jpg)   | ![mpl backend](/doc/images/mpl_backend.jpg)    |  ![nb backend](/doc/images/notebook_backend.jpg)  |
+| Plot curves | :heavy_check_mark: | :heavy_check_mark: |   :heavy_check_mark: |
+| Auto refreshed layout | :heavy_check_mark: | :heavy_check_mark: |   :heavy_check_mark: |
+| Keyboard shortcuts / fullscreen| :heavy_check_mark: | :heavy_check_mark: |  :heavy_minus_sign: |
+| Audio support | :heavy_check_mark: | :heavy_minus_sign: |  :heavy_minus_sign: |
+| Image buttons| :heavy_check_mark: | :heavy_minus_sign: |  :heavy_minus_sign: |
+
+
+
 
 # Tutorial
 *Since ipywidgets in notebooks are supported, the tutorial is also available in a [google collab notebook](https://colab.research.google.com/drive/1PZn8P_5TABVCugT3IcLespvZG-gxnFbO?usp=sharing)*
