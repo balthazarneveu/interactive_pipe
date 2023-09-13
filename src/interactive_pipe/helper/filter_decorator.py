@@ -18,7 +18,7 @@ class EnhancedFilterCore(FilterCore):
             self.outputs = ["output",]
         else:
             self.outputs = output_routing
-        pipeline = HeadlessPipeline(filters=[self])
+        pipeline = HeadlessPipeline(filters=[self], inputs=[], outputs=None)
         for ctrl_name, _ctrl in self.controls.items():
             self.controls[ctrl_name].filter_to_connect = self
             self.controls[ctrl_name].parameter_name_to_connect = ctrl_name
@@ -29,7 +29,7 @@ class EnhancedFilterCore(FilterCore):
     def run_gui(self, *args, gui="auto", output_routing=None):
         try:
             self.inputs = args
-            out = self.run(*args)   
+            out = self.run(*args)
             output_routing = [f"output {idx}" for idx in range(len(out))]
             self.outputs = output_routing
         except Exception as exc:
@@ -42,7 +42,7 @@ class EnhancedFilterCore(FilterCore):
         del gui_pipeline
 
 
-def interact(*decorator_args, gui="auto", output_routing = None, **decorator_controls):
+def interact(*decorator_args, gui="auto", disable=False, output_routing = None, **decorator_controls):
     """interact decorator allows to launch a GUI from a single function
     
     This will directly launch a GUI.
@@ -50,12 +50,16 @@ def interact(*decorator_args, gui="auto", output_routing = None, **decorator_con
     """
     ommitted_parentheses_flag = False
     def wrapper(func):
+        if disable:
+            return func
         # this will run the GUI automatically
         _private.registered_controls_names = []
         filter_instance = filter_from_function(func, **decorator_controls)
         filter_instance.run_gui(*(decorator_args if not ommitted_parentheses_flag else decorator_args[1:]), gui=gui, output_routing=output_routing)
         # return the original function if you want to keep using it afterwards
         return func
+    
+
     if len(decorator_args)==1 and callable(decorator_args[0]):
         ommitted_parentheses_flag = True
         return wrapper(decorator_args[0]) # no parenthesis
