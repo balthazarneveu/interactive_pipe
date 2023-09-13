@@ -56,7 +56,11 @@ import time
 
 class InteractivePipeQT(InteractivePipeGUI):    
     def init_app(self, **kwargs):
-        self.app = QApplication(sys.argv)
+        if not QApplication.instance():
+            self.app = QApplication(sys.argv)
+        else:
+            self.app = QApplication.instance()
+
         if self.audio:
             self.audio_player()
         self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, size=self.size, main_gui=self, **kwargs)
