@@ -110,20 +110,22 @@ def filter_from_function(apply_fn, default_params={}, **kwargs) -> FilterCore:
     return filter_instance
 
 
+
+
 def pipeline(pipeline_function:Callable, **kwargs) -> HeadlessPipeline:
     return HeadlessPipeline.from_function(pipeline_function, **kwargs)
 
 
 def get_interactive_pipeline_class(gui="qt"):
     if gui == "qt":
-        from interactive_pipe.graphical.qt_gui import InteractivePipeQT as InteractivePipeGui   
+        from interactive_pipe.graphical.qt_gui import InteractivePipeQT as ChosenGui
     elif gui == "mpl":
-        from interactive_pipe.graphical.mpl_gui import InteractivePipeMatplotlib as InteractivePipeGui
+        from interactive_pipe.graphical.mpl_gui import InteractivePipeMatplotlib as ChosenGui
     elif gui == "nb":
-        from interactive_pipe.graphical.nb_gui import InteractivePipeJupyter as InteractivePipeGui
+        from interactive_pipe.graphical.nb_gui import InteractivePipeJupyter as ChosenGui
     else:
         raise NotImplementedError(f"Gui {gui} not available")
-    return InteractivePipeGui
+    return ChosenGui
 
 
 def interactive_pipeline(gui=None, cache=False, output_canvas=None, **kwargs_gui) -> Union[HeadlessPipeline, InteractivePipeGUI]:
