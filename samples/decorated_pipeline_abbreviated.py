@@ -1,4 +1,4 @@
-from interactive_pipe import interactive, interactive_pipeline
+from interactive_pipe import interactive_pipeline, interactive
 import numpy as np
 
 @interactive()
