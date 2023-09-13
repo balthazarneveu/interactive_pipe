@@ -50,9 +50,12 @@ def interact(*decorator_args, gui="auto", output_routing = None, **decorator_con
     """
     ommitted_parentheses_flag = False
     def wrapper(func):
+        # this will run the GUI automatically
         _private.registered_controls_names = []
         filter_instance = filter_from_function(func, **decorator_controls)
         filter_instance.run_gui(*(decorator_args if not ommitted_parentheses_flag else decorator_args[1:]), gui=gui, output_routing=output_routing)
+        # return the original function if you want to keep using it afterwards
+        return func
     if len(decorator_args)==1 and callable(decorator_args[0]):
         ommitted_parentheses_flag = True
         return wrapper(decorator_args[0]) # no parenthesis
