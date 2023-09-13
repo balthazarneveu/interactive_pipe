@@ -6,7 +6,7 @@ from interactive_pipe.data_objects.image import Image
 from interactive_pipe.thirdparty.images_openai_api import ImageFromPrompt
 from pathlib import Path
 import cv2
-import argparse
+
 root = Path(__file__).parent
 img_folder = root/"images"
 audio_folder = root/"audio"

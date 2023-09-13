@@ -1,6 +1,5 @@
-from interactive_pipe import Control, interactive, interactive_pipeline
+from interactive_pipe import Control, interactive_pipeline, interactive
 import numpy as np
-
 
 @interactive(
     coeff= Control(1., [0.5, 2.], name="exposure"),    # 1. is the default value, [0.5, 2.] is the range
