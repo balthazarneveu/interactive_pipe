@@ -1,3 +1,6 @@
+from interactive_pipe.headless.control import Control
+import functools
+import inspect
 from interactive_pipe.helper.keyword_args_analyzer import get_controls_from_decorated_function_declaration
 from interactive_pipe.helper import _private #import registered_controls_names
 from interactive_pipe.headless.pipeline import HeadlessPipeline
@@ -40,7 +43,10 @@ class EnhancedFilterCore(FilterCore):
 
 
 def interact(*args, gui="qt", output_routing = None, **decorator_controls):
-    """@interact decorator allows to test a single filter"""
+    """interact decorator allows to launch a GUI from a single function
+    
+    This will directly launch a GUI.
+    """
     def wrapper(func):
         _private.registered_controls_names = []
         filter_instance = filter_from_function(func, **decorator_controls)
@@ -53,3 +59,29 @@ def filter_from_function(apply_fn, default_params={}, **kwargs) -> EnhancedFilte
     filter_instance = EnhancedFilterCore(apply_fn=apply_fn, default_params=default_params)
     filter_instance.controls = controls
     return filter_instance
+
+
+def interactive(**decorator_controls):
+    """
+    `@interactive` differrs from `interact` in the sense that it will not launch a gui.
+    It is simply used to declare some sliders and allows re-using these functions afterwards.
+    Function decorator to add some controls
+    """
+    def wrapper(func):
+        controls = get_controls_from_decorated_function_declaration(func, decorator_controls)
+
+        @functools.wraps(func)
+        def inner(*args, **kwargs):
+            # Combine args and kwargs into a single dictionary
+            merged_kwargs = {**kwargs, **controls}
+            bound_args = inspect.signature(func).bind(*args, **merged_kwargs)
+            bound_args.apply_defaults()
+
+            for k, v in bound_args.arguments.items():
+                if isinstance(v, Control):
+                    bound_args.arguments[k] = v.value
+
+            # Call the original function with the processed arguments
+            return func(*bound_args.args, **bound_args.kwargs)
+        return inner
+    return wrapper
