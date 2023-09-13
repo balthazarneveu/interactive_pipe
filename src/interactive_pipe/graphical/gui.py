@@ -33,9 +33,11 @@ class InteractivePipeGUI():
         self.audio = audio
         self.name = name
         self.size = size
+        merged_controls = []
+        merged_controls+= controls
         if hasattr(pipeline, "controls"):
-            controls += pipeline.controls
-        self.controls = controls
+            merged_controls += pipeline.controls
+        self.controls = merged_controls
         if self.pipeline.outputs:
             if not isinstance(self.pipeline.outputs[0], list):
                 self.pipeline.outputs = [self.pipeline.outputs]
