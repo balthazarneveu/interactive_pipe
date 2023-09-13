@@ -11,7 +11,7 @@ import logging
 from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
 
 class EnhancedFilterCore(FilterCore):
-    def get_gui(self, gui="qt", output_routing=None):
+    def get_gui(self, gui="auto", output_routing=None):
         self.inputs = list(range(len(self.signature[0])))
         if output_routing is None:
             logging.warning("Single output assumed, cannot deduce the number of outputs from your code, please provide output_routing!")
@@ -26,7 +26,7 @@ class EnhancedFilterCore(FilterCore):
         pipeline.controls = controls
         return get_interactive_pipeline_class(gui=gui)(pipeline=pipeline)
 
-    def run_gui(self, *args, gui="qt", output_routing=None):
+    def run_gui(self, *args, gui="auto", output_routing=None):
         try:
             self.inputs = args
             out = self.run(*args)   
@@ -42,10 +42,11 @@ class EnhancedFilterCore(FilterCore):
         del gui_pipeline
 
 
-def interact(*args, gui="qt", output_routing = None, **decorator_controls):
+def interact(*args, gui="auto", output_routing = None, **decorator_controls):
     """interact decorator allows to launch a GUI from a single function
     
     This will directly launch a GUI.
+    This is a "One shot decorator"
     """
     def wrapper(func):
         _private.registered_controls_names = []

@@ -10,7 +10,7 @@ def pipeline(pipeline_function:Callable, **kwargs) -> HeadlessPipeline:
     return HeadlessPipeline.from_function(pipeline_function, **kwargs)
 
 
-def interactive_pipeline(gui=None, cache=False, output_canvas=None, **kwargs_gui) -> Union[HeadlessPipeline, InteractivePipeGUI]:
+def interactive_pipeline(gui="auto", cache=False, output_canvas=None, **kwargs_gui) -> Union[HeadlessPipeline, InteractivePipeGUI]:
     """@interactive_pipeline
 
     Function decorator to add some controls @interactive_pipeline
