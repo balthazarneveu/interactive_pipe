@@ -369,8 +369,20 @@ class MainWindow(QWidget, InteractivePipeWindow):
             elif img_widget is not None:
                 img_widget.setParent(None)
 
-    def update_image(self, image_array, row, col):
-        if isinstance(image_array, np.ndarray):
+    def update_image(self, image_array_original, row, col):
+        if isinstance(image_array_original, np.ndarray):
+            if len(image_array_original.shape) == 2:
+                # Consider black & white
+                image_array = image_array_original.copy()
+                c = 3
+                image_array = np.expand_dims(image_array, axis=-1)
+                image_array = np.repeat(image_array, c, axis=-1)
+            elif len(image_array_original.shape) == 3:
+                assert isinstance(image_array_original, np.ndarray)
+                assert(image_array_original.shape[-1]) == 3
+                image_array = image_array_original
+            else:
+                raise NotImplementedError(f"{image_array_original.shape}4 dimensions image or more like burst are not supported")
             h, w, c = image_array.shape
             bytes_per_line = c * w
             image = QImage(image_array.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
@@ -378,6 +390,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
             image_label = self.image_canvas[row][col]["image"]
             image_label.setPixmap(pixmap)
         else:
+            image_array = image_array_original
             if MPL_SUPPORT and isinstance(image_array, Curve):
                 image_label = FigureCanvas(Figure())
                 if self.image_canvas[row][col]["ax_placeholder"] is None:
