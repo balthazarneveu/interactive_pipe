@@ -419,7 +419,9 @@ class Curve(Data):
     
     @staticmethod
     def _update_plot(data, plt_obj, ax=None):
-        texts = ax.get_legend().get_texts()
+        legend = ax.get_legend()
+        if legend is not None:
+            texts = legend.get_texts()
         linear_index = 0
         for curve_idx, curve in enumerate(data["curves"]):
             if curve.data.get("x", None) is not None:
