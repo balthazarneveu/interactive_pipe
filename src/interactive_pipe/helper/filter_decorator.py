@@ -11,6 +11,10 @@ import logging
 from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
 
 class EnhancedFilterCore(FilterCore):
+    """Internally creates a pipeline with a single filter 
+    so you can graphically test a single filter without instantiating a pipeline.
+    Internally used by `@interact` decorator.
+    """
     def get_gui(self, gui="auto", output_routing=None):
         self.inputs = list(range(len(self.signature[0])))
         if output_routing is None:
@@ -43,10 +47,16 @@ class EnhancedFilterCore(FilterCore):
 
 
 def interact(*decorator_args, gui="auto", disable=False, output_routing = None, **decorator_controls):
-    """interact decorator allows to launch a GUI from a single function
+    """interact decorator allows you to launch a GUI from a single function
     
     This will directly launch a GUI.
-    This is a "One shot decorator"
+    This is a "One shot decorator
+    
+    ___________________________________________________________________________
+
+    Note: `@interact` is a lot inspired by the `iPyWidget` interact function you'd usually use...
+    except that you can return numpy arrays & Curve class instances to automatically deal with the plot mechanism
+    Which avoids writing a lot of matplotlib boiler plate code
     """
     ommitted_parentheses_flag = False
     def wrapper(func):
@@ -74,8 +84,10 @@ def filter_from_function(apply_fn, default_params={}, **kwargs) -> EnhancedFilte
 
 
 def interactive(**decorator_controls):
-    """
-    `@interactive` differrs from `interact` in the sense that it will not launch a gui.
+    """Decorator to declare some controls linked to keyword arguments.
+    Parameters will become "variable" and sliders automatically appear in the GUI.
+
+    `@interactive` differs from `interact` in the sense that it will not launch a gui.
     It is simply used to declare some sliders and allows re-using these functions afterwards.
     Function decorator to add some controls
     """
