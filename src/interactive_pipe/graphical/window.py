@@ -80,6 +80,9 @@ class InteractivePipeWindow():
         # In case no canvas has been provided
         if isinstance(out, tuple):
             out = [list(out)]
+        if out is None:
+            logging.warning("No output to display")
+            return
         ny, nx = len(out), 0
         for idy, img_row in enumerate(out):
             if isinstance(img_row, list):

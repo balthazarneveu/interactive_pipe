@@ -10,12 +10,12 @@ class PipelineCore:
     - optionally, some inputs to process
     """
 
-    def __init__(self, filters: List[FilterCore], name="pipeline", cache=False, inputs: Optional[list] = None, parameters: dict = {}, global_params={}, outputs:  Optional[list]=None):
+    def __init__(self, filters: List[FilterCore], name="pipeline", cache=False, inputs: Optional[list] = None, parameters: dict = {}, global_params={}, outputs:  Optional[list]=None, safe_input_buffer_deepcopy: bool=True):
         if not all(isinstance(f, FilterCore) for f in filters):
             raise ValueError(
                 f"All elements in 'filters' must be instances of 'Filter'. {[type(f) for f in filters]}")
         self.filters = filters
-        self.engine = PipelineEngine(cache, safe_input_buffer_deepcopy=True)
+        self.engine = PipelineEngine(cache, safe_input_buffer_deepcopy=safe_input_buffer_deepcopy)
         self.global_params = global_params
         for filter in self.filters:
             # link each filter to global params

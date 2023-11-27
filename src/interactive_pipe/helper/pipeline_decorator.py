@@ -10,13 +10,13 @@ def pipeline(pipeline_function:Callable, **kwargs) -> HeadlessPipeline:
     return HeadlessPipeline.from_function(pipeline_function, **kwargs)
 
 
-def interactive_pipeline(gui="auto", cache=False, output_canvas=None, **kwargs_gui) -> Union[HeadlessPipeline, InteractivePipeGUI]:
+def interactive_pipeline(gui="auto", safe_input_buffer_deepcopy=True, cache=False, output_canvas=None, **kwargs_gui) -> Union[HeadlessPipeline, InteractivePipeGUI]:
     """@interactive_pipeline
 
     Function decorator to add some controls @interactive_pipeline
     """
     def wrapper(pipeline_function):
-        headless_pipeline = HeadlessPipeline.from_function(pipeline_function, cache=cache)
+        headless_pipeline = HeadlessPipeline.from_function(pipeline_function, safe_input_buffer_deepcopy=safe_input_buffer_deepcopy, cache=cache)
         if output_canvas is not None:
             headless_pipeline.outputs = output_canvas
         if gui is None:
