@@ -86,9 +86,9 @@ class IntSliderControl(BaseControl):
         slider = slider_class(Qt.Orientation.Horizontal, self)
         slider.setRange(self.ctrl.value_range[0],  self.ctrl.value_range[1])
         slider.setValue(self.ctrl.value_default)
-        slider.setSingleStep(5)
+        slider.setSingleStep(1)
         slider.setPageStep(10)
-        slider.setTickPosition(QSlider.TickPosition.TicksAbove)
+        # slider.setTickPosition(QSlider.TickPosition.TicksAbove)
         slider.valueChanged.connect(partial(self.update_func, self.name))
         self.control_widget = slider
         return self.control_widget
@@ -116,9 +116,9 @@ class FloatSliderControl(BaseControl):
         self.ctrl.convert_int_to_value = self.convert_int_to_value
         slider.setRange(self.convert_value_to_int(self.ctrl.value_range[0]), self.convert_value_to_int(self.ctrl.value_range[1]))
         slider.setValue(self.convert_value_to_int(self.ctrl.value_default))
-        slider.setSingleStep(5)
+        slider.setSingleStep(1)
         slider.setPageStep(10)
-        slider.setTickPosition(QSlider.TickPosition.TicksAbove)
+        # slider.setTickPosition(QSlider.TickPosition.TicksAbove)
 
         # Connect the slider's value changed signal to update the line edit
         slider.valueChanged.connect(partial(self.update_func, self.name))

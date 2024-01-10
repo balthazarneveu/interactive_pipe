@@ -306,8 +306,11 @@ class MainWindow(QWidget, InteractivePipeWindow):
     def init_sliders(self, controls: List[Control]):
         self.ctrl = {}
         self.result_label = {}
+        self.name_label = {}
         self.widget_list = {}
         control_factory = ControlFactory()
+        vertical_spacing = 1  # Decrease this value to reduce vertical space between sliders
+        self.layout_obj.setSpacing(vertical_spacing)
         for ctrl in controls:
             slider_name = ctrl.name
             self.ctrl[slider_name] = ctrl
@@ -319,11 +322,18 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 self.widget_list[slider_name] = slider_instance
 
                 slider_layout = QHBoxLayout()
-
+                
+                if isinstance(slider_or_layout, QWidget):
+                    label_fixed_width = 200
+                    label = QLabel('', self)
+                    label.setMinimumWidth(label_fixed_width)
+                    self.name_label[slider_name] = label
+                    slider_layout.addWidget(self.name_label[slider_name])
                 if isinstance(slider_or_layout, QWidget):
                     # If it's a QWidget, add it directly to the layout
                     slider_layout.addWidget(slider_or_layout)
                 elif isinstance(slider_or_layout, QHBoxLayout):
+                    slider_or_layout.setContentsMargins(0, 0, 0, 0)
                     # If it's a QHBoxLayout, embed it in a QWidget first
                     container_widget = QWidget()
                     container_widget.setLayout(slider_or_layout)
@@ -332,16 +342,26 @@ class MainWindow(QWidget, InteractivePipeWindow):
                     print(f"Unhandled type for slider: {type(slider_or_layout)}")
                     continue
                 if isinstance(slider_or_layout, QWidget):
-                    label_fixed_width = 200
+                    result_fixed_width = 100
                     label = QLabel('', self)
-                    label.setMinimumWidth(label_fixed_width)
+                    label.setMinimumWidth(result_fixed_width)
                     self.result_label[slider_name] = label
-
                     slider_layout.addWidget(self.result_label[slider_name])
-
+    
                 # Create a container widget for the entire row
                 row_container_widget = QWidget()
                 row_container_widget.setLayout(slider_layout)
+                # Set a fixed height for the row container
+                
+                # fixed_height = None
+                # if ctrl._type is float or ctrl._type is int:
+                #     fixed_height = 32 # Adjust this value as needed
+                # elif ctrl._type is bool:
+                #     pass
+                # if fixed_height is not None:
+                #     row_container_widget.setFixedHeight(fixed_height)
+                row_container_widget.setContentsMargins(0, 0, 0, 0)  # Adjust these values as needed
+
 
                 self.layout_obj.addRow(row_container_widget)
 
@@ -354,7 +374,10 @@ class MainWindow(QWidget, InteractivePipeWindow):
         if isinstance(val, float):
             val_to_print = f"{val:.3e}"
         if idx in self.result_label.keys():
-            self.result_label[idx].setText(f'{self.ctrl[idx].name}\n{val_to_print}')
+            self.result_label[idx].setText(f'{val_to_print}')
+        if idx in self.name_label.keys():
+            self.name_label[idx].setText(f'{self.ctrl[idx].name}')
+
 
     def update_parameter(self, idx, value):
         """Required implementation for graphical controllers update"""
