@@ -319,12 +319,12 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 slider = slider_instance.create()
                 self.widget_list[slider_name] = slider_instance
                 self.layout_obj.addRow(slider)
-            
-            self.result_label[slider_name] = QLabel('', self)
-            self.layout_obj.addRow(self.result_label[slider_name])   
-            self.update_label(slider_name)
+                self.result_label[slider_name] = QLabel('', self)
+                self.layout_obj.addRow(self.result_label[slider_name])
+                self.update_label(slider_name)
 
     def update_label(self, idx):
+        # pass
         self.result_label[idx].setText(f'{self.ctrl[idx].name} = {self.ctrl[idx].value}')
 
     def update_parameter(self, idx, value):
@@ -334,7 +334,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
         elif self.ctrl[idx]._type == bool:
             self.ctrl[idx].update(bool(value))
         elif self.ctrl[idx]._type == float:
-                self.ctrl[idx].update(value/100.)
+                self.ctrl[idx].update(self.ctrl[idx].convert_int_to_value(value))
         elif self.ctrl[idx]._type == int: 
             self.ctrl[idx].update(value)
         else:
@@ -348,7 +348,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
             self.ctrl[idx].on_key_down()
         else:
             self.ctrl[idx].on_key_up()
-        self.update_label(idx)
+        # self.update_label(idx)
         self.refresh()
 
     def add_image_placeholder(self, row, col):
@@ -392,7 +392,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
         else:
             image_array = image_array_original
             if MPL_SUPPORT and isinstance(image_array, Curve):
-                image_label = FigureCanvas(Figure())
+                image_label = FigureCanvas(Figure(figsize=(10, 10)))
                 if self.image_canvas[row][col]["ax_placeholder"] is None:
                     ax_placeholder = image_label.figure.subplots()
                     self.image_canvas[row][col]["image"] = image_label

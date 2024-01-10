@@ -99,8 +99,12 @@ class IntSliderControl(BaseControl):
 class FloatSliderControl(BaseControl):
     def check_control_type(self):
         assert self.ctrl._type == float
+    
     def convert_value_to_int(self, val):
-        return int(val*100)
+        return int((val-self.ctrl.value_range[0])*1000/(self.ctrl.value_range[1]-self.ctrl.value_range[0]))
+    
+    def convert_int_to_value(self, val):
+        return self.ctrl.value_range[0] + (self.ctrl.value_range[1]-self.ctrl.value_range[0])*val/1000
 
     def create(self):
         # Create a horizontal layout to hold the slider and line edit
@@ -109,6 +113,7 @@ class FloatSliderControl(BaseControl):
 
         # Create the slider with integer range and step size
         slider = slider_class(Qt.Orientation.Horizontal, self)
+        self.ctrl.convert_int_to_value = self.convert_int_to_value
         slider.setRange(self.convert_value_to_int(self.ctrl.value_range[0]), self.convert_value_to_int(self.ctrl.value_range[1]))
         slider.setValue(self.convert_value_to_int(self.ctrl.value_default))
         slider.setSingleStep(5)
