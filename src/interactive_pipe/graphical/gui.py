@@ -124,7 +124,7 @@ class InteractivePipeGUI():
                 else:
                     if ctrl.keyup is None:
                         doc = f"decrease {ctrl.name}"
-                    elif ctrl.keydow is None:
+                    elif ctrl.keydown is None:
                         doc = f"increase {ctrl.name}"
             else:
                 if down_flag:
