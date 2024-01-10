@@ -303,7 +303,6 @@ class MainWindow(QWidget, InteractivePipeWindow):
         if mapped_str is None:
             mapped_str = event.text()   
         self.main_gui.on_press(mapped_str, refresh_func=self.refresh)
-
     def init_sliders(self, controls: List[Control]):
         self.ctrl = {}
         self.result_label = {}
@@ -316,16 +315,46 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
             elif isinstance(ctrl, Control):
                 slider_instance = control_factory.create_control(ctrl, self.update_parameter)
-                slider = slider_instance.create()
+                slider_or_layout = slider_instance.create()
                 self.widget_list[slider_name] = slider_instance
-                self.layout_obj.addRow(slider)
-                self.result_label[slider_name] = QLabel('', self)
-                self.layout_obj.addRow(self.result_label[slider_name])
-                self.update_label(slider_name)
 
+                slider_layout = QHBoxLayout()
+
+                if isinstance(slider_or_layout, QWidget):
+                    # If it's a QWidget, add it directly to the layout
+                    slider_layout.addWidget(slider_or_layout)
+                elif isinstance(slider_or_layout, QHBoxLayout):
+                    # If it's a QHBoxLayout, embed it in a QWidget first
+                    container_widget = QWidget()
+                    container_widget.setLayout(slider_or_layout)
+                    slider_layout.addWidget(container_widget)
+                else:
+                    print(f"Unhandled type for slider: {type(slider_or_layout)}")
+                    continue
+                if isinstance(slider_or_layout, QWidget):
+                    label_fixed_width = 200
+                    label = QLabel('', self)
+                    label.setMinimumWidth(label_fixed_width)
+                    self.result_label[slider_name] = label
+
+                    slider_layout.addWidget(self.result_label[slider_name])
+
+                # Create a container widget for the entire row
+                row_container_widget = QWidget()
+                row_container_widget.setLayout(slider_layout)
+
+                self.layout_obj.addRow(row_container_widget)
+
+                self.update_label(slider_name)
+                
     def update_label(self, idx):
         # pass
-        self.result_label[idx].setText(f'{self.ctrl[idx].name} = {self.ctrl[idx].value}')
+        val = self.ctrl[idx].value
+        val_to_print = val
+        if isinstance(val, float):
+            val_to_print = f"{val:.3e}"
+        if idx in self.result_label.keys():
+            self.result_label[idx].setText(f'{self.ctrl[idx].name}\n{val_to_print}')
 
     def update_parameter(self, idx, value):
         """Required implementation for graphical controllers update"""

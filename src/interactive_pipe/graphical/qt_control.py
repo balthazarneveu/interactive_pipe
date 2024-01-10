@@ -6,7 +6,7 @@ import logging
 PYQTVERSION = None
 
 try:
-    from PySide6.QtWidgets import QWidget, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout
+    from PySide6.QtWidgets import QWidget, QLabel, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout
     from PySide6.QtCore import Qt, QSize
     from PySide6.QtGui import QIcon
     PYQTVERSION = 6
@@ -15,14 +15,14 @@ except:
     
 if not PYQTVERSION:
     try:
-            from PyQt6.QtWidgets import QWidget, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout
+            from PyQt6.QtWidgets import QWidget, QLabel, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout
             from PyQt6.QtCore import Qt, QSize
             from PyQt6.QtGui import QIcon
             PYQTVERSION = 6
     except:
         logging.warning("Cannot import PyQt")
         try:
-            from PyQt5.QtWidgets import QWidget, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout
+            from PyQt5.QtWidgets import QWidget, QLabel, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout
             from PyQt5.QtCore import Qt, QSize
             from PyQt5.QtGui import QIcon
             PYQTVERSION = 5
@@ -108,7 +108,7 @@ class FloatSliderControl(BaseControl):
 
     def create(self):
         # Create a horizontal layout to hold the slider and line edit
-        hbox = QHBoxLayout()
+        # hbox = QHBoxLayout()
         slider_class = SilentSlider if self.silent else QSlider
 
         # Create the slider with integer range and step size
@@ -124,10 +124,11 @@ class FloatSliderControl(BaseControl):
         slider.valueChanged.connect(partial(self.update_func, self.name))
 
         # Add the slider and line edit to the horizontal layout
-        hbox.addWidget(slider)
+        # hbox.addWidget(slider)
 
         self.control_widget = slider
-        return hbox
+        # return hbox
+        return slider
     
     def reset(self):
         self.control_widget.setValue(self.convert_value_to_int(self.ctrl.value))
@@ -185,7 +186,10 @@ class DropdownMenuControl(BaseControl):
         self.control_widget.currentIndexChanged.connect(partial(self.update_func, self.name))
         # Add the combo box to the horizontal layout
         hbox.addWidget(self.control_widget)
+        label = QLabel(self.name, self)
+        hbox.addWidget(label)
         return hbox
+        # return self.control_widget
 
     def reset(self):
         index = self.control_widget.findText(self.ctrl.value)
