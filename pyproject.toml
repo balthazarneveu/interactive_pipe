@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "interactive_pipe"
-version = "0.5.8"
+version = "0.5.9"
 authors = [
   { name="Balthazar Neveu", email="balthazarneveu@gmail.com" },
 ]
