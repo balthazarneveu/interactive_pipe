@@ -15,7 +15,7 @@ class EnhancedFilterCore(FilterCore):
     so you can graphically test a single filter without instantiating a pipeline.
     Internally used by `@interact` decorator.
     """
-    def get_gui(self, gui="auto", output_routing=None):
+    def get_gui(self, gui="auto", output_routing=None, size=None):
         self.inputs = list(range(len(self.signature[0])))
         if output_routing is None:
             logging.warning("Single output assumed, cannot deduce the number of outputs from your code, please provide output_routing!")
@@ -28,9 +28,9 @@ class EnhancedFilterCore(FilterCore):
             self.controls[ctrl_name].parameter_name_to_connect = ctrl_name
         controls = [ctrl for _, ctrl in self.controls.items()]
         pipeline.controls = controls
-        return get_interactive_pipeline_class(gui=gui)(pipeline=pipeline)
+        return get_interactive_pipeline_class(gui=gui)(pipeline=pipeline, size=size)
 
-    def run_gui(self, *args, gui="auto", output_routing=None):
+    def run_gui(self, *args, gui="auto", output_routing=None, size=None):
         try:
             self.inputs = args
             out = self.run(*args)
@@ -38,7 +38,7 @@ class EnhancedFilterCore(FilterCore):
             self.outputs = output_routing
         except Exception as exc:
             logging.warning(f"cannot automatically deduce the output routing\n{exc}")
-        gui_pipeline = self.get_gui(gui=gui, output_routing=output_routing)
+        gui_pipeline = self.get_gui(gui=gui, output_routing=output_routing, size=size)
         gui_pipeline.pipeline.inputs_routing = list(range(len(self.signature[0])))    
         gui_pipeline(*args)
         gui_pipeline.close()
@@ -46,7 +46,7 @@ class EnhancedFilterCore(FilterCore):
         del gui_pipeline
 
 
-def interact(*decorator_args, gui="auto", disable=False, output_routing = None, **decorator_controls):
+def interact(*decorator_args, gui="auto", disable=False, output_routing=None, size=None, **decorator_controls):
     """interact decorator allows you to launch a GUI from a single function
     
     This will directly launch a GUI.
@@ -65,7 +65,7 @@ def interact(*decorator_args, gui="auto", disable=False, output_routing = None, 
         # this will run the GUI automatically
         _private.registered_controls_names = []
         filter_instance = filter_from_function(func, **decorator_controls)
-        filter_instance.run_gui(*(decorator_args if not ommitted_parentheses_flag else decorator_args[1:]), gui=gui, output_routing=output_routing)
+        filter_instance.run_gui(*(decorator_args if not ommitted_parentheses_flag else decorator_args[1:]), gui=gui, output_routing=output_routing, size=size)
         # return the original function if you want to keep using it afterwards
         return func
     
