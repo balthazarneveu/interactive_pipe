@@ -49,6 +49,7 @@ class SingleCurve(Data):
                 y: Union[List[np.ndarray], np.ndarray]=None,
                 style: Optional[str]=None,
                 label: Optional[str]=None,
+                linestyle: Optional[str]=None,
                 linewidth:Optional[int]=None,
                 markersize: Optional[int]=None,
                 alpha: Optional[float]=None,         
@@ -60,6 +61,7 @@ class SingleCurve(Data):
             "y": y,
             "label": label,
             "style": style,
+            "linestyle": linestyle,
             "linewidth": linewidth,
             "markersize": markersize,
             "alpha": alpha
@@ -141,6 +143,7 @@ class SingleCurve(Data):
             path: Path, 
             style: Optional[str]=None,
             label: Optional[str]=None,
+            linestyle:Optional[str]=None,
             linewidth:Optional[int]=None,
             markersize: Optional[int]=None,
             alpha: Optional[float]=None,
@@ -154,6 +157,7 @@ class SingleCurve(Data):
                 "y": df["y"],
                 "label": label,
                 "style": style,
+                "linestyle": linestyle,
                 "linewidth": linewidth,
                 "markersize": markersize,
                 "alpha": alpha
@@ -164,6 +168,8 @@ class SingleCurve(Data):
                 data["style"] = style
             if label is not None:
                 data["label"] = label
+            if linestyle is not None:
+                data["linestyle"] = linestyle
             if linewidth is not None:
                 data["linewidth"] = linewidth
             if markersize is not None:
@@ -465,6 +471,7 @@ class Curve(Data):
                 ax.plot(
                     *inps,
                     label=curve.data.get("label", None),
+                    linestyle=curve.data.get("linestyle", None),
                     linewidth=curve.data.get("linewidth", None),
                     markersize=curve.data.get("markersize", None),
                     alpha=curve.data.get("alpha", None)
