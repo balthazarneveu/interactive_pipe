@@ -1,7 +1,5 @@
 import numpy as np
 import pytest
-from copy import deepcopy
-
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.engine import PipelineEngine
 from interactive_pipe.core.pipeline import PipelineCore

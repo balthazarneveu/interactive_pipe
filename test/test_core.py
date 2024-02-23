@@ -1,5 +1,3 @@
-import pytest
-
 from interactive_pipe.core.filter import FilterCore, PureFilter
 
 
@@ -15,14 +13,6 @@ def test_pure_filter():
                       default_params={"scalar": 2, "add": 0})
     img = [[1, 2, 3], [4, 5, 6]]
     result = filt.run(img)
-    assert result == [[2, 4, 6], [8, 10, 12]]
-
-
-def test_filter_run_dict():
-    filter = MultiplyFilter(name="multiply", default_params={
-                            "add": 0, "scalar": 2})
-    img = [[1, 2, 3], [4, 5, 6]]
-    result = filter.run(img)
     assert result == [[2, 4, 6], [8, 10, 12]]
 
 

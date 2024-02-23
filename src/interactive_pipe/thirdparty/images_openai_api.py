@@ -12,11 +12,11 @@ import openai
 class ImageFromPrompt(Image):
     """A useful class to generate an image from a prompt using openai image API
 
-    Warning: 
-    - The open AI service costs a few cents per request. 
+    Warning:
+    - The open AI service costs a few cents per request.
     - You need to know what you're doing here, refer to https://platform.openai.com/
     to get an account and check billing options.
-    - For obvious reasons: Internet access is mandatory for obvious reasons 
+    - For obvious reasons: Internet access is mandatory for obvious reasons
 
     An API token is required or to be provided directly when calling the class.
     To be more convenient, user can set OPENAI_API_KEY in their os environment variables
@@ -121,9 +121,8 @@ class ImageFromPrompt(Image):
 
     @staticmethod
     def generate_image(prompt, path: Union[str, Path], size=(256, 256), api_key=None):
-        assert path is not None, "To avoid not knowing where you generated your images, providing a path is mandatory here"
-        path = ImageFromPrompt.__generate_image_to_disk(
-            prompt, path=path, api_key=api_key, size=size)
+        assert path is not None, "To avoid not knowing where you generated your images , providing a path is mandatory"
+        path = ImageFromPrompt.__generate_image_to_disk(prompt, path=path, api_key=api_key, size=size)
         print(f"Image generated at {path}")
         return path
 

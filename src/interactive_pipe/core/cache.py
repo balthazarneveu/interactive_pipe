@@ -1,6 +1,6 @@
 import logging
 from copy import deepcopy
-from typing import Any, Dict
+from typing import Any
 
 
 class CachedResults:
@@ -8,7 +8,7 @@ class CachedResults:
     Helper class to store the results of a Filter.
 
     The overall purpose of these classes is to prevent unnecessary computations by reusing the
-    results of previous filter operations when the input parameters have not changed. 
+    results of previous filter operations when the input parameters have not changed.
     This is accomplished by storing the results of the filter operations and the parameters
     used in those operations, and checking for changes in the parameters
     before re-computing the results.
@@ -20,7 +20,7 @@ class CachedResults:
 
     Please note that if you use safe_buffer_deepcopy=False,
     only pointers are copied when updating the cache, no deepcopy is performed here.
-    You should only use safe_buffer_deepcopy=False 
+    You should only use safe_buffer_deepcopy=False
     if you're 100% sure you don't do inplace modifications.
 
     Underlying class used in the interactive pipe cache mechanism.

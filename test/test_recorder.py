@@ -1,14 +1,10 @@
 import numpy as np
 import pytest
 import shutil
-from copy import deepcopy
-from typing import List
-from sample_functions import mad, split_horizontally, blend, get_sample_image, empty_output, constant_image_generator, empty_in_empty_out
+from sample_functions import (
+    mad, split_horizontally, blend, get_sample_image, empty_output, constant_image_generator,
+    empty_in_empty_out)
 
-
-from interactive_pipe.core.filter import FilterCore, PureFilter
-from interactive_pipe.core.engine import PipelineEngine
-from interactive_pipe.core.pipeline import PipelineCore
 from interactive_pipe.core.graph import get_call_graph
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.data_objects.image import Image
@@ -23,7 +19,7 @@ def pipe_func(img_a, img_b, param_1=0.8):
     final = blend(img_a, exposed_img)
     final_up, final_middle, final_down = split_horizontally(final,  line=0.8)
     empty_output(final_middle)
-    uniform = constant_image_generator()
+    uniform = constant_image_generator()  # noqa: F841
     empty_in_empty_out()
     return final_up, blended
 
