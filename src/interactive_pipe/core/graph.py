@@ -5,6 +5,7 @@ from typing import List, Callable, Tuple, Optional, Union
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.signature import analyze_apply_fn_signature
 
+
 def get_name(node: ast.NodeVisitor) -> Union[str, List[str], None]:
     if isinstance(node, ast.Name):
         return node.id
@@ -14,8 +15,9 @@ def get_name(node: ast.NodeVisitor) -> Union[str, List[str], None]:
         return [get_name(elt) for elt in node.elts]
     else:
         return None
-    
-def flatten_target_names(targets: List[Union[list, str, None]], mapping_function: Optional[Callable]=None) -> List[str]:
+
+
+def flatten_target_names(targets: List[Union[list, str, None]], mapping_function: Optional[Callable] = None) -> List[str]:
     output_names = []
     for target in targets:
         target_name = mapping_function(target) if mapping_function else target
@@ -29,7 +31,7 @@ def flatten_target_names(targets: List[Union[list, str, None]], mapping_function
     return output_names
 
 
-def get_call_graph(func:Callable, global_context=None) -> dict:
+def get_call_graph(func: Callable, global_context=None) -> dict:
     code = inspect.getsource(func)
     tree = ast.parse(code)
     results = []
@@ -53,10 +55,13 @@ def get_call_graph(func:Callable, global_context=None) -> dict:
             value = node.value
             if isinstance(value, ast.Call):
                 function_name = get_name(value.func)
-                logging.debug(f"classic function with assignment {function_name}")
-                assert function_name in global_context.keys(), f"Probably mispelled {function_name}"
+                logging.debug(
+                    f"classic function with assignment {function_name}")
+                assert function_name in global_context.keys(
+                ), f"Probably mispelled {function_name}"
                 input_names = [get_name(arg) for arg in value.args]
-                output_names = flatten_target_names(targets, mapping_function=get_name)
+                output_names = flatten_target_names(
+                    targets, mapping_function=get_name)
                 function_object = global_context[function_name]
                 if isinstance(function_object, FilterCore):
                     # Case of a filter instance
@@ -73,16 +78,18 @@ def get_call_graph(func:Callable, global_context=None) -> dict:
                     sig = analyze_apply_fn_signature(function_object)
                     function_apply = global_context[function_name]
                 else:
-                    raise TypeError(f"Not supported {function_name} - should be function or FilterCore")
+                    raise TypeError(
+                        f"Not supported {function_name} - should be function or FilterCore")
                 results.append({
                     "function_name": function_name,
                     "function_object": function_apply,
-                    "signature" : {"args": sig[0], "kwargs": sig[1]},
+                    "signature": {"args": sig[0], "kwargs": sig[1]},
                     "args": input_names,
                     "returns": output_names,
                 })
     main_function = tree.body[0]
-    outputs = [get_name(ret.value)  for ret in main_function.body if isinstance(ret, ast.Return)]
+    outputs = [get_name(ret.value)
+               for ret in main_function.body if isinstance(ret, ast.Return)]
     assert len(outputs) <= 1, "cannot return several times!"
     outputs = flatten_target_names(outputs, mapping_function=None)
     inputs, kwargs = analyze_apply_fn_signature(func)

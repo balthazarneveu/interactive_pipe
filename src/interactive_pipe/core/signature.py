@@ -1,6 +1,7 @@
 import inspect
 from typing import Callable, Tuple
 
+
 def analyze_apply_fn_signature(apply_fn: Callable) -> Tuple[dict, dict]:
     signature = inspect.signature(apply_fn)
     keyword_args = {

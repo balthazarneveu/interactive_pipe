@@ -8,9 +8,10 @@ from interactive_pipe.core.graph import get_call_graph
 from interactive_pipe.core.filter import analyze_apply_fn_signature
 from interactive_pipe.headless.control import Control
 
+
 class HeadlessPipeline(PipelineCore):
     """PipelineCore extensions - saving/loading to disk - graphs - init from interpreted functions
-    
+
     Adds some powerful features to the pipeline core such as:
     - creating a pipeline from a function as a sequential filter
     - importing/exporting parameters ("tuning") as json or yaml
@@ -29,7 +30,7 @@ class HeadlessPipeline(PipelineCore):
         else:
             inputs = None
         return inputs
-    
+
     @classmethod
     def from_function(cls, pipe: Callable, inputs=None, __routing_by_indexes=False, **kwargs):
         assert isinstance(pipe, Callable)
@@ -45,15 +46,15 @@ class HeadlessPipeline(PipelineCore):
                 input_routing.append(total_index)
             else:
                 input_routing.append(input_name)
-            total_index+= 1
+            total_index += 1
         for filt_dict in graph["call_graph"]:
             for key in ["args", "returns"]:
                 if filt_dict[key]:
                     for _, input_name in enumerate(filt_dict[key]):
                         if not input_name in all_variables.keys():
                             all_variables[input_name] = total_index
-                            total_index+=1
-        
+                            total_index += 1
+
         filters = []
         filters_count = {}
         filters_names = []
@@ -63,17 +64,20 @@ class HeadlessPipeline(PipelineCore):
             filt_name = filt_dict["function_name"]
             filter_count = filters_count.get(filt_name, -1)
             if filter_count >= 0:
-                filters_count[filt_name]+= 1
+                filters_count[filt_name] += 1
                 filt_name = filt_name + f"_{filters_count[filt_name]}"
             else:
                 filters_count[filt_name] = 0
             if __routing_by_indexes:
-                inputs_filt = HeadlessPipeline.routing_indexes(filt_dict["args"], all_variables)
-                outputs_filt = HeadlessPipeline.routing_indexes(filt_dict["returns"], all_variables)
+                inputs_filt = HeadlessPipeline.routing_indexes(
+                    filt_dict["args"], all_variables)
+                outputs_filt = HeadlessPipeline.routing_indexes(
+                    filt_dict["returns"], all_variables)
             else:
                 inputs_filt = filt_dict["args"]
                 outputs_filt = filt_dict["returns"]
-            logging.debug("----------------->", filt_name, inputs_filt, outputs_filt)
+            logging.debug("----------------->", filt_name,
+                          inputs_filt, outputs_filt)
             if isinstance(filt_dict["function_object"], FilterCore):
                 filter = filt_dict["function_object"]
                 filter.inputs = inputs_filt
@@ -85,11 +89,13 @@ class HeadlessPipeline(PipelineCore):
                 filter = FilterCore(
                     name=filt_name,
                     inputs=inputs_filt,
-                    outputs = outputs_filt,
+                    outputs=outputs_filt,
                     apply_fn=filt_dict["function_object"],
                 )
-                func_kwargs = analyze_apply_fn_signature(filt_dict["function_object"])[1]
-                params_to_analyze = {**func_kwargs, **Control.get_controls(filt_name)}
+                func_kwargs = analyze_apply_fn_signature(
+                    filt_dict["function_object"])[1]
+                params_to_analyze = {**func_kwargs, **
+                                     Control.get_controls(filt_name)}
             for param_name, param_value in params_to_analyze.items():
                 if isinstance(param_value, Control):
                     param_value.connect_filter(filter, param_name)
@@ -100,15 +106,18 @@ class HeadlessPipeline(PipelineCore):
         logging.debug(filters_count)
         logging.debug(filters_names)
         if __routing_by_indexes:
-            outputs = [all_variables[output_name] for output_name in graph["returns"]]
+            outputs = [all_variables[output_name]
+                       for output_name in graph["returns"]]
         else:
             outputs = graph["returns"]
         if len(function_inputs) == 0 and inputs is None:
-            logging.info("Auto deduced that there are no arguments provided to the function")
-        data_class = cls(filters=filters, name=graph["function_name"], inputs=input_routing, outputs=outputs, **kwargs)
+            logging.info(
+                "Auto deduced that there are no arguments provided to the function")
+        data_class = cls(
+            filters=filters, name=graph["function_name"], inputs=input_routing, outputs=outputs, **kwargs)
         data_class.controls = control_list
         return data_class
-    
+
     def export_tuning(self, path: Optional[Path] = None, override=False) -> None:
         """Export yaml tuning to disk 
         """
@@ -132,8 +141,8 @@ class HeadlessPipeline(PipelineCore):
                         data = self.parameters["tuning"][elt][0]
                         index = int(self.parameters["tuning"][elt][1])
                         saved_dict[elt] = export_dict[data][index]
-        Parameters(saved_dict).save(path, override=True if path is None else override)
-       
+        Parameters(saved_dict).save(
+            path, override=True if path is None else override)
 
     def import_tuning(self, path: Path = None) -> None:
         """Open a json/yaml tuning file and set parameters
@@ -153,16 +162,18 @@ class HeadlessPipeline(PipelineCore):
         ret = ret[:-2] + "\n"  # remove comma for yaml
         ret += "}"
         return ret
-    
+
     def update_parameters_from_controls(self):
         if not hasattr(self, "controls"):
             # Not having .controls attribute
             # This happens for headless pipelines which have no list of controls
             return
         for ctrl in self.controls:
-            logging.info(f"{ctrl.filter_to_connect.name}, {ctrl.parameter_name_to_connect}, {ctrl.value}")
-            self.parameters = {ctrl.filter_to_connect.name: {ctrl.parameter_name_to_connect:  ctrl.value}}
-        
+            logging.info(
+                f"{ctrl.filter_to_connect.name}, {ctrl.parameter_name_to_connect}, {ctrl.value}")
+            self.parameters = {ctrl.filter_to_connect.name: {
+                ctrl.parameter_name_to_connect:  ctrl.value}}
+
     def __run(self):
         self.update_parameters_from_controls()
         result_full = super().run()
@@ -176,7 +187,7 @@ class HeadlessPipeline(PipelineCore):
             return tuple(result_full[idx] for idx in output_indexes)
         else:
             return None
-    
+
     def run(self):
         self.results = self.__run()
         return self.results
@@ -190,7 +201,7 @@ class HeadlessPipeline(PipelineCore):
             else:
                 output_indexes = self.filters[-1].outputs
         if save_entire_buffer:
-            output_indexes = None # you may force specific buffer index you'd like to save
+            output_indexes = None  # you may force specific buffer index you'd like to save
         result_full = super().run()
         if result_full is None:
             return None
@@ -224,12 +235,12 @@ class HeadlessPipeline(PipelineCore):
                     new_param_dict[filter_name][key] = value
         return new_param_dict
 
-
     def __call__(self, *inputs_tuple, inputs=None, parameters={}, **kwargs) -> Any:
         if inputs is not None:
             assert isinstance(inputs, dict)
             self.inputs = inputs
-            logging.info(f"Dict style inputs {list(inputs.keys())}, {self.inputs}")
+            logging.info(
+                f"Dict style inputs {list(inputs.keys())}, {self.inputs}")
         else:
             # @TODO: we could check that the number of inputs matches what's expected here.
             self.inputs = list(inputs_tuple)
@@ -240,7 +251,7 @@ class HeadlessPipeline(PipelineCore):
         self.parameters = parameters
         self.parameters = self.parameters_from_keyword_args(**kwargs)
         return self.run()
-    
+
     def graph_representation(self, path=None, ortho=True, view=False):
         def find_previous_key(searched_out, current_index, input_indexes, debug=False):
             last_filter_found = None
@@ -260,12 +271,14 @@ class HeadlessPipeline(PipelineCore):
                         last_filter_found = filt_prev.name
                         inp_name = f"{inp}"
             return last_filter_found, inp_name
+
         def edge_label(label):
             return f"[{label}]"
         try:
             import graphviz
         except Exception as exc:
-            logging.warning("cannot generate pipeline graph, need to install graphviz")
+            logging.warning(
+                "cannot generate pipeline graph, need to install graphviz")
             logging.warning(exc)
             return None
 
@@ -277,7 +290,8 @@ class HeadlessPipeline(PipelineCore):
         with dot.subgraph(name='cluster_in') as inputs_graph:
             inputs_graph.attr(style="dashed", color="gray", label="Inputs")
             for inp in input_indexes:
-                inputs_graph.node(f"{inp}", f"🖴 {inp}",  shape="rect", color="gray", styleItem="dash")
+                inputs_graph.node(
+                    f"{inp}", f"🖴 {inp}",  shape="rect", color="gray", styleItem="dash")
 
         with dot.subgraph(name='cluster_filters') as filter_graphs:
             # filter_graphs.attr(color="transparent",)
@@ -286,14 +300,17 @@ class HeadlessPipeline(PipelineCore):
                 all_params = []
                 for pa_name, pa_val in filt.values.items():
                     all_params.append(f"\n✔️ {pa_name}")
-                filter_graphs.node(filt.name, f"⚙️ {filt.name}" + ("".join(all_params)), shape="rect")        
+                filter_graphs.node(
+                    filt.name, f"⚙️ {filt.name}" + ("".join(all_params)), shape="rect")
             for idx, filt in enumerate(self.filters):
                 if filt.inputs is None:
                     continue
                 for out in filt.inputs:
-                    last_filter_found, inp_name = find_previous_key(out, idx, input_indexes)
+                    last_filter_found, inp_name = find_previous_key(
+                        out, idx, input_indexes)
                     if last_filter_found is not None:
-                        dot.edge(last_filter_found, filt.name, label=edge_label(inp_name))
+                        dot.edge(last_filter_found, filt.name,
+                                 label=edge_label(inp_name))
         out_list = []
         for out_item in self.outputs:
             out_row = out_item
@@ -306,11 +323,14 @@ class HeadlessPipeline(PipelineCore):
         with dot.subgraph(name='cluster_out') as out_graph:
             out_graph.attr(style="dashed", color="gray", label="Outputs")
             for out in out_list:
-                out_graph.node(f"out {out}", f"🛢️ {out}", shape="rect", color="gray")
+                out_graph.node(f"out {out}", f"🛢️ {out}",
+                               shape="rect", color="gray")
         for out in out_list:
-            last_filter_found, inp_name = find_previous_key(out, len(self.filters), input_indexes)
+            last_filter_found, inp_name = find_previous_key(
+                out, len(self.filters), input_indexes)
             if last_filter_found is not None:
-                dot.edge(last_filter_found, f"out {out}", label=edge_label(inp_name))
+                dot.edge(last_filter_found,
+                         f"out {out}", label=edge_label(inp_name))
         if path is not None:
             dot.render(path, view=view)
         else:

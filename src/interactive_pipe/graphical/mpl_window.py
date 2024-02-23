@@ -6,12 +6,12 @@ from interactive_pipe.data_objects.curves import Curve
 
 
 class MatplotlibWindow(InteractivePipeWindow):
-    def __init__(self,  controls=[], name="", pipeline=None, size=None, style: str=None, rc_params=None):
+    def __init__(self,  controls=[], name="", pipeline=None, size=None, style: str = None, rc_params=None):
         """
         style: dark_background, seaborn-v0_8-dark
         https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html
 
-        rc_params: 
+        rc_params:
         ```
         rc_params = {
             'font.family': 'serif',
@@ -31,12 +31,12 @@ class MatplotlibWindow(InteractivePipeWindow):
         nrows, ncols = np.array(self.image_canvas).shape
         ax_img = self.fig.add_subplot(nrows, ncols, row * ncols + col + 1)
         self.image_canvas[row][col] = {"ax": ax_img}
-    
+
     def delete_image_placeholder(self, ax):
         ax["ax"].remove()
         self.need_redraw = True
-    
-    def update_style(self, ax: plt.Axes, style:dict ={}):
+
+    def update_style(self, ax: plt.Axes, style: dict = {}):
         if style is None:
             return
         title = style.get("title", None)
@@ -49,13 +49,11 @@ class MatplotlibWindow(InteractivePipeWindow):
         if ylabel:
             ax.set_ylabel(ylabel)
 
-
-    
     def update_image(self, image_array, row, col):
         ax_dict = self.image_canvas[row][col]
         img = self.convert_image(image_array)
         current_style = self.get_current_style(row, col)
-        data =  ax_dict.get("data", None)
+        data = ax_dict.get("data", None)
         if data:
             if isinstance(img, np.ndarray):
                 data.set_data(img)
@@ -69,7 +67,6 @@ class MatplotlibWindow(InteractivePipeWindow):
         if not (isinstance(img, Curve) and img.data["title"] is not None):
             self.update_style(ax_dict["ax"], style=current_style)
 
-
     def refresh(self):
         if not hasattr(self, "need_redraw"):
             self.need_redraw = False
@@ -79,7 +76,7 @@ class MatplotlibWindow(InteractivePipeWindow):
         if self.need_redraw:
             plt.draw()
         self.need_redraw = False
-    
+
     def convert_image(self, img):
         if isinstance(img, np.ndarray):
             return img.clip(0., 1.)

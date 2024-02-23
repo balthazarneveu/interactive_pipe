@@ -2,6 +2,7 @@ import pytest
 
 from interactive_pipe.core.filter import FilterCore, PureFilter
 
+
 class MultiplyFilter(FilterCore):
     def apply(self, img, scalar=8, add=5):
         return [[value * scalar + add for value in row] for row in img]

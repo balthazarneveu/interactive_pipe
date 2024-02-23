@@ -7,6 +7,7 @@ from typing import List
 from interactive_pipe.core.cache import CachedResults
 from interactive_pipe.core.filter import FilterCore
 
+
 class PipelineEngine:
     def __init__(self, cache=False, safe_input_buffer_deepcopy=True) -> None:
         self.cache = cache
@@ -21,7 +22,8 @@ class PipelineEngine:
                 for input_index, inp in enumerate(imglst):
                     if self.safe_input_buffer_deepcopy:
                         result[input_index] = deepcopy(inp)
-                        logging.debug(f"<<< Deepcopy input images {input_index}")
+                        logging.debug(
+                            f"<<< Deepcopy input images {input_index}")
                     else:
                         result[input_index] = inp
             elif isinstance(imglst, dict):
@@ -56,7 +58,8 @@ class PipelineEngine:
                     if prc.inputs:
                         routing_in = [
                             result[idi] if idi is not None else None for idi in prc.inputs]
-                    logging.debug("in types->", [type(inp) for inp in routing_in])
+                    logging.debug("in types->", [type(inp)
+                                  for inp in routing_in])
                     out = prc.run(*routing_in)
                     if out is not None:
                         logging.debug("out types->", [type(ou) for ou in out])

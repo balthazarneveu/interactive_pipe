@@ -3,6 +3,7 @@ import sys
 from sys import platform
 import time
 
+
 class SpotifyInterface():
     def factory(type):
         try:
@@ -19,15 +20,16 @@ class SpotifyInterface():
     factory = staticmethod(factory)
 
 
-
 class SpotifyLinux():
     def __init__(self):
-        self.interface = SpotifyInterface.factory('org.mpris.MediaPlayer2.Player')
-    
+        self.interface = SpotifyInterface.factory(
+            'org.mpris.MediaPlayer2.Player')
+
     def set_audio(self, audio_url):
         self.pause()
         if "http" in audio_url:
-            audio_url = "spotify:track:" + audio_url.split("track/")[1].split("?")[0]
+            audio_url = "spotify:track:" + \
+                audio_url.split("track/")[1].split("?")[0]
         self.interface.OpenUri(audio_url)
         time.sleep(0.5)
         self.pause()

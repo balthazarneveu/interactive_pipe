@@ -1,16 +1,17 @@
 import logging
 from urllib.request import urlretrieve
 from pathlib import Path
-import tempfile 
+import tempfile
 from typing import Union
 from interactive_pipe.data_objects.parameters import Parameters
 from interactive_pipe.data_objects.image import Image
 import os
 import openai
 
+
 class ImageFromPrompt(Image):
     """A useful class to generate an image from a prompt using openai image API
-    
+
     Warning: 
     - The open AI service costs a few cents per request. 
     - You need to know what you're doing here, refer to https://platform.openai.com/
@@ -33,6 +34,7 @@ class ImageFromPrompt(Image):
     Some more info https://github.com/balthazarneveu/interactive_pipe/issues/27
     """
     SUFFIX = ".png"
+
     @staticmethod
     def check_file_existence(pth: Union[str, Path]) -> Union[bool, Path]:
         if pth is None:
@@ -40,8 +42,9 @@ class ImageFromPrompt(Image):
         if isinstance(pth, str):
             pth = Path(pth)
         return pth.exists()
+
     @staticmethod
-    def download_file(image_url, output=None, suffix: str=SUFFIX) -> Path:
+    def download_file(image_url, output=None, suffix: str = SUFFIX) -> Path:
         if output is None:
             output = tempfile.mktemp(suffix=suffix)
         if not isinstance(output, Path):
@@ -51,7 +54,7 @@ class ImageFromPrompt(Image):
         urlretrieve(image_url, output)
         assert output.exists()
         return output
-    
+
     @staticmethod
     def login(api_key=None, organization=None):
         if api_key is not None:
@@ -69,13 +72,14 @@ class ImageFromPrompt(Image):
             openai.api_key = api_key
             openai.organization = organization
             ImageFromPrompt.__check_login(), "cannot log in"
-    
+
     @staticmethod
     def __check_login():
         assert openai.api_key is not None
         try:
             response = openai.Model.list()
-            logging.debug(f"available api models: {','.join([item['id'] for item in response['data']])}")
+            logging.debug(
+                f"available api models: {','.join([item['id'] for item in response['data']])}")
             return True
         except openai.error.OpenAIError as e:
             logging.error(e.http_status)
@@ -95,7 +99,8 @@ class ImageFromPrompt(Image):
             # You need the API key at this moment
             ImageFromPrompt.login(api_key=api_key)
             if not silent:
-                logging.warning(f"Requesting the open AI API with prompt : {prompt} & {size}\nThis will cost you a few cents")
+                logging.warning(
+                    f"Requesting the open AI API with prompt : {prompt} & {size}\nThis will cost you a few cents")
             response = openai.Image.create(
                 prompt=prompt,
                 n=1,
@@ -105,24 +110,26 @@ class ImageFromPrompt(Image):
             if not silent:
                 print(f"Download image URL {image_url}")
             out_file = ImageFromPrompt.download_file(image_url, output=path)
-            params = Parameters({"prompt": prompt, "url": image_url, "path": str(out_file), "response": response})
+            params = Parameters({"prompt": prompt, "url": image_url, "path": str(
+                out_file), "response": response})
             params.save(out_file.with_suffix(".yaml"))
             return out_file
         except openai.error.OpenAIError as e:
             logging.error(e.http_status)
             logging.error(e.error)
             return None
-    
+
     @staticmethod
-    def generate_image(prompt, path:Union[str, Path], size=(256, 256), api_key=None):
+    def generate_image(prompt, path: Union[str, Path], size=(256, 256), api_key=None):
         assert path is not None, "To avoid not knowing where you generated your images, providing a path is mandatory here"
-        path = ImageFromPrompt.__generate_image_to_disk(prompt, path=path, api_key=api_key, size=size)
+        path = ImageFromPrompt.__generate_image_to_disk(
+            prompt, path=path, api_key=api_key, size=size)
         print(f"Image generated at {path}")
         return path
 
-    def __init__(self, prompt, path:Union[str, Path], size=(256, 256), api_key=None) -> None:
-        file_path = ImageFromPrompt.generate_image(prompt, path=path, api_key=api_key, size=size)
+    def __init__(self, prompt, path: Union[str, Path], size=(256, 256), api_key=None) -> None:
+        file_path = ImageFromPrompt.generate_image(
+            prompt, path=path, api_key=api_key, size=size)
         super().__init__(None, title=prompt)
         self.path = file_path
         self.data = self._load(file_path)
-    

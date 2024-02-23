@@ -2,17 +2,20 @@ from interactive_pipe.graphical.gui import InteractivePipeGUI
 import matplotlib.pyplot as plt
 from interactive_pipe.headless.keyboard import KeyboardControl
 from typing import List, Optional, Union, Tuple
-import  logging
+import logging
 from interactive_pipe.graphical.mpl_control import ControlFactory
 from interactive_pipe.graphical.mpl_window import MatplotlibWindow
+
 
 class InteractivePipeMatplotlib(InteractivePipeGUI):
     """Interactive image pipe with matplotlib backend
     """
+
     def init_app(self, **kwargs):
-        self.window = MainWindow(controls=self.controls, name=self.name, pipeline=self.pipeline, main_gui=self, size=self.size, **kwargs)
+        self.window = MainWindow(controls=self.controls, name=self.name,
+                                 pipeline=self.pipeline, main_gui=self, size=self.size, **kwargs)
         self.set_default_key_bindings()
-    
+
     def set_default_key_bindings(self):
         self.key_bindings = {
             **{
@@ -39,11 +42,11 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
                 print(exc)
                 logging.warning("Cannot maximize screen")
         self.window.fig.canvas.mpl_disconnect(
-                self.window.fig.canvas.manager.key_press_handler_id)
+            self.window.fig.canvas.manager.key_press_handler_id)
         self.window.fig.canvas.mpl_connect('key_press_event', self.on_press)
         plt.show()
         return self.pipeline.results
-    
+
     def load_parameters(self):
         """import parameters dictionary from a yaml/json file on disk"""
         super().load_parameters()
@@ -56,8 +59,10 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
             for filtname, params in self.pipeline.parameters.items():
                 for param_name in params.keys():
                     if param_name == widget.parameter_name_to_connect:
-                        print(f"MATCH & update {filtname} {widget_idx} with {self.pipeline.parameters[filtname][param_name]}")
-                        self.window.ctrl[widget_idx].update(self.pipeline.parameters[filtname][param_name])
+                        print(
+                            f"MATCH & update {filtname} {widget_idx} with {self.pipeline.parameters[filtname][param_name]}")
+                        self.window.ctrl[widget_idx].update(
+                            self.pipeline.parameters[filtname][param_name])
                         matched = True
             assert matched, f"could not match widget {widget_idx} with parameter to connect {widget.parameter_name_to_connect}"
         print("------------")
@@ -77,24 +82,26 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
 
     def on_press(self, event):
         super().on_press(event.key, refresh_func=self.refresh)
-    
+
     def refresh(self):
         # main GUI needs to be able to force the underlying window to refres
         # in case of a special key press event!
         self.window.need_redraw = True
         self.window.refresh()
-            
 
 
 class MainWindow(MatplotlibWindow):
-    def __init__(self,  controls=[], name="", pipeline=None, size: Optional[Union[str, int, Tuple[int, int]]]=None, style: str=None, rc_params=None, main_gui=None, **kwargs):
+    def __init__(self,  controls=[], name="", pipeline=None, size: Optional[Union[str, int, Tuple[int, int]]] = None, style: str = None, rc_params=None, main_gui=None, **kwargs):
         if size is not None and isinstance(size, int):
             size = (size, size)
         if isinstance(size, str):
-            assert "full" in size.lower(), f"size={size} can be only fullscreen or full"
-        super().__init__(controls=controls, name=name, pipeline=pipeline, style=style, size=size, rc_params=rc_params, **kwargs)
+            assert "full" in size.lower(
+            ), f"size={size} can be only fullscreen or full"
+        super().__init__(controls=controls, name=name, pipeline=pipeline,
+                         style=style, size=size, rc_params=rc_params, **kwargs)
         self.main_gui = main_gui
-        self.fig, self.ax = plt.subplots(figsize=self.size if isinstance(self.size, tuple) else None, num=self.name)
+        self.fig, self.ax = plt.subplots(figsize=self.size if isinstance(
+            self.size, tuple) else None, num=self.name)
         plt.axis('off')
         self.init_sliders()
 
@@ -106,6 +113,7 @@ class MainWindow(MatplotlibWindow):
     def __wipe_sliders(self):
         for ax in self.axes_controls:
             ax.remove()
+
     def init_sliders(self, dry_run_only=False):
         plt.subplots_adjust(left=0, top=1, bottom=0, right=1)
         # Compute the space needed for slider (dry_run) -> go down
@@ -117,9 +125,11 @@ class MainWindow(MatplotlibWindow):
         self.next_slider_position *= -1
         self.next_button_position *= -1
         # Then go through the slider and create dedicated figures & widgets
-        self.top_of_sliders = max(self.next_slider_position,  self.next_button_position)
+        self.top_of_sliders = max(
+            self.next_slider_position,  self.next_button_position)
         self.__init_sliders()
-        plt.subplots_adjust(left=0.04, top=0.97, bottom=self.top_of_sliders + 2*self.spacer, right=1-0.04)
+        plt.subplots_adjust(
+            left=0.04, top=0.97, bottom=self.top_of_sliders + 2*self.spacer, right=1-0.04)
 
     def __init_sliders(self, dry_run=False):
         if not dry_run:
@@ -128,18 +138,20 @@ class MainWindow(MatplotlibWindow):
             control_factory = ControlFactory()
             self.sliders_list = {}
             self.axes_controls = []
-        
+
         for ctrl in self.controls:
             slider_name = ctrl.name
             if not dry_run:
                 self.ctrl[slider_name] = ctrl
             if isinstance(ctrl, KeyboardControl):
-                self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
+                self.main_gui.bind_keyboard_slider(
+                    ctrl, self.key_update_parameter)
                 continue
             if ctrl._type == bool or ctrl._type == str:
                 x_start = 0.01
                 width = 0.08
-                number_of_items = (1 if ctrl._type == bool else len(ctrl.value_range))
+                number_of_items = (1 if ctrl._type ==
+                                   bool else len(ctrl.value_range))
                 height = 0.02 * number_of_items
                 y_start = self.next_slider_position - height
                 self.next_slider_position -= self.spacer + height
@@ -150,16 +162,19 @@ class MainWindow(MatplotlibWindow):
                 y_start = self.next_button_position - height
                 self.next_button_position -= self.spacer + height
             if not dry_run:
-                ax_control = self.fig.add_axes([x_start, y_start, width, height])
+                ax_control = self.fig.add_axes(
+                    [x_start, y_start, width, height])
                 if ctrl._type == bool:
                     ax_control.xaxis.set_visible(True)
                 self.axes_controls.append(ax_control)
-                slider_instance = control_factory.create_control(ctrl, self.update_parameter, ax_control=ax_control)
+                slider_instance = control_factory.create_control(
+                    ctrl, self.update_parameter, ax_control=ax_control)
                 slider = slider_instance.create()
-                self.sliders_list[slider_name] = slider # needed to keep the object alive
+                # needed to keep the object alive
+                self.sliders_list[slider_name] = slider
         self.next_slider_position -= self.footer_space
         self.next_button_position -= self.footer_space
-    
+
     def update_parameter(self, idx, value):
         """Required implementation for graphical controllers update"""
         self.ctrl[idx].update(value)

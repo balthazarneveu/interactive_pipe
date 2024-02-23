@@ -5,13 +5,14 @@ from typing import Callable, List, Optional, Union, Tuple, Any
 from interactive_pipe.core.cache import CachedResults
 from interactive_pipe.core.signature import analyze_apply_fn_signature
 
+
 class PureFilter:
     def __init__(self, apply_fn: Optional[Callable] = None, name: Optional[str] = None, default_params: dict = {}):
         self.name = name if name else (
             self.__class__.__name__ if not apply_fn else apply_fn.__name__)
         if apply_fn is not None:
             self.apply = apply_fn
-        self.__initialize_default_values() # initialize default values from .apply method
+        self.__initialize_default_values()  # initialize default values from .apply method
         self.values = deepcopy(default_params)
 
     @property
@@ -34,14 +35,14 @@ class PureFilter:
             self.signature = (self.__args_names, self.__kwargs_names)
         else:  # skip computing signature
             pass
-    
+
     def __initialize_default_values(self):
         assert not hasattr(self, "_values")
         self.check_apply_signature()
         self._values = self.__kwargs_names
         if "global_params" in self.__kwargs_names.keys():
             self._values.pop("global_params")
-    
+
     @property
     def values(self):
         return self._values
@@ -70,6 +71,7 @@ class PureFilter:
 
 class FilterCore(PureFilter):
     """PureFilter with cache storage + routing nodes defined (inputs & outputs fields)"""
+
     def __init__(self,
                  apply_fn: Callable = None,
                  name: Optional[str] = None,
@@ -108,19 +110,21 @@ class FilterCore(PureFilter):
             assert len(out) >= len(
                 self.outputs), "number of outputs shall be at least greater or equal to what's expected by the filter"
             return out
-        
+
         else:
-            logging.debug(f"need to return a tuple when you have a single element out {type(out)}")
-            assert len(self.outputs)==1, "returning a single element!" 
+            logging.debug(
+                f"need to return a tuple when you have a single element out {type(out)}")
+            assert len(self.outputs) == 1, "returning a single element!"
             return (out,)
-    
+
     def __repr__(self) -> str:
         descr = f"{self.name}: "
         descr += "(" + (", ".join([f"{it}" for it in self.inputs])) + ")"
-        descr += " -> " + "(" + ", ".join([f"{it}" for it in self.outputs]) + ")"
+        descr += " -> " + \
+            "(" + ", ".join([f"{it}" for it in self.outputs]) + ")"
         # descr += "\n"
         return descr
-    
+
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         control_dict = {}
         if hasattr(self, "controls"):

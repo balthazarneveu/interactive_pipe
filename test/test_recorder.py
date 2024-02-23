@@ -17,8 +17,7 @@ from interactive_pipe.data_objects.image import Image
 input_image = np.array([[1, 2, 3], [4, 5, 6]])
 
 
-
-def pipe_func(img_a, img_b, param_1 = 0.8):
+def pipe_func(img_a, img_b, param_1=0.8):
     blended = blend(img_a, img_b)
     exposed_img = mad(blended)
     final = blend(img_a, exposed_img)
@@ -28,7 +27,8 @@ def pipe_func(img_a, img_b, param_1 = 0.8):
     empty_in_empty_out()
     return final_up, blended
 
-def pipe_func_inplace(img_a, img_b, param_1 = 0.8):
+
+def pipe_func_inplace(img_a, img_b, param_1=0.8):
     img_b = blend(img_a, img_b)
     img_b = mad(img_b)
     img_b = blend(img_a, img_b)
@@ -52,7 +52,8 @@ def test_headless_pipeline_save(tmp_path_factory, func):
     out_path = tmp_path_factory.mktemp("data_2")
     assert out_path.exists()
     pip.save(out_path/"_image.jpg", data_wrapper_fn=lambda x: Image(x))
-    shutil.rmtree(out_path) # clean  temporary folder
+    shutil.rmtree(out_path)  # clean  temporary folder
+
 
 @pytest.mark.parametrize("func", [pipe_func, pipe_func_inplace])
 def test_headless_pipeline_exec(func):
@@ -63,6 +64,7 @@ def test_headless_pipeline_exec(func):
     for idx in range(len(out)):
         assert (out_func[idx] == out[idx]).all()
 
+
 def headless_pipeline_exec(func=pipe_func):
     input_image = get_sample_image()
     out_func = func(input_image)
@@ -70,6 +72,7 @@ def headless_pipeline_exec(func=pipe_func):
     out = pip(input_image, 0.8*input_image)
     for idx in range(len(out)):
         assert (out_func[idx] == out[idx]).all()
+
 
 if __name__ == '__main__':
     headless_pipeline_exec()

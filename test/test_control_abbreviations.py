@@ -5,6 +5,8 @@ from interactive_pipe.headless.control import Control
 
 NAME = "light_is_on"
 CHOICES = ["dog", "cat", "elephant", "rabbit"]
+
+
 @pytest.mark.parametrize(
     "inp_tuple", [
         (False, NAME, "+"),
@@ -45,8 +47,8 @@ def test_ultra_abbreviation_keyboard(inp_tuple):
 @pytest.mark.parametrize(
     "inp_tuple_and_error_type", [
         ((False, NAME, 12), TypeError),
-        ((False, NAME, "ctrl"), AssertionError), #un supported key
-        ((False, NAME, "F25"), AssertionError), # un supported key,
+        ((False, NAME, "ctrl"), AssertionError),  # un supported key
+        ((False, NAME, "F25"), AssertionError),  # un supported key,
         ((True, NAME, [True, False], "+"), AssertionError),
         (("dog", CHOICES, None, (True, "b", True)), AssertionError),
         (("dog", CHOICES, None, ("w", "b", "z")), AssertionError),
@@ -56,8 +58,6 @@ def test_abbreviation_keyboard_expected_fail(inp_tuple_and_error_type):
     inp_tuple, error_type = inp_tuple_and_error_type
     with pytest.raises(error_type):
         ctrl = control_from_tuple(inp_tuple)
-
-
 
 
 @pytest.mark.parametrize(
@@ -73,7 +73,8 @@ def test_abbreviation_keyboard_expected_fail(inp_tuple_and_error_type):
 )
 def test_abbreviation_control(inp_tuple):
     ctrl = control_from_tuple(inp_tuple)
-    assert isinstance(ctrl, Control) and not isinstance(ctrl, KeyboardControl), f"wrong type {ctrl}"
+    assert isinstance(ctrl, Control) and not isinstance(
+        ctrl, KeyboardControl), f"wrong type {ctrl}"
 
 
 @pytest.mark.parametrize(
@@ -88,8 +89,8 @@ def test_abbreviation_control(inp_tuple):
 def test_ultra_abbreviation_control(inp_tuple):
     ctrl = control_from_tuple(inp_tuple)
     print(ctrl)
-    assert isinstance(ctrl, Control) and not isinstance(ctrl, KeyboardControl), f"wrong type {ctrl}"
-
+    assert isinstance(ctrl, Control) and not isinstance(
+        ctrl, KeyboardControl), f"wrong type {ctrl}"
 
 
 @pytest.mark.parametrize(
