@@ -42,6 +42,12 @@ class MatplotlibWindow(InteractivePipeWindow):
         title = style.get("title", None)
         if title:
             ax.set_title(title)
+        xlabel = style.get("xlabel", None)
+        if xlabel:
+            ax.set_xlabel(xlabel)
+        ylabel = style.get("ylabel", None)
+        if ylabel:
+            ax.set_ylabel(ylabel)
 
 
     
