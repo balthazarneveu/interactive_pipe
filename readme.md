@@ -103,6 +103,12 @@ Shortcuts while using the GUI (QT & matplotlib backends)
 # Tutorials
 
 ### Learn by examples
+#### [Basic image processing](/demo/multi_image.py)
+| GUI | Pipeline | 
+|:--:|:--:| 
+|![](/doc/images/image_selector.png) | ![](/doc/images/image_selector_graph.png) |
+
+
 
 #### [Speech exploration notebook](https://colab.research.google.com/drive/1mUX2FW0qflWn-v3nIx90P_KvRxnXlBpz#scrollTo=qDTaIwvaJQ6R)
 ![Speech processing exploration in a notebook](/doc/images/jupyter_integration_speech.png)
