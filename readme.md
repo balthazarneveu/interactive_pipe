@@ -108,7 +108,7 @@ Shortcuts while using the GUI (QT & matplotlib backends)
 |:--:|:--:| 
 |![](/doc/images/image_selector.png) | ![](/doc/images/image_selector_graph.png) |
 
-
+![](/doc/images/demo_multi_image.gif)
 
 #### [Speech exploration notebook](https://colab.research.google.com/drive/1mUX2FW0qflWn-v3nIx90P_KvRxnXlBpz#scrollTo=qDTaIwvaJQ6R)
 ![Speech processing exploration in a notebook](/doc/images/jupyter_integration_speech.png)
