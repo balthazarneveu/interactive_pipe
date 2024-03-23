@@ -71,7 +71,7 @@ class ControlFactory:
 
 
 class SilentSlider(QSlider):
-    def __init__(self, *args, silent_keys=(Qt.Key_Left, Qt.Key_Right, Qt.Key_Up,  Qt.Key_Down, Qt.Key_PageUp, Qt.Key_PageDown), **kwargs):
+    def __init__(self, *args, silent_keys=(Qt.Key.Key_Left, Qt.Key.Key_Right, Qt.Key.Key_Up,  Qt.Key.Key_Down, Qt.Key.Key_PageUp, Qt.Key.Key_PageDown), **kwargs):
         super().__init__(*args, **kwargs)
         self.silent_keys = silent_keys
 
