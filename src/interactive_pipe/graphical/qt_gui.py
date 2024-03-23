@@ -185,25 +185,25 @@ class InteractivePipeQT(InteractivePipeGUI):
 
 class MainWindow(QWidget, InteractivePipeWindow):
     key_mapping_dict = {
-        Qt.Key_Up: KeyboardControl.KEY_UP,
-        Qt.Key_Down: KeyboardControl.KEY_DOWN,
-        Qt.Key_Left: KeyboardControl.KEY_LEFT,
-        Qt.Key_Right: KeyboardControl.KEY_RIGHT,
-        Qt.Key_PageUp: KeyboardControl.KEY_PAGEUP,
-        Qt.Key_PageDown: KeyboardControl.KEY_PAGEDOWN,
-        Qt.Key_F1: "f1",
-        Qt.Key_F2: "f2",
-        Qt.Key_F3: "f3",
-        Qt.Key_F4: "f4",
-        Qt.Key_F5: "f5",
-        Qt.Key_F6: "f6",
-        Qt.Key_F7: "f7",
-        Qt.Key_F8: "f8",
-        Qt.Key_F9: "f9",
-        Qt.Key_F10: "f10",
-        Qt.Key_F11: "f11",
-        Qt.Key_F12: "f12",
-        Qt.Key_Space: KeyboardControl.KEY_SPACEBAR,
+        Qt.Key.Key_Up: KeyboardControl.KEY_UP,
+        Qt.Key.Key_Down: KeyboardControl.KEY_DOWN,
+        Qt.Key.Key_Left: KeyboardControl.KEY_LEFT,
+        Qt.Key.Key_Right: KeyboardControl.KEY_RIGHT,
+        Qt.Key.Key_PageUp: KeyboardControl.KEY_PAGEUP,
+        Qt.Key.Key_PageDown: KeyboardControl.KEY_PAGEDOWN,
+        Qt.Key.Key_F1: "f1",
+        Qt.Key.Key_F2: "f2",
+        Qt.Key.Key_F3: "f3",
+        Qt.Key.Key_F4: "f4",
+        Qt.Key.Key_F5: "f5",
+        Qt.Key.Key_F6: "f6",
+        Qt.Key.Key_F7: "f7",
+        Qt.Key.Key_F8: "f8",
+        Qt.Key.Key_F9: "f9",
+        Qt.Key.Key_F10: "f10",
+        Qt.Key.Key_F11: "f11",
+        Qt.Key.Key_F12: "f12",
+        Qt.Key.Key_Space: KeyboardControl.KEY_SPACEBAR,
     }
 
     def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline = None, size=None, center=True, style=None, main_gui=None, **kwargs):
@@ -245,7 +245,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
         self.size = size
         self.full_screen_flag = False
 
-        self.setFocusPolicy(Qt.StrongFocus)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.show()
 
     @property
@@ -407,9 +407,9 @@ class MainWindow(QWidget, InteractivePipeWindow):
         self.image_canvas[row][col] = {
             "image": image_label, "title": text_label, "ax_placeholder": ax_placeholder}
         self.image_grid_layout.addWidget(
-            text_label, 2*row, col, alignment=Qt.AlignCenter)
+            text_label, 2*row, col, alignment=Qt.AlignmentFlag.AlignCenter)
         self.image_grid_layout.addWidget(
-            image_label, 2*row+1, col, alignment=Qt.AlignCenter)
+            image_label, 2*row+1, col, alignment=Qt.AlignmentFlag.AlignCenter)
 
     def delete_image_placeholder(self, img_widget_dict):
         for obj_key, img_widget in img_widget_dict.items():
@@ -450,7 +450,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
                     ax_placeholder = image_label.figure.subplots()
                     self.image_canvas[row][col]["image"] = image_label
                     self.image_grid_layout.addWidget(
-                        image_label, 2*row+1, col, alignment=Qt.AlignCenter)
+                        image_label, 2*row+1, col, alignment=Qt.AlignmentFlag.AlignCenter)
                     self.image_canvas[row][col]["ax_placeholder"] = ax_placeholder
                 ax = self.image_canvas[row][col]["ax_placeholder"]
                 plt_obj = self.image_canvas[row][col].get("plot_object", None)
