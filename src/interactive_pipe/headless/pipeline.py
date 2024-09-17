@@ -1,4 +1,5 @@
 import logging
+import traceback
 from pathlib import Path
 from typing import Any, Optional, Callable
 from interactive_pipe.core.filter import FilterCore
@@ -147,7 +148,11 @@ class HeadlessPipeline(PipelineCore):
     def import_tuning(self, path: Path = None) -> None:
         """Open a json/yaml tuning file and set parameters
         """
-        self.parameters = Parameters.from_file(path).data
+        try:
+            self.parameters = Parameters.from_file(path).data
+        except Exception as exc:
+            logging.warning(f"Cannot load parameters from {path}\n{exc}")
+            traceback.print_exc()
 
     def __repr__(self):
         """Print tuning parameters
@@ -215,11 +220,15 @@ class HeadlessPipeline(PipelineCore):
             current_name = path.with_name(
                 path.stem + "_" + str(num) + path.suffix)
             if res_current is not None and not (isinstance(res_current, list) and len(res_current) == 0):
-                if data_wrapper_fn is not None:
-                    data_wrapper_fn(res_current).save(current_name)
-                else:
-                    assert hasattr(res_current, "save")
-                    res_current.save(current_name)
+                try:
+                    if data_wrapper_fn is not None:
+                        data_wrapper_fn(res_current).save(current_name)
+                    else:
+                        assert hasattr(res_current, "save")
+                        res_current.save(current_name)
+                except Exception as exc:
+                    logging.warning(f"Cannot save image {current_name}\n{exc}")
+                    traceback.print_exc()
             # @ TODO: handle proper output suffixes namings
             logging.info("saved image %s" % current_name)
         return path
