@@ -1,7 +1,7 @@
 # `interactive_pipe`
 
 Quick setup
-`pip install interactive-pipe[full]`
+`pip install interactive-pipe`
 
 ### Concept
 - Develop an algorithm while debugging visually with plots, while checking robustness & continuity to parameters change.
@@ -22,8 +22,12 @@ Quick setup
 
 ----------------------
 
-### Setup
-`pip install interactive-pipe[full]`
+### Local setup
+```
+git clone git@github.com:balthazarneveu/interactive_pipe.git
+cd interactive-pipe
+pip install -e ".[full]"
+```
 
 ----------------------
 
@@ -46,6 +50,7 @@ Quick setup
 ----------------------
 
 ## :scroll:  Features
+
 **Version 0.6.0**
 - Modular multi-image processing filters
 - Declarative: Easily make graphical user interface without having to learn anything about pyQt or matplotlib
@@ -55,15 +60,7 @@ Quick setup
 - `KeyboardControl` : no slider on UI but exactly the same internal mechanism, update on key press.
 - Support Curve plots (2D signals)
 
-#### :soon: Upcoming features:
-- :soon: Scientific visual debugging: Display both colored images, heatmaps & graphs
 
-
-#### :test_tube: Experimental features
-- custom events on specific key press
-- Display the execution graph of the pipeline
-- [thirdparty/music](/src/interactive_pipe/thirdparty/music.py) Play audio (Qt backend only). Play songs on spotify (linux only) when the spotify app is running.
-- [thirdparty/images_openai_api](/src/interactive_pipe/thirdparty/images_openai_api.py) Generate images from prompt using OpenAI API image generation DALL-E Model (:dollar:  paid service ~ 2cents/image) 
 
 #### :keyboard:   Keyboard shortcuts
 Shortcuts while using the GUI (QT & matplotlib backends)
@@ -103,6 +100,12 @@ Shortcuts while using the GUI (QT & matplotlib backends)
 
 
 
+
+#### :test_tube: Experimental features
+- Custom events on specific key press
+- Display the execution graph of the pipeline `G` key
+- [thirdparty/music](/src/interactive_pipe/thirdparty/music.py) Play audio (Qt backend only). Play songs on spotify (linux only) when the spotify app is running.
+- [thirdparty/images_openai_api](/src/interactive_pipe/thirdparty/images_openai_api.py) Generate images from prompt using OpenAI API image generation DALL-E Model (:dollar:  paid service ~ 2cents/image) 
 
 # Tutorials
 
