@@ -1,13 +1,7 @@
-helper==2.5.0
-ipywidgets==8.0.7
-matplotlib>=3.5.3
-mplcursors==0.5.2
 numpy>=1.21.6
-opencv_python_headless==4.8.0.74
+opencv_python_headless>=4.8.1.78
 Pillow>=9.0.1
-PyQt5==5.15.9
-PyQt5_sip==12.12.1
-PyQt6==6.5.2
-PyQt6_sip==13.5.2
+PyQt6>=6.5.2
+PyQt6_sip>=13.5.2
 pytest>=6.2.5
 PyYAML>=5.4.1
