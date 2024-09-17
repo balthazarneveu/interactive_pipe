@@ -5,13 +5,6 @@ import logging
 
 PYQTVERSION = None
 
-try:
-    from PySide6.QtWidgets import QWidget, QLabel, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout
-    from PySide6.QtCore import Qt, QSize
-    from PySide6.QtGui import QIcon
-    PYQTVERSION = 6
-except:
-    logging.warning("Cannot import PySide")
 
 if not PYQTVERSION:
     try:
@@ -19,16 +12,23 @@ if not PYQTVERSION:
         from PyQt6.QtCore import Qt, QSize
         from PyQt6.QtGui import QIcon
         PYQTVERSION = 6
-    except:
+    except ImportError:
         logging.warning("Cannot import PyQt")
         try:
             from PyQt5.QtWidgets import QWidget, QLabel, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout
             from PyQt5.QtCore import Qt, QSize
             from PyQt5.QtGui import QIcon
             PYQTVERSION = 5
-        except:
+        except ImportError:
             raise ModuleNotFoundError("No PyQt")
-
+if not PYQTVERSION:
+    try:
+        from PySide6.QtWidgets import QWidget, QLabel, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout
+        from PySide6.QtCore import Qt, QSize
+        from PySide6.QtGui import QIcon
+        PYQTVERSION = 6
+    except ImportError:
+        logging.warning("Cannot import PySide")
 
 class BaseControl(QWidget):
     def __init__(self, name, ctrl: Control, update_func, silent=False):

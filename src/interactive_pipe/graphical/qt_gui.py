@@ -13,15 +13,6 @@ import logging
 PYQTVERSION = None
 MPL_SUPPORT = False
 
-try:
-    from PySide6.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout, QMessageBox
-    from PySide6.QtCore import QUrl, Qt
-    from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
-    from PySide6.QtGui import QPixmap, QImage, QIcon
-    PYQTVERSION = 6
-except:
-    logging.warning("Cannot import PySide 6")
-
 if not PYQTVERSION:
     try:
         from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout, QMessageBox
@@ -29,7 +20,7 @@ if not PYQTVERSION:
         from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
         from PyQt6.QtGui import QPixmap, QImage, QIcon
         PYQTVERSION = 6
-    except:
+    except ImportError:
         logging.warning("Cannot import PyQt 6")
         try:
             from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout, QMessageBox
@@ -41,13 +32,25 @@ if not PYQTVERSION:
         except:
             raise ModuleNotFoundError("No PyQt")
 
+if not PYQTVERSION:
+    try:
+        from PySide6.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout, QMessageBox
+        from PySide6.QtCore import QUrl, Qt
+        from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
+        from PySide6.QtGui import QPixmap, QImage, QIcon
+        PYQTVERSION = 6
+    except ImportError:
+        logging.warning("Cannot import PySide 6")
+
+if not PYQTVERSION:
+    logging.warning("Cannot import PyQt or PySide - disable backend")
 try:
     from matplotlib.backends.backend_qtagg import (
         FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
     from matplotlib.figure import Figure
     from interactive_pipe.data_objects.curves import Curve
     MPL_SUPPORT = True
-except:
+except ImportError:
     logging.warning("No support for Matplotlib widgets for Qt")
 
 
