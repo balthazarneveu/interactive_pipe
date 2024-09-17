@@ -95,7 +95,7 @@ def blur_image(img: np.ndarray, half_blur_size=1, gpu=False, global_params={}) -
 )
 def threshold(img: np.ndarray, threshold: float = 0.5, global_params={}) -> np.ndarray:
     global_params["__output_styles"]["thresholded_image"] = {"title": f"{threshold=:.2%}"}
-    return (img > threshold).max(axis=-1)
+    return (1.*(img > threshold).max(axis=-1))
 
 
 # Interactive Pipeline = Plug all legos together

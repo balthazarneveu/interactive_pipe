@@ -63,6 +63,10 @@ class Image(Data):
 
     @staticmethod
     def rescale_dynamic(data, precision=8):
+        if len(data.shape) == 2:
+            # Black & white image
+            data = np.expand_dims(data, axis=-1)  # add channel dimension
+            data = np.repeat(data, 3, axis=-1)  # repeat for RGB
         amplitude = 2**precision-1
         return np.round(data*amplitude).clip(0, amplitude)
 
