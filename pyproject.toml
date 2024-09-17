@@ -5,10 +5,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "interactive_pipe"
-version = "0.5.9"
+version = "0.6.0"
 authors = [
   { name="Balthazar Neveu", email="balthazarneveu@gmail.com" },
 ]
+dependencies = [
+  "matplotlib>=3.5.3",
+  "numpy>=1.21.6",
+  "Pillow>=9.0.1",
+  "PyYAML>=5.4.1",
+]
+
 description = "Library to create flexible interactive image processing pipelines and automatically add a graphical user interface without knowing anything about GUI coding!"
 readme = "readme.md"
 requires-python = ">=3.7"
@@ -21,3 +28,32 @@ classifiers = [
 [project.urls]
 "Homepage" = "https://github.com/balthazarneveu/interactive_pipe"
 "Bug Tracker" = "https://github.com/balthazarneveu/interactive_pipe/issues"
+
+[project.optional-dependencies]
+qt6=[
+  "PyQt6>=6.5.2",
+  "PyQt6_sip>=13.5.2",
+]
+
+qt5=[
+  "PyQt5>=5.15.9",
+  "PyQt5_sip>=12.12.1",
+]
+
+notebook=[
+  "ipywidgets>=8.0.7",
+]
+
+pytest=[
+  "opencv_python_headless>=4.8.1.78",
+  "pytest>=6.2.5"
+]
+
+full=[
+  "PyQt6>=6.5.2",
+  "PyQt6_sip>=13.5.2",
+  "opencv_python_headless>=4.8.1.78",
+  "pytest>=6.2.5",
+  "ipywidgets>=8.0.7",
+  "pandas",
+]
