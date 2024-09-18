@@ -22,6 +22,11 @@ try:
     BACKEND_OPTIONS.append("nb")
 except ImportError:
     InteractivePipeJupyter = None
+try:
+    from interactive_pipe.graphical.gradio_gui import InteractivePipeGradio
+    BACKEND_OPTIONS.append("gradio")
+except ImportError:
+    InteractivePipeGradio = None
 assert len(BACKEND_OPTIONS) > 0, "No backend available!"
 TORCH_AVAILABLE = True
 try:
@@ -123,7 +128,8 @@ def main_demo(img_list: List[Path], backend="qt"):
     backend_pipeline = {
         "qt": InteractivePipeQT,
         "mpl": InteractivePipeMatplotlib,
-        "nb": InteractivePipeJupyter
+        "nb": InteractivePipeJupyter,
+        "gradio": InteractivePipeGradio,
     }
     app = backend_pipeline[backend](
         pipeline=pipe,
