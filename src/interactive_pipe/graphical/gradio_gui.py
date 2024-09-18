@@ -31,10 +31,8 @@ class InteractivePipeGradio(InteractivePipeGUI):
         self.set_default_key_bindings()
 
     def run(self) -> list:
-        print("RUN!!!")
         assert self.pipeline._PipelineCore__initialized_inputs, "Did you forget to initialize the pipeline inputs?"
-        self.window.io.launch()
-        # self.window.refresh()
+        self.window.refresh()
         self.custom_end()
         return self.pipeline.results
 
@@ -203,8 +201,7 @@ class MainWindow(InteractivePipeWindow):
 
     def refresh(self):
         if self.pipeline is not None:
-            out = self.pipeline.run()
-            self.refresh_display(out)
+            self.io.launch()
 
     def reset_sliders(self):
         for widget_idx, ctrl in self.ctrl.items():
