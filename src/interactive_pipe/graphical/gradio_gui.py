@@ -21,15 +21,6 @@ except ImportError:
     pass
 
 
-def refresh_app(slider_value):
-    # Create an array with values scaled by the slider value
-    image = np.ones((256, 256, 3)) * (slider_value / 100) * 255
-    image = image.astype(np.uint8)  # Ensure the output is in the correct format (uint8)
-    # print(image)
-    blk = np.zeros((256, 256, 3))
-    return image, blk
-
-
 class InteractivePipeGradio(InteractivePipeGUI):
     def init_app(self, **kwargs):
         self.window = MainWindow(controls=self.controls, name=self.name,
@@ -39,8 +30,18 @@ class InteractivePipeGradio(InteractivePipeGUI):
 
     def run(self) -> list:
         assert self.pipeline._PipelineCore__initialized_inputs, "Did you forget to initialize the pipeline inputs?"
-        _out_tuple = self.window.run_fn(*self.window.default_values)
-        self.window.instantiate_gradio_interface()
+        out_list = self.window.process_inputs_fn(*self.window.default_values)
+        out_list_gradio_containers = []
+        for idx in range(len(out_list)):
+            for idy in range(len(out_list[idx])):
+                if isinstance(out_list[idx][idy], np.ndarray):
+                    out_list_gradio_containers.append(gr.Image())
+                elif MPL_SUPPORT and isinstance(out_list[idx][idy], Curve):
+                    out_list_gradio_containers.append(gr.Plot())
+                else:
+                    raise NotImplementedError(
+                        f"output type {type(out_list[idx][idy])} not supported")
+        self.window.instantiate_gradio_interface(out_list_gradio_containers)
         self.window.refresh()
         self.custom_end()
         return self.pipeline.results
@@ -57,13 +58,13 @@ class MainWindow(InteractivePipeWindow):
         self.size = size
         self.full_screen_flag = False
         self.pipeline = pipeline
+        # Define the functions that will be called when the input changes for gradio. => gr.Interface(fn=process_fn)
 
         def process_outputs_fn(out) -> tuple:
             flat_out = []
             for idx in range(len(out)):
                 if isinstance(out[idx], list):
                     for idy in range(len(out[idx])):
-                        print(out[idx][idy])
                         if MPL_SUPPORT and isinstance(out[idx][idy], Curve):
                             curve = out[idx][idy]
                             fig, ax = plt.subplots()
@@ -83,42 +84,33 @@ class MainWindow(InteractivePipeWindow):
                 return
             return tuple(flat_out)
 
-        def run_fn(*args) -> tuple:
+        def process_inputs_fn(*args) -> list:
             all_keys = list(self.ctrl.keys())
             for idx in range(len(args)):
                 self.ctrl[all_keys[idx]].update(args[idx])
             out = self.pipeline.run()
-            return process_outputs_fn(out)
-        self.default_values = [self.ctrl[ctrl_key].value for ctrl_key in self.ctrl.keys()]
+            return out
 
+        def run_fn(*args) -> tuple:
+            out = process_inputs_fn(*args)
+            out_tuple = process_outputs_fn(out)
+            return out_tuple
+        self.default_values = [self.ctrl[ctrl_key].value for ctrl_key in self.ctrl.keys()]
+        self.process_inputs_fn = process_inputs_fn
         self.run_fn = run_fn
 
-    def instantiate_gradio_interface(self):
+    def instantiate_gradio_interface(self, outputs: List[gr.Blocks]):
         io = gr.Interface(
             allow_flagging='never',
             fn=self.run_fn,
             title=self.name,
             inputs=self.widget_list,
-            # outputs=[gr.Image(), gr.Image(), gr.Image()],  # Need to match the output of the pipeline
-            # outputs=[gr.LinePlot(), gr.LinePlot()],
-            outputs=[gr.Plot(), gr.Plot()],
+            outputs=outputs,
             examples=[self.default_values],
             live=True,
             show_progress="minimal"
         )
         self.io = io
-
-    def update_window(self):
-        pass
-
-    def full_screen(self):
-        pass
-
-    def maximize_screen(self):
-        pass
-
-    def keyPressEvent(self, event):
-        pass
 
     def init_sliders(self, controls: List[Control]):
         self.ctrl = {}
