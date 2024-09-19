@@ -49,7 +49,7 @@ class IntSliderControl(BaseControl):
 
     def create(self) -> gr.Slider:
         self.control_widget = gr.Slider(
-            minimum=self.ctrl.value_range[0], maximum=self.ctrl.value_range[1], label=self.name, step=1)
+            value=self.ctrl.value_default, minimum=self.ctrl.value_range[0], maximum=self.ctrl.value_range[1], label=self.name, step=1)
         return self.control_widget
 
 
@@ -59,6 +59,7 @@ class FloatSliderControl(BaseControl):
 
     def create(self) -> gr.Slider:
         self.control_widget = gr.Slider(
+            value=self.ctrl.value_default,
             minimum=self.ctrl.value_range[0], maximum=self.ctrl.value_range[1], label=self.name)
 
         return self.control_widget
