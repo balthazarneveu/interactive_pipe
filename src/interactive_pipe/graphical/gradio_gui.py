@@ -10,6 +10,7 @@ from interactive_pipe.graphical.window import InteractivePipeWindow
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.headless.control import Control
 import logging
+from copy import deepcopy
 PYQTVERSION = None
 MPL_SUPPORT = False
 
@@ -112,17 +113,21 @@ class MainWindow(InteractivePipeWindow):
             for idx in range(len(args)):
                 self.ctrl[all_keys[idx]].update(args[idx])
             _out = self.pipeline.run()
-            from copy import deepcopy
             out = deepcopy(_out)
+            for idx, img in enumerate(out):
+                out[idx] = self.convert_image(img)
             if out is None:
                 logging.warning("No output to display")
                 return
             return tuple(*out)
+        default_values = [self.ctrl[ctrl_key].value for ctrl_key in self.ctrl.keys()]
         io = gr.Interface(
             allow_flagging='never',
             fn=run_fn,
+            title=self.name,
             inputs=self.widget_list,
             outputs=[gr.Image(), gr.Image(), gr.Image()],  # Need to match the output of the pipeline
+            examples=[default_values],
             live=True,
             show_progress="minimal"
         )
@@ -165,7 +170,6 @@ class MainWindow(InteractivePipeWindow):
                 control_widget = slider_instance.create()
                 self.widget_list.append(control_widget)
             slider_name = ctrl.name
-            print(slider_name)
             self.ctrl[slider_name] = ctrl
 
             self.update_label(slider_name)
