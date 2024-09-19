@@ -112,14 +112,20 @@ class MainWindow(InteractivePipeWindow):
             all_keys = list(self.ctrl.keys())
             for idx in range(len(args)):
                 self.ctrl[all_keys[idx]].update(args[idx])
-            _out = self.pipeline.run()
-            out = deepcopy(_out)
-            for idx, img in enumerate(out):
-                out[idx] = self.convert_image(img)
+            out = self.pipeline.run()
+            flat_out = []
+            for idx in range(len(out)):
+                if isinstance(out[idx], list):
+                    for idy in range(len(out[idx])):
+                        logging.info(f"CONVERTING IMAGE  {idx} {idy}")
+                        flat_out.append(self.convert_image(out[idx][idy]))
+                else:
+                    logging.info(f"CONVERTING IMAGE  {idx} ")
+                    flat_out.append(self.convert_image(out[idx]))
             if out is None:
                 logging.warning("No output to display")
-                return
-            return tuple(*out)
+                return  
+            return tuple(flat_out)
         default_values = [self.ctrl[ctrl_key].value for ctrl_key in self.ctrl.keys()]
         io = gr.Interface(
             allow_flagging='never',
