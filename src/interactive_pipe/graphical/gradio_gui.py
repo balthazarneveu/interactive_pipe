@@ -1,7 +1,4 @@
 import gradio as gr
-import time
-from pathlib import Path
-import sys
 import numpy as np
 from typing import List
 from interactive_pipe.headless.pipeline import HeadlessPipeline
@@ -10,9 +7,9 @@ from interactive_pipe.graphical.window import InteractivePipeWindow
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.headless.control import Control
 import logging
-from copy import deepcopy
 PYQTVERSION = None
 MPL_SUPPORT = False
+GRADIO_INTERFACE_MODE = False
 try:
     from interactive_pipe.data_objects.curves import Curve
     import matplotlib.pyplot as plt
@@ -100,17 +97,42 @@ class MainWindow(InteractivePipeWindow):
         self.run_fn = run_fn
 
     def instantiate_gradio_interface(self, outputs: List[gr.Blocks]):
-        io = gr.Interface(
-            allow_flagging='never',
-            fn=self.run_fn,
-            title=self.name,
-            inputs=self.widget_list,
-            outputs=outputs,
-            examples=[self.default_values],
-            live=True,
-            show_progress="minimal"
-        )
-        self.io = io
+        if GRADIO_INTERFACE_MODE:
+            # Interface mode, high level wrapper
+            # https://www.gradio.app/guides/the-interface-class
+            self.io = gr.Interface(
+                allow_flagging='never',
+                fn=self.run_fn,
+                title=self.name,
+                inputs=self.widget_list,
+                outputs=outputs,
+                examples=[self.default_values],
+                live=True,
+                show_progress="minimal",
+                clear_btn=None,
+            )
+        else:
+            # Gradio Blocks mode
+            # https://www.gradio.app/guides/blocks-and-event-listeners
+            with gr.Blocks() as io:
+                with gr.Row():
+                    for elem in outputs:
+                        elem.render()
+                with gr.Row():
+                    for elem in self.widget_list:
+                        with gr.Row():
+                            elem.render()
+                with gr.Row():
+                    gr.Examples([self.default_values], inputs=self.widget_list)
+                io.load(fn=self.run_fn, inputs=self.widget_list, outputs=outputs)
+                for idx in range(len(self.widget_list)):
+                    self.widget_list[idx].change(
+                        fn=self.run_fn, inputs=self.widget_list,
+                        outputs=outputs,
+                        show_progress="minimal"
+                    )
+            self.io = io
+        self.io.launch()
 
     def init_sliders(self, controls: List[Control]):
         self.ctrl = {}
