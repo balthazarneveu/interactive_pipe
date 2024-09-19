@@ -35,6 +35,8 @@ def get_interactive_pipeline_class(gui="auto"):
         from interactive_pipe.graphical.mpl_gui import InteractivePipeMatplotlib as ChosenGui
     elif selected_gui == "nb":
         from interactive_pipe.graphical.nb_gui import InteractivePipeJupyter as ChosenGui
+    elif selected_gui == "gradio":
+        from interactive_pipe.graphical.gradio_gui import InteractivePipeGradio as ChosenGui
     else:
         raise NotImplementedError(f"Gui {gui} not available")
     return ChosenGui
