@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "interactive_pipe"
-version = "0.6.1"
+version = "0.7.0"
 authors = [
   { name="Balthazar Neveu", email="balthazarneveu@gmail.com" },
 ]
@@ -56,4 +56,5 @@ full=[
   "pytest>=6.2.5",
   "ipywidgets>=8.0.7",
   "pandas",
+  "gradio",
 ]

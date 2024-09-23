@@ -51,7 +51,7 @@ pip install -e ".[full]"
 
 ## :scroll:  Features
 
-**Version 0.6.0**
+**Version 0.7.0**
 - Modular multi-image processing filters
 - Declarative: Easily make graphical user interface without having to learn anything about pyQt or matplotlib
 - Support in jupyter notebooks
@@ -59,6 +59,7 @@ pip install -e ".[full]"
 - Cache intermediate results in RAM for much faster processing
 - `KeyboardControl` : no slider on UI but exactly the same internal mechanism, update on key press.
 - Support Curve plots (2D signals)
+- :new: gradio backend (+allows sharing with others)
 
 
 
@@ -80,7 +81,8 @@ Shortcuts while using the GUI (QT & matplotlib backends)
 - supported backends 
     - :ok: `gui='qt'` pyQt/pySide 
     - :ok: `gui='mpl'` matplotlib
-    - :ok: `gui='nb'`  ipywidget for jupyter notebooks  
+    - :ok: `gui='nb'`  ipywidget for jupyter notebooks
+    - :test_tube: `gui='gradio'` gradio wrapping (+use `share_gradio_app=True` to share your app with others)
 - tested platforms
     - :ok: Linux (Ubuntu / KDE Neon)
     - :ok: RapsberryPi
@@ -88,24 +90,17 @@ Shortcuts while using the GUI (QT & matplotlib backends)
 
 
 
-| :star: | *PyQt / PySide* |  *Matplotlib*   | *Jupyter notebooks including Google collab*   |
-|:-----: |:-----:|:------:|:----: |
-| Backend name | `qt`  | `mpl`  | `nb`|
-| Preview | ![qt backend](/doc/images/qt_backend.jpg)   | ![mpl backend](/doc/images/mpl_backend.jpg)    |  ![nb backend](/doc/images/notebook_backend.jpg)  |
-| Plot curves | :heavy_check_mark: | :heavy_check_mark: |   :heavy_check_mark: |
-| Auto refreshed layout | :heavy_check_mark: | :heavy_check_mark: |   :heavy_check_mark: |
-| Keyboard shortcuts / fullscreen| :heavy_check_mark: | :heavy_check_mark: |  :heavy_minus_sign: |
-| Audio support | :heavy_check_mark: | :heavy_minus_sign: |  :heavy_minus_sign: |
-| Image buttons| :heavy_check_mark: | :heavy_minus_sign: |  :heavy_minus_sign: |
+| :star: | *PyQt / PySide* |  *Matplotlib*   | *Jupyter notebooks including Google collab*   | *Gradio* | 
+|:-----: |:-----:|:------:|:----: |:----: |
+| Backend name | `qt`  | `mpl`  | `nb`| `gradio` |
+| Preview | ![qt backend](/doc/images/qt_backend.jpg)   | ![mpl backend](/doc/images/mpl_backend.jpg)    |  ![nb backend](/doc/images/notebook_backend.jpg)  | | 
+| Plot curves | :heavy_check_mark: | :heavy_check_mark: |   :heavy_check_mark: | :heavy_check_mark:|
+| Auto refreshed layout | :heavy_check_mark: | :heavy_check_mark: |   :heavy_check_mark: | :heavy_minus_sign: |
+| Keyboard shortcuts / fullscreen| :heavy_check_mark: | :heavy_check_mark: |  :heavy_minus_sign: | :heavy_minus_sign: |
+| Audio support | :heavy_check_mark: | :heavy_minus_sign: |  :heavy_minus_sign: | :heavy_minus_sign: |
+| Image buttons| :heavy_check_mark: | :heavy_minus_sign: |  :heavy_minus_sign: | :heavy_minus_sign:| 
 
 
-
-
-#### :test_tube: Experimental features
-- Custom events on specific key press
-- Display the execution graph of the pipeline `G` key
-- [thirdparty/music](/src/interactive_pipe/thirdparty/music.py) Play audio (Qt backend only). Play songs on spotify (linux only) when the spotify app is running.
-- [thirdparty/images_openai_api](/src/interactive_pipe/thirdparty/images_openai_api.py) Generate images from prompt using OpenAI API image generation DALL-E Model (:dollar:  paid service ~ 2cents/image) 
 
 # Tutorials
 
@@ -121,12 +116,7 @@ Shortcuts while using the GUI (QT & matplotlib backends)
 ![Speech processing exploration in a notebook](/doc/images/jupyter_integration_speech.png)
 
 
-#### [Minimalistic pytorch based ISP ](https://github.com/balthazarneveu/interactive_pipe/tree/sample_interactive_isp/samples/isp)
-[ISP means image signal processor](https://en.wikipedia.org/wiki/Image_processor)
 
-:warning: Work in progess (no proper demosaicking, no denoiser, no tone mapping.)
-
-![Ultra simplistic ISP](/doc/images/isp_pipeline.png)
 
 
 # Tutorials
@@ -217,7 +207,7 @@ def generate_flat_colored_image(color_choice=["red", "green", "blue", "gray"], g
 ```
 
 - Note that you can also create filters which take no inputs and simply "generate" images. 
-- The `color_choice` list will be turnt into a nice dropdown menu. Default value here will be red as this is the first element of the list!
+- The `color_choice` list will be turned into a nice dropdown menu. Default value here will be red as this is the first element of the list!
 ----------
 
 :bulb: Can filters communicate together?
@@ -271,7 +261,8 @@ if __name__ == '__main__':
 ### History
 - Interactive pipe was initially developped by [Balthazar Neveu](https://github.com/balthazarneveu) as part of the [irdrone project](https://github.com/wisescootering/infrareddrone/tree/master/interactive) based on matplotlib.
 - Later, more contributions were also made by [Giuseppe Moschetti](https://github.com/g-moschetti) and Sylvain Leroy.
-- Summer 2023: rewriting the whole core and supporting several graphical backends!
+- August 2023: rewriting the whole core and supporting several graphical backends!
+- September 2024: Gradio backend
 
 
 
@@ -291,3 +282,23 @@ if __name__ == '__main__':
 - Exploratory backends
     - Create a [textual](https://github.com/Textualize/textual) backend for simplified GUI (probably no images displayed)
     - Create a [Kivy](https://kivy.org/) backend
+
+
+### Further examples
+
+#### [Minimalistic pytorch based ISP ](https://github.com/balthazarneveu/interactive_pipe/tree/sample_interactive_isp/samples/isp)
+[ISP means image signal processor](https://en.wikipedia.org/wiki/Image_processor)
+
+:warning: Work in progess (no proper demosaicking, no denoiser, no tone mapping.)
+
+![Ultra simplistic ISP](/doc/images/isp_pipeline.png)
+
+
+
+
+
+#### :test_tube: Experimental features
+- Custom events on specific key press
+- Display the execution graph of the pipeline `G` key
+- [thirdparty/music](/src/interactive_pipe/thirdparty/music.py) Play audio (Qt backend only). Play songs on spotify (linux only) when the spotify app is running.
+- [thirdparty/images_openai_api](/src/interactive_pipe/thirdparty/images_openai_api.py) Generate images from prompt using OpenAI API image generation DALL-E Model (:dollar:  paid service ~ 2cents/image) 
