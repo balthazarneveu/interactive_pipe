@@ -48,13 +48,14 @@ class InteractivePipeGradio(InteractivePipeGUI):
 
 
 class MainWindow(InteractivePipeWindow):
-    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline = None, size=None, center=True, style=None, main_gui=None, **kwargs):
+    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline = None, size=None, share_gradio_app=False, **kwargs):
         InteractivePipeWindow.__init__(
             self, name=name, pipeline=pipeline, size=size)
         self.init_sliders(controls)
         self.size = size
         self.full_screen_flag = False
         self.pipeline = pipeline
+        self.share_gradio_app = share_gradio_app
         # Define the functions that will be called when the input changes for gradio. => gr.Interface(fn=process_fn)
 
         def process_outputs_fn(out) -> tuple:
@@ -132,7 +133,7 @@ class MainWindow(InteractivePipeWindow):
                         show_progress="minimal"
                     )
             self.io = io
-        self.io.launch()
+        self.io.launch(share=self.share_gradio_app)
 
     def init_sliders(self, controls: List[Control]):
         self.ctrl = {}
