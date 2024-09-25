@@ -23,7 +23,6 @@ class InteractivePipeGradio(InteractivePipeGUI):
         self.window = MainWindow(controls=self.controls, name=self.name,
                                  pipeline=self.pipeline, size=self.size, main_gui=self, **kwargs)
         self.pipeline.global_params["__pipeline"] = self.pipeline
-        # self.set_default_key_bindings()
 
     def run(self) -> list:
         assert self.pipeline._PipelineCore__initialized_inputs, "Did you forget to initialize the pipeline inputs?"
@@ -48,9 +47,10 @@ class InteractivePipeGradio(InteractivePipeGUI):
 
 
 class MainWindow(InteractivePipeWindow):
-    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline = None, size=None, share_gradio_app=False, **kwargs):
+    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline = None, size=None, share_gradio_app=False, markdown_description=None, **kwargs):
         InteractivePipeWindow.__init__(
             self, name=name, pipeline=pipeline, size=size)
+        self.markdown_description = markdown_description
         self.init_sliders(controls)
         self.size = size
         self.full_screen_flag = False
@@ -116,6 +116,8 @@ class MainWindow(InteractivePipeWindow):
             # Gradio Blocks mode
             # https://www.gradio.app/guides/blocks-and-event-listeners
             with gr.Blocks() as io:
+                with gr.Row(variant="compact"):
+                    gr.Markdown("### " + self.name.replace("_", " "))
                 with gr.Row():
                     for elem in outputs:
                         elem.render()
@@ -124,7 +126,11 @@ class MainWindow(InteractivePipeWindow):
                         with gr.Row():
                             elem.render()
                 with gr.Row():
-                    gr.Examples([self.default_values], inputs=self.widget_list)
+                    gr.Examples([self.default_values], inputs=self.widget_list, label="Reset to default values")
+                
+                if self.markdown_description is not None:
+                    with gr.Row():
+                        gr.Markdown(self.markdown_description)
                 io.load(fn=self.run_fn, inputs=self.widget_list, outputs=outputs)
                 for idx in range(len(self.widget_list)):
                     self.widget_list[idx].change(
