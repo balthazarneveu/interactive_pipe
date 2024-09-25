@@ -27,13 +27,18 @@ class InteractivePipeGradio(InteractivePipeGUI):
     def run(self) -> list:
         assert self.pipeline._PipelineCore__initialized_inputs, "Did you forget to initialize the pipeline inputs?"
         out_list = self.window.process_inputs_fn(*self.window.default_values)
+        self.window.refresh_display(out_list)
         out_list_gradio_containers = []
         for idx in range(len(out_list)):
             for idy in range(len(out_list[idx])):
+                title = self.window.image_canvas[idx][idy].get("title", f"{idx} {idy}")
+                title = title.replace("_", " ")
                 if isinstance(out_list[idx][idy], np.ndarray):
-                    out_list_gradio_containers.append(gr.Image())
+                    out_list_gradio_containers.append(gr.Image(label=title))
                 elif MPL_SUPPORT and isinstance(out_list[idx][idy], Curve):
-                    out_list_gradio_containers.append(gr.Plot())
+                    # if out_list[idx][idy].title is not None:
+                    #     title = out_list[idx][idy].title
+                    out_list_gradio_containers.append(gr.Plot(label=title))
                 else:
                     raise NotImplementedError(
                         f"output type {type(out_list[idx][idy])} not supported")
@@ -127,7 +132,7 @@ class MainWindow(InteractivePipeWindow):
                             elem.render()
                 with gr.Row():
                     gr.Examples([self.default_values], inputs=self.widget_list, label="Reset to default values")
-                
+
                 if self.markdown_description is not None:
                     with gr.Row():
                         gr.Markdown(self.markdown_description)
@@ -173,7 +178,10 @@ class MainWindow(InteractivePipeWindow):
 
     def add_image_placeholder(self, row, col):
         ax_placeholder = None
-        text_label = None
+        text_label = self.get_current_style(row, col).get("title", "")
         image_label = None
         self.image_canvas[row][col] = {
             "image": image_label, "title": text_label, "ax_placeholder": ax_placeholder}
+
+    def update_image(self, content, row, col):
+        pass
