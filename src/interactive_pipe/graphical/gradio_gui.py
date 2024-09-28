@@ -1,5 +1,6 @@
 import gradio as gr
 import numpy as np
+import math
 from typing import List
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.graphical.gradio_control import ControlFactory
@@ -52,10 +53,11 @@ class InteractivePipeGradio(InteractivePipeGUI):
 
 
 class MainWindow(InteractivePipeWindow):
-    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline = None, size=None, share_gradio_app=False, markdown_description=None, **kwargs):
+    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline = None, size=None, share_gradio_app=False, markdown_description=None, sliders_layout=None, **kwargs):
         InteractivePipeWindow.__init__(
             self, name=name, pipeline=pipeline, size=size)
         self.markdown_description = markdown_description
+        self.sliders_layout = sliders_layout
         self.init_sliders(controls)
         self.size = size
         self.full_screen_flag = False
@@ -126,10 +128,49 @@ class MainWindow(InteractivePipeWindow):
                 with gr.Row():
                     for elem in outputs:
                         elem.render()
-                with gr.Row():
-                    for elem in self.widget_list:
-                        with gr.Row():
+
+                if self.sliders_layout is None:
+                    self.sliders_layout = "compact"
+                assert self.sliders_layout in ["compact", "vertical", "collapsible", "smart"]
+                if self.sliders_layout == "compact":
+                    with gr.Row():
+                        for elem in self.widget_list:
                             elem.render()
+
+                # Use Column to stack elements vertically
+                elif self.sliders_layout == "vertical":
+                    with gr.Column():
+                        for elem in self.widget_list:
+                            elem.render()
+                elif self.sliders_layout == "collapsible":
+                    with gr.Accordion("Parameters", open=True):
+                        with gr.Column():
+                            for elem in self.widget_list:
+                                elem.render()
+                elif self.sliders_layout == "smart":
+                    ctrl_dict_by_type = {}
+                    for ctrl_index, ctrl_key in enumerate(self.ctrl.keys()):
+                        ctrl_type = self.ctrl[ctrl_key]._type
+                        ctrl_type = str(ctrl_type).split("<class '")[1].replace("'>", "")
+                        if ctrl_type == "int":
+                            ctrl_type = "float"
+                        if ctrl_type not in ctrl_dict_by_type:
+                            ctrl_dict_by_type[ctrl_type] = []
+                        ctrl_dict_by_type[ctrl_type].append(ctrl_index)
+                    for ctrl_type in ["str", "bool", "float"]:
+                        ctrl_indices = ctrl_dict_by_type.get(ctrl_type, [])
+                        if len(ctrl_indices) == 0:
+                            continue
+
+                        SPLIT_SLIDERS_NUM = 2
+                        for split_num in range(math.ceil(len(ctrl_indices)/SPLIT_SLIDERS_NUM)):
+                            with gr.Row():
+                                start = split_num*SPLIT_SLIDERS_NUM
+                                end = min((split_num+1)*SPLIT_SLIDERS_NUM, len(ctrl_indices))
+                                for idx in ctrl_indices[start:end]:
+                                    elem = self.widget_list[idx]
+                                    elem.render()
+
                 with gr.Row():
                     gr.Examples([self.default_values], inputs=self.widget_list, label="Reset to default values")
 
