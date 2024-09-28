@@ -53,11 +53,12 @@ class InteractivePipeGradio(InteractivePipeGUI):
 
 
 class MainWindow(InteractivePipeWindow):
-    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline = None, size=None, share_gradio_app=False, markdown_description=None, sliders_layout=None, **kwargs):
+    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline = None, size=None, share_gradio_app=False, markdown_description=None, sliders_layout=None, sliders_per_row_layout=None, **kwargs):
         InteractivePipeWindow.__init__(
             self, name=name, pipeline=pipeline, size=size)
         self.markdown_description = markdown_description
         self.sliders_layout = sliders_layout
+        self.sliders_per_row_layout = sliders_per_row_layout
         self.init_sliders(controls)
         self.size = size
         self.full_screen_flag = False
@@ -131,6 +132,8 @@ class MainWindow(InteractivePipeWindow):
 
                 if self.sliders_layout is None:
                     self.sliders_layout = "compact"
+                if self.sliders_per_row_layout is None:
+                    self.sliders_per_row_layout = 1
                 assert self.sliders_layout in ["compact", "vertical", "collapsible", "smart"]
                 if self.sliders_layout == "compact":
                     with gr.Row():
@@ -161,15 +164,19 @@ class MainWindow(InteractivePipeWindow):
                         ctrl_indices = ctrl_dict_by_type.get(ctrl_type, [])
                         if len(ctrl_indices) == 0:
                             continue
-
-                        SPLIT_SLIDERS_NUM = 2
-                        for split_num in range(math.ceil(len(ctrl_indices)/SPLIT_SLIDERS_NUM)):
-                            with gr.Row():
-                                start = split_num*SPLIT_SLIDERS_NUM
-                                end = min((split_num+1)*SPLIT_SLIDERS_NUM, len(ctrl_indices))
-                                for idx in ctrl_indices[start:end]:
+                        if self.sliders_per_row_layout == 1:
+                            with gr.Column():
+                                for idx in ctrl_indices:
                                     elem = self.widget_list[idx]
                                     elem.render()
+                        else:
+                            for split_num in range(math.ceil(len(ctrl_indices)/self.sliders_per_row_layout)):
+                                with gr.Row():
+                                    start = split_num*self.sliders_per_row_layout
+                                    end = min((split_num+1)*self.sliders_per_row_layout, len(ctrl_indices))
+                                    for idx in ctrl_indices[start:end]:
+                                        elem = self.widget_list[idx]
+                                        elem.render()
 
                 with gr.Row():
                     gr.Examples([self.default_values], inputs=self.widget_list, label="Reset to default values")
