@@ -131,26 +131,21 @@ class MainWindow(InteractivePipeWindow):
                         elem.render()
 
                 if self.sliders_layout is None:
-                    self.sliders_layout = "compact"
+                    self.sliders_layout = "collapsible"
                 if self.sliders_per_row_layout is None:
                     self.sliders_per_row_layout = 1
                 assert self.sliders_layout in ["compact", "vertical", "collapsible", "smart"]
+                ctrl_dict_by_type = {"all": list(range(len(self.ctrl)))}
+                categories = ["all"]
                 if self.sliders_layout == "compact":
-                    with gr.Row():
-                        for elem in self.widget_list:
-                            elem.render()
-
-                # Use Column to stack elements vertically
+                    selected_mode = gr.Row()
                 elif self.sliders_layout == "vertical":
-                    with gr.Column():
-                        for elem in self.widget_list:
-                            elem.render()
+                    # Use Column to stack elements vertically
+                    selected_mode = gr.Column()
                 elif self.sliders_layout == "collapsible":
-                    with gr.Accordion("Parameters", open=True):
-                        with gr.Column():
-                            for elem in self.widget_list:
-                                elem.render()
+                    selected_mode = gr.Accordion("Parameters", open=True)
                 elif self.sliders_layout == "smart":
+                    # Group sliders by type
                     ctrl_dict_by_type = {}
                     for ctrl_index, ctrl_key in enumerate(self.ctrl.keys()):
                         ctrl_type = self.ctrl[ctrl_key]._type
@@ -160,16 +155,21 @@ class MainWindow(InteractivePipeWindow):
                         if ctrl_type not in ctrl_dict_by_type:
                             ctrl_dict_by_type[ctrl_type] = []
                         ctrl_dict_by_type[ctrl_type].append(ctrl_index)
-                    for ctrl_type in ["str", "bool", "float"]:
-                        ctrl_indices = ctrl_dict_by_type.get(ctrl_type, [])
-                        if len(ctrl_indices) == 0:
-                            continue
-                        if self.sliders_per_row_layout == 1:
-                            with gr.Column():
-                                for idx in ctrl_indices:
-                                    elem = self.widget_list[idx]
-                                    elem.render()
-                        else:
+                    categories = ["str", "bool", "float"]
+                    selected_mode = gr.Column()
+                else:
+                    raise NotImplementedError(f"Sliders layout {self.sliders_layout} not supported")
+                for ctrl_type in categories:
+                    ctrl_indices = ctrl_dict_by_type.get(ctrl_type, [])
+                    if len(ctrl_indices) == 0:
+                        continue
+                    if self.sliders_per_row_layout == 1:
+                        with selected_mode:
+                            for idx in ctrl_indices:
+                                elem = self.widget_list[idx]
+                                elem.render()
+                    else:
+                        with selected_mode:
                             for split_num in range(math.ceil(len(ctrl_indices)/self.sliders_per_row_layout)):
                                 with gr.Row():
                                     start = split_num*self.sliders_per_row_layout
@@ -178,8 +178,8 @@ class MainWindow(InteractivePipeWindow):
                                         elem = self.widget_list[idx]
                                         elem.render()
 
-                with gr.Row():
-                    gr.Examples([self.default_values], inputs=self.widget_list, label="Reset to default values")
+                with gr.Accordion("Reset to default values", open=False):
+                    gr.Examples([self.default_values], inputs=self.widget_list, label="Presets")
 
                 if self.markdown_description is not None:
                     with gr.Row():
