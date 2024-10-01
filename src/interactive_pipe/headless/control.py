@@ -143,3 +143,17 @@ class Control():
         self.update_param_func = update_param_func
         self.parameter_name_to_connect = parameter_name
         self.filter_to_connect = filter
+
+
+class CircularControl(Control):
+    """
+    Replace a slider by a circular slider
+    """
+
+    def __init__(self, value_default: Union[int, float, bool, str], value_range: List[Union[int, float, str]] = None, modulo=True, name=None, step=None, filter_to_connect: Optional[FilterCore] = None, parameter_name_to_connect: Optional[str] = None) -> None:
+        super().__init__(value_default=value_default, value_range=value_range, name=name, step=step,
+                         filter_to_connect=filter_to_connect, parameter_name_to_connect=parameter_name_to_connect, icons=None)
+        self.modulo = modulo
+
+    def __repr__(self) -> str:
+        return super().__repr__() + f"| modulo:{self.modulo}"

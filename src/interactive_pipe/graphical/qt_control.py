@@ -8,14 +8,14 @@ PYQTVERSION = None
 
 if not PYQTVERSION:
     try:
-        from PyQt6.QtWidgets import QWidget, QLabel, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout
+        from PyQt6.QtWidgets import QWidget, QLabel, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout, QDial
         from PyQt6.QtCore import Qt, QSize
         from PyQt6.QtGui import QIcon
         PYQTVERSION = 6
     except ImportError:
         logging.warning("Cannot import PyQt")
         try:
-            from PyQt5.QtWidgets import QWidget, QLabel, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout
+            from PyQt5.QtWidgets import QWidget, QLabel, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout, QDial
             from PyQt5.QtCore import Qt, QSize
             from PyQt5.QtGui import QIcon
             PYQTVERSION = 5
@@ -23,7 +23,7 @@ if not PYQTVERSION:
             raise ModuleNotFoundError("No PyQt")
 if not PYQTVERSION:
     try:
-        from PySide6.QtWidgets import QWidget, QLabel, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout
+        from PySide6.QtWidgets import QWidget, QLabel, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout, QDial
         from PySide6.QtCore import Qt, QSize
         from PySide6.QtGui import QIcon
         PYQTVERSION = 6
@@ -86,8 +86,17 @@ class IntSliderControl(BaseControl):
         assert self.ctrl._type == int
 
     def create(self):
-        slider_class = SilentSlider if self.silent else QSlider
-        slider = slider_class(Qt.Orientation.Horizontal, self)
+        if self.silent:
+            slider_class = SilentSlider
+            slider = slider_class(Qt.Orientation.Horizontal, self)
+        else:
+            if hasattr(self.ctrl, 'modulo') and self.ctrl.modulo:
+                slider_class = QDial
+                slider = slider_class(self)
+            else:
+                slider_class = QSlider
+                slider = slider_class(Qt.Orientation.Horizontal, self)
+                
         slider.setRange(self.ctrl.value_range[0],  self.ctrl.value_range[1])
         slider.setValue(self.ctrl.value_default)
         slider.setSingleStep(1)
@@ -112,12 +121,16 @@ class FloatSliderControl(BaseControl):
         return self.ctrl.value_range[0] + (self.ctrl.value_range[1]-self.ctrl.value_range[0])*val/1000
 
     def create(self):
-        # Create a horizontal layout to hold the slider and line edit
-        # hbox = QHBoxLayout()
-        slider_class = SilentSlider if self.silent else QSlider
-
-        # Create the slider with integer range and step size
-        slider = slider_class(Qt.Orientation.Horizontal, self)
+        if self.silent:
+            slider_class = SilentSlider
+            slider = slider_class(Qt.Orientation.Horizontal, self)
+        else:
+            if hasattr(self.ctrl, 'modulo') and self.ctrl.modulo:
+                slider_class = QDial
+                slider = slider_class(self)
+            else:
+                slider_class = QSlider
+                slider = slider_class(Qt.Orientation.Horizontal, self)
         self.ctrl.convert_int_to_value = self.convert_int_to_value
         slider.setRange(self.convert_value_to_int(
             self.ctrl.value_range[0]), self.convert_value_to_int(self.ctrl.value_range[1]))
