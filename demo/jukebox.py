@@ -93,7 +93,7 @@ def sample_pipeline():
     song_choice()
     play_song()
     img_out = image_choice()
-    return img_out
+    return [img_out,]
 
 
 if __name__ == '__main__':

@@ -7,6 +7,7 @@ from interactive_pipe.graphical.gradio_control import ControlFactory
 from interactive_pipe.graphical.window import InteractivePipeWindow
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.headless.control import Control
+from interactive_pipe.data_objects.audio import audio_to_html
 import logging
 PYQTVERSION = None
 MPL_SUPPORT = False
@@ -22,8 +23,26 @@ except ImportError:
 class InteractivePipeGradio(InteractivePipeGUI):
     def init_app(self, **kwargs):
         self.window = MainWindow(controls=self.controls, name=self.name,
-                                 pipeline=self.pipeline, size=self.size, main_gui=self, **kwargs)
+                                 pipeline=self.pipeline, size=self.size, main_gui=self, audio=self.audio, **kwargs)
         self.pipeline.global_params["__pipeline"] = self.pipeline
+        if self.audio:
+            self.pipeline.global_params["__set_audio"] = self.__set_audio
+            self.pipeline.global_params["__play"] = self.__play
+            self.pipeline.global_params["__stop"] = self.__stop
+            self.pipeline.global_params["__pause"] = self.__pause
+            self.__set_audio(None)
+
+    def __set_audio(self, audio_content):
+        self.window.audio_content = audio_content
+
+    def __play(self):
+        pass
+
+    def __pause(self):
+        self.__set_audio(None)
+
+    def __stop(self):
+        self.__set_audio(None)
 
     def run(self) -> list:
         assert self.pipeline._PipelineCore__initialized_inputs, "Did you forget to initialize the pipeline inputs?"
@@ -43,6 +62,9 @@ class InteractivePipeGradio(InteractivePipeGUI):
                 else:
                     raise NotImplementedError(
                         f"output type {type(out_list[idx][idy])} not supported")
+        if self.window.audio:
+            self.window.audio = gr.HTML()
+            self.pipeline.global_params["__audio"] = self.window.audio
         self.window.instantiate_gradio_interface(out_list_gradio_containers)
         self.window.refresh()
         self.custom_end()
@@ -53,7 +75,7 @@ class InteractivePipeGradio(InteractivePipeGUI):
 
 
 class MainWindow(InteractivePipeWindow):
-    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline = None, size=None, share_gradio_app=False, markdown_description=None, sliders_layout=None, sliders_per_row_layout=None, **kwargs):
+    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline = None, size=None, share_gradio_app=False, markdown_description=None, sliders_layout=None, sliders_per_row_layout=None, audio=False, **kwargs):
         InteractivePipeWindow.__init__(
             self, name=name, pipeline=pipeline, size=size)
         self.markdown_description = markdown_description
@@ -64,6 +86,7 @@ class MainWindow(InteractivePipeWindow):
         self.full_screen_flag = False
         self.pipeline = pipeline
         self.share_gradio_app = share_gradio_app
+        self.audio = audio
         # Define the functions that will be called when the input changes for gradio. => gr.Interface(fn=process_fn)
 
         def process_outputs_fn(out) -> tuple:
@@ -100,6 +123,9 @@ class MainWindow(InteractivePipeWindow):
         def run_fn(*args) -> tuple:
             out = process_inputs_fn(*args)
             out_tuple = process_outputs_fn(out)
+            if self.audio:
+                html_audio = audio_to_html(self.audio_content)
+                return *out_tuple, html_audio
             return out_tuple
         self.default_values = [self.ctrl[ctrl_key].value for ctrl_key in self.ctrl.keys()]
         self.process_inputs_fn = process_inputs_fn
@@ -124,6 +150,8 @@ class MainWindow(InteractivePipeWindow):
             # Gradio Blocks mode
             # https://www.gradio.app/guides/blocks-and-event-listeners
             with gr.Blocks() as io:
+                if self.audio:
+                    outputs.append(self.audio)
                 with gr.Row(variant="compact"):
                     gr.Markdown("### " + self.name.replace("_", " "))
                 with gr.Row():
