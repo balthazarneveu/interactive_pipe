@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="">
+  <meta name="author" content="">
+  <link rel="icon" href="static/interactive_pipe_logo.svg">
+
+  <title>Interactive Pipe: A High Performance Python Compiler</title>
+
+  <!-- Bootstrap core CSS -->
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet">
+
+  <link rel="stylesheet" href="static/prism-duotone-light.css">
+
+  <!-- Custom styles for this template -->
+  <link href="static/main-page.css" rel="stylesheet">
+</head>
+
+<body>
+
+  <header>
+
+
+
+
+
+    <nav class="navbar navbar-expand-lg">
+      <div class="navbar-brand">
+        <img src="static/interactive_pipe_logo.svg" style="height: 2rem;" alt="IP logo">
+      </div>
+      <div class="navbar-light bg-light">
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown"
+          aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+      </div>
+      <div class="collapse navbar-collapse" id="navbarNavDropdown">
+        <ul class="navbar-nav">
+          <li class="navbar-item"><a class="nav-link"
+              href="https://github.com/balthazarneveu/interactive_pipe?tab=readme-ov-file#tutorials-1">Learn Interactive
+              Pipe in 5 minutes</a></li>
+
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" data-toggle="dropdown"
+              aria-haspopup="true" aria-expanded="false">
+              Examples
+            </a>
+            <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+              <a class="dropdown-item" href="https://huggingface.co/spaces/balthou/basic-image-editing">Example with
+                gradio: Image editing</a>
+              <a class="dropdown-item" href="https://huggingface.co/spaces/balthou/novel-views-point-splat">Example with
+                gradio: Point splatting</a>
+              <a class="dropdown-item" href="https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/multi_image.py">Sample code with
+                Qt: multi-image sample</a>
+                <a class="dropdown-item" href="https://colab.research.google.com/drive/1AwHyjZH8MnzZqwsvbmxBoB15btuMIwtk?usp=sharing">Colab sample code</a>
+            </div>
+          </li>
+
+          <li class="navbar-item"><a class="nav-link" href="https://github.com/balthazarneveu/interactive_pipe">pip install
+              interactive-pipe</a></li>
+          <li class="navbar-item"><a class="nav-link"
+              href="https://huggingface.co/spaces/balthou/basic-image-editing"></a></li>
+
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink2" data-toggle="dropdown"
+              aria-haspopup="true" aria-expanded="false">
+              Useful links
+            </a>
+            <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink2">
+              <a class="dropdown-item" href="https://github.com/balthazarneveu/interactive_pipe">Github</a>
+              <a class="dropdown-item" href="https://pypi.org/project/interactive-pipe/">PyPI</a>
+              <a class="dropdown-item" href="https://www.linkedin.com/in/balthazarneveu/">Linkedin</a>
+            </div>
+          </li>
+
+        </ul>
+      </div>
+    </nav>
+
+    <div class="hero position-relative overflow-hidden p-3 text-center text-dark">
+      <div class="col-md-5 p-lg-1 mx-auto my-5">
+        <img src="static/interact-pipe-logo-horizontal-rgb.svg" style="max-width: 30rem;" alt="IP logo">
+        <p class="lead font-weight-normal">
+          Add interactivity to image/audio processing pipelines.
+        </p>
+        <p class="lead ">
+          Even if you have no experience in graphical user interface programming, start using Interactive Pipe to add
+          sliders and start playing with your algorithms or neural network.
+
+        </p>
+        <a class="btn outline-interactivepipe btn-lg"
+          href="https://github.com/balthazarneveu/interactive_pipe?tab=readme-ov-file#tutorials-1">Learn More</a>
+        <a class="btn filled-interactivepipe btn-lg" href="https://github.com/balthazarneveu/interactive_pipe"
+          role="button">Install: pip install interactive-pipe &raquo;</a>
+      </div>
+      <div class="product-device box-shadow d-none d-md-block"></div>
+      <div class="product-device product-device-2 box-shadow d-none d-md-block"></div>
+    </div>
+
+  </header>
+  <main role="main">
+
+
+
+
+
+    <!-- Wrap the rest of the page in another container to center all the content. -->
+    <div class="container marketing p-md-5">
+
+      <div class="row featurette">
+        <h2 class="featurette-heading">Define your pipeline without GUI considerations</h2>
+        <div class="col-md-7">
+          <p class="lead">Define each atomic processing block as a regular python function.</p>
+          <p class="lead">We feed 2 things into each processing block:</p>
+          <p class="lead">- Arguments are buffers containing signals (numpy arrays).</p>
+          <p class="lead">- Keyword arguments are default parameters (float, bool, str)</p>
+          <pre><code class="language-python">from interactive_pipe import interactive_pipeline  
+def simple_pipe():
+  inp = gen_colors()
+  out = flip_image(inp)
+  return [inp, out]
+
+interactive_pipeline(gui="qt")(simple_pipe)()</code></pre>
+
+          <p class="lead">Interactive Pipe will create a graph and deal with the sequential execution of the pipeline.
+            No need to provide parameters to each processing block.</p>
+          <!-- <p class="lead">Define each atomic processing block as a regular python function. Keyword arguments are default parameters fed into the block.</p>
+            <p class="lead">Int and Float will later be turned into sliders.</p>
+            <p class="lead">Boolean will be transformed into checkboxes.</p>
+            <p class="lead">Strings will be transformed into dialog boxes.</p> -->
+
+        </div>
+
+        <div class="col-md-5 code-block">
+          <!-- <p class="lead">Define each atomic processing block as a regular python function.</p>
+            <p class="lead">We feed 2 things into each processing block:</p> -->
+          <pre><code class="language-python">import numpy as np
+def gen_colors(angle=45.):
+    lin_coord = np.linspace(-1, 1, 256)
+    X, Y = np.meshgrid(lin_coord, lin_coord)
+    ang = np.deg2rad(angle)
+    im = np.cos(ang) * X + np.sin(ang) * Y
+    im = np.clip(1+im, 0, 1)
+    im = np.stack(
+      [im, im[::-1], im[:, ::-1]],
+      axis=-1
+    )
+    return im
+
+    
+def flip_image(img, flip=True, mirror=True):
+    img = img[::-1] if flip else img
+    img = img[:, ::-1] if mirror else img
+    return img</code>
+          </pre>
+        </div>
+        <!-- <img src="static/static_pipe.png" style="max-width: 100%;" ="static_pipeline"> -->
+      </div>
+
+
+
+      <hr class="featurette-divider">
+
+      <div class="row featurette">
+        <!-- <img src="static/dynamic_pipe.png" style="max-width: 100%;" ="static_pipeline"> -->
+        <h2 class="featurette-heading">Add interactivity with just a few extra lines of code</h2>
+        <div class="col-md-7">
+
+          <p class="lead">By decorating each processing block, Interactive pipe will automatically add the sliders for
+            you.</p>
+          <p class="lead">Also note that the outputs will be displayed according to the return statement. Returning 2
+            images will lead to a side by side view.</p>
+          <p class="lead">Interactive Pipe deals with several graphical interfaces backends and generate similar GUI.
+          </p>
+        </div>
+
+        <div class="col-md-5 code-block">
+          <pre><code class="language-python">interactive(angle=(45., [0., 360.]))(gen_colors)
+interactive(
+    flip=(True, "Flip Image"),
+    mirror=(True, "Mirror Image")
+)(flip_image)
+interactive_pipeline(gui="qt")(simple_pipeline)()</code></pre>
+        </div>
+
+      </div>
+
+      <hr class="featurette-divider">
+
+      <div class="row featurette">
+        <h2 class="featurette-heading">Multiple backends support</h2>
+        <p>Interactive Pipe offers a range of options for displaying your code, often with only minor code changes.</p>
+        <div class="row">
+          <div class="col-lg-4">
+            <h2 class="mt-3">🖵 PyQt</h2>
+            <p>✅ Configure output layouts.</p>
+            <p>✅ Keyboard shortcuts, Full screen.</p>
+            <p>✅ Audio Playback.</p>
+            <p>
+              <a class="btn btn-outline-secondary"
+                href="https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/multi_image.py"
+                role="button">Sample python code &raquo;</a>
+              <!-- <a class="btn btn-secondary" href="https://huggingface.co/spaces/balthou/novel-views-point-splat" role="button">Example: Neural point splatting &raquo;</a> -->
+            </p>
+
+            <hr class="featurette-divider">
+            <img src="static/qt_demo.png" style="max-width: 100%;" alt="Qt demo">
+
+            <!-- <pre><code class="language-python">
+              KeyboardSlider()
+            </code></pre> -->
+
+          </div>
+
+          <div class="col-lg-4">
+            <h2 class="mt-3">🤗 Gradio</h2>
+            <p>✅ Share your pipeline with others.</p>
+            <p>✅ Easily host in Hugging Face spaces.</p>
+            <p>✅ Runs in a browser.</p>
+            <p>
+              <a class="btn btn-outline-secondary" href="https://huggingface.co/spaces/balthou/basic-image-editing"
+                role="button">Example: Basic Image editing &raquo;</a>
+              <!-- <a class="btn btn-secondary" href="https://huggingface.co/spaces/balthou/novel-views-point-splat" role="button">Example: Neural point splatting &raquo;</a> -->
+            </p>
+
+
+            <hr class="featurette-divider">
+            <img src="static/gradio_demo.png" style="max-width: 100%;" alt="gradio demo">
+            <!-- <pre><code class="language-python">
+markdown="## My demo"
+            </code></pre> -->
+
+
+          </div>
+          <div class="col-lg-4">
+            <h2 class="mt-3">📒 Jupyter notebooks</h2>
+            <p>✅ Tell stories with markdown & equations.</p>
+            <p>✅ Easily host on Google Colab.</p>
+            <p>✅ Based on IPywidget.</p>
+            <p>
+              <a class="btn btn-outline-secondary"
+                href="https://colab.research.google.com/drive/1AwHyjZH8MnzZqwsvbmxBoB15btuMIwtk?usp=sharing"
+                role="button">Colab demo &raquo;</a>
+            </p>
+            <hr class="featurette-divider">
+            <img src="static/jupyter_notebook_demo.png" style="max-width: 100%;" alt="jupyter notebook demo">
+
+
+
+          </div>
+        </div>
+      </div>
+
+      <hr class="featurette-divider">
+
+      <div class="row featurette">
+        <div class="col-md-12">
+          <h2 class="featurette-heading">Cache mechanism</h2>
+          <p class="lead">🐌 Some processing blocks can be time consuming. </p>
+          <p class="lead">🏍️ Interactive Pipe offers a cache mechanism to avoid recomputing the same block if the inputs and sliders have
+            not been changed.
+          </p>
+        </div>
+      </div>
+      <hr class="featurette-divider">
+      <div class="col-md-12">
+        <h2 class="featurette-heading">Features</h2>
+        <p class="lead">📈 📷 Images and Curves are supported by Interactive Pipe.</p>
+        <p class="lead">🧪 🎧 Audio playback is supported using Qt GUI. See the <a href="http://github.com/balthazarneveu/interactive_pipe/blob/master/demo/jukebox.py"> Jukebox Sample code </a> </p> 
+        <p class="lead">🎛️ ✅ Sliders (both discrete [int] & continuous [float]), Checkbox [bool] and Dialogs [str] are supported. </p>
+
+      </div>
+      <hr class="featurette-divider">
+      <div class="col-md-12">
+        <h2 class="featurette-heading">Live demo</h2>
+        <gradio-app src="https://balthou-basic-image-editing.hf.space"></gradio-app>
+      </div>
+    </div>
+
+    <div class="container marketing p-md-5">
+    <p>Main contributor: Balthazar Neveu</p>
+    <p>Additional contributors: Emmanuel Chaboud </p>
+    <p>Additional testers: Jamy Lafenetre, Mathilde Dupouy, Matthieu Dinot </p>
+    </div>
+
+    <!-- /END THE FEATURETTES -->
+
+    <!-- FOOTER -->
+    <footer class="container">
+      <p><i>HTML layout adapted from the <a href=https://numba.pydata.org/> Numba homepage.</i></p>
+    </footer>
+  </main>
+
+  <!-- Bootstrap core JavaScript
+      ================================================== -->
+  <!-- Placed at the end of the document so the pages load faster -->
+  <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
+    integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
+    crossorigin="anonymous"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+
+  <!-- Code highlighting -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.6.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.6.0/components/prism-python.min.js"></script>
+  <script type="module" src="https://gradio.s3-us-west-2.amazonaws.com/4.44.0/gradio.js"></script>
+
+</body>
+
+</html>
