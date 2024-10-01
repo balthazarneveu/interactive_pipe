@@ -51,7 +51,7 @@ pip install -e ".[full]"
 
 ## :scroll:  Features
 
-**Version 0.7.0**
+**Version 0.7.1**
 - Modular multi-image processing filters
 - Declarative: Easily make graphical user interface without having to learn anything about pyQt or matplotlib
 - Support in jupyter notebooks
