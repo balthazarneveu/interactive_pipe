@@ -58,6 +58,10 @@ ICONS = [it[ICON] for key, it in TRACK_DICT.items()]
 )
 def song_choice(global_params={}, song="elephant"):
     global_params[TRACK] = song
+
+
+def play_song(global_params={}):
+    song = global_params.get(TRACK, None)
     first_exec = global_params.get("first_exec", True)
     if not first_exec:
         audio_track = TRACK_DICT[song][TRACK]
@@ -87,6 +91,7 @@ def image_choice(global_params={}):
 
 def sample_pipeline():
     song_choice()
+    play_song()
     img_out = image_choice()
     return img_out
 
