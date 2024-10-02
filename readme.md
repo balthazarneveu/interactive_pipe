@@ -51,7 +51,7 @@ pip install -e ".[full]"
 
 ## :scroll:  Features
 
-**Version 0.7.1**
+**Version 0.7.2**
 - Modular multi-image processing filters
 - Declarative: Easily make graphical user interface without having to learn anything about pyQt or matplotlib
 - Support in jupyter notebooks
@@ -59,7 +59,9 @@ pip install -e ".[full]"
 - Cache intermediate results in RAM for much faster processing
 - `KeyboardControl` : no slider on UI but exactly the same internal mechanism, update on key press.
 - Support Curve plots (2D signals)
-- :new: gradio backend (+allows sharing with others)
+- :new: gradio backend (+allows sharing with others). 
+- :new: Audio support in Gradio
+- :new: Circular sliders for Qt Backend
 
 
 
@@ -97,8 +99,9 @@ Shortcuts while using the GUI (QT & matplotlib backends)
 | Plot curves | :heavy_check_mark: | :heavy_check_mark: |   :heavy_check_mark: | :heavy_check_mark:|
 | Auto refreshed layout | :heavy_check_mark: | :heavy_check_mark: |   :heavy_check_mark: | :heavy_minus_sign: |
 | Keyboard shortcuts / fullscreen| :heavy_check_mark: | :heavy_check_mark: |  :heavy_minus_sign: | :heavy_minus_sign: |
-| Audio support | :heavy_check_mark: | :heavy_minus_sign: |  :heavy_minus_sign: | :heavy_minus_sign: |
+| Audio support | :heavy_check_mark: | :heavy_minus_sign: |  :heavy_minus_sign: | :heavy_check_mark: |
 | Image buttons| :heavy_check_mark: | :heavy_minus_sign: |  :heavy_minus_sign: | :heavy_minus_sign:| 
+| Circular slider| :heavy_check_mark: | :heavy_minus_sign: |  :heavy_minus_sign: | :heavy_minus_sign:| 
 
 
 
