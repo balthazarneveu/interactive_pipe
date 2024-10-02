@@ -48,8 +48,6 @@ class CachedResults:
         :param new_params: The new parameters to check.
         :return: True if an update is needed or False otherwise.
         """
-        if self.result is None:  # if no result force initialization
-            self.force_change = True
         change_state_from_params_check = self.state_change.has_changed(
             new_params)
         if self.force_change:
