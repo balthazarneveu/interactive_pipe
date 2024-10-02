@@ -150,13 +150,15 @@ class MainWindow(InteractivePipeWindow):
             # Gradio Blocks mode
             # https://www.gradio.app/guides/blocks-and-event-listeners
             with gr.Blocks() as io:
-                if self.audio:
-                    outputs.append(self.audio)
                 with gr.Row(variant="compact"):
                     gr.Markdown("### " + self.name.replace("_", " "))
                 with gr.Row():
                     for elem in outputs:
                         elem.render()
+                if self.audio:
+                    outputs.append(self.audio)
+                with gr.Row():
+                    self.audio.render()
 
                 if self.sliders_layout is None:
                     self.sliders_layout = "collapsible"
