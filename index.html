@@ -90,15 +90,28 @@
         <p class="lead font-weight-normal">
           Add interactivity to image/audio processing pipelines.
         </p>
-        <p class="lead ">
-          Even if you have no experience in graphical user interface programming, start using Interactive Pipe to add
-          sliders and start playing with your algorithms or neural network.
+        
+          <code id="install-command" style="background-color: white; padding: 0.5rem; border-radius: 0.3rem; border: 1px solid #ddd; font-family: monospace; color: #2b00ff; font-size: 1.25rem;">
+    
+            pip install interactive-pipe
+          </code>
+          <button class="btn" id="copy-btn" onclick="copyToClipboard()" style="padding: 0.5rem; margin-left: 0.5rem;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" fill="currentColor">
+              <!-- First rounded rectangle -->
+              <rect x="2" y="6" width="16" height="20" rx="2" ry="2" fill="none" stroke="currentColor"></rect>
+              <!-- Second rounded rectangle, slightly offset diagonally -->
+              <rect x="6" y="2" width="16" height="20" rx="2" ry="2" fill="none" stroke="currentColor" opacity="0.8"></rect>
+            
+            </svg>
+          </button>
+          <p class="lead ">
+            Even if you have no experience in graphical user interface programming in Python, <br>
+            use Interactive Pipe to add sliders and start playing with your algorithms or neural network.
+  
+          </p>
+          
+         
 
-        </p>
-        <a class="btn outline-interactivepipe btn-lg"
-          href="https://github.com/balthazarneveu/interactive_pipe?tab=readme-ov-file#tutorials-1">Learn More</a>
-        <a class="btn filled-interactivepipe btn-lg" href="https://github.com/balthazarneveu/interactive_pipe"
-          role="button">Install: pip install interactive-pipe &raquo;</a>
       </div>
       <div class="product-device box-shadow d-none d-md-block"></div>
       <div class="product-device product-device-2 box-shadow d-none d-md-block"></div>
@@ -123,7 +136,7 @@
           <p class="lead">- Keyword arguments are default parameters (float, bool, str)</p>
           <pre><code class="language-python">from interactive_pipe import interactive_pipeline  
 def simple_pipe():
-  inp = gen_colors()
+  inp = gen_color()
   out = flip_image(inp)
   return [inp, out]
 
@@ -142,7 +155,7 @@ interactive_pipeline(gui="qt")(simple_pipe)()</code></pre>
           <!-- <p class="lead">Define each atomic processing block as a regular python function.</p>
             <p class="lead">We feed 2 things into each processing block:</p> -->
           <pre><code class="language-python">import numpy as np
-def gen_colors(angle=45.):
+def gen_color(angle=45.):
     lin_coord = np.linspace(-1, 1, 256)
     X, Y = np.meshgrid(lin_coord, lin_coord)
     ang = np.deg2rad(angle)
@@ -182,12 +195,12 @@ def flip_image(img, flip=True, mirror=True):
         </div>
 
         <div class="col-md-5 code-block">
-          <pre><code class="language-python">interactive(angle=(45., [0., 360.]))(gen_colors)
+          <pre><code class="language-python">interactive(angle=(45.,[0., 360.]))(gen_color)
 interactive(
     flip=(True, "Flip Image"),
     mirror=(True, "Mirror Image")
 )(flip_image)
-interactive_pipeline(gui="qt")(simple_pipeline)()</code></pre>
+interactive_pipeline(gui="qt")(simple_pipe)()</code></pre>
         </div>
 
       </div>
@@ -199,7 +212,7 @@ interactive_pipeline(gui="qt")(simple_pipeline)()</code></pre>
         <p>Interactive Pipe offers a range of options for displaying your code, often with only minor code changes.</p>
         <div class="row">
           <div class="col-lg-4">
-            <h2 class="mt-3">🖵 PyQt</h2>
+            <h2 class="mt-3">💻 PyQt</h2>
             <p>✅ Configure output layouts.</p>
             <p>✅ Keyboard shortcuts, Full screen.</p>
             <p>✅ Audio Playback.</p>
@@ -261,20 +274,31 @@ markdown="## My demo"
       <hr class="featurette-divider">
 
       <div class="row featurette">
-        <div class="col-md-12">
-          <h2 class="featurette-heading">Cache mechanism</h2>
-          <p class="lead">🐌 Some processing blocks can be time consuming. </p>
-          <p class="lead">🏍️ Interactive Pipe offers a cache mechanism to avoid recomputing the same block if the inputs and sliders have
-            not been changed.
-          </p>
-        </div>
-      </div>
+
       <hr class="featurette-divider">
       <div class="col-md-12">
         <h2 class="featurette-heading">Features</h2>
         <p class="lead">📈 📷 Images and Curves are supported by Interactive Pipe.</p>
         <p class="lead">🧪 🎧 Audio playback is supported using Qt GUI. See the <a href="http://github.com/balthazarneveu/interactive_pipe/blob/master/demo/jukebox.py"> Jukebox Sample code </a> </p> 
         <p class="lead">🎛️ ✅ Sliders (both discrete [int] & continuous [float]), Checkbox [bool] and Dialogs [str] are supported. </p>
+      </div>
+      <div class="col-md-12">
+        <h2 class="featurette-heading">Cache mechanism</h2>
+        <p class="lead">🐌 Some processing blocks can be time consuming (neural network inference, loading data). </p>
+        <p class="lead">🏍️ Interactive Pipe offers a cache mechanism to avoid recomputing the same block if the inputs and sliders have
+          not been changed.
+        </p>
+      </div>
+    </div>
+    <hr class="featurette-divider">
+    <div class="row featurette">
+      <div class="col-md-12">
+        <h2 class="featurette-heading">Why using interactive pipe?</h2>
+        <p class="lead">✊ Empower engineers and developpers to showcase their work.</p>
+        <p class="lead">🔍 Visual debugging: standard debugging tools are not well suitied to image/audio algorithms. Breakpoints are most often not enough!</p>
+        <p class="lead">🧑‍⚖️ A code review becomes much more interesting. Convince your colleagues that visually, your code does what it is expected to do in addition to your unit tests.</p>
+        <p class="lead">🏭 Clear separation between production & graphical interface code (Processing blocks are decorated outside, a pipeline also works headless and can be called using the command line).</p>
+        <p class="lead">🔬 Developped by scientists, for scientists.</p>
 
       </div>
       <hr class="featurette-divider">
@@ -310,7 +334,29 @@ markdown="## My demo"
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.6.0/prism.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.6.0/components/prism-python.min.js"></script>
   <script type="module" src="https://gradio.s3-us-west-2.amazonaws.com/4.44.0/gradio.js"></script>
-
+  <script>
+    function copyToClipboard() {
+      // Get the text from the span element
+      const commandText = document.getElementById('install-command').innerText;
+      
+      // Create a temporary input element to select and copy the text
+      const tempInput = document.createElement('input');
+      tempInput.value = commandText;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+      
+      // Change the icon color temporarily to indicate success
+      const copyButton = document.getElementById('copy-btn').querySelector('svg');
+      copyButton.style.fill = '#28a745';  // Change to green (or any color you prefer)
+      
+      // Reset the icon color after 2 seconds
+      setTimeout(() => {
+        copyButton.style.fill = 'currentColor';
+      }, 2000);
+    }
+  </script>
 </body>
 
 </html>
