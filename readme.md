@@ -1,9 +1,17 @@
-# `interactive_pipe`
 
-Quick setup
-`pip install interactive-pipe`
+<center>
 
+| ![Interactive pipe](/static/interact-pipe-logo-horizontal-rgb.svg) |
+|:--:|
+|Quick setup `pip install interactive-pipe` |
+| [Project website](https://balthazarneveu.github.io/interactive_pipe/) |
+
+</center>
+
+# Interactive-pipe code
 ### Concept
+
+
 - Develop an algorithm while debugging visually with plots, while checking robustness & continuity to parameters change.
 - Magically create a graphical interface to easily demonstrate a concept or simply tune your algorithm.
 
@@ -51,7 +59,7 @@ pip install -e ".[full]"
 
 ## :scroll:  Features
 
-**Version 0.7.2**
+**Version 0.7.3**
 - Modular multi-image processing filters
 - Declarative: Easily make graphical user interface without having to learn anything about pyQt or matplotlib
 - Support in jupyter notebooks

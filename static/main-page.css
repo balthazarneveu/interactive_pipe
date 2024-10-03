@@ -80,6 +80,22 @@ body {
 }
 
 
+.install-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.install-logo {
+  height: 40px; /* Adjust logo size as needed */
+  width: auto;
+}
+
+.install-command {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
 
 /* CODE BLOCKS
 -------------------------------------------------- */

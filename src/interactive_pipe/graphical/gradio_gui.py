@@ -157,8 +157,8 @@ class MainWindow(InteractivePipeWindow):
                         elem.render()
                 if self.audio:
                     outputs.append(self.audio)
-                with gr.Row():
-                    self.audio.render()
+                    with gr.Row():
+                        self.audio.render()
 
                 if self.sliders_layout is None:
                     self.sliders_layout = "collapsible"
