@@ -212,7 +212,13 @@ class MainWindow(InteractivePipeWindow):
                     gr.Examples([self.default_values], inputs=self.widget_list, label="Presets")
 
                 if self.markdown_description is not None:
-                    with gr.Row():
+                    title = "Description"
+                    try:
+                        if self.markdown_description.startswith("#"):
+                            title = self.markdown_description.split("\n")[0][1:]
+                    except Exception as _e:
+                        pass
+                    with gr.Accordion(title, open=False):
                         gr.Markdown(self.markdown_description)
                 io.load(fn=self.run_fn, inputs=self.widget_list, outputs=outputs)
                 for idx in range(len(self.widget_list)):
