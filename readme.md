@@ -56,6 +56,9 @@ pip install -e ".[full]"
 
 
 ----------------------
+## :scroll:  Terminology
+
+![interactive_pipe_concept](static/interact-pipe-concept.svg)
 
 ## :scroll:  Features
 
@@ -114,6 +117,8 @@ Shortcuts while using the GUI (QT & matplotlib backends)
 
 
 # Tutorials
+### [Main tutorial](https://huggingface.co/spaces/balthou/interactive-pipe-tutorial)
+![tuto](/doc/images/tutorial.png)
 
 ### Learn by examples
 #### [Basic image processing](/demo/multi_image.py)
@@ -130,10 +135,13 @@ Shortcuts while using the GUI (QT & matplotlib backends)
 
 
 
-# Tutorials
-*Since ipywidgets in notebooks are supported, the tutorial is also available in a [google collab notebook](https://colab.research.google.com/drive/1PZn8P_5TABVCugT3IcLespvZG-gxnFbO?usp=sharing)*
 
 ## :rocket: Ultra short code
+
+
+*Since ipywidgets in notebooks are supported, the tutorial is also available in a [google collab notebook](https://colab.research.google.com/drive/1PZn8P_5TABVCugT3IcLespvZG-gxnFbO?usp=sharing)*
+
+
 Let's define 3 image processing very basic filters `exposure`, `black_and_white` & `blend`.
 
 By design:
