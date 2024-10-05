@@ -6,7 +6,12 @@ from typing import Union
 from interactive_pipe.data_objects.parameters import Parameters
 from interactive_pipe.data_objects.image import Image
 import os
-import openai
+OPENAI_SUPPORT = True
+try:
+    import openai
+except ImportError:
+    OPENAI_SUPPORT = False
+    logging.warning("openai not installed, please install it with pip install openai")
 
 
 class ImageFromPrompt(Image):
@@ -57,6 +62,7 @@ class ImageFromPrompt(Image):
 
     @staticmethod
     def login(api_key=None, organization=None):
+        assert OPENAI_SUPPORT, "openai not installed"
         if api_key is not None:
             openai.api_key = api_key
             openai.organization = organization
@@ -75,6 +81,7 @@ class ImageFromPrompt(Image):
 
     @staticmethod
     def __check_login():
+        assert OPENAI_SUPPORT, "openai not installed"
         assert openai.api_key is not None
         try:
             response = openai.Model.list()
@@ -95,6 +102,7 @@ class ImageFromPrompt(Image):
                 path = Path(path)
                 path = path.with_suffix(ImageFromPrompt.SUFFIX)
             return path
+        assert OPENAI_SUPPORT, "openai not installed"
         try:
             # You need the API key at this moment
             ImageFromPrompt.login(api_key=api_key)

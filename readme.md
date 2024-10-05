@@ -106,7 +106,7 @@ Shortcuts while using the GUI (QT & matplotlib backends)
 | :star: | *PyQt / PySide* |  *Matplotlib*   | *Jupyter notebooks including Google collab*   | *Gradio* | 
 |:-----: |:-----:|:------:|:----: |:----: |
 | Backend name | `qt`  | `mpl`  | `nb`| `gradio` |
-| Preview | ![qt backend](/doc/images/qt_backend.jpg)   | ![mpl backend](/doc/images/mpl_backend.jpg)    |  ![nb backend](/doc/images/notebook_backend.jpg)  | | 
+| Preview | ![qt backend](/doc/images/qt_backend.jpg)   | ![mpl backend](/doc/images/mpl_backend.jpg)    |  ![nb backend](/doc/images/notebook_backend.jpg)  | ![mpl backend](/doc/images/gradio_backend.jpg)| 
 | Plot curves | :heavy_check_mark: | :heavy_check_mark: |   :heavy_check_mark: | :heavy_check_mark:|
 | Auto refreshed layout | :heavy_check_mark: | :heavy_check_mark: |   :heavy_check_mark: | :heavy_minus_sign: |
 | Keyboard shortcuts / fullscreen| :heavy_check_mark: | :heavy_check_mark: |  :heavy_minus_sign: | :heavy_minus_sign: |
@@ -121,17 +121,15 @@ Shortcuts while using the GUI (QT & matplotlib backends)
 ![tuto](/doc/images/tutorial.png)
 
 ### Learn by examples
-#### [Basic image processing](/demo/multi_image.py)
+#### [Basic image processing (python code sample for PyQT GUI)](/demo/multi_image.py)
 | GUI | Pipeline | 
 |:--:|:--:| 
 |![](/doc/images/image_selector.png) | ![](/doc/images/image_selector_graph.png) |
 
 ![](/doc/images/demo_multi_image.gif)
 
-#### [Speech exploration notebook](https://colab.research.google.com/drive/1mUX2FW0qflWn-v3nIx90P_KvRxnXlBpz#scrollTo=qDTaIwvaJQ6R)
+#### [Speech exploration notebook (colab, signal processing)](https://colab.research.google.com/drive/1mUX2FW0qflWn-v3nIx90P_KvRxnXlBpz#scrollTo=qDTaIwvaJQ6R)
 ![Speech processing exploration in a notebook](/doc/images/jupyter_integration_speech.png)
-
-
 
 
 
