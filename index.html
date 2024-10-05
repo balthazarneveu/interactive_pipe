@@ -192,11 +192,10 @@ def gen_color(angle=45.):
       axis=-1
     )
 
-    
-def flip_image(img, flip=True, mirror=True):
+  def flip_image(img, flip=True, mirror=True):
     # bool keyword arg <-> checkbox
-    img = img[::-1] if flip else img
-    return img[:, ::-1] if mirror else img</code>
+    out = img[::-1] if flip else img.copy()
+    return out[:, ::-1] if mirror else out</code>
           </pre>
         </div>
         <!-- <img src="static/static_pipe.png" style="max-width: 100%;" ="static_pipeline"> -->
