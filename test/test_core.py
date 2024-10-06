@@ -5,9 +5,8 @@ class MultiplyFilter(FilterCore):
     def apply(self, img, scalar=8, add=5):
         return [[value * scalar + add for value in row] for row in img]
 
-
 def test_pure_filter():
-    def mult(img, global_parameters={}, scalar=8, add=5):
+    def mult(img, context={}, scalar=8, add=5):
         return [[value * scalar + add for value in row] for row in img]
     filt = PureFilter(apply_fn=mult, name="multiplication",
                       default_params={"scalar": 2, "add": 0})

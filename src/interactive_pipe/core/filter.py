@@ -5,6 +5,8 @@ from typing import Callable, List, Optional, Union, Tuple, Any
 from interactive_pipe.core.cache import CachedResults
 from interactive_pipe.core.signature import analyze_apply_fn_signature
 
+EQUIVALENT_STATE_KEYS = ["global_params", "global_parameters", "global_state", "global_context", "context", "state"]
+
 
 class PureFilter:
     def __init__(self, apply_fn: Optional[Callable] = None, name: Optional[str] = None, default_params: dict = {}):
@@ -12,6 +14,7 @@ class PureFilter:
             self.__class__.__name__ if not apply_fn else apply_fn.__name__)
         if apply_fn is not None:
             self.apply = apply_fn
+        self._global_params = {}
         self.__initialize_default_values()  # initialize default values from .apply method
         self.values = deepcopy(default_params)
 
@@ -40,8 +43,10 @@ class PureFilter:
         assert not hasattr(self, "_values")
         self.check_apply_signature()
         self._values = self.__kwargs_names
-        if "global_params" in self.__kwargs_names.keys():
-            self._values.pop("global_params")
+        for global_key in EQUIVALENT_STATE_KEYS:
+            if global_key in self.__kwargs_names.keys():
+                self._values.pop(global_key)
+
 
     @property
     def values(self):
@@ -60,11 +65,15 @@ class PureFilter:
         for key, val in self.values.items():
             assert key in self.__kwargs_names.keys(
             ), f"{self.name} : {key} not in {self.__kwargs_names.keys()}"
-        if "global_params" in self.__kwargs_names.keys():
-            # special key to provide the context dictionary
-            out = self.apply(
-                *imgs, global_params=self.global_params, **self.values)
-        else:
+        global_key_found = False
+        for global_key in EQUIVALENT_STATE_KEYS:
+            if global_key in self.__kwargs_names.keys():
+                # special key to provide the context dictionary
+                out = self.apply(
+                    *imgs, **{**{global_key: self.global_params}, **self.values})
+                global_key_found = True
+                break
+        if not global_key_found:
             out = self.apply(*imgs, **self.values)
         return out
 
