@@ -51,14 +51,20 @@ class InteractivePipeGradio(InteractivePipeGUI):
         out_list_gradio_containers = []
         for idx in range(len(out_list)):
             for idy in range(len(out_list[idx])):
+                if self.window.image_canvas[idx][idy] is None:
+                    out_list_gradio_containers.append(gr.HTML())
+                    continue
                 title = self.window.image_canvas[idx][idy].get("title", f"{idx} {idy}")
                 title = title.replace("_", " ")
                 if isinstance(out_list[idx][idy], np.ndarray):
                     out_list_gradio_containers.append(gr.Image(label=title))
+                    self.window.image_canvas[idx][idy]["type"] = "image"
                 elif MPL_SUPPORT and isinstance(out_list[idx][idy], Curve):
                     # if out_list[idx][idy].title is not None:
                     #     title = out_list[idx][idy].title
                     out_list_gradio_containers.append(gr.Plot(label=title))
+                    self.window.image_canvas[idx][idy]["type"] = "curve"
+                # @TODO: https://github.com/balthazarneveu/interactive_pipe/issues/50 support audio!
                 else:
                     raise NotImplementedError(
                         f"output type {type(out_list[idx][idy])} not supported")
@@ -94,7 +100,9 @@ class MainWindow(InteractivePipeWindow):
             for idx in range(len(out)):
                 if isinstance(out[idx], list):
                     for idy in range(len(out[idx])):
-                        if MPL_SUPPORT and isinstance(out[idx][idy], Curve):
+                        if out[idx][idy] is None:
+                            flat_out.append("")
+                        elif MPL_SUPPORT and isinstance(out[idx][idy], Curve):
                             curve = out[idx][idy]
                             fig, ax = plt.subplots()
                             Curve._plot_curve(curve.data, ax=ax)
@@ -104,7 +112,7 @@ class MainWindow(InteractivePipeWindow):
                             flat_out.append(self.convert_image(out[idx][idy]))
                         else:
                             raise NotImplementedError(
-                                f"output type {type(out[idx][idy])} not supported")
+                                f"output type {type(out[idx][idy])} not suported")
                 else:
                     logging.info(f"CONVERTING IMAGE  {idx} ")
                     flat_out.append(self.convert_image(out[idx]))
@@ -152,9 +160,13 @@ class MainWindow(InteractivePipeWindow):
             with gr.Blocks() as io:
                 with gr.Row(variant="compact"):
                     gr.Markdown("### " + self.name.replace("_", " "))
-                with gr.Row():
-                    for elem in outputs:
-                        elem.render()
+                for idy in range(len(self.image_canvas)):
+                    with gr.Row():
+                        for idx in range(len(self.image_canvas[idy])):
+                            elem = outputs[idy * len(self.image_canvas[idy]) + idx]
+                            if elem is not None:
+                                elem.render()
+                                
                 if self.audio:
                     outputs.append(self.audio)
                     with gr.Row():
