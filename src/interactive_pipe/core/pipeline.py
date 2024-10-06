@@ -11,13 +11,40 @@ class PipelineCore:
     - optionally, some inputs to process
     """
 
-    def __init__(self, filters: List[FilterCore], name="pipeline", cache=False, inputs: Optional[list] = None, parameters: dict = {}, global_params={}, outputs:  Optional[list] = None, safe_input_buffer_deepcopy: bool = True):
+    def __init__(
+        self,
+        filters: List[FilterCore],
+        name="pipeline",
+        cache=False,
+        inputs: Optional[list] = None,
+        parameters: dict = {},
+        global_params: Optional[dict] = None,
+        global_parameters: Optional[dict] = None,  # alias for global_params
+        global_state: Optional[dict] = None,  # alias for global_params
+        global_context: Optional[dict] = None,  # alias for global_params
+        context: Optional[dict] = None,  # alias for global_params
+        state: Optional[dict] = None,  # alias for global_params
+        outputs:  Optional[list] = None,
+        safe_input_buffer_deepcopy: bool = True
+    ):
         if not all(isinstance(f, FilterCore) for f in filters):
             raise ValueError(
                 f"All elements in 'filters' must be instances of 'Filter'. {[type(f) for f in filters]}")
         self.filters = filters
         self.engine = PipelineEngine(
             cache, safe_input_buffer_deepcopy=safe_input_buffer_deepcopy)
+        if global_parameters is not None:
+            global_params = global_parameters
+        elif global_context is not None:
+            global_params = global_context
+        elif global_state is not None:
+            global_params = global_state
+        elif state is not None:
+            global_params = state
+        elif context is not None:
+            global_params = context
+        if global_params is None:
+            global_params = {}
         self.global_params = global_params
         for filter in self.filters:
             # link each filter to global params
@@ -79,7 +106,8 @@ class PipelineCore:
         """
         available_filters_names = [filt.name for filt in self.filters]
         for filter_name in new_parameters.keys():
-            assert filter_name in available_filters_names, f"filter {filter_name} does not exist {available_filters_names}"
+            assert filter_name in available_filters_names, f"filter {filter_name}" + \
+                f"does not exist {available_filters_names}"
             self.filters[available_filters_names.index(
                 filter_name)].values = new_parameters[filter_name]
 
@@ -99,7 +127,8 @@ class PipelineCore:
             elif isinstance(inputs, list) or isinstance(inputs, tuple):
                 # inputs is a list or a tuple
                 assert len(inputs) == len(
-                    self.inputs_routing), f"wrong amount of inputs\nprovided {len(inputs)} inputs vs expected:{len(self.inputs_routing)}"
+                    self.inputs_routing), f"wrong amount of inputs\nprovided {len(inputs)}" + \
+                    f"inputs vs expected:{len(self.inputs_routing)}"
                 self.__inputs = {}
                 for idx, input_name in enumerate(self.inputs_routing):
                     self.__inputs[input_name] = inputs[idx]

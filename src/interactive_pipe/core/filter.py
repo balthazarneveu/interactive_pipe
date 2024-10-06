@@ -47,7 +47,6 @@ class PureFilter:
             if global_key in self.__kwargs_names.keys():
                 self._values.pop(global_key)
 
-
     @property
     def values(self):
         return self._values
