@@ -62,7 +62,7 @@ pip install -e ".[full]"
 
 ## :scroll:  Features
 
-**Version 0.7.4**
+**Version 0.7.5**
 - Modular multi-image processing filters
 - Declarative: Easily make graphical user interface without having to learn anything about pyQt or matplotlib
 - Support in jupyter notebooks
@@ -215,11 +215,11 @@ import numpy as np
 
 COLOR_DICT = {"red": [1., 0., 0.],  "green": [0., 1.,0.], "blue": [0., 0., 1.], "gray": [0.5, 0.5, 0.5]}
 @interactive()
-def generate_flat_colored_image(color_choice=["red", "green", "blue", "gray"], global_params={}):
+def generate_flat_colored_image(color_choice=["red", "green", "blue", "gray"], context={}):
     '''Generate a constant colorful image
     '''
     flat_array =  np.array(COLOR_DICT.get(color_choice)) * np.ones((64, 64, 3))
-    global_params["avg"] = np.average(flat_array)
+    context["avg"] = np.average(flat_array)
     return flat_array
 ```
 
@@ -228,15 +228,15 @@ def generate_flat_colored_image(color_choice=["red", "green", "blue", "gray"], g
 ----------
 
 :bulb: Can filters communicate together?
-Yes, using the special keyword argument `global_params={}`. 
-- Check carefully how we stored the image average of the flat image in  global_params. 
+Yes, using the special keyword argument `context={}`. 
+- Check carefully how we stored the image average of the flat image in  context. 
 - This value will be available to other filters.
 `special_image_slice` is going to use that value to set the half bottom image to dark in case the average is high.
 
 ```python
 @interactive()
-def special_image_slice(img, global_params={}):
-    if global_params["avg"] > 0.4:
+def special_image_slice(img, context={}):
+    if context["avg"] > 0.4:
         out_img[out_img.shape[0]//2:, ...] = 0.
     return out_img
 ```
@@ -254,7 +254,7 @@ Note that you can create a filter to switch between several images. In `["pagedo
 
 ```python
 @interactive()
-def black_top_image_slice(img, top_slice_black=(True, "special", "k"), global_params={}):
+def black_top_image_slice(img, top_slice_black=(True, "special", "k"), context={}):
     out_img = img.copy()
     if top_slice_black:
         out_img[:out_img.shape[0]//2, ...] = 0.
@@ -282,7 +282,47 @@ if __name__ == '__main__':
 - September 2024: Gradio backend
 
 
+### FAQ
+- :question: Is there a difference between `global_params` and `context` ?
+> No, `global_params`, `global_parameters`, `global_state`, `global_context`, `context`, `state` all mean the same thing and are all supported for legacy reasons. `context` is the preferred wording.
+- :question: Do I have to remove `KeyboardSlider` when using gradio or notebook backends?
+> No, don't worry, these will be mapped back to regular sliders!
+- :question: How do I play audio live?
+> :sound: Inside a processing block, write the audio file to disk 
+> and use `context["__set_audio"](audio_file)`
+- :question: Do I have to decorate my processing block using the `@interactive` 
+> If you use the `@` decoration style, your function won't be useable in a regular manner (wich may be problematic in a serious development environment)
+```python
+@interactive(angle=(0., [-360., 360.]))
+def processing_block(angle=0.):
+    ...
+```
 
+> An alternative is to decorate the processing block outside... in a file dedicated to interactivity for instance
+```python
+# core_filter.py
+def processing_block(angle=0.):
+    ...
+```
+
+```python
+# graphical.py
+from core_filter import processing_block
+
+def add_interactivity():
+    interactive(angle=(0., [-360., 360.]))(processing_block)
+```
+- :question: Can I call the pipeline in a command line/batch fashion?
+> Yes, headless mode is supported. :soon: documentation needed.
+
+
+- :question: Can I use inplace operations?
+> Better avoid these in general. To avoid making extra copies, computing hashes everywhere and avoid loosing precious computation time, there are no checks that inputs are not modified in place.
+```python
+# Don't do that!
+def bad_processing_block(inp):
+    inp+=1
+``` 
 # Roadmap and todos
 :bug: Want to contribute or interested in adding new features? Enter a new [Github issue](https://github.com/balthazarneveu/interactive_pipe/issues)
 
