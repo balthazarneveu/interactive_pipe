@@ -116,6 +116,8 @@ class MainWindow(InteractivePipeWindow):
                 else:
                     logging.info(f"CONVERTING IMAGE  {idx} ")
                     flat_out.append(self.convert_image(out[idx]))
+            if len(flat_out) == 1:
+                return flat_out[0]
             if out is None:
                 logging.warning("No output to display")
                 return
