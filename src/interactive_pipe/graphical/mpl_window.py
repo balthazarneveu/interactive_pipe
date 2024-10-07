@@ -85,7 +85,7 @@ class MatplotlibWindow(InteractivePipeWindow):
         self.need_redraw = False
 
     def convert_image(self, img):
-        if isinstance(img, np.ndarray):
+        if isinstance(img, np.ndarray) and len(img.shape) > 1:
             return img.clip(0., 1.)
         else:
             return img

@@ -48,7 +48,7 @@ try:
     from matplotlib.backends.backend_qtagg import (
         FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
     from matplotlib.figure import Figure
-    from interactive_pipe.data_objects.curves import Curve
+    from interactive_pipe.data_objects.curves import Curve, SingleCurve
     MPL_SUPPORT = True
 except ImportError:
     logging.warning("No support for Matplotlib widgets for Qt")
@@ -424,29 +424,23 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 img_widget.setParent(None)
 
     def update_image(self, image_array_original, row, col):
-        if isinstance(image_array_original, np.ndarray):
-            if len(image_array_original.shape) == 1:
-                logging.warning("Audio playback not supported with 1D signal" +
-                                "\nuse live audio instead while using Qt!"+
-                                "\nuse instead: context['__set_audio'](audio_track)"+
-                                "\n See example here: https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/jukebox.py")
-                logging.warning("We'll try to display the audio signal as an image instead")
-                try:
-                    reshape_size = image_array_original.shape[0]//256
-                    image_array = image_array_original.copy()[:reshape_size*256].reshape(reshape_size, 256)
-                    if image_array.shape[0] > 256:
-                        image_array = image_array[:256, :]
-                except:
-                    try:
-                        image_array = np.expand_dims(image_array_original.copy(), axis=0)
-                        image_array = np.repeat(image_array, 256, axis=0)
-                        if image_array.shape[1] > 256:
-                            image_array = image_array[:, :256]
-                    except:
-                        image_array = np.zeros((256, 256, 3))
-                image_array_original = image_array
-                # image_array_original = (image_array + 0.5).clip(0., 1.)
-                pass
+        if isinstance(image_array_original, np.ndarray) and len(image_array_original.shape) == 1:
+            logging.warning("Audio playback not supported with 1D signal" +
+                            "\nuse live audio instead while using Qt!" +
+                            "\nuse instead: context['__set_audio'](audio_track)" +
+                            "\nSee example here: https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/jukebox.py")
+            logging.warning("We'll try to display the audio signal as an image instead")
+            image_array_original = Curve([
+                SingleCurve(
+                    # x=np.linspace(0, image_array_original.shape[0]/44100, image_array_original.shape[0]),
+                    y=image_array_original,
+                    # style="k"
+                )
+            ],
+                # xlabel="Time[s]",
+                ylabel="Amplitude",
+            )
+        elif isinstance(image_array_original, np.ndarray) and len(image_array_original.shape) > 1:
             if len(image_array_original.shape) == 2:
                 # Consider black & white
                 image_array = image_array_original.copy()
@@ -467,7 +461,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
             pixmap = QPixmap.fromImage(image)
             image_label = self.image_canvas[row][col]["image"]
             image_label.setPixmap(pixmap)
-        else:
+        if not isinstance(image_array_original, np.ndarray):
             image_array = image_array_original
             if MPL_SUPPORT and isinstance(image_array, Curve):
                 image_label = FigureCanvas(Figure(figsize=(10, 10)))
@@ -491,7 +485,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
 
     @staticmethod
     def convert_image(out_im):
-        if isinstance(out_im, np.ndarray):
+        if isinstance(out_im, np.ndarray) and len(out_im.shape) > 1:
             return (out_im.clip(0., 1.) * 255).astype(np.uint8)
         else:
             return out_im
