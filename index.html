@@ -23,11 +23,6 @@
 <body>
 
   <header>
-
-
-
-
-
     <nav class="navbar navbar-expand-lg">
       <div class="navbar-brand">
         <img src="static/interactive_pipe_logo.svg" style="height: 2rem;" alt="IP logo">
@@ -44,6 +39,17 @@
               href="https://huggingface.co/spaces/balthou/interactive-pipe-tutorial">🎓 Tutorial</a></li>
 
           <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" data-toggle="dropdown"
+                  aria-haspopup="true" aria-expanded="false">
+                  🦾 Machine learning examples
+                </a>
+                <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+                  <a class="dropdown-item" href="https://huggingface.co/spaces/balthou/interactive-pipe-ml-example">🦾 Image classification</a>
+                  <a class="dropdown-item" href="https://huggingface.co/spaces/balthou/novel-views-point-splat">☁️ 3D Neural Point splatting</a>
+                  <a class="dropdown-item" href="https://huggingface.co/spaces/balthou/audio-separation">🎧 Audio separation </a>
+                </div>
+          </li>
+          <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" data-toggle="dropdown"
               aria-haspopup="true" aria-expanded="false">
               📷 Image examples
@@ -51,8 +57,6 @@
             <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
               <a class="dropdown-item" href="https://huggingface.co/spaces/balthou/basic-image-editing">Example with
                 gradio: Basic image editing</a>
-              <a class="dropdown-item" href="https://huggingface.co/spaces/balthou/novel-views-point-splat">Example with
-                gradio: 3D Neural Point splatting</a>
               <a class="dropdown-item"
                 href="https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/multi_image.py">Sample code
                 with
@@ -76,10 +80,11 @@
             </div>
           </li>
 
+          
+
           <li class="navbar-item"><a class="nav-link" href="https://github.com/balthazarneveu/interactive_pipe">⭐ Source
-              code</a></li>
-          <li class="navbar-item"><a class="nav-link"
-              href="https://huggingface.co/spaces/balthou/basic-image-editing"></a></li>
+              code</a>
+          </li>
 
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink2" data-toggle="dropdown"
@@ -358,16 +363,84 @@ markdown="## My demo"
         </div>
       </div>
 
-      <div class="container marketing p-md-5">
-        <p>Main contributor: Balthazar Neveu</p>
-        <p>Additional contributors: Emmanuel Chaboud </p>
-        <p>Additional testers: Jamy Lafenetre, Mathilde Dupouy, Matthieu Dinot </p>
-      </div>
 
+      
+      <hr class="featurette-divider">
+      <h2 class="featurette-heading">💥 What else can you do with interactive pipe?</h2>
+      <p class="lead">🚀 Check by yourself with the examples provided on image, audio and Machine learning.</p>
+      <div class="row featurette">
+      <nav class="navbar navbar-expand-lg">
+        <div class="navbar-brand">
+          <img src="static/interactive_pipe_logo.svg" style="height: 2rem;" alt="IP logo">
+        </div>
+        <div class="navbar-light bg-light">
+          <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown"
+            aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+        </div>
+        <div class="collapse navbar-collapse" id="navbarNavDropdown">
+          <ul class="navbar-nav">  
+            <li class="nav-item dropdown">
+                  <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" data-toggle="dropdown"
+                    aria-haspopup="true" aria-expanded="false">
+                    🦾 Machine learning examples
+                  </a>
+                  <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+                    <a class="dropdown-item" href="https://huggingface.co/spaces/balthou/interactive-pipe-ml-example">🦾 Image classification</a>
+                    <a class="dropdown-item" href="https://huggingface.co/spaces/balthou/novel-views-point-splat">☁️ 3D Neural Point splatting</a>
+                    <a class="dropdown-item" href="https://huggingface.co/spaces/balthou/audio-separation">🎧 Audio separation </a>
+                  </div>
+            </li>
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" data-toggle="dropdown"
+                aria-haspopup="true" aria-expanded="false">
+                📷 Image examples
+              </a>
+              <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+                <a class="dropdown-item" href="https://huggingface.co/spaces/balthou/basic-image-editing">Example with
+                  gradio: Basic image editing</a>
+                <a class="dropdown-item"
+                  href="https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/multi_image.py">Sample code
+                  with
+                  Qt: multi-image sample</a>
+                <a class="dropdown-item"
+                  href="https://colab.research.google.com/drive/1AwHyjZH8MnzZqwsvbmxBoB15btuMIwtk?usp=sharing">Colab
+                  sample code</a>
+              </div>
+            </li>
+  
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" data-toggle="dropdown"
+                aria-haspopup="true" aria-expanded="false">
+                🎧 Audio examples
+              </a>
+              <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+                <a class="dropdown-item" href="https://huggingface.co/spaces/balthou/interactive-pipe-audio">Example with
+                  gradio: Basic Jukebox for kids</a>
+                <a class="dropdown-item" href="https://huggingface.co/spaces/balthou/audio-separation">Example with
+                  gradio: Audio separation using deep learning </a>
+              </div>
+            </li>
+  
+          </ul>
+        </div>
+      </nav>
+      </div>
+      <hr class="featurette-divider">
+
+
+      <div class="container marketing p-md-12">
+        <p class="lead">🙏 Acknowledgement</p>
+        <p>- Main contributor: Balthazar Neveu</p>
+        <p>-Additional contributors: Emmanuel Chaboud </p>
+        <p>- Additional testers: Jamy Lafenetre, Mathilde Dupouy, Matthieu Dinot </p>
+      </div>
       <!-- /END THE FEATURETTES -->
 
       <!-- FOOTER -->
       <footer class="container">
+
         <p><i>HTML layout adapted from the <a href=https://numba.pydata.org /> Numba homepage.</i></p>
       </footer>
   </main>
