@@ -57,8 +57,12 @@ class InteractivePipeGradio(InteractivePipeGUI):
                 title = self.window.image_canvas[idx][idy].get("title", f"{idx} {idy}")
                 title = title.replace("_", " ")
                 if isinstance(out_list[idx][idy], np.ndarray):
-                    out_list_gradio_containers.append(gr.Image(label=title))
-                    self.window.image_canvas[idx][idy]["type"] = "image"
+                    if len(out_list[idx][idy].shape) == 1:
+                        out_list_gradio_containers.append(gr.Audio(label=title))
+                        self.window.image_canvas[idx][idy]["type"] = "audio"
+                    else:
+                        out_list_gradio_containers.append(gr.Image(label=title))
+                        self.window.image_canvas[idx][idy]["type"] = "image"
                 elif MPL_SUPPORT and isinstance(out_list[idx][idy], Curve):
                     # if out_list[idx][idy].title is not None:
                     #     title = out_list[idx][idy].title
@@ -81,7 +85,7 @@ class InteractivePipeGradio(InteractivePipeGUI):
 
 
 class MainWindow(InteractivePipeWindow):
-    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline = None, size=None, share_gradio_app=False, markdown_description=None, sliders_layout=None, sliders_per_row_layout=None, audio=False, **kwargs):
+    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline = None, size=None, share_gradio_app=False, markdown_description=None, sliders_layout=None, sliders_per_row_layout=None, audio=False, audio_sampling_rate: int =44100, **kwargs):
         InteractivePipeWindow.__init__(
             self, name=name, pipeline=pipeline, size=size)
         self.markdown_description = markdown_description
@@ -93,6 +97,7 @@ class MainWindow(InteractivePipeWindow):
         self.pipeline = pipeline
         self.share_gradio_app = share_gradio_app
         self.audio = audio
+        self.audio_sampling_rate = audio_sampling_rate
         # Define the functions that will be called when the input changes for gradio. => gr.Interface(fn=process_fn)
 
         def process_outputs_fn(out) -> tuple:
@@ -108,8 +113,12 @@ class MainWindow(InteractivePipeWindow):
                             Curve._plot_curve(curve.data, ax=ax)
                             flat_out.append(fig)
                         elif isinstance(out[idx][idy], np.ndarray):
-                            logging.info(f"CONVERTING IMAGE  {idx} {idy}")
-                            flat_out.append(self.convert_image(out[idx][idy]))
+                            if len(out[idx][idy].shape) == 1:
+                                logging.debug(f"CONVERTING AUDIO  {idx} {idy}")
+                                flat_out.append((self.audio_sampling_rate, out[idx][idy]))
+                            else:
+                                logging.debug(f"CONVERTING IMAGE  {idx} {idy}")
+                                flat_out.append(self.convert_image(out[idx][idy]))
                         else:
                             raise NotImplementedError(
                                 f"output type {type(out[idx][idy])} not suported")

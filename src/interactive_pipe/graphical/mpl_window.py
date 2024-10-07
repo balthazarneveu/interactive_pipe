@@ -6,7 +6,7 @@ from interactive_pipe.data_objects.curves import Curve
 
 
 class MatplotlibWindow(InteractivePipeWindow):
-    def __init__(self,  controls=[], name="", pipeline=None, size=None, style: str = None, rc_params=None):
+    def __init__(self,  controls=[], name="", pipeline=None, size=None, style: str = None, rc_params=None, markdown_description=None):
         """
         style: dark_background, seaborn-v0_8-dark
         https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html
@@ -26,6 +26,7 @@ class MatplotlibWindow(InteractivePipeWindow):
         if rc_params is not None:
             for key, val in rc_params.items():
                 plt.rcParams[key] = val
+        self.markdown_description = markdown_description  # won't be used!
 
     def add_image_placeholder(self, row, col):
         nrows, ncols = np.array(self.image_canvas).shape
@@ -56,12 +57,18 @@ class MatplotlibWindow(InteractivePipeWindow):
         data = ax_dict.get("data", None)
         if data:
             if isinstance(img, np.ndarray):
-                data.set_data(img)
+                if len(img.shape) > 1:
+                    data.set_data(img)
+                elif len(img.shape) == 1:
+                    data.set_ydata(img)
             elif isinstance(img, Curve):
                 img.update_plot(data, ax=ax_dict["ax"])
         else:
             if isinstance(img, np.ndarray):
-                ax_dict["data"] = ax_dict["ax"].imshow(img)
+                if len(img.shape) > 1:
+                    ax_dict["data"] = ax_dict["ax"].imshow(img)
+                elif len(img.shape) == 1:
+                    ax_dict["data"] = Curve([img]).create_plot(ax=ax_dict["ax"])
             elif isinstance(img, Curve):
                 ax_dict["data"] = img.create_plot(ax=ax_dict["ax"])
         if not (isinstance(img, Curve) and img.data["title"] is not None):

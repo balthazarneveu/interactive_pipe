@@ -425,6 +425,28 @@ class MainWindow(QWidget, InteractivePipeWindow):
 
     def update_image(self, image_array_original, row, col):
         if isinstance(image_array_original, np.ndarray):
+            if len(image_array_original.shape) == 1:
+                logging.warning("Audio playback not supported with 1D signal" +
+                                "\nuse live audio instead while using Qt!"+
+                                "\nuse instead: context['__set_audio'](audio_track)"+
+                                "\n See example here: https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/jukebox.py")
+                logging.warning("We'll try to display the audio signal as an image instead")
+                try:
+                    reshape_size = image_array_original.shape[0]//256
+                    image_array = image_array_original.copy()[:reshape_size*256].reshape(reshape_size, 256)
+                    if image_array.shape[0] > 256:
+                        image_array = image_array[:256, :]
+                except:
+                    try:
+                        image_array = np.expand_dims(image_array_original.copy(), axis=0)
+                        image_array = np.repeat(image_array, 256, axis=0)
+                        if image_array.shape[1] > 256:
+                            image_array = image_array[:, :256]
+                    except:
+                        image_array = np.zeros((256, 256, 3))
+                image_array_original = image_array
+                # image_array_original = (image_array + 0.5).clip(0., 1.)
+                pass
             if len(image_array_original.shape) == 2:
                 # Consider black & white
                 image_array = image_array_original.copy()
