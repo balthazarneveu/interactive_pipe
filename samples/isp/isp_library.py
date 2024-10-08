@@ -1,6 +1,7 @@
 import torch
 import logging
 
+
 def get_rgb_indexes(phase):
     phase = phase.upper()
     r_index = phase.index("R")
@@ -10,11 +11,11 @@ def get_rgb_indexes(phase):
     return r_index, gr_index, b_index
 
 
-def normalize_image(bayer: torch.FloatTensor, black_point:torch.FloatTensor, white_point: torch.FloatTensor):
+def normalize_image(bayer: torch.FloatTensor, black_point: torch.FloatTensor, white_point: torch.FloatTensor):
     return (bayer - black_point)/(white_point - black_point)
 
 
-def demosaick(planar_bayer: torch.FloatTensor, phase:str="RGBG"):
+def demosaick(planar_bayer: torch.FloatTensor, phase: str = "RGBG"):
     """
     R G
     B G
@@ -23,19 +24,19 @@ def demosaick(planar_bayer: torch.FloatTensor, phase:str="RGBG"):
     print(phase, r_index, gr_index, b_index)
     logging.warning("Consider implementing a real demosaicking here")
     rgb = torch.stack((
-        planar_bayer[r_index,...],
-        planar_bayer[gr_index,...],
-        planar_bayer[b_index,...])
+        planar_bayer[r_index, ...],
+        planar_bayer[gr_index, ...],
+        planar_bayer[b_index, ...])
     )
     return rgb
 
 
 def apply_color_transform(
-        rgb_linear: torch.FloatTensor,
-        white_balance:torch.FloatTensor,
-        color_matrix: torch.FloatTensor,
-        inplace=False
-    ):
+    rgb_linear: torch.FloatTensor,
+    white_balance: torch.FloatTensor,
+    color_matrix: torch.FloatTensor,
+    inplace=False
+):
     original_shape = rgb_linear.shape
     rgb = rgb_linear if inplace else rgb_linear.clone()
     if white_balance is not None:
