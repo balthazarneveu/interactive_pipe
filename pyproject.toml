@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "interactive_pipe"
-version = "0.7.7"
+version = "0.7.8"
 authors = [
   { name="Balthazar Neveu", email="balthazarneveu@gmail.com" },
 ]
@@ -41,7 +41,7 @@ qt5=[
 ]
 
 notebook=[
-  "ipywidgets>=8.0.7",
+  "ipywidgets>=7.7.1",
 ]
 
 pytest=[
@@ -54,7 +54,7 @@ full=[
   "PyQt6_sip>=13.5.2",
   "opencv_python_headless>=4.8.1.78",
   "pytest>=6.2.5",
-  "ipywidgets>=8.0.7",
+  "ipywidgets>=7.7.1",
   "pandas",
   "gradio",
 ]
