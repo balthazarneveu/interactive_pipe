@@ -19,7 +19,7 @@ def audio_to_html(audio: Union[None, str, Path, Tuple[int, np.ndarray]], control
         logging.debug("No audio to display")
         return ""
     if isinstance(audio, str) or isinstance(audio, Path):
-        audio_base64 = base64.b64encode(open(audio, "rb").read()).decode("utf-8")
+        audio_base64 = base64.b64encode(open(str(audio), "rb").read()).decode("utf-8")
     elif isinstance(audio, tuple):
         assert WAVIO_AVAILABLE, "wavio is not available"
         assert len(audio) == 2, "audio tuple should have 2 elements: (rate, data)"
@@ -67,8 +67,15 @@ class Audio(Data):
         if backend is None:
             backend = WAVIO
         if backend == WAVIO:
+            if isinstance(data, np.ndarray):
+                if data.dtype == np.float32 or data.dtype == np.float64:
+                    data_save = (data * 32767).astype(np.int16)
+                elif data.dtype == np.int16:
+                    data_save = data
+                else:
+                    raise ValueError(f"Data type {data.dtype} not supported")
             assert WAVIO_AVAILABLE, "wavio is not available"
-            wavio.write(path, data, sampling_rate)
+            wavio.write(path, data_save, sampling_rate)
         else:
             raise NotImplementedError(f"Unknown backend: {backend}")
 
