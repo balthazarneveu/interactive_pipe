@@ -5,8 +5,6 @@ import functools
 from typing import Callable, Union, Optional
 from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
 
-None
-
 
 def pipeline(pipeline_function: Callable, **kwargs) -> HeadlessPipeline:
     return HeadlessPipeline.from_function(pipeline_function, **kwargs)

@@ -108,6 +108,9 @@ class MainWindow(InteractivePipeWindow):
                         if out[idx][idy] is None:
                             flat_out.append("")
                         elif MPL_SUPPORT and isinstance(out[idx][idy], Curve):
+                            # https://github.com/balthazarneveu/interactive_pipe/issues/54
+                            # Update curves instead of creating new ones shall be faster
+                            # Gradio still flickers anyway.
                             curve = out[idx][idy]
                             fig, ax = plt.subplots()
                             Curve._plot_curve(curve.data, ax=ax)
