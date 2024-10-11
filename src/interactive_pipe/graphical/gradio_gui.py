@@ -61,7 +61,7 @@ class InteractivePipeGradio(InteractivePipeGUI):
                         out_list_gradio_containers.append(gr.Audio(label=title))
                         self.window.image_canvas[idx][idy]["type"] = "audio"
                     else:
-                        out_list_gradio_containers.append(gr.Image(label=title))
+                        out_list_gradio_containers.append(gr.Image(format="png", type="numpy", label=title))
                         self.window.image_canvas[idx][idy]["type"] = "image"
                 elif MPL_SUPPORT and isinstance(out_list[idx][idy], Curve):
                     # if out_list[idx][idy].title is not None:
@@ -85,7 +85,7 @@ class InteractivePipeGradio(InteractivePipeGUI):
 
 
 class MainWindow(InteractivePipeWindow):
-    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline = None, size=None, share_gradio_app=False, markdown_description=None, sliders_layout=None, sliders_per_row_layout=None, audio=False, audio_sampling_rate: int =44100, **kwargs):
+    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline = None, size=None, share_gradio_app=False, markdown_description=None, sliders_layout=None, sliders_per_row_layout=None, audio=False, audio_sampling_rate: int = 44100, **kwargs):
         InteractivePipeWindow.__init__(
             self, name=name, pipeline=pipeline, size=size)
         self.markdown_description = markdown_description
@@ -180,7 +180,7 @@ class MainWindow(InteractivePipeWindow):
                             elem = outputs[idy * len(self.image_canvas[idy]) + idx]
                             if elem is not None:
                                 elem.render()
-                                
+
                 if self.audio:
                     outputs.append(self.audio)
                     with gr.Row():
