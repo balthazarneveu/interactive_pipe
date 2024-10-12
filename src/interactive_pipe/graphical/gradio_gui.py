@@ -147,7 +147,10 @@ class MainWindow(InteractivePipeWindow):
             out_tuple = process_outputs_fn(out)
             if self.audio:
                 html_audio = audio_to_html(self.audio_content)
-                return *out_tuple, html_audio
+                if isinstance(out_tuple, tuple):
+                    return *out_tuple, html_audio
+                else:
+                    return out_tuple, html_audio
             return out_tuple
         self.default_values = [self.ctrl[ctrl_key].value for ctrl_key in self.ctrl.keys()]
         self.process_inputs_fn = process_inputs_fn
