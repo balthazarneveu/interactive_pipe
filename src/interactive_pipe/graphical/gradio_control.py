@@ -1,5 +1,3 @@
-
-from functools import partial
 from interactive_pipe.headless.control import Control
 import logging
 import gradio as gr
@@ -31,7 +29,7 @@ class ControlFactory:
             bool: TickBoxControl,
             int: IntSliderControl,
             float: FloatSliderControl,
-            str: DropdownMenuControl
+            str: DropdownMenuControl if control.icons is None else IconButtonsControl
         }
 
         if control_type not in control_class_map:
@@ -101,3 +99,20 @@ class DropdownMenuControl(BaseControl):
         if index >= 0:
             self.control_widget.setCurrentIndex(index)
         self.control_widget.setCurrentIndex(index)
+
+
+class IconButtonsControl(BaseControl):
+    def check_control_type(self):
+        assert self.ctrl._type == str
+        if not hasattr(self.ctrl, 'value_range'):
+            raise ValueError("Invalid control type")
+
+    def create(self) -> gr.Radio:
+        self.control_widget = []
+        for idx, icon in enumerate(self.ctrl.icons):
+            # text = self.ctrl.value_range[idx]
+            text = ""
+            self.control_widget.append(
+                gr.Button(text, icon=self.ctrl.icons[idx])
+            )
+        return self.control_widget

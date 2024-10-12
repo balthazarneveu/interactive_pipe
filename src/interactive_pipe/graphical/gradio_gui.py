@@ -221,9 +221,14 @@ class MainWindow(InteractivePipeWindow):
                         continue
                     if self.sliders_per_row_layout == 1:
                         with selected_mode:
-                            for idx in ctrl_indices:
-                                elem = self.widget_list[idx]
-                                elem.render()
+                            for idx in range(len(self.widget_list)):
+                                if isinstance(self.widget_list[idx], list):
+                                    with gr.Row():
+                                        for elem in self.widget_list[idx]:
+                                            elem.render()
+                                else:
+                                    elem = self.widget_list[idx]
+                                    elem.render()
                     else:
                         with selected_mode:
                             for split_num in range(math.ceil(len(ctrl_indices)/self.sliders_per_row_layout)):
@@ -233,10 +238,17 @@ class MainWindow(InteractivePipeWindow):
                                     for idx in ctrl_indices[start:end]:
                                         elem = self.widget_list[idx]
                                         elem.render()
-
-                with gr.Accordion("Reset to default values", open=False):
-                    gr.Examples([self.default_values], inputs=self.widget_list, label="Presets")
-
+                changing_inputs = []
+                discard_reset_button = False
+                for idx in range(len(self.widget_list)):
+                    if isinstance(self.widget_list[idx], list):
+                        changing_inputs.append(gr.State(self.ctrl[list(self.ctrl.keys())[idx]].value_default))
+                        discard_reset_button = True  # Do not show reset button if there are lists of buttons
+                    else:
+                        changing_inputs.append(self.widget_list[idx])
+                if not discard_reset_button:
+                    with gr.Accordion("Reset to default values", open=False):
+                        gr.Examples([self.default_values], inputs=changing_inputs, label="Presets")
                 if self.markdown_description is not None:
                     title = "Description"
                     try:
@@ -246,13 +258,27 @@ class MainWindow(InteractivePipeWindow):
                         pass
                     with gr.Accordion(title, open=False):
                         gr.Markdown(self.markdown_description)
-                io.load(fn=self.run_fn, inputs=self.widget_list, outputs=outputs)
+                io.load(fn=self.run_fn, inputs=changing_inputs, outputs=outputs)
                 for idx in range(len(self.widget_list)):
-                    self.widget_list[idx].change(
-                        fn=self.run_fn, inputs=self.widget_list,
-                        outputs=outputs,
-                        show_progress="minimal"
-                    )
+                    if isinstance(self.widget_list[idx], list):
+                        for idy, elem in enumerate(self.widget_list[idx]):
+                            changing_inputs_copy = changing_inputs.copy()
+                            changing_inputs_copy[idx] = gr.State(
+                                self.ctrl[list(self.ctrl.keys())[idx]].value_range[idy])
+                            elem.click(
+                                fn=self.run_fn,
+                                inputs=changing_inputs_copy,
+                                outputs=outputs,
+                                show_progress="minimal"
+                            )
+                    else:
+                        self.widget_list[idx].change(
+                            fn=self.run_fn,
+                            inputs=changing_inputs,
+                            outputs=outputs,
+                            show_progress="minimal"
+                        )
+
             self.io = io
         self.io.launch(share=self.share_gradio_app)
 
