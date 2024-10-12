@@ -247,6 +247,8 @@ class MainWindow(InteractivePipeWindow):
                     if isinstance(self.widget_list[idx], list):
                         changing_inputs.append(gr.State(self.ctrl[list(self.ctrl.keys())[idx]].value_default))
                         discard_reset_button = True  # Do not show reset button if there are lists of buttons
+                        self.ctrl[list(self.ctrl.keys())[idx]].filter_to_connect.cache = False
+                        print(self.ctrl[list(self.ctrl.keys())[idx]].filter_to_connect)
                     else:
                         changing_inputs.append(self.widget_list[idx])
                 if not discard_reset_button:

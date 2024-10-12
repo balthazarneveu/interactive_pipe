@@ -318,6 +318,10 @@ class MainWindow(QWidget, InteractivePipeWindow):
             elif isinstance(ctrl, Control):
                 slider_instance = control_factory.create_control(
                     ctrl, self.update_parameter)
+                if ctrl._type == str and ctrl.icons is not None:
+                    ctrl.filter_to_connect.cache = False
+                    # Disable cache for dropdown menu with icons!
+                    # Allows clicking on the same item multiple times
                 slider_or_layout = slider_instance.create()
                 self.widget_list[slider_name] = slider_instance
 
