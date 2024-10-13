@@ -8,7 +8,7 @@ from interactive_pipe.graphical.window import InteractivePipeWindow
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.headless.control import Control
 from interactive_pipe.data_objects.audio import audio_to_html
-from copy import deepcopy
+from copy import copy
 import logging
 PYQTVERSION = None
 MPL_SUPPORT = False
@@ -49,9 +49,10 @@ class InteractivePipeGradio(InteractivePipeGUI):
         assert self.pipeline._PipelineCore__initialized_inputs, "Did you forget to initialize the pipeline inputs?"
         # In gradio, the first run is a "dry run", used to get the output types...
         try:
-            global_params_first_run = deepcopy(self.pipeline.global_params)
+            global_params_first_run = copy(self.pipeline.global_params)
+            # Do not use deepcopy, it will break the audio playback feature
         except Exception as exc:
-            logging.warning(f"Cannot deepcopy global_params: {exc}")
+            logging.warning(f"Cannot copy global_params: {exc}")
             global_params_first_run = self.pipeline.global_params
             pass
         out_list = self.window.process_inputs_fn(*self.window.default_values)
