@@ -40,7 +40,7 @@ class PipelineEngine:
             # if cache not available or if cache available and values have changed, need to recalculate from now on
             # cache | has changed | skip_calculation
             # 0     | X           | False -> no cache, cannot skip so calculate
-            # 1     | 0           | True -> cache with no change, skip the calculation
+            # 1     | 0           | True  -> cache with no change, skip the calculation
             # 1     | 1           | False -> cache and result changed, cannot skip so calculate
             skip_calculation &= (prc.cache_mem is not None) and (
                 not prc.cache_mem.has_changed(prc.values))

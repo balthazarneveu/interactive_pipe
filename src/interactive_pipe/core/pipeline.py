@@ -78,6 +78,10 @@ class PipelineCore:
         """
         return self.engine.run(self.filters, imglst=self.inputs)
 
+    def _reset_global_params(self):
+        for filter in self.filters:
+            filter.global_params = self.global_params
+
     @property
     def parameters(self):
         parameters = {}

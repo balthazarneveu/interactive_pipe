@@ -8,6 +8,7 @@ from interactive_pipe.graphical.window import InteractivePipeWindow
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.headless.control import Control
 from interactive_pipe.data_objects.audio import audio_to_html
+from copy import deepcopy
 import logging
 PYQTVERSION = None
 MPL_SUPPORT = False
@@ -46,7 +47,17 @@ class InteractivePipeGradio(InteractivePipeGUI):
 
     def run(self) -> list:
         assert self.pipeline._PipelineCore__initialized_inputs, "Did you forget to initialize the pipeline inputs?"
+        # In gradio, the first run is a "dry run", used to get the output types...
+        try:
+            global_params_first_run = deepcopy(self.pipeline.global_params)
+        except Exception as exc:
+            logging.warning(f"Cannot deepcopy global_params: {exc}")
+            global_params_first_run = self.pipeline.global_params
+            pass
         out_list = self.window.process_inputs_fn(*self.window.default_values)
+        self.pipeline.global_params = global_params_first_run
+        # Reset global parameters... in case they were modified by the first run
+        self.pipeline._reset_global_params()
         self.window.refresh_display(out_list)
         out_list_gradio_containers = []
         for idx in range(len(out_list)):
@@ -248,7 +259,7 @@ class MainWindow(InteractivePipeWindow):
                         changing_inputs.append(gr.State(self.ctrl[list(self.ctrl.keys())[idx]].value_default))
                         discard_reset_button = True  # Do not show reset button if there are lists of buttons
                         self.ctrl[list(self.ctrl.keys())[idx]].filter_to_connect.cache = False
-                        print(self.ctrl[list(self.ctrl.keys())[idx]].filter_to_connect)
+                        self.ctrl[list(self.ctrl.keys())[idx]].filter_to_connect.cache_mem = None
                     else:
                         changing_inputs.append(self.widget_list[idx])
                 if not discard_reset_button:

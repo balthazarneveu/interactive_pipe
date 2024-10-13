@@ -320,6 +320,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
                     ctrl, self.update_parameter)
                 if ctrl._type == str and ctrl.icons is not None:
                     ctrl.filter_to_connect.cache = False
+                    ctrl.filter_to_connect.cache_mem = None
                     # Disable cache for dropdown menu with icons!
                     # Allows clicking on the same item multiple times
                 slider_or_layout = slider_instance.create()
