@@ -59,6 +59,7 @@ class InteractivePipeGradio(InteractivePipeGUI):
         self.pipeline.global_params = global_params_first_run
         # Reset global parameters... in case they were modified by the first run
         self.pipeline._reset_global_params()
+        self.pipeline.reset_cache()
         self.window.refresh_display(out_list)
         out_list_gradio_containers = []
         for idx in range(len(out_list)):
