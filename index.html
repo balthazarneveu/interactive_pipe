@@ -151,97 +151,163 @@
 
     <!-- Wrap the rest of the page in another container to center all the content. -->
     <div class="container marketing p-md-5">
-
       <div class="row featurette">
-        <h2 class="featurette-heading">Define your pipeline without GUI considerations</h2>
+        <h2 class="featurette-heading">🧱 Define processing blocks as regular functions.</h2>
+        <!-- START -->
         <div class="col-md-7">
           <p class="lead">Define each atomic processing block as a regular python function.</p>
-          <p class="lead">We feed 2 things into each processing block:</p>
-          <p class="lead">- Arguments are buffers containing signals (numpy arrays).</p>
-          <p class="lead">- Keyword arguments are default parameters (float, bool, str)</p>
-          <!-- <pre><code class="language-python">from interactive_pipe import interactive_pipeline
-def simple_pipe():
-  inp = gen_color()
-  out = flip_image(inp)
-  return [inp, out]
-
-interactive_pipeline(gui="qt")(simple_pipe)()</code></pre> -->
-
-          <pre><code class="language-python"># --- Define pipeline = sequence of processing blocks ---
-
-def simple_pipe():
-    inp = gen_color()
-    out = flip_image(inp)
-    return [inp, out] # Display 2 images side by side
-  </code></pre>
-
-          <p class="lead">Interactive Pipe will create a graph and deal with the sequential execution of the pipeline.
-            No need to duplicate code and provide parameters to each processing block.</p>
-          <!-- <p class="lead">Define each atomic processing block as a regular python function. Keyword arguments are default parameters fed into the block.</p>
-            <p class="lead">Int and Float will later be turned into sliders.</p>
-            <p class="lead">Boolean will be transformed into checkboxes.</p>
-            <p class="lead">Strings will be transformed into dialog boxes.</p> -->
-
+          <p class="lead">2 kinds of elements are fed into each processing block:</p>
+          <p class="lead">➡️ Arguments are signal buffers (numpy arrays).</p>
+          <p class="lead">➡️ Keyword arguments are default parameters (float, int, bool, str).</p>
+          <p class="lead">↪️ Function can return several signal buffers (numpy arrays).</p>
         </div>
-
         <div class="col-md-5 code-block">
           <!-- <p class="lead">Define each atomic processing block as a regular python function.</p>
             <p class="lead">We feed 2 things into each processing block:</p> -->
           <pre><code class="language-python">import numpy as np
 # --- Define processing blocks ---
+def gen_color(green=1., decay=2):
+    t = np.linspace(0., 1., 256)
+    X, Y = np.meshgrid(np.exp(-t*decay), t)
+    return np.stack([X, green*Y, Y[::-1]], -1)
 
-def gen_color(angle=45.):
-    # float keyword arg <-> slider
-    lin_coord = np.linspace(-1, 1, 256)
-    X, Y = np.meshgrid(lin_coord, lin_coord)
-    ang = np.deg2rad(angle)
-    im = np.cos(ang) * X + np.sin(ang) * Y
-    im = np.clip(1+im, 0, 1)
-    return np.stack(
-      [im, im[::-1], im[:, ::-1]],
-      axis=-1
-    )
-
-  def flip_image(img, flip=True, mirror=True):
-    # bool keyword arg <-> checkbox
+def flip_img(img, flip=True):
     out = img[::-1] if flip else img.copy()
-    return out[:, ::-1] if mirror else out</code>
+    return out, img[:, ::-1]
+
+def amplify(img, amp="L"):
+    ratio = {"S":4, "M":3, "L": 2, XL":1}[amp]
+    return 1/ratio*img</code>
           </pre>
         </div>
-        <!-- <img src="static/static_pipe.png" style="max-width: 100%;" ="static_pipeline"> -->
+
+        <!-- END -->
       </div>
+      <div class="row featurette">
+        <h2 class="featurette-heading">🔗 Chain processing blocks to define a pipeline.</h2>
+        <div class="col-md-7">
+          <p class="lead">🔀 Interactive Pipe creates a graph and deals with the sequential execution of the pipeline.</p>
+          <!-- <p class="lead">No need to duplicate code and provide parameters to each processing block.</p> -->
+          <p class="lead">🪟 Output layout is specified by the return statement. Returning 3
+            images leads to a side by side view.</p>
+        </div>
+        <div class="col-md-5 code-block">
+<pre><code class="language-python"># --- Define pipeline ---
+def simple_pipe():
+    inp = gen_color()
+    out_flip, out_mirror = flip_img(inp)
+    out = amplify(out_mirror)
+    return [inp, out_flip, out]
+    # Display 3 images side by side</code>
+      </pre>
+    </div>
+</div>
 
 
       <hr class="featurette-divider">
 
       <div class="row featurette">
-        <!-- <img src="static/dynamic_pipe.png" style="max-width: 100%;" ="static_pipeline"> -->
-        <h2 class="featurette-heading">Add interactivity with just a few extra lines of code</h2>
-        <div class="col-md-5">
-          <p class="lead">By decorating each processing block, Interactive pipe will automatically add the sliders for
-            you.</p>
-          <p class="lead">Also note that the outputs will be displayed according to the return statement. Returning 2
-            images will lead to a side by side view.</p>
+        <h2 class="featurette-heading">🕹️ Add controls to processing blocks.</h2>
+
+        <div class="col-md-7">
+          <p class="lead">By decorating each processing block, Interactive pipe adds controls.</p>
+          
+          <p class="lead">Interactive Pipe deals with several graphical interfaces backends and generate similar GUI.
+          </p>
+
+
+          <style>
+            table {
+              border-collapse: collapse;
+              width: 100%;
+            }
+          
+            th, td {
+              border: 1px solid black;
+              padding: 8px;
+              text-align: center;
+            }
+          
+            th {
+              background-color: #f2f2f2;
+              font-family: "Courier New", Courier, monospace;
+            }
+          
+            td {
+              font-family: Arial, sans-serif;
+            }
+          
+            /* Optional: Styling the label to also look like code */
+            label {
+              font-family: "Courier New", Courier, monospace;
+            }
+          </style>
+          
+          <table>
+            <tr>
+              <th><code>string</code></th>
+              <th><code>boolean</code></th>
+              <th><code>integer</code></th>
+              <th><code>float</code></th>
+            </tr>
+            <tr>
+              <td>
+                Amplify <br>
+                <select id="menu" name="menu">
+                  <option value="option1">S   </option>
+                  <option value="option2">M   </option>
+                  <option value="option3">L   </option>
+                  <option value="option4">XL  </option>
+                </select>
+              </td>
+              <td>
+                Flip <br>
+                <input type="checkbox" id="check1" name="check1" value="agree">
+              </td>
+              <td>
+                Color Decay <br><input type="range" id="intSlider" name="intSlider" min="0" max="9" value="3" step="1" oninput="document.getElementById('intSliderValue').textContent = this.value;">
+                <span id="intSliderValue">3</span>
+              </td>
+              <td>
+                Green amount <br><input type="range" id="floatSlider" name="floatSlider" min="0.1" max="0.9" value="0.3" step="0.1" oninput="document.getElementById('floatSliderValue').textContent = this.value;">
+                <span id="floatSliderValue">0.5</span>
+              </td>
+            </tr>
+          </table>
+          
+        </div>
+
+        <div class="col-md-5 code-block">
+          <pre><code class="language-python">import interactive_pipe  as ip
+# --- Decorate processing blocks --- 
+ip.interactive(
+  green=(1., [0., 1.], "Green amount"),
+  decay=(2 , [0 , 10], "Color decay")
+)(gen_color)
+ip.interactive(
+  amp=("XL", ["S", "M", "L", "XL"], "Amplify")
+)(amplify)
+ip.interactive(flip=(True, "Flip"))(flip_img)</code>
+</pre>
+</div>
+</div>
+<hr class="featurette-divider">
+
+      <div class="row featurette">
+        <h2 class="featurette-heading">▶️ Launch interactive pipe.</h2>
+
+        <div class="col-md-7">
+
           <p class="lead">Interactive Pipe deals with several graphical interfaces backends and generate similar GUI.
           </p>
         </div>
 
-        <div class="col-md-7 code-block">
-          <pre><code class="language-python">from interactive_pipe import interactive
-# --- Decorate processing blocks --- 
-interactive(angle=(45.,[0., 360.]))(gen_color)
-
-interactive(flip=(True,), mirror=(True,))(flip_image)
-
-
-from interactive_pipe import interactive_pipeline
-# --- Decorate pipeline which becomes interactive --- 
-interactive_pipeline(gui="qt")(simple_pipe)()
-</code></pre>
-        </div>
-
-      </div>
-
+        <div class="col-md-5 code-block">
+          <pre><code class="language-python"># --- Decorate pipeline & run --- 
+ip.interactive_pipeline(gui="qt")(simple_pipe)()</code>
+</pre>
+</div>
+</div>
       <hr class="featurette-divider">
       <div class="col-md-12">
         <!-- <div class="row featurette"> -->
