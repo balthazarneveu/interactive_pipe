@@ -182,9 +182,9 @@ def amplify(img, amp="L"):
         <!-- END -->
       </div>
       <div class="row featurette">
-        <h2 class="featurette-heading">🔗 Chain processing blocks to define a pipeline.</h2>
+        <h2 class="featurette-heading">🔗 Define a pipeline and output layout.</h2>
         <div class="col-md-7">
-          <p class="lead">🔀 Interactive Pipe creates a graph and deals with the sequential execution of the pipeline.</p>
+          <p class="lead">🔀 Chain processing blocks to define a pipeline.</p>
           <!-- <p class="lead">No need to duplicate code and provide parameters to each processing block.</p> -->
           <p class="lead">🪟 Output layout is specified by the return statement.</p>
             <style>
@@ -274,9 +274,9 @@ def pipe():
         <h2 class="featurette-heading">🕹️ Add controls to processing blocks.</h2>
 
         <div class="col-md-7">
-          <p class="lead">By decorating each processing block, Interactive pipe adds controls.</p>
+          <p class="lead">🎚️ By decorating a processing block, Interactive pipe adds controls.</p>
           
-          <p class="lead">Controls are automatically generated for each keyword argument.</p>
+          <p class="lead">👉 Controls are automatically created for each keyword argument.</p>
           </p>
 
 
@@ -293,9 +293,9 @@ def pipe():
               <td>
                 Amplify <br>
                 <select id="menu" name="menu">
+                  <option value="option3">L   </option>
                   <option value="option1">S   </option>
                   <option value="option2">M   </option>
-                  <option value="option3">L   </option>
                   <option value="option4">XL  </option>
                 </select>
               </td>
@@ -324,7 +324,7 @@ ip.interactive(
   decay=(2 , [0 , 10], "Color decay")
 )(gen_color)
 ip.interactive(
-  amp=("XL", ["S", "M", "L", "XL"], "Amplify")
+  amp=("L", ["S", "M", "L", "XL"], "Amplify")
 )(amplify)
 ip.interactive(flip=(True, "Flip"))(flip_img)</code>
 </pre>
@@ -337,8 +337,8 @@ ip.interactive(flip=(True, "Flip"))(flip_img)</code>
 
         <div class="col-md-7">
 
-          <p class="lead">Interactive Pipe deals with several graphical interfaces backends<p>
-          <p class="lead">No code changes needed: Same GUI, no matter the backend . </p>
+          <p class="lead">🎯 Interactive Pipe deals with several graphical interfaces backends.<p>
+          <p class="lead">💫 No code changes needed: Same GUI, no matter the backend . </p>
         </div>
 
         <div class="col-md-5 code-block">
@@ -349,18 +349,6 @@ ip.interactive_pipeline(gui="qt")(pipe)()</code>
 </div>
 
 <gradio-app src="https://balthou-interactive-pipe-sample-code.hf.space"></gradio-app>
-      <hr class="featurette-divider">
-      
-      <!-- <div class="hero position-relative overflow-hidden p-3 text-center text-dark"> -->
-      <div class="hero position-relative overflow-hidden p-3 text-center">
-        Learn more about features: plot curves, change backend, modify output layout, share context across processing blocks...
-        <a class="btn outline-interactivepipe btn-lg"
-          href="https://huggingface.co/spaces/balthou/interactive-pipe-tutorial">🔍 Full tutorial code 
-          <br>🤗 <img src="https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-sm.svg" alt="Open In HF"></a>
-        
-      <!-- <img src="static/interact-pipe-concept.svg" style="max-width: 100%;" ="static_pipeline"> -->
-      </div>
-
 
       <hr class="featurette-divider">
 
@@ -420,32 +408,23 @@ ip.interactive_pipeline(gui="qt")(pipe)()</code>
         <hr class="featurette-divider">
         <div class="col-md-12">
           <h2 class="featurette-heading">Features</h2>
-          <p class="lead">📈 📷 Images and Curves are supported by Interactive Pipe.</p>
-          <p class="lead">🎶 🎧 Live audio playback is supported using Qt and Gradio GUI.</p>
+          <p class="lead">📈 📷 <strong>Images and Curves</strong> are supported by Interactive Pipe.</p>
+          <p class="lead">🎶 🎧 <strong>Live audio playback</strong> is supported using Qt and Gradio GUI.</p>
+          <p class="lead">🏍️ 💾 <strong>A cache mechanism</strong> allows skipping computation if the inputs and sliders have not changed.</p>
+          <!-- Some processing blocks can be time consuming (neural network inference, loading data).  -->
           <!-- <p class="lead">🎛️ ✅ Sliders (both discrete [int] & continuous [float]), Checkbox [bool] and Dialogs [str]
             are supported. </p> -->
-        </div>
-        <div class="col-md-12">
-          <h2 class="featurette-heading">Cache mechanism</h2>
-          <p class="lead">🐌 Some processing blocks can be time consuming (neural network inference, loading data). </p>
-          <p class="lead">🏍️ Interactive Pipe offers a cache mechanism to avoid recomputing the same block if the
-            inputs and sliders have
-            not been changed.
-          </p>
         </div>
       </div>
       <hr class="featurette-divider">
       <div class="row featurette">
         <div class="col-md-12">
           <h2 class="featurette-heading">Why using interactive pipe?</h2>
-          <p class="lead">✊ Empower engineers and developpers to showcase their work.</p>
-          <p class="lead">🔍 Visual debugging: standard debugging tools are not well suited to image/audio algorithms.
-            Breakpoints are most often not enough!</p>
-          <p class="lead">🧑‍⚖️ A code review becomes much more interesting. Convince your colleagues that visually,
-            your code does what it is expected to do in addition to your unit tests.</p>
-          <p class="lead">🏭 Clear separation between production & graphical interface code (Processing blocks are
-            decorated outside, a pipeline also works headless and can be called using the command line).</p>
-          <p class="lead">🔬 Developped by scientists, for scientists.</p>
+          <p class="lead">✊ <strong>Empower engineers and developers to showcase their expertise.</strong></p>
+          <p class="lead">🔍 <strong>Visual debugging made intuitive</strong>: Traditional debugging tools often fall short for image and audio algorithms, where simple breakpoints aren't enough. Visual tools provide clearer insights.</p>
+          <p class="lead">🧑‍⚖️ <strong>Elevate code reviews</strong>: Go beyond unit tests—demonstrate your code's functionality visually, making it easier to convince peers that it works as expected.</p>
+          <p class="lead">🏭 <strong>Seamless production integration</strong>: Maintain a clean separation between production code and graphical interfaces. By decorating processing blocks in a dedicated file, your pipeline remain functional whether run in a GUI or headlessly via the command line.</p>
+          <p class="lead">🔬 <strong>Built by scientists, for scientists</strong>. Designed with research-driven workflows in mind.</p>
 
         </div>
         <!-- <hr class="featurette-divider">
@@ -485,9 +464,13 @@ ip.interactive_pipeline(gui="qt")(pipe)()</code>
       <!-- </div> -->
       <hr class="featurette-divider">
 
+
       <h2 class="featurette-heading">🎓 Learn more features...</h2>
-        <div class="col-md-12"><p class="lead">🔗 More tutorials available about advanced features of interactive pipe.</p></div>
+        <div class="col-md-12"><p class="lead">🔗 Many tutorials are available from basic to advanced features of interactive pipe.</p></div>
         <div class="position-relative overflow-hidden p-3 text-center">
+          <a class="btn outline-interactivepipe btn-lg"
+          href="https://huggingface.co/spaces/balthou/interactive-pipe-tutorial">🔍 Full tutorial code 
+          <br><img src="https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-sm.svg" alt="Open In HF"></a>
           
           <a class="btn outline-interactivepipe btn-lg" href="https://huggingface.co/spaces/balthou/interactive-pipe-neural-networks-and-curves">
             📈 Curves and Cache 💾<br><img src="https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-sm.svg" alt="Open In HF">
