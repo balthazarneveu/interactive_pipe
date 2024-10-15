@@ -162,8 +162,6 @@
           <p class="lead">↪️ Function can return several signal buffers (numpy arrays).</p>
         </div>
         <div class="col-md-5 code-block">
-          <!-- <p class="lead">Define each atomic processing block as a regular python function.</p>
-            <p class="lead">We feed 2 things into each processing block:</p> -->
           <pre><code class="language-python">import numpy as np
 # --- Define processing blocks ---
 def gen_color(green=1., decay=2):
@@ -278,7 +276,7 @@ def pipe():
         <div class="col-md-7">
           <p class="lead">By decorating each processing block, Interactive pipe adds controls.</p>
           
-          <p class="lead">Interactive Pipe deals with several graphical interfaces backends and generate similar GUI.
+          <p class="lead">Controls are automatically generated for each keyword argument.</p>
           </p>
 
 
@@ -339,8 +337,8 @@ ip.interactive(flip=(True, "Flip"))(flip_img)</code>
 
         <div class="col-md-7">
 
-          <p class="lead">Interactive Pipe deals with several graphical interfaces backends and generate similar GUI.
-          </p>
+          <p class="lead">Interactive Pipe deals with several graphical interfaces backends<p>
+          <p class="lead">No code changes needed: Same GUI, no matter the backend . </p>
         </div>
 
         <div class="col-md-5 code-block">
@@ -349,13 +347,9 @@ ip.interactive_pipeline(gui="qt")(pipe)()</code>
 </pre>
 </div>
 </div>
+
+<gradio-app src="https://balthou-interactive-pipe-sample-code.hf.space"></gradio-app>
       <hr class="featurette-divider">
-      <div class="col-md-12">
-        <!-- <div class="row featurette"> -->
-        <h2 class="featurette-heading">Sample code demo</h2>
-        <p>In less than 50 lines of code...</p>
-        <gradio-app src="https://balthou-interactive-pipe-sample-code.hf.space"></gradio-app>
-      </div>
       
       <!-- <div class="hero position-relative overflow-hidden p-3 text-center text-dark"> -->
       <div class="hero position-relative overflow-hidden p-3 text-center">
@@ -367,67 +361,58 @@ ip.interactive_pipeline(gui="qt")(pipe)()</code>
       <!-- <img src="static/interact-pipe-concept.svg" style="max-width: 100%;" ="static_pipeline"> -->
       </div>
 
+
+      <hr class="featurette-divider">
+
       <div class="row featurette">
-        <h2 class="featurette-heading">Multiple backends support</h2>
-        <p>Interactive Pipe offers a range of options for displaying your code, often with only minor code changes.</p>
-        <div class="row">
-          <div class="col-lg-4">
-            <h2 class="mt-3">💻 PyQt</h2>
-            <p>✅ Configure output layouts.</p>
-            <p>✅ Keyboard shortcuts, Full screen.</p>
-            <p>✅ Audio Playback.</p>
-            <p>
-              <a class="btn btn-outline-secondary"
-                href="https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/multi_image.py"
-                role="button">Sample python code &raquo;</a>
-              <!-- <a class="btn btn-secondary" href="https://huggingface.co/spaces/balthou/novel-views-point-splat" role="button">Example: Neural point splatting &raquo;</a> -->
-            </p>
+      <h2 class="featurette-heading">Multiple backends support</h2>
+      <p>Interactive Pipe offers a range of options for displaying your code, no code changes needed.</p>
+      <div class="row">
 
-            <hr class="featurette-divider">
-            <img src="static/qt_demo.png" style="max-width: 100%;" alt="Qt demo">
-
-            <!-- <pre><code class="language-python">
-              KeyboardSlider()
-            </code></pre> -->
-
-          </div>
-
-          <div class="col-lg-4">
-            <h2 class="mt-3">🤗 Gradio</h2>
+        <div class="col-lg-4">
+          <h2 class="mt-3">💻 PyQT</h2>
+          <p>✅ Dynamic control of output layouts.</p>
+          <p>✅ Keyboard shortcuts, Full screen.</p>
+          <p>✅ Audio Playback.</p>
+          <p>
+            <a class="btn btn-outline-secondary"
+              href="https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/multi_image.py"
+              role="button">Sample python code on github &raquo; <br> 
+            <svg xmlns="http://www.w3.org/2000/svg" width="150" height="22" viewBox="0 0 150 24">
+              <rect width="150" height="24" rx="8" ry="8" fill="#FFFFFF"/>
+              <path fill-rule="evenodd" clip-rule="evenodd" fill="#181717" d="M12 0C5.37 0 0 5.37 0 12a12 12 0 0 0 8.2 11.45c.6.11.82-.26.82-.58v-2.05c-3.34.73-4.04-1.42-4.04-1.42-.54-1.38-1.33-1.74-1.33-1.74-1.08-.74.08-.73.08-.73 1.2.08 1.83 1.23 1.83 1.23 1.07 1.83 2.8 1.3 3.48 1 .11-.77.42-1.3.76-1.6-2.67-.3-5.47-1.34-5.47-5.97 0-1.32.47-2.4 1.23-3.25-.12-.3-.53-1.53.11-3.18 0 0 1-.32 3.28 1.24a11.4 11.4 0 0 1 5.96 0C17.97 4.72 19 5.04 19 5.04c.64 1.65.23 2.88.12 3.18.77.85 1.23 1.93 1.23 3.25 0 4.64-2.81 5.67-5.49 5.97.43.37.81 1.1.81 2.22v3.28c0 .32.22.69.83.58A12 12 0 0 0 24 12c0-6.63-5.37-12-12-12Z"></path>
+              <text x="30" y="16" fill="#181717" font-size="12" font-family="Arial, sans-serif">Open on GitHub</text>
+            </svg>
+          </a>
+          </p>
+          <p>⌨️ Ideal during development, debug sessions and code reviews.</p>
+        </div><!-- /.col-lg-4 -->
+        <div class="col-lg-4">
+          <h2 class="mt-3">🤗 Gradio</h2>
             <p>✅ Share your pipeline with others.</p>
             <p>✅ Easily host in Hugging Face spaces.</p>
             <p>✅ Runs in a browser.</p>
             <p>
               <a class="btn btn-outline-secondary" href="https://huggingface.co/spaces/balthou/basic-image-editing"
-                role="button">Example: Basic Image editing &raquo;</a>
-              <!-- <a class="btn btn-secondary" href="https://huggingface.co/spaces/balthou/novel-views-point-splat" role="button">Example: Neural point splatting &raquo;</a> -->
+                role="button">Example: Basic Image editing &raquo;<br><img src="https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-sm.svg" alt="Open In HF"></a>
             </p>
-
-
-            <hr class="featurette-divider">
-            <img src="static/gradio_demo.png" style="max-width: 100%;" alt="gradio demo">
-            <!-- <pre><code class="language-python">
-markdown="## My demo"
-            </code></pre> -->
-
-
-          </div>
-          <div class="col-lg-4">
-            <h2 class="mt-3">📒 Jupyter notebooks</h2>
-            <p>✅ Tell stories with markdown & equations.</p>
-            <p>✅ Easily host on Google Colab.</p>
-            <p>✅ Based on IPywidget.</p>
-            <p>
-              <a class="btn btn-outline-secondary"
-                href="https://colab.research.google.com/github/livalgo/interactive-pipe-examples/blob/main/interactive_pipe_demo_science_notebook.ipynb"
-                role="button">Sample &raquo; <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
-            </p>
-            <hr class="featurette-divider">
-            <img src="static/jupyter_notebook_demo.png" style="max-width: 100%;" alt="jupyter notebook demo">
-          </div>
-        </div>
-
+            <p>🧪 Ideal to share ideas inside a scientific team, ready for demos.</p>
+        </div><!-- /.col-lg-4 -->
+        <div class="col-lg-4">
+          <h2 class="mt-3">📒 Notebooks</h2>
+          <p>✅ Annotate with markdown and equations.</p>
+          <p>✅ Easily host on Google Colab.</p>
+          <p>✅ Based on Jupyter IPywidget.</p>
+          <p>
+            <a class="btn btn-outline-secondary"
+              href="https://colab.research.google.com/github/livalgo/interactive-pipe-examples/blob/main/interactive_pipe_demo_science_notebook.ipynb"
+              role="button">Example: Signal processing notebook &raquo; <br><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
+          </p>
+          <p>🧑‍🎓 Ideal for students projects (computer vision, machine learning).</p>
+        </div><!-- /.col-lg-4 -->
+      </div><!-- /.row -->
       </div>
+
       <hr class="featurette-divider">
 
       <div class="row featurette">
@@ -436,10 +421,9 @@ markdown="## My demo"
         <div class="col-md-12">
           <h2 class="featurette-heading">Features</h2>
           <p class="lead">📈 📷 Images and Curves are supported by Interactive Pipe.</p>
-          <p class="lead">🎶 🎧 Live audio playback is supported using Qt and Gradio GUI.
-            </a> </p>
-          <p class="lead">🎛️ ✅ Sliders (both discrete [int] & continuous [float]), Checkbox [bool] and Dialogs [str]
-            are supported. </p>
+          <p class="lead">🎶 🎧 Live audio playback is supported using Qt and Gradio GUI.</p>
+          <!-- <p class="lead">🎛️ ✅ Sliders (both discrete [int] & continuous [float]), Checkbox [bool] and Dialogs [str]
+            are supported. </p> -->
         </div>
         <div class="col-md-12">
           <h2 class="featurette-heading">Cache mechanism</h2>
@@ -464,11 +448,11 @@ markdown="## My demo"
           <p class="lead">🔬 Developped by scientists, for scientists.</p>
 
         </div>
-        <hr class="featurette-divider">
+        <!-- <hr class="featurette-divider">
         <div class="col-md-12">
           <h2 class="featurette-heading">Live demo</h2>
           <gradio-app src="https://balthou-basic-image-editing.hf.space"></gradio-app>
-        </div>
+        </div> -->
       </div>
 
 
