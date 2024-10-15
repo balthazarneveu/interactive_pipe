@@ -87,12 +87,12 @@ body {
 }
 
 .install-logo {
-  height: 40px; /* Adjust logo size as needed */
+  height: 40px;
   width: auto;
 }
 
 .install-command {
-  font-size: 1.2rem;
+  font-size: 0.8rem;
   font-weight: bold;
 }
 
@@ -172,7 +172,7 @@ justify-content: center;
 
 @media (min-width: 40em) {
   .featurette-heading {
-    font-size: 50px;
+    font-size: 40px;
   }
 }
 

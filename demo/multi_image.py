@@ -68,7 +68,7 @@ def img_selector(img_list: List[Path], index: int = 0, global_params={}) -> np.n
     """Select an image from the list - sets image title"""
     img = Image.load_image(str(img_list[index]))
     # Please note the "image" key to set the title
-    title = f"Image {index:d}/{len(img_list)} {img_list[index].stem}"
+    title = f"Image {index+1:d}/{len(img_list)} {img_list[index].stem}"
     global_params["__output_styles"]["image"] = {"title": title}
     return img
 
@@ -113,7 +113,7 @@ def image_pipeline(img_list: List[Path]):
     # return [[image, processed_image], [thresholded_image, None]]  # This is to get a 2x2 grid
 
 # Let's make the pipeline interactive!
-# 3 possitiblities: qt, mpl (matplotlib) or nb (jupyter notebook)
+# 4 possibilities: qt, gradio, mpl (matplotlib) or nb (jupyter notebook)
 # --------------------------------------------------------------------------------------------
 
 
