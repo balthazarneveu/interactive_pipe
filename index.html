@@ -188,12 +188,78 @@ def amplify(img, amp="L"):
         <div class="col-md-7">
           <p class="lead">🔀 Interactive Pipe creates a graph and deals with the sequential execution of the pipeline.</p>
           <!-- <p class="lead">No need to duplicate code and provide parameters to each processing block.</p> -->
-          <p class="lead">🪟 Output layout is specified by the return statement. Returning 3
-            images leads to a side by side view.</p>
+          <p class="lead">🪟 Output layout is specified by the return statement.</p>
+            <style>
+              table {
+                border-collapse: collapse;
+                width: 100%;
+              }
+            
+              th, td {
+                border: 1px solid black;
+                padding: 8px;
+                text-align: center;
+              }
+            
+              th {
+                background-color: #f2f2f2;
+                font-family: "Courier New", Courier, monospace;
+              }
+            
+              td {
+                font-family: Arial, sans-serif;
+              }
+            </style>
+                <table>
+                  <tr>
+                      <th><code>return [A, B, C]</code></th>
+                      <th><code>return [[A, B], [C, D]]</code></th>
+                      <th><code>return [[A], [B]]</code></th>
+                  </tr>
+                  <tr>
+                      <td>
+                          <svg width="150" height="50" xmlns="http://www.w3.org/2000/svg">
+                              <rect x="0" y="0" width="50" height="50" fill="lightblue" />
+                              <text x="25" y="25" dominant-baseline="middle" text-anchor="middle" font-size="10">A</text>
+                          
+                              <rect x="50" y="0" width="50" height="50" fill="lightgreen" />
+                              <text x="75" y="25" dominant-baseline="middle" text-anchor="middle" font-size="10">B</text>
+                          
+                              <rect x="100" y="0" width="50" height="50" fill="lightcoral" />
+                              <text x="125" y="25" dominant-baseline="middle" text-anchor="middle" font-size="10">C</text>
+                          </svg>
+                      </td>
+                      <td>
+                          <svg width="210" height="50" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="0" y="0" width="48" height="24" fill="lightblue" />
+                            <text x="24" y="12" dominant-baseline="middle" text-anchor="middle" font-size="10">A</text>
+                        
+                            <rect x="50" y="0" width="48" height="24" fill="lightgreen" />
+                            <text x="74" y="12" dominant-baseline="middle" text-anchor="middle" font-size="10">B</text>
+                        
+                            <rect x="0" y="25" width="48" height="24" fill="lightcoral" />
+                            <text x="24" y="37" dominant-baseline="middle" text-anchor="middle" font-size="10">C</text>
+                        
+                            <rect x="50" y="25" width="48" height="24" fill="lightyellow" />
+                            <text x="74" y="37" dominant-baseline="middle" text-anchor="middle" font-size="10">D</text>
+                        </svg>
+                      </td>
+                      <td>
+                        <svg width="50" height="50" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="0" y="0" width="50" height="24" fill="lightblue" />
+                            <text x="25" y="12" dominant-baseline="middle" text-anchor="middle" font-size="10">A</text>
+                        
+                            <rect x="0" y="25" width="50" height="24" fill="lightgreen" />
+                            <text x="25" y="37" dominant-baseline="middle" text-anchor="middle" font-size="10">B</text>
+                        </svg>
+                    </td>
+                  </tr>
+              </table>
+
         </div>
         <div class="col-md-5 code-block">
 <pre><code class="language-python"># --- Define pipeline ---
-def simple_pipe():
+def pipe():
     inp = gen_color()
     out_flip, out_mirror = flip_img(inp)
     out = amplify(out_mirror)
@@ -216,32 +282,7 @@ def simple_pipe():
           </p>
 
 
-          <style>
-            table {
-              border-collapse: collapse;
-              width: 100%;
-            }
           
-            th, td {
-              border: 1px solid black;
-              padding: 8px;
-              text-align: center;
-            }
-          
-            th {
-              background-color: #f2f2f2;
-              font-family: "Courier New", Courier, monospace;
-            }
-          
-            td {
-              font-family: Arial, sans-serif;
-            }
-          
-            /* Optional: Styling the label to also look like code */
-            label {
-              font-family: "Courier New", Courier, monospace;
-            }
-          </style>
           
           <table>
             <tr>
@@ -304,7 +345,7 @@ ip.interactive(flip=(True, "Flip"))(flip_img)</code>
 
         <div class="col-md-5 code-block">
           <pre><code class="language-python"># --- Decorate pipeline & run --- 
-ip.interactive_pipeline(gui="qt")(simple_pipe)()</code>
+ip.interactive_pipeline(gui="qt")(pipe)()</code>
 </pre>
 </div>
 </div>
