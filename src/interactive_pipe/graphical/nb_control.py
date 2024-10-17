@@ -1,4 +1,4 @@
-from ipywidgets import Dropdown, FloatSlider, IntSlider, Checkbox, Layout
+from ipywidgets import Dropdown, FloatSlider, IntSlider, Checkbox, Layout, Text
 from interactive_pipe.headless.control import Control
 import logging
 
@@ -55,9 +55,23 @@ class DialogNotebookControl(BaseControl):
 
     def create(self):
         options = self.ctrl.value_range
-        radio = Dropdown(
+        dropdown = Dropdown(
             options=options, description=self.name, layout=self.layout)
-        return radio
+        return dropdown
+
+
+class PromptNotebookControl(BaseControl):
+    def check_control_type(self):
+        assert self.ctrl._type == str
+        assert self.ctrl.value_range is None
+
+    def create(self):
+        text_box = Text(
+            value=self.ctrl.value,
+            description=self.name,
+            layout=self.layout
+        )
+        return text_box
 
 
 class ControlFactory:
@@ -69,7 +83,7 @@ class ControlFactory:
             bool: BoolCheckButtonNotebookControl,
             int: IntSliderNotebookControl,
             float: FloatSliderNotebookControl,
-            str: DialogNotebookControl,
+            str: PromptNotebookControl if control.value_range is None else DialogNotebookControl,
         }
 
         if control_type not in control_class_map:
