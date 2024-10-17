@@ -469,6 +469,9 @@ class MainWindow(QWidget, InteractivePipeWindow):
             pixmap = QPixmap.fromImage(image)
             image_label = self.image_canvas[row][col]["image"]
             image_label.setPixmap(pixmap)
+        elif isinstance(image_array_original, str):
+            txt_label = self.image_canvas[row][col]["image"]
+            txt_label.setText(image_array_original)
         if not isinstance(image_array_original, np.ndarray):
             image_array = image_array_original
             if MPL_SUPPORT and isinstance(image_array, Curve):
@@ -487,7 +490,9 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 else:
                     image_array.update_plot(plt_obj, ax=ax)
                     ax.figure.canvas.draw()
-
+            elif isinstance(image_array, str):
+                txt_label = self.image_canvas[row][col]["image"]
+                txt_label.setText(image_array)
         text_label = self.image_canvas[row][col]["title"]
         text_label.setText(self.get_current_style(row, col).get("title", ""))
 
