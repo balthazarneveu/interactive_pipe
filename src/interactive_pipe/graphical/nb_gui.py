@@ -24,7 +24,7 @@ class InteractivePipeJupyter(InteractivePipeGUI):
 
 
 class MainWindow(MatplotlibWindow):
-    def __init__(self,  controls=[], name="", pipeline=None, size: Optional[Union[int, Tuple[int, int]]] = None, style: str = None, rc_params=None):
+    def __init__(self,  controls=[], name="", pipeline=None, size: Optional[Union[int, Tuple[int, int]]] = None, style: str = None, rc_params=None, **unused_kwargs):
         if size is not None and isinstance(size, int):
             size = (size, size)
         assert size is None or isinstance(size, tuple) or isinstance(

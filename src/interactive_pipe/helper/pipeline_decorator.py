@@ -20,7 +20,9 @@ def interactive_pipeline(
     global_state: Optional[dict] = None,  # alias for global_params
     global_context: Optional[dict] = None,  # alias for global_params
     context: Optional[dict] = None,  # alias for global_params
-    state: Optional[dict] = None,  # alias for global_params
+    state: Optional[dict] = None,  # alias for global_params,
+    markdown_description: Optional[str] = None,
+    name: Optional[str] = None,
     **kwargs_gui,
 ) -> Union[HeadlessPipeline, InteractivePipeGUI]:
     """@interactive_pipeline
@@ -46,7 +48,11 @@ def interactive_pipeline(
         else:
             InteractivePipeGui = get_interactive_pipeline_class(gui)
             gui_pipeline = InteractivePipeGui(
-                pipeline=headless_pipeline, name=pipeline_function.__name__, **kwargs_gui)
+                pipeline=headless_pipeline,
+                markdown_description=markdown_description,
+                name=name if name is not None else pipeline_function.__name__,
+                **kwargs_gui
+            )
 
         @ functools.wraps(pipeline_function)
         def inner(*args, **kwargs):
