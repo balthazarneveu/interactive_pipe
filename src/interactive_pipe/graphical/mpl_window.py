@@ -62,6 +62,8 @@ class MatplotlibWindow(InteractivePipeWindow):
                     data.set_ydata(img)
             elif isinstance(img, Curve):
                 img.update_plot(data, ax=ax_dict["ax"])
+            elif isinstance(img, str):
+                data.set_text(img)
         else:
             if isinstance(img, np.ndarray):
                 if len(img.shape) > 1:
@@ -70,6 +72,8 @@ class MatplotlibWindow(InteractivePipeWindow):
                     ax_dict["data"] = Curve([img]).create_plot(ax=ax_dict["ax"])
             elif isinstance(img, Curve):
                 ax_dict["data"] = img.create_plot(ax=ax_dict["ax"])
+            elif isinstance(img, str):
+                ax_dict["data"] = ax_dict["ax"].text(0.5, 0.5, img, ha='center', va='center', fontsize=10)
         if not (isinstance(img, Curve) and img.data["title"] is not None):
             self.update_style(ax_dict["ax"], style=current_style)
 
