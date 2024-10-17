@@ -82,6 +82,8 @@ class InteractivePipeGradio(InteractivePipeGUI):
                     out_list_gradio_containers.append(gr.Plot(label=title))
                     self.window.image_canvas[idx][idy]["type"] = "curve"
                 # @TODO: https://github.com/balthazarneveu/interactive_pipe/issues/50 support audio!
+                elif isinstance(out_list[idx][idy], str):
+                    out_list_gradio_containers.append(gr.Textbox(label=title))
                 else:
                     raise NotImplementedError(
                         f"output type {type(out_list[idx][idy])} not supported")
@@ -135,6 +137,8 @@ class MainWindow(InteractivePipeWindow):
                             else:
                                 logging.debug(f"CONVERTING IMAGE  {idx} {idy}")
                                 flat_out.append(self.convert_image(out[idx][idy]))
+                        elif isinstance(out[idx][idy], str):
+                            flat_out.append(out[idx][idy])
                         else:
                             raise NotImplementedError(
                                 f"output type {type(out[idx][idy])} not suported")
