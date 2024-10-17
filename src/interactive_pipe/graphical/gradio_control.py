@@ -29,7 +29,7 @@ class ControlFactory:
             bool: TickBoxControl,
             int: IntSliderControl,
             float: FloatSliderControl,
-            str: DropdownMenuControl if control.icons is None else IconButtonsControl
+            str: PromptControl if control.value_range is None else (DropdownMenuControl if control.icons is None else IconButtonsControl),
         }
 
         if control_type not in control_class_map:
@@ -90,15 +90,17 @@ class DropdownMenuControl(BaseControl):
             raise ValueError("Invalid control type")
 
     def create(self) -> gr.Dropdown:
-        # Create a horizontal layout to hold the dropdown menu
         self.control_widget = gr.Dropdown(label=self.name, choices=self.ctrl.value_range, value=self.ctrl.value)
         return self.control_widget
 
-    def reset(self):
-        index = self.control_widget.findText(self.ctrl.value)
-        if index >= 0:
-            self.control_widget.setCurrentIndex(index)
-        self.control_widget.setCurrentIndex(index)
+
+class PromptControl(BaseControl):
+    def check_control_type(self):
+        assert self.ctrl._type == str
+
+    def create(self) -> gr.Text:
+        self.control_widget = gr.Text(label=self.name, value=self.ctrl.value)
+        return self.control_widget
 
 
 class IconButtonsControl(BaseControl):

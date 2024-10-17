@@ -126,11 +126,14 @@ def control_from_tuple(short_params: Tuple, param_name: str = None) -> Union[Con
             assert len(
                 short_params) >= 2, f"providing a value range is mandatory like (min, max) or (min, max, step)"
             value_range = short_params[start]
-            assert isinstance(value_range, list) or isinstance(
-                value_range, tuple), f"value range should be a tuple or a list, provided {value_range}"
-            if (isinstance(value_default, float) or isinstance(value_default, int)) and len(value_range) >= 3:
-                step = value_range[2]
-                value_range = value_range[:2]
+            if value_range is None:
+                pass
+            else:
+                assert isinstance(value_range, list) or isinstance(
+                    value_range, tuple), f"value range should be a tuple or a list, provided {value_range}"
+                if (isinstance(value_default, float) or isinstance(value_default, int)) and len(value_range) >= 3:
+                    step = value_range[2]
+                    value_range = value_range[:2]
         else:
             # ["cat", "dog", "tree"] -> default value = "cat"
             # [-10, 10, 1] -> default val = average(-10, 10), step=1

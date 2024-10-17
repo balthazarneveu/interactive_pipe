@@ -1,4 +1,4 @@
-from matplotlib.widgets import Slider, CheckButtons, RadioButtons
+from matplotlib.widgets import Slider, CheckButtons, RadioButtons, TextBox
 from interactive_pipe.headless.control import Control
 import logging
 
@@ -58,6 +58,7 @@ class BoolCheckButtonMatplotlibControl(BaseControl):
 class StringRadioButtonMatplotlibControl(BaseControl):
     def check_control_type(self):
         assert self.ctrl._type == str
+        assert self.ctrl.value_range is not None
 
     def create(self):
         options = self.ctrl.value_range
@@ -66,6 +67,26 @@ class StringRadioButtonMatplotlibControl(BaseControl):
         radio.on_clicked(lambda val: self.update_func(self.name, val))
 
         return radio
+
+
+
+class PromptMatplotlibControl(BaseControl):
+    def check_control_type(self):
+        assert self.ctrl._type == str
+        assert self.ctrl.value_range is None
+
+    def create(self):
+        # Create a prompt for text input
+        self.text_box = TextBox(self.ax_control, 'Input', initial=self.ctrl.value)
+
+        # Function to handle the update when text is entered
+        def submit(text):
+            self.update_func(self.name, text)
+
+        # Connect the submission of the text box to the submit function
+        self.text_box.on_submit(submit)
+
+        return self.text_box
 
 
 class ControlFactory:
@@ -77,7 +98,7 @@ class ControlFactory:
             bool: BoolCheckButtonMatplotlibControl,
             int: IntSliderMatplotlibControl,
             float: FloatSliderMatplotlibControl,
-            str: StringRadioButtonMatplotlibControl,
+            str: PromptMatplotlibControl if control.value_range is None else StringRadioButtonMatplotlibControl,
         }
 
         if control_type not in control_class_map:

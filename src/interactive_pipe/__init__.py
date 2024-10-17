@@ -1,6 +1,6 @@
-__version__ = "0.8.3"
+__version__ = "0.8.4"
 from interactive_pipe.helper.pipeline_decorator import pipeline, interactive_pipeline
-from interactive_pipe.headless.control import Control, CircularControl
+from interactive_pipe.headless.control import Control, CircularControl, TextPrompt
 from interactive_pipe.data_objects.curves import Curve, SingleCurve
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.headless.keyboard import KeyboardControl

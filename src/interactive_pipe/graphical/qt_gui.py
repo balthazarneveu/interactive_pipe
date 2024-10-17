@@ -387,7 +387,10 @@ class MainWindow(QWidget, InteractivePipeWindow):
     def update_parameter(self, idx, value):
         """Required implementation for graphical controllers update"""
         if self.ctrl[idx]._type == str:
-            self.ctrl[idx].update(self.ctrl[idx].value_range[value])
+            if self.ctrl[idx].value_range is None:
+                self.ctrl[idx].update(value)
+            else:
+                self.ctrl[idx].update(self.ctrl[idx].value_range[value])
         elif self.ctrl[idx]._type == bool:
             self.ctrl[idx].update(bool(value))
         elif self.ctrl[idx]._type == float:

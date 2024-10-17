@@ -147,7 +147,7 @@ class MainWindow(MatplotlibWindow):
                 self.main_gui.bind_keyboard_slider(
                     ctrl, self.key_update_parameter)
                 continue
-            if ctrl._type == bool or ctrl._type == str:
+            if ctrl._type == bool or (ctrl._type == str and ctrl.value_range is not None):
                 x_start = 0.01
                 width = 0.08
                 number_of_items = (1 if ctrl._type ==
@@ -155,10 +155,12 @@ class MainWindow(MatplotlibWindow):
                 height = 0.02 * number_of_items
                 y_start = self.next_slider_position - height
                 self.next_slider_position -= self.spacer + height
-            elif ctrl._type == float or ctrl._type == int:
+            elif ctrl._type == float or ctrl._type == int or (ctrl._type == str and ctrl.value_range is None):
                 x_start = 0.25
                 width = 0.65
                 height = 0.02
+                if ctrl._type == str:
+                    height = 0.05
                 y_start = self.next_button_position - height
                 self.next_button_position -= self.spacer + height
             if not dry_run:

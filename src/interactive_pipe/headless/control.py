@@ -51,15 +51,19 @@ class Control():
                 assert value_default >= value_range[0] and value_default <= value_range[1]
         elif isinstance(value_default, str):
             # similar to an enum
-            assert value_range
-            assert isinstance(value_range, list) or isinstance(
-                value_range, tuple)
-            for choice in value_range:
-                assert isinstance(choice, str)
-            assert value_default in value_range, f"{value_default} shall be in {value_range}"
-            self._type = str
-            if self.step is None:
-                step = 1
+            if value_range is None:
+                logging.debug("string prompt only - no range")
+                self._type = str
+            else:
+                assert value_range
+                assert isinstance(value_range, list) or isinstance(
+                    value_range, tuple)
+                for choice in value_range:
+                    assert isinstance(choice, str)
+                assert value_default in value_range, f"{value_default} shall be in {value_range}"
+                self._type = str
+                if self.step is None:
+                    step = 1
         else:
             raise TypeError("Wrong value type")
         self.value_range = value_range
@@ -94,7 +98,7 @@ class Control():
         assert isinstance(value, self._type), f"{type(value)} != {self._type}"
         if isinstance(value, float) or isinstance(value, int) and self.value_range:
             return max(self.value_range[0], min(value, self.value_range[1]))
-        elif self._type == str:
+        elif self._type == str and self.value_range is not None:
             assert value in self.value_range, f"{value} shall be in {self.value_range}"
             return value
         else:
@@ -150,10 +154,19 @@ class CircularControl(Control):
     Replace a slider by a circular slider
     """
 
-    def __init__(self, value_default: Union[int, float, bool, str], value_range: List[Union[int, float, str]] = None, modulo=True, name=None, step=None, filter_to_connect: Optional[FilterCore] = None, parameter_name_to_connect: Optional[str] = None) -> None:
+    def __init__(self, value_default: Union[int, float], value_range: List[Union[int, float]] = None, modulo=True, name=None, step=None, filter_to_connect: Optional[FilterCore] = None, parameter_name_to_connect: Optional[str] = None) -> None:
         super().__init__(value_default=value_default, value_range=value_range, name=name, step=step,
                          filter_to_connect=filter_to_connect, parameter_name_to_connect=parameter_name_to_connect, icons=None)
         self.modulo = modulo
 
     def __repr__(self) -> str:
         return super().__repr__() + f"| modulo:{self.modulo}"
+
+
+class TextPrompt(Control):
+    def __init__(self, value_default: str, name=None, filter_to_connect: Optional[FilterCore] = None, parameter_name_to_connect: Optional[str] = None) -> None:
+        super().__init__(value_default=value_default, value_range=None, name=name, step=None,
+                         filter_to_connect=filter_to_connect, parameter_name_to_connect=parameter_name_to_connect, icons=None)
+
+    def __repr__(self) -> str:
+        return super().__repr__()

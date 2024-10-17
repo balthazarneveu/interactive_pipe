@@ -30,6 +30,7 @@ if not PYQTVERSION:
     except ImportError:
         logging.warning("Cannot import PySide")
 
+
 class BaseControl(QWidget):
     def __init__(self, name, ctrl: Control, update_func, silent=False):
         super().__init__()
@@ -58,7 +59,8 @@ class ControlFactory:
             bool: TickBoxControl,
             int: IntSliderControl,
             float: FloatSliderControl,
-            str: DropdownMenuControl if control.icons is None else IconButtonsControl
+            str: PromptControl if control.value_range is None else (
+                DropdownMenuControl if control.icons is None else IconButtonsControl)
         }
 
         if control_type not in control_class_map:
@@ -96,7 +98,7 @@ class IntSliderControl(BaseControl):
             else:
                 slider_class = QSlider
                 slider = slider_class(Qt.Orientation.Horizontal, self)
-                
+
         slider.setRange(self.ctrl.value_range[0],  self.ctrl.value_range[1])
         slider.setValue(self.ctrl.value_default)
         slider.setSingleStep(1)
@@ -220,6 +222,39 @@ class DropdownMenuControl(BaseControl):
         if index >= 0:
             self.control_widget.setCurrentIndex(index)
         self.control_widget.setCurrentIndex(index)
+
+
+class PromptControl(BaseControl):
+    def check_control_type(self):
+        assert self.ctrl._type == str
+        assert self.ctrl.value_range is None
+
+    def create(self):
+        # Create a horizontal layout to hold the text prompt
+        hbox = QHBoxLayout()
+
+        # Create the line edit (text input field)
+        self.control_widget = QLineEdit(self)
+
+        # Set the initial value of the text field if it's provided
+        if self.ctrl.value:
+            self.control_widget.setText(self.ctrl.value)
+
+        # Connect the textChanged signal to the update function if needed
+        self.control_widget.textChanged.connect(partial(self.update_func, self.name))
+
+        # Add the text input field to the horizontal layout
+        hbox.addWidget(self.control_widget)
+
+        # Add a label to the layout
+        label = QLabel(self.name, self)
+        hbox.addWidget(label)
+
+        return hbox
+
+    def reset(self):
+        # Reset the text field to the initial value
+        self.control_widget.setText(self.ctrl.value)
 
 
 class TickBoxControl(BaseControl):
