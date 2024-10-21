@@ -1,6 +1,4 @@
 import pytest
-from pathlib import Path
-import shutil
 
 from interactive_pipe.data_objects.parameters import Parameters
 
@@ -30,4 +28,4 @@ def test_invalid_file_extension(tmp_path):
         params = Parameters.from_file(file_path)
     file_path.write_text("fake")
     with pytest.raises(AssertionError):
-        params = Parameters.from_file(file_path)
+        params = Parameters.from_file(file_path)  # noqa: F841

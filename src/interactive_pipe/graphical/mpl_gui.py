@@ -1,7 +1,7 @@
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 import matplotlib.pyplot as plt
 from interactive_pipe.headless.keyboard import KeyboardControl
-from typing import List, Optional, Union, Tuple
+from typing import Optional, Union, Tuple
 import logging
 from interactive_pipe.graphical.mpl_control import ControlFactory
 from interactive_pipe.graphical.mpl_window import MatplotlibWindow
@@ -68,7 +68,8 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
                 for param_name in params.keys():
                     if param_name == widget.parameter_name_to_connect:
                         print(
-                            f"MATCH & update {filtname} {widget_idx} with {self.pipeline.parameters[filtname][param_name]}"
+                            f"MATCH & update {filtname} {widget_idx} with"
+                            f"{self.pipeline.parameters[filtname][param_name]}"
                         )
                         self.window.ctrl[widget_idx].update(
                             self.pipeline.parameters[filtname][param_name]

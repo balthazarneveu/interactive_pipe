@@ -4,7 +4,6 @@ import time
 import traceback
 from copy import deepcopy
 from typing import List
-from interactive_pipe.core.cache import CachedResults
 from interactive_pipe.core.filter import FilterCore
 
 
@@ -27,7 +26,7 @@ class PipelineEngine:
                         result[input_index] = inp
             elif isinstance(imglst, dict):
                 if self.safe_input_buffer_deepcopy:
-                    logging.debug(f"<<< Deepcopy input images")
+                    logging.debug("<<< Deepcopy input images")
                     result = deepcopy(imglst)
                 else:
                     result = imglst

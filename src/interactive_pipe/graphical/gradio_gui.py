@@ -337,7 +337,7 @@ class MainWindow(InteractivePipeWindow):
                     try:
                         if self.markdown_description.startswith("#"):
                             title = self.markdown_description.split("\n")[0][1:]
-                    except Exception as _e:
+                    except Exception as _e:  # noqa E722
                         pass
                     with gr.Accordion(title, open=False):
                         gr.Markdown(self.markdown_description)

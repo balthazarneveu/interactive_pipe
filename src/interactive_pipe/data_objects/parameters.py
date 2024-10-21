@@ -10,7 +10,7 @@ YAML_NOT_DETECTED_MESSAGE = (
 try:
     import yaml
     from yaml.loader import SafeLoader
-except:
+except ImportError:
     YAML_SUPPORT = False
     logging.warning(YAML_NOT_DETECTED_MESSAGE)
 

@@ -1,7 +1,6 @@
 from interactive_pipe.data_objects.data import Data
 import numpy as np
 from pathlib import Path
-from typing import Any, Optional
 import logging
 
 image_backends = []
@@ -14,20 +13,20 @@ try:
     import cv2
 
     image_backends.append(IMAGE_BACKEND_OPENCV)
-except:
+except ImportError:
     logging.info("cv2 is not available")
 
 try:
     from PIL import Image as PilImage
 
     image_backends.append(IMAGE_BACKEND_PILLOW)
-except:
+except ImportError:
     logging.info("PIL is not available")
 assert len(image_backends) > 0
 
 try:
     import matplotlib.pyplot as plt
-except:
+except ImportError:
     logging.info("matplotlib is not available, won't be able to show images")
 
 

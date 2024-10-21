@@ -1,7 +1,7 @@
 import ast
 import inspect
 import logging
-from typing import List, Callable, Tuple, Optional, Union
+from typing import List, Callable, Optional, Union
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.signature import analyze_apply_fn_signature
 

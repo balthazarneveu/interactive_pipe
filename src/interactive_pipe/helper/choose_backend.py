@@ -22,7 +22,7 @@ def get_interactive_pipeline_class(gui="auto"):
                     selected_gui = "qt"
                 except Exception as qt_import_execption:
                     try:
-                        import matplotlib.pyplot as plt
+                        import matplotlib.pyplot as plt  # noqa: F401
 
                         selected_gui = "mpl"
                     except Exception as mpl_import_exception:
@@ -35,7 +35,7 @@ def get_interactive_pipeline_class(gui="auto"):
     else:
         selected_gui = gui
     if selected_gui == "qt":
-        from interactive_pipe.graphical.qt_gui import InteractivePipeQT as ChosenGui
+        from interactive_pipe.graphical.qt_gui import InteractivePipeQT as ChosenGui  # noqa: F811
     elif selected_gui == "mpl":
         from interactive_pipe.graphical.mpl_gui import (
             InteractivePipeMatplotlib as ChosenGui,

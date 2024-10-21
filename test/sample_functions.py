@@ -15,7 +15,7 @@ def split_horizontally(img, line=0.5):
     split_line = int(0.5 * img.shape[-2])
     return (
         img[..., :split_line, :],
-        img[..., split_line - 10 : split_line + 10, :],
+        img[..., split_line - 10: split_line + 10, :],
         img[..., split_line:, :],
     )
 

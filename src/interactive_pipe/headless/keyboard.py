@@ -85,7 +85,8 @@ class KeyboardControl(Control):
     def __repr__(self) -> str:
         return (
             super().__repr__()
-            + f" | down:{'' if self.keydown is None else self.keydown} |  up:{'' if self.keyup is None else self.keyup}  | modulo:{self.modulo}"
+            + f" | down:{'' if self.keydown is None else self.keydown} |  "
+            + f"up:{'' if self.keyup is None else self.keyup}  | modulo:{self.modulo}"
         )
 
     @staticmethod

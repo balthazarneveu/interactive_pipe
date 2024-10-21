@@ -23,7 +23,8 @@ class EnhancedFilterCore(FilterCore):
         self.inputs = list(range(len(self.signature[0])))
         if output_routing is None:
             logging.warning(
-                "Single output assumed, cannot deduce the number of outputs from your code, please provide output_routing!"
+                "Single output assumed, cannot deduce the number of outputs from your code,"
+                "please provide output_routing!"
             )
             self.outputs = [
                 "output",

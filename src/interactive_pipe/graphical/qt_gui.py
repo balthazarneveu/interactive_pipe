@@ -16,7 +16,7 @@ MPL_SUPPORT = False
 
 if not PYQTVERSION:
     try:
-        from PyQt6.QtWidgets import (
+        from PyQt6.QtWidgets import (  # noqa: F811
             QApplication,
             QWidget,
             QLabel,
@@ -29,13 +29,13 @@ if not PYQTVERSION:
         )
         from PyQt6.QtCore import QUrl, Qt
         from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
-        from PyQt6.QtGui import QPixmap, QImage, QIcon
+        from PyQt6.QtGui import QPixmap, QImage
 
         PYQTVERSION = 6
     except ImportError:
         logging.warning("Cannot import PyQt 6")
         try:
-            from PyQt5.QtWidgets import (
+            from PyQt5.QtWidgets import (  # noqa: F811
                 QApplication,
                 QWidget,
                 QLabel,
@@ -47,17 +47,17 @@ if not PYQTVERSION:
                 QMessageBox,
             )
             from PyQt5.QtCore import QUrl, Qt
-            from PyQt5.QtGui import QPixmap, QImage, QIcon
+            from PyQt5.QtGui import QPixmap, QImage
             from PyQt5.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaContent
 
             PYQTVERSION = 5
             logging.warning("Using PyQt 5")
-        except:
+        except ImportError:
             raise ModuleNotFoundError("No PyQt")
 
 if not PYQTVERSION:
     try:
-        from PySide6.QtWidgets import (
+        from PySide6.QtWidgets import (  # noqa: F811
             QApplication,
             QWidget,
             QLabel,
@@ -68,9 +68,9 @@ if not PYQTVERSION:
             QHBoxLayout,
             QMessageBox,
         )
-        from PySide6.QtCore import QUrl, Qt
-        from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
-        from PySide6.QtGui import QPixmap, QImage, QIcon
+        from PySide6.QtCore import QUrl, Qt  # noqa: F811
+        from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer  # noqa: F811
+        from PySide6.QtGui import QPixmap, QImage  # noqa: F811
 
         PYQTVERSION = 6
     except ImportError:
@@ -79,10 +79,7 @@ if not PYQTVERSION:
 if not PYQTVERSION:
     logging.warning("Cannot import PyQt or PySide - disable backend")
 try:
-    from matplotlib.backends.backend_qtagg import (
-        FigureCanvas,
-        NavigationToolbar2QT as NavigationToolbar,
-    )
+    from matplotlib.backends.backend_qtagg import FigureCanvas
     from matplotlib.figure import Figure
     from interactive_pipe.data_objects.curves import Curve, SingleCurve
 
@@ -116,7 +113,7 @@ class InteractivePipeQT(InteractivePipeGUI):
             self.pipeline._PipelineCore__initialized_inputs
         ), "Did you forget to initialize the pipeline inputs?"
         self.window.refresh()
-        ret = self.app.exec()
+        self.app.exec()
         self.custom_end()
         return self.pipeline.results
 
@@ -156,7 +153,8 @@ class InteractivePipeQT(InteractivePipeGUI):
                 for param_name in params.keys():
                     if param_name == widget.parameter_name_to_connect:
                         print(
-                            f"MATCH & update {filtname} {widget_idx} with {self.pipeline.parameters[filtname][param_name]}"
+                            f"MATCH & update {filtname} {widget_idx} with" +
+                            f"{self.pipeline.parameters[filtname][param_name]}"
                         )
                         self.window.ctrl[widget_idx].update(
                             self.pipeline.parameters[filtname][param_name]
@@ -204,7 +202,7 @@ class InteractivePipeQT(InteractivePipeGUI):
             self.player.errorChanged.connect(self.handle_audio_error)
         else:
             self.player.setVolume(50)
-            currentVolume = self.player.volume()
+            # currentVolume = self.player.volume()
             self.player.error.connect(self.handle_audio_error)
         self.pipeline.global_params["__player"] = self.player
         self.pipeline.global_params["__set_audio"] = self.__set_audio
@@ -310,7 +308,8 @@ class MainWindow(QWidget, InteractivePipeWindow):
         # if self.pipeline._PipelineCore__initialized_inputs:
         #     # cannot refresh the pipeline if no input has been provided! ... not ok for inputless pipeline though!
         #     self.refresh()
-        # # You will refresh the window  at the app level, only when running. no need to run the pipeline engine to initalize the GUI
+        # # You will refresh the window  at the app level, only when running.
+        # # no need to run the pipeline engine to initalize the GUI
         self.size = size
         self.full_screen_flag = False
 

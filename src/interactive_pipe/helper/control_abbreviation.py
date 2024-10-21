@@ -24,7 +24,8 @@ def analyze_expected_keyboard_argument(
     if arg is None:
         # supported None strange definition...
         logging.warning(
-            "Setting a Control with a None argument where it expects some key definition for KeyboardControl. Prefer simply ignoring this argument"
+            "Setting a Control with a None argument where it expects some key definition for KeyboardControl." +
+            "Prefer simply ignoring this argument"
         )
         keyboard_slider_flag = False
         pass
@@ -34,7 +35,8 @@ def analyze_expected_keyboard_argument(
     elif isinstance(arg, list) or isinstance(arg, tuple):
         if len(arg) == 0:
             logging.warning(
-                "Setting a Control with an empty list where it expects some key definition for KeyboardControl. Prefer simply ignoring this argument"
+                "Setting a Control with an empty list where it expects some key definition for KeyboardControl." +
+                "Prefer simply ignoring this argument"
             )
             keyboard_slider_flag = False
         else:
@@ -60,7 +62,8 @@ def analyze_expected_keyboard_argument(
                 modulo = arg[2]
             else:
                 raise ValueError(
-                    f"Too much elements in the keyboard provided list {arg} , stick to 3 maximum [keydown, keyup, modulo]"
+                    f"Too much elements in the keyboard provided list {arg} ," +
+                    "stick to 3 maximum [keydown, keyup, modulo]"
                 )
     else:
         raise TypeError(f"{arg} is not supported for keyboard")
@@ -99,7 +102,8 @@ def control_from_tuple(
     ---------------------
     - [-10, 10] -> slider from -10 to 10, default is 0 (middle cursor)
     - [-10.5, 18., None, 15.] -> slider from -10.5 to 18., default is 15., no step provided
-    - [-5, 5], _name, ["-", "+", True] -> use keyboard -/+ to decrease the value. True indicates a wrap around(modulo). default=0 (in the middle)
+    - [-5, 5], _name, ["-", "+", True] -> use keyboard -/+ to decrease the value.
+      True indicates a wrap around(modulo). default=0 (in the middle)
     - ["A", "B", "C"] -> dialog, default is A
     - (True, _name) -> checkbox checked by default
     - (False, ) -> checkbox, unchecked by default
@@ -133,7 +137,8 @@ def control_from_tuple(
             if name is not None:
                 assert isinstance(
                     name, str
-                ), f"{name} name shall be a string or None. you do not need to provide a value range for a boolean slider."
+                ), f"{name} name shall be a string or None." \
+                    "you do not need to provide a value range for a boolean slider."
             assert len(short_params) <= 3
             if len(short_params) == 3:
                 keyboard_slider_flag, keydown, keyup, _modulo = (
@@ -146,7 +151,7 @@ def control_from_tuple(
             start = 1
             assert (
                 len(short_params) >= 2
-            ), f"providing a value range is mandatory like (min, max) or (min, max, step)"
+            ), "providing a value range is mandatory like (min, max) or (min, max, step)"
             value_range = short_params[start]
             if value_range is None:
                 pass

@@ -32,12 +32,13 @@ def __create_control_from_keyword_argument(
                 chosen_control = control_from_tuple(
                     unknown_keyword_arg, param_name=param_name
                 )
-            except Exception as exc_1:
+            except Exception as _exc_1:
                 try:
                     chosen_control = control_from_tuple(
                         (unknown_keyword_arg,), param_name=param_name
                     )
                 except Exception as exc:
+                    print(_exc_1)
                     raise Exception(exc)
             # NOTE: for keyword args, setting a boolean will not trigger a tickmark (although it is possible)
             # Use (True) instead of True if you want to make a tickbox
@@ -77,7 +78,8 @@ def get_controls_from_decorated_function_declaration(
     for param_name, unknown_keyword_arg in decorator_controls.items():
         assert (
             param_name in keyword_names
-        ), f"typo: control {param_name} passed through the decorator does not match any of the function keyword args {keyword_names}"
+        ), f"typo: control {param_name} passed through the decorator " \
+            f"does not match any of the function keyword args {keyword_names}"
         chosen_control = __create_control_from_keyword_argument(
             param_name, unknown_keyword_arg
         )

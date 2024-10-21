@@ -55,7 +55,7 @@ class HeadlessPipeline(PipelineCore):
             for key in ["args", "returns"]:
                 if filt_dict[key]:
                     for _, input_name in enumerate(filt_dict[key]):
-                        if not input_name in all_variables.keys():
+                        if input_name not in all_variables.keys():
                             all_variables[input_name] = total_index
                             total_index += 1
 
@@ -140,7 +140,7 @@ class HeadlessPipeline(PipelineCore):
                 saved_dict["path"] = self.parameters["path"]
             if "tuning" in self.parameters:
                 for elt in self.parameters["tuning"]:
-                    if type(self.parameters["tuning"][elt]) == dict:
+                    if type(self.parameters["tuning"][elt]) is dict:
                         saved_dict[elt] = {}
                         for e in self.parameters["tuning"][elt]:
                             data = self.parameters["tuning"][elt][e][0]
@@ -237,7 +237,7 @@ class HeadlessPipeline(PipelineCore):
         self.export_tuning(path.with_suffix(".yaml"))
         assert isinstance(result_full, dict)
         for num, res_current in result_full.items():
-            if output_indexes is not None and not num in output_indexes:
+            if output_indexes is not None and num not in output_indexes:
                 continue
             current_name = path.with_name(path.stem + "_" + str(num) + path.suffix)
             if res_current is not None and not (
@@ -262,7 +262,7 @@ class HeadlessPipeline(PipelineCore):
             for filter_name, parameters_dict in self.parameters.items():
                 parameter_names = parameters_dict.keys()
                 if key in parameter_names:
-                    if not filter_name in new_param_dict.keys():
+                    if filter_name not in new_param_dict.keys():
                         new_param_dict[filter_name] = {}
                     new_param_dict[filter_name][key] = value
         return new_param_dict

@@ -1,5 +1,6 @@
 from interactive_pipe.data_objects.curves import Curve
 import numpy as np
+
 # from interactive_pipe import interact
 
 
@@ -10,8 +11,8 @@ import numpy as np
 # Or you can decorate it afterwards, like in the main
 # interact(frequency=(3., [0, 10.], "freq[Hz]"), phase=(90.,[-180, 180], "phase °"), disable=True)(generate_sine_wave)
 
-
-# @interact(frequency=(3., [0, 10.], "freq[Hz]"), phase=(90.,[-180, 180], "phase °")) # !! Uncomment to get a graphical interface test... !!
+# !! Uncomment to get a graphical interface test... !!
+# @interact(frequency=(3., [0, 10.], "freq[Hz]"), phase=(90.,[-180, 180], "phase °"))
 def generate_sine_wave(
     frequency=1,
     phase=0.0,

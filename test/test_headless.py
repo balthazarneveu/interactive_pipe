@@ -150,7 +150,7 @@ def test_headless_pipeline_multi_input(routing_indexes):
 
 
 def test_headless_pipeline_no_input():
-    input_image = get_sample_image()
+    _input_image = get_sample_image()  # noqa F841
     FLAT = "flat"
     MAD_OUT = "exposed"
     BLEND_OUT = "blended"

@@ -24,6 +24,7 @@ def test_curve_abbreviations():
     with pytest.raises(AssertionError):
         # missing list, sort of too short
         _sig = Curve([absciss, 3.0 * absciss + 1.0, "r-", "linear 3x+1"])
+    _sig
 
 
 def test_curves(tmp_path):

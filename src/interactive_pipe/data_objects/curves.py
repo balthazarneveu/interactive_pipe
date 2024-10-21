@@ -1,6 +1,6 @@
 import numpy as np
 from pathlib import Path
-from typing import Any, Optional, Union, List, Tuple
+from typing import Optional, Union, List, Tuple
 import logging
 
 from interactive_pipe.data_objects.data import Data
@@ -17,14 +17,14 @@ try:
     import matplotlib.pyplot as plt
 
     signal_backends.append(SIGNAL_BACKEND_MPL)
-except:
+except ImportError:
     logging.info("matplotlib is not available")
 
 try:
     import pandas as pd
 
     signal_backends.append(SIGNAL_BACKEND_PD)
-except:
+except ImportError:
     message = "pandas is not available."
     message += (
         "\nto install see: https://pandas.pydata.org/docs/getting_started/install.html"

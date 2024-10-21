@@ -7,7 +7,7 @@ PYQTVERSION = None
 
 if not PYQTVERSION:
     try:
-        from PyQt6.QtWidgets import (
+        from PyQt6.QtWidgets import (  # noqa: F811
             QWidget,
             QLabel,
             QSlider,
@@ -19,14 +19,14 @@ if not PYQTVERSION:
             QHBoxLayout,
             QDial,
         )
-        from PyQt6.QtCore import Qt, QSize
-        from PyQt6.QtGui import QIcon
+        from PyQt6.QtCore import Qt, QSize  # noqa: F811
+        from PyQt6.QtGui import QIcon  # noqa: F811
 
         PYQTVERSION = 6
     except ImportError:
         logging.warning("Cannot import PyQt")
         try:
-            from PyQt5.QtWidgets import (
+            from PyQt5.QtWidgets import (  # noqa: F811
                 QWidget,
                 QLabel,
                 QSlider,
@@ -46,7 +46,7 @@ if not PYQTVERSION:
             raise ModuleNotFoundError("No PyQt")
 if not PYQTVERSION:
     try:
-        from PySide6.QtWidgets import (
+        from PySide6.QtWidgets import (  # noqa: F811
             QWidget,
             QLabel,
             QSlider,
@@ -58,8 +58,8 @@ if not PYQTVERSION:
             QHBoxLayout,
             QDial,
         )
-        from PySide6.QtCore import Qt, QSize
-        from PySide6.QtGui import QIcon
+        from PySide6.QtCore import Qt, QSize  # noqa: F811
+        from PySide6.QtGui import QIcon  # noqa: F811
 
         PYQTVERSION = 6
     except ImportError:

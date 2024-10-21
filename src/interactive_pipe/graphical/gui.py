@@ -54,7 +54,7 @@ class InteractivePipeGUI:
         self.pipeline.global_params["__output_styles"] = {}
         self.pipeline.global_params["__app"] = self
         self.pipeline.global_params["__pipeline"] = self.pipeline
-        if not "__events" in self.pipeline.global_params.keys():
+        if "__events" not in self.pipeline.global_params.keys():
             self.pipeline.global_params["__events"] = {}
         self.key_bindings = {}
         self.context_key_bindings = {}
