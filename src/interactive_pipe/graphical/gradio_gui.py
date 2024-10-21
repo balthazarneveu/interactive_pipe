@@ -10,12 +10,14 @@ from interactive_pipe.headless.control import Control
 from interactive_pipe.data_objects.audio import audio_to_html
 from copy import copy
 import logging
+
 PYQTVERSION = None
 MPL_SUPPORT = False
 GRADIO_INTERFACE_MODE = False
 try:
     from interactive_pipe.data_objects.curves import Curve
     import matplotlib.pyplot as plt
+
     MPL_SUPPORT = True
 except ImportError:
     pass
@@ -23,8 +25,15 @@ except ImportError:
 
 class InteractivePipeGradio(InteractivePipeGUI):
     def init_app(self, **kwargs):
-        self.window = MainWindow(controls=self.controls, name=self.name,
-                                 pipeline=self.pipeline, size=self.size, main_gui=self, audio=self.audio, **kwargs)
+        self.window = MainWindow(
+            controls=self.controls,
+            name=self.name,
+            pipeline=self.pipeline,
+            size=self.size,
+            main_gui=self,
+            audio=self.audio,
+            **kwargs,
+        )
         self.pipeline.global_params["__pipeline"] = self.pipeline
         if self.audio:
             self.pipeline.global_params["__set_audio"] = self.__set_audio
@@ -46,7 +55,9 @@ class InteractivePipeGradio(InteractivePipeGUI):
         self.__set_audio(None)
 
     def run(self) -> list:
-        assert self.pipeline._PipelineCore__initialized_inputs, "Did you forget to initialize the pipeline inputs?"
+        assert (
+            self.pipeline._PipelineCore__initialized_inputs
+        ), "Did you forget to initialize the pipeline inputs?"
         # In gradio, the first run is a "dry run", used to get the output types...
         try:
             global_params_first_run = copy(self.pipeline.global_params)
@@ -74,7 +85,9 @@ class InteractivePipeGradio(InteractivePipeGUI):
                         out_list_gradio_containers.append(gr.Audio(label=title))
                         self.window.image_canvas[idx][idy]["type"] = "audio"
                     else:
-                        out_list_gradio_containers.append(gr.Image(format="png", type="numpy", label=title))
+                        out_list_gradio_containers.append(
+                            gr.Image(format="png", type="numpy", label=title)
+                        )
                         self.window.image_canvas[idx][idy]["type"] = "image"
                 elif MPL_SUPPORT and isinstance(out_list[idx][idy], Curve):
                     # if out_list[idx][idy].title is not None:
@@ -86,7 +99,8 @@ class InteractivePipeGradio(InteractivePipeGUI):
                     out_list_gradio_containers.append(gr.Textbox(label=title))
                 else:
                     raise NotImplementedError(
-                        f"output type {type(out_list[idx][idy])} not supported")
+                        f"output type {type(out_list[idx][idy])} not supported"
+                    )
         if self.window.audio:
             self.window.audio = gr.HTML()
             self.pipeline.global_params["__audio"] = self.window.audio
@@ -100,9 +114,22 @@ class InteractivePipeGradio(InteractivePipeGUI):
 
 
 class MainWindow(InteractivePipeWindow):
-    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline = None, size=None, share_gradio_app=False, markdown_description=None, sliders_layout=None, sliders_per_row_layout=None, audio=False, audio_sampling_rate: int = 44100, **kwargs):
-        InteractivePipeWindow.__init__(
-            self, name=name, pipeline=pipeline, size=size)
+    def __init__(
+        self,
+        *args,
+        controls=[],
+        name="",
+        pipeline: HeadlessPipeline = None,
+        size=None,
+        share_gradio_app=False,
+        markdown_description=None,
+        sliders_layout=None,
+        sliders_per_row_layout=None,
+        audio=False,
+        audio_sampling_rate: int = 44100,
+        **kwargs,
+    ):
+        InteractivePipeWindow.__init__(self, name=name, pipeline=pipeline, size=size)
         self.markdown_description = markdown_description
         self.sliders_layout = sliders_layout
         self.sliders_per_row_layout = sliders_per_row_layout
@@ -133,7 +160,9 @@ class MainWindow(InteractivePipeWindow):
                         elif isinstance(out[idx][idy], np.ndarray):
                             if len(out[idx][idy].shape) == 1:
                                 logging.debug(f"CONVERTING AUDIO  {idx} {idy}")
-                                flat_out.append((self.audio_sampling_rate, out[idx][idy]))
+                                flat_out.append(
+                                    (self.audio_sampling_rate, out[idx][idy])
+                                )
                             else:
                                 logging.debug(f"CONVERTING IMAGE  {idx} {idy}")
                                 flat_out.append(self.convert_image(out[idx][idy]))
@@ -141,7 +170,8 @@ class MainWindow(InteractivePipeWindow):
                             flat_out.append(out[idx][idy])
                         else:
                             raise NotImplementedError(
-                                f"output type {type(out[idx][idy])} not suported")
+                                f"output type {type(out[idx][idy])} not suported"
+                            )
                 else:
                     logging.info(f"CONVERTING IMAGE  {idx} ")
                     flat_out.append(self.convert_image(out[idx]))
@@ -169,7 +199,10 @@ class MainWindow(InteractivePipeWindow):
                 else:
                     return out_tuple, html_audio
             return out_tuple
-        self.default_values = [self.ctrl[ctrl_key].value for ctrl_key in self.ctrl.keys()]
+
+        self.default_values = [
+            self.ctrl[ctrl_key].value for ctrl_key in self.ctrl.keys()
+        ]
         self.process_inputs_fn = process_inputs_fn
         self.run_fn = run_fn
 
@@ -178,7 +211,7 @@ class MainWindow(InteractivePipeWindow):
             # Interface mode, high level wrapper
             # https://www.gradio.app/guides/the-interface-class
             self.io = gr.Interface(
-                allow_flagging='never',
+                allow_flagging="never",
                 fn=self.run_fn,
                 title=self.name,
                 inputs=self.widget_list,
@@ -210,7 +243,12 @@ class MainWindow(InteractivePipeWindow):
                     self.sliders_layout = "collapsible"
                 if self.sliders_per_row_layout is None:
                     self.sliders_per_row_layout = 1
-                assert self.sliders_layout in ["compact", "vertical", "collapsible", "smart"]
+                assert self.sliders_layout in [
+                    "compact",
+                    "vertical",
+                    "collapsible",
+                    "smart",
+                ]
                 ctrl_dict_by_type = {"all": list(range(len(self.ctrl)))}
                 categories = ["all"]
                 if self.sliders_layout == "compact":
@@ -225,7 +263,9 @@ class MainWindow(InteractivePipeWindow):
                     ctrl_dict_by_type = {}
                     for ctrl_index, ctrl_key in enumerate(self.ctrl.keys()):
                         ctrl_type = self.ctrl[ctrl_key]._type
-                        ctrl_type = str(ctrl_type).split("<class '")[1].replace("'>", "")
+                        ctrl_type = (
+                            str(ctrl_type).split("<class '")[1].replace("'>", "")
+                        )
                         if ctrl_type == "int":
                             ctrl_type = "float"
                         if ctrl_type not in ctrl_dict_by_type:
@@ -234,7 +274,9 @@ class MainWindow(InteractivePipeWindow):
                     categories = ["str", "bool", "float"]
                     selected_mode = gr.Column()
                 else:
-                    raise NotImplementedError(f"Sliders layout {self.sliders_layout} not supported")
+                    raise NotImplementedError(
+                        f"Sliders layout {self.sliders_layout} not supported"
+                    )
                 for ctrl_type in categories:
                     ctrl_indices = ctrl_dict_by_type.get(ctrl_type, [])
                     if len(ctrl_indices) == 0:
@@ -251,10 +293,17 @@ class MainWindow(InteractivePipeWindow):
                                     elem.render()
                     else:
                         with selected_mode:
-                            for split_num in range(math.ceil(len(ctrl_indices)/self.sliders_per_row_layout)):
+                            for split_num in range(
+                                math.ceil(
+                                    len(ctrl_indices) / self.sliders_per_row_layout
+                                )
+                            ):
                                 with gr.Row():
-                                    start = split_num*self.sliders_per_row_layout
-                                    end = min((split_num+1)*self.sliders_per_row_layout, len(ctrl_indices))
+                                    start = split_num * self.sliders_per_row_layout
+                                    end = min(
+                                        (split_num + 1) * self.sliders_per_row_layout,
+                                        len(ctrl_indices),
+                                    )
                                     for idx in ctrl_indices[start:end]:
                                         elem = self.widget_list[idx]
                                         elem.render()
@@ -262,15 +311,27 @@ class MainWindow(InteractivePipeWindow):
                 discard_reset_button = False
                 for idx in range(len(self.widget_list)):
                     if isinstance(self.widget_list[idx], list):
-                        changing_inputs.append(gr.State(self.ctrl[list(self.ctrl.keys())[idx]].value_default))
+                        changing_inputs.append(
+                            gr.State(
+                                self.ctrl[list(self.ctrl.keys())[idx]].value_default
+                            )
+                        )
                         discard_reset_button = True  # Do not show reset button if there are lists of buttons
-                        self.ctrl[list(self.ctrl.keys())[idx]].filter_to_connect.cache = False
-                        self.ctrl[list(self.ctrl.keys())[idx]].filter_to_connect.cache_mem = None
+                        self.ctrl[
+                            list(self.ctrl.keys())[idx]
+                        ].filter_to_connect.cache = False
+                        self.ctrl[
+                            list(self.ctrl.keys())[idx]
+                        ].filter_to_connect.cache_mem = None
                     else:
                         changing_inputs.append(self.widget_list[idx])
                 if not discard_reset_button:
                     with gr.Accordion("Reset to default values", open=False):
-                        gr.Examples([self.default_values], inputs=changing_inputs, label="Presets")
+                        gr.Examples(
+                            [self.default_values],
+                            inputs=changing_inputs,
+                            label="Presets",
+                        )
                 if self.markdown_description is not None:
                     title = "Description"
                     try:
@@ -286,19 +347,20 @@ class MainWindow(InteractivePipeWindow):
                         for idy, elem in enumerate(self.widget_list[idx]):
                             changing_inputs_copy = changing_inputs.copy()
                             changing_inputs_copy[idx] = gr.State(
-                                self.ctrl[list(self.ctrl.keys())[idx]].value_range[idy])
+                                self.ctrl[list(self.ctrl.keys())[idx]].value_range[idy]
+                            )
                             elem.click(
                                 fn=self.run_fn,
                                 inputs=changing_inputs_copy,
                                 outputs=outputs,
-                                show_progress="minimal"
+                                show_progress="minimal",
                             )
                     else:
                         self.widget_list[idx].change(
                             fn=self.run_fn,
                             inputs=changing_inputs,
                             outputs=outputs,
-                            show_progress="minimal"
+                            show_progress="minimal",
                         )
 
             self.io = io
@@ -312,8 +374,7 @@ class MainWindow(InteractivePipeWindow):
         control_factory = ControlFactory()
         for ctrl in controls:
             if isinstance(ctrl, Control):
-                slider_instance = control_factory.create_control(
-                    ctrl, None)
+                slider_instance = control_factory.create_control(ctrl, None)
                 control_widget = slider_instance.create()
                 self.widget_list.append(control_widget)
             slider_name = ctrl.name
@@ -322,7 +383,7 @@ class MainWindow(InteractivePipeWindow):
     @staticmethod
     def convert_image(out_im):
         if isinstance(out_im, np.ndarray):
-            return (out_im.clip(0., 1.) * 255).astype(np.uint8)
+            return (out_im.clip(0.0, 1.0) * 255).astype(np.uint8)
         else:
             return out_im
 
@@ -339,7 +400,10 @@ class MainWindow(InteractivePipeWindow):
         text_label = self.get_current_style(row, col).get("title", "")
         image_label = None
         self.image_canvas[row][col] = {
-            "image": image_label, "title": text_label, "ax_placeholder": ax_placeholder}
+            "image": image_label,
+            "title": text_label,
+            "ax_placeholder": ax_placeholder,
+        }
 
     def update_image(self, content, row, col):
         pass

@@ -5,6 +5,7 @@ from io import BytesIO
 import base64
 import logging
 from typing import Union, Tuple
+
 WAVIO_AVAILABLE = False
 WAVIO = "wavio"
 try:
@@ -16,7 +17,9 @@ except ImportError:
 __iter_audio_player = 0
 
 
-def audio_to_html(audio: Union[None, str, Path, Tuple[int, np.ndarray]], controls=True) -> str:
+def audio_to_html(
+    audio: Union[None, str, Path, Tuple[int, np.ndarray]], controls=True
+) -> str:
     if audio is None:
         logging.debug("No audio to display")
         return ""
@@ -33,11 +36,11 @@ def audio_to_html(audio: Union[None, str, Path, Tuple[int, np.ndarray]], control
         audio_base64 = base64.b64encode(audio_bytes.read()).decode("utf-8")
     audio_player = f'<audio src="data:audio/mpeg;base64,{audio_base64}"'
     if controls:
-        audio_player += ' controls'
-    audio_player += ' autoplay></audio>'
+        audio_player += " controls"
+    audio_player += " autoplay></audio>"
     global __iter_audio_player
     # to avoid reusing the same exact id and thus not updating the audio player
-    audio_player += "<p hidden>"+str(__iter_audio_player)+"</p>"
+    audio_player += "<p hidden>" + str(__iter_audio_player) + "</p>"
     __iter_audio_player += 1
 
     return audio_player
@@ -98,5 +101,5 @@ class Audio(Data):
 
 
 if __name__ == "__main__":
-    audio_sample_path = Path("demo")/"audio"/"rabbit.mp4"
+    audio_sample_path = Path("demo") / "audio" / "rabbit.mp4"
     rate, data = Audio.load_audio(audio_sample_path)

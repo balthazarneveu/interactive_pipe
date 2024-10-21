@@ -24,15 +24,17 @@ class PipelineCore:
         global_context: Optional[dict] = None,  # alias for global_params
         context: Optional[dict] = None,  # alias for global_params
         state: Optional[dict] = None,  # alias for global_params
-        outputs:  Optional[list] = None,
-        safe_input_buffer_deepcopy: bool = True
+        outputs: Optional[list] = None,
+        safe_input_buffer_deepcopy: bool = True,
     ):
         if not all(isinstance(f, FilterCore) for f in filters):
             raise ValueError(
-                f"All elements in 'filters' must be instances of 'Filter'. {[type(f) for f in filters]}")
+                f"All elements in 'filters' must be instances of 'Filter'. {[type(f) for f in filters]}"
+            )
         self.filters = filters
         self.engine = PipelineEngine(
-            cache, safe_input_buffer_deepcopy=safe_input_buffer_deepcopy)
+            cache, safe_input_buffer_deepcopy=safe_input_buffer_deepcopy
+        )
         if global_parameters is not None:
             global_params = global_parameters
         elif global_context is not None:
@@ -52,7 +54,8 @@ class PipelineCore:
         self.reset_cache()
         if inputs is None:
             logging.warning(
-                "Setting a pipeline without input -  use inputs=[] to get rid of this warning")
+                "Setting a pipeline without input -  use inputs=[] to get rid of this warning"
+            )
             self.inputs_routing = []
         else:
             self.inputs_routing = inputs
@@ -60,8 +63,7 @@ class PipelineCore:
         self.__initialized_inputs = False
         if outputs is None:
             outputs = self.filters[-1].outputs
-            logging.warning(
-                f"Using last filter outputs {self.filters[-1]} {outputs}")
+            logging.warning(f"Using last filter outputs {self.filters[-1]} {outputs}")
 
         self.outputs = outputs  # output indexes (routing)
         # You need to set the values to their default_value for each filter
@@ -74,8 +76,7 @@ class PipelineCore:
             filter.reset_cache()
 
     def run(self) -> list:
-        """Useful for standalone python acess without gui or disk write
-        """
+        """Useful for standalone python acess without gui or disk write"""
         return self.engine.run(self.filters, imglst=self.inputs)
 
     def _reset_global_params(self):
@@ -110,10 +111,12 @@ class PipelineCore:
         """
         available_filters_names = [filt.name for filt in self.filters]
         for filter_name in new_parameters.keys():
-            assert filter_name in available_filters_names, f"filter {filter_name}" + \
-                f"does not exist {available_filters_names}"
-            self.filters[available_filters_names.index(
-                filter_name)].values = new_parameters[filter_name]
+            assert filter_name in available_filters_names, (
+                f"filter {filter_name}" + f"does not exist {available_filters_names}"
+            )
+            self.filters[available_filters_names.index(filter_name)].values = (
+                new_parameters[filter_name]
+            )
 
     @property
     def inputs(self):
@@ -126,13 +129,16 @@ class PipelineCore:
             if isinstance(inputs, dict):
                 provided_keys = list(inputs.keys())
                 for idx, input_name in enumerate(self.inputs_routing):
-                    assert input_name in provided_keys, f"{input_name} is not among {provided_keys}"
+                    assert (
+                        input_name in provided_keys
+                    ), f"{input_name} is not among {provided_keys}"
                 self.__inputs = inputs
             elif isinstance(inputs, list) or isinstance(inputs, tuple):
                 # inputs is a list or a tuple
-                assert len(inputs) == len(
-                    self.inputs_routing), f"wrong amount of inputs\nprovided {len(inputs)}" + \
-                    f"inputs vs expected:{len(self.inputs_routing)}"
+                assert len(inputs) == len(self.inputs_routing), (
+                    f"wrong amount of inputs\nprovided {len(inputs)}"
+                    + f"inputs vs expected:{len(self.inputs_routing)}"
+                )
                 self.__inputs = {}
                 for idx, input_name in enumerate(self.inputs_routing):
                     self.__inputs[input_name] = inputs[idx]
@@ -145,8 +151,13 @@ class PipelineCore:
                 # similar to having no input, but explicitly saying that we have initialized it.
                 self.__inputs = None
         else:
-            assert self.inputs_routing is None or ((isinstance(self.inputs_routing, tuple) or isinstance(
-                self.inputs_routing, list)) and len(self.inputs_routing) == 0)
+            assert self.inputs_routing is None or (
+                (
+                    isinstance(self.inputs_routing, tuple)
+                    or isinstance(self.inputs_routing, list)
+                )
+                and len(self.inputs_routing) == 0
+            )
             self.__inputs = None
         self.__initialized_inputs = True
         self.reset_cache()

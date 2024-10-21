@@ -15,28 +15,39 @@ def get_interactive_pipeline_class(gui="auto"):
                 selected_gui = "nb"
             except Exception:
                 try:
-                    from interactive_pipe.graphical.qt_gui import InteractivePipeQT as ChosenGui
+                    from interactive_pipe.graphical.qt_gui import (
+                        InteractivePipeQT as ChosenGui,
+                    )
+
                     selected_gui = "qt"
                 except Exception as qt_import_execption:
                     try:
                         import matplotlib.pyplot as plt
+
                         selected_gui = "mpl"
                     except Exception as mpl_import_exception:
-                        raise NameError("Error in auto backend choice:\n" +
-                                        f"Could not import Qt: {qt_import_execption}\n" +
-                                        f"Could not import Matplotlib {mpl_import_exception}"
-                                        )
+                        raise NameError(
+                            "Error in auto backend choice:\n"
+                            + f"Could not import Qt: {qt_import_execption}\n"
+                            + f"Could not import Matplotlib {mpl_import_exception}"
+                        )
             _private.auto_gui = selected_gui
     else:
         selected_gui = gui
     if selected_gui == "qt":
         from interactive_pipe.graphical.qt_gui import InteractivePipeQT as ChosenGui
     elif selected_gui == "mpl":
-        from interactive_pipe.graphical.mpl_gui import InteractivePipeMatplotlib as ChosenGui
+        from interactive_pipe.graphical.mpl_gui import (
+            InteractivePipeMatplotlib as ChosenGui,
+        )
     elif selected_gui == "nb":
-        from interactive_pipe.graphical.nb_gui import InteractivePipeJupyter as ChosenGui
+        from interactive_pipe.graphical.nb_gui import (
+            InteractivePipeJupyter as ChosenGui,
+        )
     elif selected_gui == "gradio":
-        from interactive_pipe.graphical.gradio_gui import InteractivePipeGradio as ChosenGui
+        from interactive_pipe.graphical.gradio_gui import (
+            InteractivePipeGradio as ChosenGui,
+        )
     else:
         raise NotImplementedError(f"Gui {gui} not available")
     return ChosenGui

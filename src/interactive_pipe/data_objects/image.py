@@ -3,6 +3,7 @@ import numpy as np
 from pathlib import Path
 from typing import Any, Optional
 import logging
+
 image_backends = []
 
 IMAGE_BACKEND_PILLOW = "pillow"
@@ -11,12 +12,14 @@ IMAGE_BACKENDS = [IMAGE_BACKEND_PILLOW, IMAGE_BACKEND_OPENCV]
 
 try:
     import cv2
+
     image_backends.append(IMAGE_BACKEND_OPENCV)
 except:
     logging.info("cv2 is not available")
 
 try:
     from PIL import Image as PilImage
+
     image_backends.append(IMAGE_BACKEND_PILLOW)
 except:
     logging.info("PIL is not available")
@@ -67,12 +70,12 @@ class Image(Data):
             # Black & white image
             data = np.expand_dims(data, axis=-1)  # add channel dimension
             data = np.repeat(data, 3, axis=-1)  # repeat for RGB
-        amplitude = 2**precision-1
-        return np.round(data*amplitude).clip(0, amplitude)
+        amplitude = 2**precision - 1
+        return np.round(data * amplitude).clip(0, amplitude)
 
     @staticmethod
     def normalize_dynamic(img, precision=8):
-        return img / (2.**precision-1)  # scale image data to [0, 1]
+        return img / (2.0**precision - 1)  # scale image data to [0, 1]
 
     @staticmethod
     def save_image_cv2(data, path: Path, precision=8):
@@ -88,7 +91,7 @@ class Image(Data):
         assert isinstance(path, Path)
         out = Image.rescale_dynamic(data, precision=precision)
         out = out.astype(np.uint8)  # PIL requires image data in uint8 format
-        out = PilImage.fromarray(out, 'RGB')
+        out = PilImage.fromarray(out, "RGB")
         out.save(str(path))
 
     @staticmethod

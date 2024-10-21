@@ -1,4 +1,3 @@
-
 from functools import partial
 from interactive_pipe.headless.control import Control
 import logging
@@ -8,24 +7,60 @@ PYQTVERSION = None
 
 if not PYQTVERSION:
     try:
-        from PyQt6.QtWidgets import QWidget, QLabel, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout, QDial
+        from PyQt6.QtWidgets import (
+            QWidget,
+            QLabel,
+            QSlider,
+            QHBoxLayout,
+            QLineEdit,
+            QComboBox,
+            QCheckBox,
+            QPushButton,
+            QHBoxLayout,
+            QDial,
+        )
         from PyQt6.QtCore import Qt, QSize
         from PyQt6.QtGui import QIcon
+
         PYQTVERSION = 6
     except ImportError:
         logging.warning("Cannot import PyQt")
         try:
-            from PyQt5.QtWidgets import QWidget, QLabel, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout, QDial
+            from PyQt5.QtWidgets import (
+                QWidget,
+                QLabel,
+                QSlider,
+                QHBoxLayout,
+                QLineEdit,
+                QComboBox,
+                QCheckBox,
+                QPushButton,
+                QHBoxLayout,
+                QDial,
+            )
             from PyQt5.QtCore import Qt, QSize
             from PyQt5.QtGui import QIcon
+
             PYQTVERSION = 5
         except ImportError:
             raise ModuleNotFoundError("No PyQt")
 if not PYQTVERSION:
     try:
-        from PySide6.QtWidgets import QWidget, QLabel, QSlider, QHBoxLayout, QLineEdit, QComboBox, QCheckBox, QPushButton, QHBoxLayout, QDial
+        from PySide6.QtWidgets import (
+            QWidget,
+            QLabel,
+            QSlider,
+            QHBoxLayout,
+            QLineEdit,
+            QComboBox,
+            QCheckBox,
+            QPushButton,
+            QHBoxLayout,
+            QDial,
+        )
         from PySide6.QtCore import Qt, QSize
         from PySide6.QtGui import QIcon
+
         PYQTVERSION = 6
     except ImportError:
         logging.warning("Cannot import PySide")
@@ -42,12 +77,12 @@ class BaseControl(QWidget):
         self.check_control_type()
 
     def create(self):
-        raise NotImplementedError(
-            "This method should be overridden by subclass")
+        raise NotImplementedError("This method should be overridden by subclass")
 
     def check_control_type(self):
         raise NotImplementedError(
-            "This method should be overridden by subclass to check the right slider control type")
+            "This method should be overridden by subclass to check the right slider control type"
+        )
 
 
 class ControlFactory:
@@ -59,13 +94,19 @@ class ControlFactory:
             bool: TickBoxControl,
             int: IntSliderControl,
             float: FloatSliderControl,
-            str: PromptControl if control.value_range is None else (
-                DropdownMenuControl if control.icons is None else IconButtonsControl)
+            str: (
+                PromptControl
+                if control.value_range is None
+                else (
+                    DropdownMenuControl if control.icons is None else IconButtonsControl
+                )
+            ),
         }
 
         if control_type not in control_class_map:
             logging.warning(
-                f"Unsupported control type: {control_type} for control named {name}")
+                f"Unsupported control type: {control_type} for control named {name}"
+            )
             return None
 
         control_class = control_class_map[control_type]
@@ -73,7 +114,19 @@ class ControlFactory:
 
 
 class SilentSlider(QSlider):
-    def __init__(self, *args, silent_keys=(Qt.Key.Key_Left, Qt.Key.Key_Right, Qt.Key.Key_Up,  Qt.Key.Key_Down, Qt.Key.Key_PageUp, Qt.Key.Key_PageDown), **kwargs):
+    def __init__(
+        self,
+        *args,
+        silent_keys=(
+            Qt.Key.Key_Left,
+            Qt.Key.Key_Right,
+            Qt.Key.Key_Up,
+            Qt.Key.Key_Down,
+            Qt.Key.Key_PageUp,
+            Qt.Key.Key_PageDown,
+        ),
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.silent_keys = silent_keys
 
@@ -92,14 +145,14 @@ class IntSliderControl(BaseControl):
             slider_class = SilentSlider
             slider = slider_class(Qt.Orientation.Horizontal, self)
         else:
-            if hasattr(self.ctrl, 'modulo') and self.ctrl.modulo:
+            if hasattr(self.ctrl, "modulo") and self.ctrl.modulo:
                 slider_class = QDial
                 slider = slider_class(self)
             else:
                 slider_class = QSlider
                 slider = slider_class(Qt.Orientation.Horizontal, self)
 
-        slider.setRange(self.ctrl.value_range[0],  self.ctrl.value_range[1])
+        slider.setRange(self.ctrl.value_range[0], self.ctrl.value_range[1])
         slider.setValue(self.ctrl.value_default)
         slider.setSingleStep(1)
         slider.setPageStep(10)
@@ -117,25 +170,34 @@ class FloatSliderControl(BaseControl):
         assert self.ctrl._type == float
 
     def convert_value_to_int(self, val):
-        return int((val-self.ctrl.value_range[0])*1000/(self.ctrl.value_range[1]-self.ctrl.value_range[0]))
+        return int(
+            (val - self.ctrl.value_range[0])
+            * 1000
+            / (self.ctrl.value_range[1] - self.ctrl.value_range[0])
+        )
 
     def convert_int_to_value(self, val):
-        return self.ctrl.value_range[0] + (self.ctrl.value_range[1]-self.ctrl.value_range[0])*val/1000
+        return (
+            self.ctrl.value_range[0]
+            + (self.ctrl.value_range[1] - self.ctrl.value_range[0]) * val / 1000
+        )
 
     def create(self):
         if self.silent:
             slider_class = SilentSlider
             slider = slider_class(Qt.Orientation.Horizontal, self)
         else:
-            if hasattr(self.ctrl, 'modulo') and self.ctrl.modulo:
+            if hasattr(self.ctrl, "modulo") and self.ctrl.modulo:
                 slider_class = QDial
                 slider = slider_class(self)
             else:
                 slider_class = QSlider
                 slider = slider_class(Qt.Orientation.Horizontal, self)
         self.ctrl.convert_int_to_value = self.convert_int_to_value
-        slider.setRange(self.convert_value_to_int(
-            self.ctrl.value_range[0]), self.convert_value_to_int(self.ctrl.value_range[1]))
+        slider.setRange(
+            self.convert_value_to_int(self.ctrl.value_range[0]),
+            self.convert_value_to_int(self.ctrl.value_range[1]),
+        )
         slider.setValue(self.convert_value_to_int(self.ctrl.value_default))
         slider.setSingleStep(1)
         slider.setPageStep(10)
@@ -152,16 +214,16 @@ class FloatSliderControl(BaseControl):
         return slider
 
     def reset(self):
-        self.control_widget.setValue(
-            self.convert_value_to_int(self.ctrl.value))
+        self.control_widget.setValue(self.convert_value_to_int(self.ctrl.value))
 
 
 class IconButtonsControl(BaseControl):
     def check_control_type(self):
         assert self.ctrl._type == str
-        if not hasattr(self.ctrl, 'value_range') or not hasattr(self.ctrl, 'icons'):
+        if not hasattr(self.ctrl, "value_range") or not hasattr(self.ctrl, "icons"):
             raise ValueError(
-                "Invalid control type or missing value range for icons bar creation.")
+                "Invalid control type or missing value range for icons bar creation."
+            )
 
     def create(self):
         # Check if ctrl has the right type
@@ -193,7 +255,7 @@ class IconButtonsControl(BaseControl):
 class DropdownMenuControl(BaseControl):
     def check_control_type(self):
         assert self.ctrl._type == str
-        if not hasattr(self.ctrl, 'value_range'):
+        if not hasattr(self.ctrl, "value_range"):
             raise ValueError("Invalid control type")
 
     def create(self):
@@ -209,7 +271,8 @@ class DropdownMenuControl(BaseControl):
 
         # Connect the combo box's value changed signal to some update function if needed
         self.control_widget.currentIndexChanged.connect(
-            partial(self.update_func, self.name))
+            partial(self.update_func, self.name)
+        )
         # Add the combo box to the horizontal layout
         hbox.addWidget(self.control_widget)
         label = QLabel(self.name, self)
@@ -270,7 +333,8 @@ class TickBoxControl(BaseControl):
         # Set the default state for the checkbox based on ctrl's default value
         self.reset()
         self.control_widget.stateChanged.connect(
-            partial(self.update_func, self.ctrl.name))
+            partial(self.update_func, self.ctrl.name)
+        )
 
         # Add the checkbox to the horizontal layout
         hbox.addWidget(self.control_widget)

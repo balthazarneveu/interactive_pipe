@@ -22,8 +22,7 @@ class PipelineEngine:
                 for input_index, inp in enumerate(imglst):
                     if self.safe_input_buffer_deepcopy:
                         result[input_index] = deepcopy(inp)
-                        logging.debug(
-                            f"<<< Deepcopy input images {input_index}")
+                        logging.debug(f"<<< Deepcopy input images {input_index}")
                     else:
                         result[input_index] = inp
             elif isinstance(imglst, dict):
@@ -43,32 +42,38 @@ class PipelineEngine:
             # 1     | 0           | True  -> cache with no change, skip the calculation
             # 1     | 1           | False -> cache and result changed, cannot skip so calculate
             skip_calculation &= (prc.cache_mem is not None) and (
-                not prc.cache_mem.has_changed(prc.values))
+                not prc.cache_mem.has_changed(prc.values)
+            )
 
             if skip_calculation and self.cache:
-                logging.debug(
-                    f"-->  Load cached outputs from filter {idx}: {prc.name}")
+                logging.debug(f"-->  Load cached outputs from filter {idx}: {prc.name}")
                 out = prc.cache_mem.result
                 previous_calculation = False
             else:
                 logging.debug(
-                    ("... " if previous_calculation else "!!! ") + f"Calculating {prc.name}")
+                    ("... " if previous_calculation else "!!! ")
+                    + f"Calculating {prc.name}"
+                )
                 try:
                     routing_in = []
                     if prc.inputs:
                         routing_in = [
-                            result[idi] if idi is not None else None for idi in prc.inputs]
+                            result[idi] if idi is not None else None
+                            for idi in prc.inputs
+                        ]
                     logging.debug(f"in types-> {[type(inp) for inp in routing_in]}")
                     out = prc.run(*routing_in)
                     if out is not None:
                         logging.debug(f"out types-> {[type(ou) for ou in out]}")
                 except Exception as e:
-                    logging.error(f'Error in {prc.name} filter:')
+                    logging.error(f"Error in {prc.name} filter:")
                     logging.error(e)
                     traceback.print_exc()
                     sys.exit(1)
                 previous_calculation = True
-                if self.cache and prc.cache_mem is not None:  # cache result if cache available
+                if (
+                    self.cache and prc.cache_mem is not None
+                ):  # cache result if cache available
                     logging.debug(f"<-- Storing result from {prc.name}")
                     prc.cache_mem.update(out)
             # put prc output at the right position within result vector

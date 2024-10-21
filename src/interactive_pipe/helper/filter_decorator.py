@@ -1,7 +1,9 @@
 from interactive_pipe.headless.control import Control
 import functools
 import inspect
-from interactive_pipe.helper.keyword_args_analyzer import get_controls_from_decorated_function_declaration
+from interactive_pipe.helper.keyword_args_analyzer import (
+    get_controls_from_decorated_function_declaration,
+)
 from interactive_pipe.helper import _private  # import registered_controls_names
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 
@@ -12,7 +14,7 @@ from interactive_pipe.helper.choose_backend import get_interactive_pipeline_clas
 
 
 class EnhancedFilterCore(FilterCore):
-    """Internally creates a pipeline with a single filter 
+    """Internally creates a pipeline with a single filter
     so you can graphically test a single filter without instantiating a pipeline.
     Internally used by `@interact` decorator.
     """
@@ -21,8 +23,11 @@ class EnhancedFilterCore(FilterCore):
         self.inputs = list(range(len(self.signature[0])))
         if output_routing is None:
             logging.warning(
-                "Single output assumed, cannot deduce the number of outputs from your code, please provide output_routing!")
-            self.outputs = ["output",]
+                "Single output assumed, cannot deduce the number of outputs from your code, please provide output_routing!"
+            )
+            self.outputs = [
+                "output",
+            ]
         else:
             self.outputs = output_routing
         pipeline = HeadlessPipeline(filters=[self], inputs=[], outputs=None)
@@ -40,19 +45,23 @@ class EnhancedFilterCore(FilterCore):
             output_routing = [f"output {idx}" for idx in range(len(out))]
             self.outputs = output_routing
         except Exception as exc:
-            logging.warning(
-                f"cannot automatically deduce the output routing\n{exc}")
-        gui_pipeline = self.get_gui(
-            gui=gui, output_routing=output_routing, size=size)
-        gui_pipeline.pipeline.inputs_routing = list(
-            range(len(self.signature[0])))
+            logging.warning(f"cannot automatically deduce the output routing\n{exc}")
+        gui_pipeline = self.get_gui(gui=gui, output_routing=output_routing, size=size)
+        gui_pipeline.pipeline.inputs_routing = list(range(len(self.signature[0])))
         gui_pipeline(*args)
         gui_pipeline.close()
         gui_pipeline.controls = []
         del gui_pipeline
 
 
-def interact(*decorator_args, gui="auto", disable=False, output_routing=None, size=None, **decorator_controls):
+def interact(
+    *decorator_args,
+    gui="auto",
+    disable=False,
+    output_routing=None,
+    size=None,
+    **decorator_controls,
+):
     """interact decorator allows you to launch a GUI from a single function
 
     This will directly launch a GUI.
@@ -73,7 +82,11 @@ def interact(*decorator_args, gui="auto", disable=False, output_routing=None, si
         _private.registered_controls_names = []
         filter_instance = filter_from_function(func, **decorator_controls)
         filter_instance.run_gui(
-            *(decorator_args if not ommitted_parentheses_flag else decorator_args[1:]), gui=gui, output_routing=output_routing, size=size)
+            *(decorator_args if not ommitted_parentheses_flag else decorator_args[1:]),
+            gui=gui,
+            output_routing=output_routing,
+            size=size,
+        )
         # return the original function if you want to keep using it afterwards
         return func
 
@@ -84,10 +97,10 @@ def interact(*decorator_args, gui="auto", disable=False, output_routing=None, si
 
 
 def filter_from_function(apply_fn, default_params={}, **kwargs) -> EnhancedFilterCore:
-    controls = get_controls_from_decorated_function_declaration(
-        apply_fn, kwargs)
+    controls = get_controls_from_decorated_function_declaration(apply_fn, kwargs)
     filter_instance = EnhancedFilterCore(
-        apply_fn=apply_fn, default_params=default_params)
+        apply_fn=apply_fn, default_params=default_params
+    )
     filter_instance.controls = controls
     return filter_instance
 
@@ -100,9 +113,11 @@ def interactive(**decorator_controls):
     It is simply used to declare some sliders and allows re-using these functions afterwards.
     Function decorator to add some controls
     """
+
     def wrapper(func):
         controls = get_controls_from_decorated_function_declaration(
-            func, decorator_controls)
+            func, decorator_controls
+        )
 
         @functools.wraps(func)
         def inner(*args, **kwargs):
@@ -117,5 +132,7 @@ def interactive(**decorator_controls):
 
             # Call the original function with the processed arguments
             return func(*bound_args.args, **bound_args.kwargs)
+
         return inner
+
     return wrapper

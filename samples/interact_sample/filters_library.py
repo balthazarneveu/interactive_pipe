@@ -1,6 +1,6 @@
 from interactive_pipe.data_objects.curves import Curve
 import numpy as np
-from interactive_pipe import interact
+# from interactive_pipe import interact
 
 
 # Note:
@@ -14,35 +14,42 @@ from interactive_pipe import interact
 # @interact(frequency=(3., [0, 10.], "freq[Hz]"), phase=(90.,[-180, 180], "phase °")) # !! Uncomment to get a graphical interface test... !!
 def generate_sine_wave(
     frequency=1,
-    phase=0.,
+    phase=0.0,
 ) -> Curve:
-    x = np.linspace(0., 1., 100)
+    x = np.linspace(0.0, 1.0, 100)
     crv = Curve(
         [
             [
                 x,
-                np.cos(2.*np.pi*frequency*x+np.deg2rad(phase)),
+                np.cos(2.0 * np.pi * frequency * x + np.deg2rad(phase)),
                 "k-",
-                f"sinewave {frequency:.1f}Hz\nphase={int(phase):d}°"
+                f"sinewave {frequency:.1f}Hz\nphase={int(phase):d}°",
             ],
-            [x, np.cos(2.*np.pi*frequency*x), "g--",
-             f"sinewave {frequency:.1f}Hz"],
+            [
+                x,
+                np.cos(2.0 * np.pi * frequency * x),
+                "g--",
+                f"sinewave {frequency:.1f}Hz",
+            ],
         ],
         xlabel="time [s]",
         ylabel="value",
-        ylim=[-1., 1.],
+        ylim=[-1.0, 1.0],
         grid=True,
-        title="Oscillator"
+        title="Oscillator",
     )
     return crv
 
 
 def switcher(
-    img1: np.ndarray, img2: np.ndarray, img3: np.ndarray, img4: np.ndarray,
+    img1: np.ndarray,
+    img2: np.ndarray,
+    img3: np.ndarray,
+    img4: np.ndarray,
     choice: int = 0,
-    amplify: float = 1.
+    amplify: float = 1.0,
 ) -> np.ndarray:
-    return amplify*[img1, img2, img3, img4][choice], img4
+    return amplify * [img1, img2, img3, img4][choice], img4
 
 
 # here's another nice little "main" you can leave

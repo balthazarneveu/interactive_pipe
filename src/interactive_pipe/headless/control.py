@@ -6,7 +6,7 @@ from pathlib import Path
 import logging
 
 
-class Control():
+class Control:
     counter = 0
     _registry = {}  # Global registry to store controls for each function
 
@@ -22,7 +22,16 @@ class Control():
             func_name = func
         return cls._registry.get(func_name, {})
 
-    def __init__(self, value_default: Union[int, float, bool, str], value_range: List[Union[int, float, str]] = None, name=None, step=None, filter_to_connect: Optional[FilterCore] = None, parameter_name_to_connect: Optional[str] = None, icons=None) -> None:
+    def __init__(
+        self,
+        value_default: Union[int, float, bool, str],
+        value_range: List[Union[int, float, str]] = None,
+        name=None,
+        step=None,
+        filter_to_connect: Optional[FilterCore] = None,
+        parameter_name_to_connect: Optional[str] = None,
+        icons=None,
+    ) -> None:
         self.value_default = value_default
         self._type = None
         self._auto_named = False
@@ -35,20 +44,25 @@ class Control():
             if value_range is None:  # free range parameter!
                 self._type = int if isinstance(value_default, int) else float
             else:
-                assert isinstance(value_range, list) or isinstance(
-                    value_range, tuple)
+                assert isinstance(value_range, list) or isinstance(value_range, tuple)
                 assert len(value_range) == 2
                 for choice in value_range:
                     assert isinstance(choice, float) or isinstance(choice, int)
-                if isinstance(value_default, int) and isinstance(value_range[0], int) and isinstance(value_range[1], int):
+                if (
+                    isinstance(value_default, int)
+                    and isinstance(value_range[0], int)
+                    and isinstance(value_range[1], int)
+                ):
                     if self.step is None:
                         self.step = 1
                     self._type = int
                 else:
                     self._type = float
                     if self.step is None:
-                        self.step = (value_range[1] - value_range[0])/100.
-                assert value_default >= value_range[0] and value_default <= value_range[1]
+                        self.step = (value_range[1] - value_range[0]) / 100.0
+                assert (
+                    value_default >= value_range[0] and value_default <= value_range[1]
+                )
         elif isinstance(value_default, str):
             # similar to an enum
             if value_range is None:
@@ -56,11 +70,12 @@ class Control():
                 self._type = str
             else:
                 assert value_range
-                assert isinstance(value_range, list) or isinstance(
-                    value_range, tuple)
+                assert isinstance(value_range, list) or isinstance(value_range, tuple)
                 for choice in value_range:
                     assert isinstance(choice, str)
-                assert value_default in value_range, f"{value_default} shall be in {value_range}"
+                assert (
+                    value_default in value_range
+                ), f"{value_default} shall be in {value_range}"
                 self._type = str
                 if self.step is None:
                     step = 1
@@ -123,8 +138,9 @@ class Control():
 
     @value.setter
     def value(self, value=None):
-        self._value = deepcopy(self.check_value(
-            value) if value is not None else self.value_default)
+        self._value = deepcopy(
+            self.check_value(value) if value is not None else self.value_default
+        )
 
     def reset(self):
         self.value = None
@@ -142,8 +158,10 @@ class Control():
     def connect_filter(self, filter: FilterCore, parameter_name):
         def update_param_func(val):
             logging.info(
-                f"update filter {filter.name} - param {parameter_name} - value {val}")
+                f"update filter {filter.name} - param {parameter_name} - value {val}"
+            )
             filter.values = {parameter_name: val}
+
         self.update_param_func = update_param_func
         self.parameter_name_to_connect = parameter_name
         self.filter_to_connect = filter
@@ -154,9 +172,25 @@ class CircularControl(Control):
     Replace a slider by a circular slider
     """
 
-    def __init__(self, value_default: Union[int, float], value_range: List[Union[int, float]] = None, modulo=True, name=None, step=None, filter_to_connect: Optional[FilterCore] = None, parameter_name_to_connect: Optional[str] = None) -> None:
-        super().__init__(value_default=value_default, value_range=value_range, name=name, step=step,
-                         filter_to_connect=filter_to_connect, parameter_name_to_connect=parameter_name_to_connect, icons=None)
+    def __init__(
+        self,
+        value_default: Union[int, float],
+        value_range: List[Union[int, float]] = None,
+        modulo=True,
+        name=None,
+        step=None,
+        filter_to_connect: Optional[FilterCore] = None,
+        parameter_name_to_connect: Optional[str] = None,
+    ) -> None:
+        super().__init__(
+            value_default=value_default,
+            value_range=value_range,
+            name=name,
+            step=step,
+            filter_to_connect=filter_to_connect,
+            parameter_name_to_connect=parameter_name_to_connect,
+            icons=None,
+        )
         self.modulo = modulo
 
     def __repr__(self) -> str:
@@ -164,9 +198,22 @@ class CircularControl(Control):
 
 
 class TextPrompt(Control):
-    def __init__(self, value_default: str, name=None, filter_to_connect: Optional[FilterCore] = None, parameter_name_to_connect: Optional[str] = None) -> None:
-        super().__init__(value_default=value_default, value_range=None, name=name, step=None,
-                         filter_to_connect=filter_to_connect, parameter_name_to_connect=parameter_name_to_connect, icons=None)
+    def __init__(
+        self,
+        value_default: str,
+        name=None,
+        filter_to_connect: Optional[FilterCore] = None,
+        parameter_name_to_connect: Optional[str] = None,
+    ) -> None:
+        super().__init__(
+            value_default=value_default,
+            value_range=None,
+            name=name,
+            step=None,
+            filter_to_connect=filter_to_connect,
+            parameter_name_to_connect=parameter_name_to_connect,
+            icons=None,
+        )
 
     def __repr__(self) -> str:
         return super().__repr__()

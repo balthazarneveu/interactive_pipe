@@ -48,8 +48,7 @@ class CachedResults:
         :param new_params: The new parameters to check.
         :return: True if an update is needed or False otherwise.
         """
-        change_state_from_params_check = self.state_change.has_changed(
-            new_params)
+        change_state_from_params_check = self.state_change.has_changed(new_params)
         if self.force_change:
             self.state_change.update_needed = True
             self.force_change = False
@@ -64,8 +63,9 @@ class CachedResults:
         """
         if self.name is not None:
             logging.debug(f"OVERRIDE CACHE RESULTS - {self.name}")
-        self.result = new_result if not self.safe_buffer_deepcopy else deepcopy(
-            new_result)
+        self.result = (
+            new_result if not self.safe_buffer_deepcopy else deepcopy(new_result)
+        )
 
     def __repr__(self) -> str:
         return self.name
@@ -106,4 +106,6 @@ class StateChange:
         self._update_needed = value
 
     def __repr__(self) -> str:
-        return f"{self.name}: " + ("needs update" if self.update_needed else "no update needed")
+        return f"{self.name}: " + (
+            "needs update" if self.update_needed else "no update needed"
+        )

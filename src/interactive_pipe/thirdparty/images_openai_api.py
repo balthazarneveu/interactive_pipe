@@ -6,6 +6,7 @@ from typing import Union
 from interactive_pipe.data_objects.parameters import Parameters
 from interactive_pipe.data_objects.image import Image
 import os
+
 OPENAI_SUPPORT = True
 try:
     import openai
@@ -38,6 +39,7 @@ class ImageFromPrompt(Image):
     ```
     Some more info https://github.com/balthazarneveu/interactive_pipe/issues/27
     """
+
     SUFFIX = ".png"
 
     @staticmethod
@@ -86,7 +88,8 @@ class ImageFromPrompt(Image):
         try:
             response = openai.Model.list()
             logging.debug(
-                f"available api models: {','.join([item['id'] for item in response['data']])}")
+                f"available api models: {','.join([item['id'] for item in response['data']])}"
+            )
             return True
         except openai.error.OpenAIError as e:
             logging.error(e.http_status)
@@ -94,7 +97,9 @@ class ImageFromPrompt(Image):
             return False
 
     @staticmethod
-    def __generate_image_to_disk(prompt, path=None, size=(256, 256), api_key=None, silent=False) -> Path:
+    def __generate_image_to_disk(
+        prompt, path=None, size=(256, 256), api_key=None, silent=False
+    ) -> Path:
         assert isinstance(prompt, str), f"{prompt}"
         if ImageFromPrompt.check_file_existence(path):
             logging.info(f"Already cached image {path}")
@@ -108,18 +113,23 @@ class ImageFromPrompt(Image):
             ImageFromPrompt.login(api_key=api_key)
             if not silent:
                 logging.warning(
-                    f"Requesting the open AI API with prompt : {prompt} & {size}\nThis will cost you a few cents")
+                    f"Requesting the open AI API with prompt : {prompt} & {size}\nThis will cost you a few cents"
+                )
             response = openai.Image.create(
-                prompt=prompt,
-                n=1,
-                size=f"{size[0]}x{size[1]}"
+                prompt=prompt, n=1, size=f"{size[0]}x{size[1]}"
             )
-            image_url = response['data'][0]['url']
+            image_url = response["data"][0]["url"]
             if not silent:
                 print(f"Download image URL {image_url}")
             out_file = ImageFromPrompt.download_file(image_url, output=path)
-            params = Parameters({"prompt": prompt, "url": image_url, "path": str(
-                out_file), "response": response})
+            params = Parameters(
+                {
+                    "prompt": prompt,
+                    "url": image_url,
+                    "path": str(out_file),
+                    "response": response,
+                }
+            )
             params.save(out_file.with_suffix(".yaml"))
             return out_file
         except openai.error.OpenAIError as e:
@@ -129,14 +139,21 @@ class ImageFromPrompt(Image):
 
     @staticmethod
     def generate_image(prompt, path: Union[str, Path], size=(256, 256), api_key=None):
-        assert path is not None, "To avoid not knowing where you generated your images , providing a path is mandatory"
-        path = ImageFromPrompt.__generate_image_to_disk(prompt, path=path, api_key=api_key, size=size)
+        assert (
+            path is not None
+        ), "To avoid not knowing where you generated your images , providing a path is mandatory"
+        path = ImageFromPrompt.__generate_image_to_disk(
+            prompt, path=path, api_key=api_key, size=size
+        )
         print(f"Image generated at {path}")
         return path
 
-    def __init__(self, prompt, path: Union[str, Path], size=(256, 256), api_key=None) -> None:
+    def __init__(
+        self, prompt, path: Union[str, Path], size=(256, 256), api_key=None
+    ) -> None:
         file_path = ImageFromPrompt.generate_image(
-            prompt, path=path, api_key=api_key, size=size)
+            prompt, path=path, api_key=api_key, size=size
+        )
         super().__init__(None, title=prompt)
         self.path = file_path
         self.data = self._load(file_path)

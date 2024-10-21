@@ -8,24 +8,27 @@ from interactive_pipe.data_objects.data import Data
 SIGNAL_BACKEND_MPL = "matplotlib"
 SIGNAL_BACKEND_PD = "pandas"
 SIGNAL_BACKEND_PICKLE = "pickle"
-SIGNAL_BACKENDS = [SIGNAL_BACKEND_PICKLE,
-                   SIGNAL_BACKEND_PD, SIGNAL_BACKEND_MPL]
+SIGNAL_BACKENDS = [SIGNAL_BACKEND_PICKLE, SIGNAL_BACKEND_PD, SIGNAL_BACKEND_MPL]
 
 
 signal_backends = [SIGNAL_BACKEND_PICKLE]  # automatically available
 
 try:
     import matplotlib.pyplot as plt
+
     signal_backends.append(SIGNAL_BACKEND_MPL)
 except:
     logging.info("matplotlib is not available")
 
 try:
     import pandas as pd
+
     signal_backends.append(SIGNAL_BACKEND_PD)
 except:
     message = "pandas is not available."
-    message += "\nto install see: https://pandas.pydata.org/docs/getting_started/install.html"
+    message += (
+        "\nto install see: https://pandas.pydata.org/docs/getting_started/install.html"
+    )
     message += "\npip install pandas"
     message += "\nyou won't be able to export curves as .csv spreadsheets"
     logging.warning(message)
@@ -46,19 +49,21 @@ class SingleCurve(Data):
         - .pkl (dict)
     """
 
-    def __init__(self,
-                 x: Optional[Union[List[np.ndarray], np.ndarray]] = None,
-                 y: Union[List[np.ndarray], np.ndarray] = None,
-                 style: Optional[str] = None,
-                 label: Optional[str] = None,
-                 linestyle: Optional[str] = None,
-                 linewidth: Optional[int] = None,
-                 markersize: Optional[int] = None,
-                 alpha: Optional[float] = None,
-                 ):
+    def __init__(
+        self,
+        x: Optional[Union[List[np.ndarray], np.ndarray]] = None,
+        y: Union[List[np.ndarray], np.ndarray] = None,
+        style: Optional[str] = None,
+        label: Optional[str] = None,
+        linestyle: Optional[str] = None,
+        linewidth: Optional[int] = None,
+        markersize: Optional[int] = None,
+        alpha: Optional[float] = None,
+    ):
         if x is not None and y is not None:
             assert len(x) == len(
-                y), f"abciss {len(x)} and oordinate {len(y)} shall match"
+                y
+            ), f"abciss {len(x)} and oordinate {len(y)} shall match"
         data = {
             "x": x,
             "y": y,
@@ -67,7 +72,7 @@ class SingleCurve(Data):
             "linestyle": linestyle,
             "linewidth": linewidth,
             "markersize": markersize,
-            "alpha": alpha
+            "alpha": alpha,
         }
         super().__init__(data)
 
@@ -115,8 +120,11 @@ class SingleCurve(Data):
             self.data["alpha"] = None
         else:
             assert isinstance(alpha, float) or isinstance(
-                alpha, int), "alpha should be numerical"
-            assert alpha <= 1 and alpha >= 0, f"wrong alpha {alpha} value should be between [0, 1]"
+                alpha, int
+            ), "alpha should be numerical"
+            assert (
+                alpha <= 1 and alpha >= 0
+            ), f"wrong alpha {alpha} value should be between [0, 1]"
             self.data["alpha"] = alpha
 
     def _set_file_extensions(self):
@@ -130,12 +138,11 @@ class SingleCurve(Data):
         xlabel: Optional[str] = None,
         ylabel: Optional[str] = None,
         title: Optional[str] = None,
-        grid: Optional[bool] = None
+        grid: Optional[bool] = None,
     ):
         assert path is not None, "Save requires a path"
         self.path = path
-        crv = Curve([self], xlabel=xlabel, ylabel=ylabel,
-                    title=title, grid=grid)
+        crv = Curve([self], xlabel=xlabel, ylabel=ylabel, title=title, grid=grid)
         if path.suffix == ".csv":
             SingleCurve.save_tabular(self.data, path)
         elif path.suffix == ".pkl":
@@ -165,7 +172,7 @@ class SingleCurve(Data):
                 "linestyle": linestyle,
                 "linewidth": linewidth,
                 "markersize": markersize,
-                "alpha": alpha
+                "alpha": alpha,
             }
         elif path.suffix == ".pkl":
             data = Data.load_binary(path)
@@ -183,14 +190,15 @@ class SingleCurve(Data):
                 data["alpha"] = alpha
         return data
 
-    def show(self, figsize=None,
-             xlabel: Optional[str] = None,
-             ylabel: Optional[str] = None,
-             title: Optional[str] = None,
-             grid: Optional[bool] = None
-             ):
-        crv = Curve([self], xlabel=xlabel, ylabel=ylabel,
-                    title=title, grid=grid)
+    def show(
+        self,
+        figsize=None,
+        xlabel: Optional[str] = None,
+        ylabel: Optional[str] = None,
+        title: Optional[str] = None,
+        grid: Optional[bool] = None,
+    ):
+        crv = Curve([self], xlabel=xlabel, ylabel=ylabel, title=title, grid=grid)
         crv.show(figsize=figsize)
 
     def as_dataframe(self):  # -> pd.DataFrame
@@ -222,19 +230,21 @@ class Curve(Data):
         - `.title`
         - `.curves`
 
-        It is possible to access a curve by simply using the bracket operator 
+        It is possible to access a curve by simply using the bracket operator
         `.curves[index]` is equivalent to `[index]`
 
     """
 
-    def __init__(self,
-                 curves: List[SingleCurve],
-                 xlabel: Optional[str] = None,
-                 ylabel: Optional[str] = None,
-                 title: Optional[str] = None,
-                 grid: Optional[bool] = None,
-                 xlim: Optional[Tuple[int, int]] = None,
-                 ylim: Optional[Tuple[int, int]] = None) -> None:
+    def __init__(
+        self,
+        curves: List[SingleCurve],
+        xlabel: Optional[str] = None,
+        ylabel: Optional[str] = None,
+        title: Optional[str] = None,
+        grid: Optional[bool] = None,
+        xlim: Optional[Tuple[int, int]] = None,
+        ylim: Optional[Tuple[int, int]] = None,
+    ) -> None:
         if curves is None:
             curve_list = []
         elif isinstance(curves, SingleCurve):
@@ -252,8 +262,7 @@ class Curve(Data):
             else:
                 curve_list = []
                 for curve in curves:
-                    current_curve = self.__create_curve_from_abbreviation(
-                        curve)
+                    current_curve = self.__create_curve_from_abbreviation(curve)
                     curve_list.append(current_curve)
         data = {
             "curves": curve_list,
@@ -262,15 +271,18 @@ class Curve(Data):
             "title": title,
             "grid": grid,
             "xlim": xlim,
-            "ylim": ylim
+            "ylim": ylim,
         }
         super().__init__(data)
 
-    def __create_curve_from_abbreviation(self, curve: Union[list, tuple, dict, SingleCurve, np.ndarray]):
+    def __create_curve_from_abbreviation(
+        self, curve: Union[list, tuple, dict, SingleCurve, np.ndarray]
+    ):
         current_curve = None
         if isinstance(curve, list) or isinstance(curve, tuple):
-            assert len(
-                curve) >= 2, f"wrong amount of parameters, should be x,y but got \n{curve}"
+            assert (
+                len(curve) >= 2
+            ), f"wrong amount of parameters, should be x,y but got \n{curve}"
             style = None
             if len(curve) >= 3:
                 style = curve[2]
@@ -281,10 +293,10 @@ class Curve(Data):
                         if label is not None:
                             assert isinstance(label, str)
                     current_curve = SingleCurve(
-                        x=curve[0], y=curve[1], style=style, label=label)
+                        x=curve[0], y=curve[1], style=style, label=label
+                    )
                 elif isinstance(style, dict):
-                    current_curve = SingleCurve(
-                        x=curve[0], y=curve[1], **style)
+                    current_curve = SingleCurve(x=curve[0], y=curve[1], **style)
             else:
                 current_curve = SingleCurve(x=curve[0], y=curve[1])
         elif isinstance(curve, dict):
@@ -293,7 +305,9 @@ class Curve(Data):
             current_curve = curve
         elif isinstance(curve, np.ndarray):
             current_curve = SingleCurve(x=None, y=curve)
-        assert current_curve is not None, f"could not create a single curve from abbreviation: {curve}"
+        assert (
+            current_curve is not None
+        ), f"could not create a single curve from abbreviation: {curve}"
         return current_curve
 
     # .grid
@@ -367,22 +381,28 @@ class Curve(Data):
     # ---------------------------------------
     def __getitem__(self, key: int) -> SingleCurve:
         if isinstance(key, slice):
-            return [self.data["curves"][idx] for idx in range(*key.indices(len(self.data["curves"])))]
+            return [
+                self.data["curves"][idx]
+                for idx in range(*key.indices(len(self.data["curves"])))
+            ]
         assert isinstance(key, int)
         assert key < len(
-            self.data["curves"]), f"cannot access curve {key}/{len(self.data['curves']-1)}"
+            self.data["curves"]
+        ), f"cannot access curve {key}/{len(self.data['curves']-1)}"
         return self.data["curves"][key]
 
     def __setitem__(self, key: int, value):
         if isinstance(key, slice):
             for lin_index, idx in enumerate(range(*key.indices(len(value)))):
                 assert idx < len(
-                    self.data["curves"]), f"cannot access curve {idx}/{len(self.data['curves']-1)}"
+                    self.data["curves"]
+                ), f"cannot access curve {idx}/{len(self.data['curves']-1)}"
                 self.data["curves"][idx] = value[lin_index]
             return
         assert isinstance(key, int)
         assert key < len(
-            self.data["curves"]), f"cannot access curve {key}/{len(self.data['curves']-1)}"
+            self.data["curves"]
+        ), f"cannot access curve {key}/{len(self.data['curves']-1)}"
         assert isinstance(value, SingleCurve)
         self.data["curves"][key] = value
 
@@ -395,10 +415,7 @@ class Curve(Data):
     def _set_file_extensions(self):
         self.file_extensions = [".png", ".jpg", ".pkl"]
 
-    def _load(
-        self,
-        path: Path
-    ) -> dict:
+    def _load(self, path: Path) -> dict:
         assert path.suffix in [".pkl"]
         self.path = path
         if path.suffix == ".pkl":
@@ -411,8 +428,7 @@ class Curve(Data):
         if path.suffix == ".pkl":
             Data.save_binary(self.data, path)
         elif path.suffix in [".png", ".jpg"]:
-            self.save_figure(self.data, self.path,
-                             backend=backend, figsize=figsize)
+            self.save_figure(self.data, self.path, backend=backend, figsize=figsize)
 
     @staticmethod
     def save_figure(data, path: Path, backend=None, figsize=None):
@@ -473,9 +489,14 @@ class Curve(Data):
         plt_obj = []
         for curve in data["curves"]:
             if curve.data.get("x", None) is not None:
-                inps = [curve.data["x"], curve.data["y"],]
+                inps = [
+                    curve.data["x"],
+                    curve.data["y"],
+                ]
             else:
-                inps = [curve.data["y"],]
+                inps = [
+                    curve.data["y"],
+                ]
             if curve.data.get("style", None) is not None:
                 inps.append(curve.data["style"])
             if curve.data.get("label", None) is not None:
@@ -487,11 +508,11 @@ class Curve(Data):
                     linestyle=curve.data.get("linestyle", None),
                     linewidth=curve.data.get("linewidth", None),
                     markersize=curve.data.get("markersize", None),
-                    alpha=curve.data.get("alpha", None)
+                    alpha=curve.data.get("alpha", None),
                 )
             )
         if legend_flag:
-            ax.legend(loc='upper right')
+            ax.legend(loc="upper right")
         if data.get("title", None) is not None:
             ax.set_title(data["title"])
         if data.get("xlabel", None) is not None:

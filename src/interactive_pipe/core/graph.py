@@ -17,7 +17,9 @@ def get_name(node: ast.NodeVisitor) -> Union[str, List[str], None]:
         return None
 
 
-def flatten_target_names(targets: List[Union[list, str, None]], mapping_function: Optional[Callable] = None) -> List[str]:
+def flatten_target_names(
+    targets: List[Union[list, str, None]], mapping_function: Optional[Callable] = None
+) -> List[str]:
     output_names = []
     for target in targets:
         target_name = mapping_function(target) if mapping_function else target
@@ -42,26 +44,27 @@ def get_call_graph(func: Callable, global_context=None) -> dict:
         if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
             function_name = get_name(node.value.func)
             input_names = [get_name(arg) for arg in node.value.args]
-            results.append({
-                "function_name": function_name,
-                "function_object": global_context[function_name],
-                "args": input_names,
-                "returns": [],
-                "output_names": [],
-            })
+            results.append(
+                {
+                    "function_name": function_name,
+                    "function_object": global_context[function_name],
+                    "args": input_names,
+                    "returns": [],
+                    "output_names": [],
+                }
+            )
             logging.debug(f"Function without assignment {function_name}")
         elif isinstance(node, ast.Assign):
             targets = node.targets
             value = node.value
             if isinstance(value, ast.Call):
                 function_name = get_name(value.func)
-                logging.debug(
-                    f"classic function with assignment {function_name}")
-                assert function_name in global_context.keys(
+                logging.debug(f"classic function with assignment {function_name}")
+                assert (
+                    function_name in global_context.keys()
                 ), f"Probably mispelled {function_name}"
                 input_names = [get_name(arg) for arg in value.args]
-                output_names = flatten_target_names(
-                    targets, mapping_function=get_name)
+                output_names = flatten_target_names(targets, mapping_function=get_name)
                 function_object = global_context[function_name]
                 if isinstance(function_object, FilterCore):
                     # Case of a filter instance
@@ -79,17 +82,21 @@ def get_call_graph(func: Callable, global_context=None) -> dict:
                     function_apply = global_context[function_name]
                 else:
                     raise TypeError(
-                        f"Not supported {function_name} - should be function or FilterCore")
-                results.append({
-                    "function_name": function_name,
-                    "function_object": function_apply,
-                    "signature": {"args": sig[0], "kwargs": sig[1]},
-                    "args": input_names,
-                    "returns": output_names,
-                })
+                        f"Not supported {function_name} - should be function or FilterCore"
+                    )
+                results.append(
+                    {
+                        "function_name": function_name,
+                        "function_object": function_apply,
+                        "signature": {"args": sig[0], "kwargs": sig[1]},
+                        "args": input_names,
+                        "returns": output_names,
+                    }
+                )
     main_function = tree.body[0]
-    outputs = [get_name(ret.value)
-               for ret in main_function.body if isinstance(ret, ast.Return)]
+    outputs = [
+        get_name(ret.value) for ret in main_function.body if isinstance(ret, ast.Return)
+    ]
     assert len(outputs) <= 1, "cannot return several times!"
     outputs = flatten_target_names(outputs, mapping_function=None)
     inputs, kwargs = analyze_apply_fn_signature(func)
@@ -98,7 +105,7 @@ def get_call_graph(func: Callable, global_context=None) -> dict:
         "call_graph": results,
         "args": inputs,
         "kwargs": kwargs,
-        "returns": outputs
+        "returns": outputs,
     }
 
     return graph

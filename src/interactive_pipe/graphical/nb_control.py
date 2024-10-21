@@ -4,7 +4,7 @@ import logging
 
 
 class BaseControl:
-    layout = Layout(width='500px')
+    layout = Layout(width="500px")
 
     def __init__(self, name, ctrl: Control):
         super().__init__()
@@ -14,12 +14,12 @@ class BaseControl:
         self.check_control_type()
 
     def create(self):
-        raise NotImplementedError(
-            "This method should be overridden by subclass")
+        raise NotImplementedError("This method should be overridden by subclass")
 
     def check_control_type(self):
         raise NotImplementedError(
-            "This method should be overridden by subclass to check the right slider control type")
+            "This method should be overridden by subclass to check the right slider control type"
+        )
 
 
 class IntSliderNotebookControl(BaseControl):
@@ -27,8 +27,14 @@ class IntSliderNotebookControl(BaseControl):
         assert self.ctrl._type == int
 
     def create(self):
-        style = {'description_width': 'initial'}
-        return IntSlider(min=self.ctrl.value_range[0], max=self.ctrl.value_range[1], value=self.ctrl.value_default, style=style, layout=self.layout)
+        style = {"description_width": "initial"}
+        return IntSlider(
+            min=self.ctrl.value_range[0],
+            max=self.ctrl.value_range[1],
+            value=self.ctrl.value_default,
+            style=style,
+            layout=self.layout,
+        )
 
 
 class FloatSliderNotebookControl(BaseControl):
@@ -36,8 +42,14 @@ class FloatSliderNotebookControl(BaseControl):
         assert self.ctrl._type == float
 
     def create(self):
-        style = {'description_width': 'initial'}
-        return FloatSlider(min=self.ctrl.value_range[0], max=self.ctrl.value_range[1], value=self.ctrl.value_default, style=style, layout=self.layout)
+        style = {"description_width": "initial"}
+        return FloatSlider(
+            min=self.ctrl.value_range[0],
+            max=self.ctrl.value_range[1],
+            value=self.ctrl.value_default,
+            style=style,
+            layout=self.layout,
+        )
 
 
 class BoolCheckButtonNotebookControl(BaseControl):
@@ -55,8 +67,7 @@ class DialogNotebookControl(BaseControl):
 
     def create(self):
         options = self.ctrl.value_range
-        dropdown = Dropdown(
-            options=options, description=self.name, layout=self.layout)
+        dropdown = Dropdown(options=options, description=self.name, layout=self.layout)
         return dropdown
 
 
@@ -67,9 +78,7 @@ class PromptNotebookControl(BaseControl):
 
     def create(self):
         text_box = Text(
-            value=self.ctrl.value,
-            description=self.name,
-            layout=self.layout
+            value=self.ctrl.value, description=self.name, layout=self.layout
         )
         return text_box
 
@@ -83,12 +92,17 @@ class ControlFactory:
             bool: BoolCheckButtonNotebookControl,
             int: IntSliderNotebookControl,
             float: FloatSliderNotebookControl,
-            str: PromptNotebookControl if control.value_range is None else DialogNotebookControl,
+            str: (
+                PromptNotebookControl
+                if control.value_range is None
+                else DialogNotebookControl
+            ),
         }
 
         if control_type not in control_class_map:
             logging.warning(
-                f"Unsupported control type: {control_type} for control named {name}")
+                f"Unsupported control type: {control_type} for control named {name}"
+            )
             return None
 
         control_class = control_class_map[control_type]

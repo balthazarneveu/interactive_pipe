@@ -3,17 +3,19 @@ import numpy as np
 from copy import deepcopy
 
 
-class InteractivePipeWindow():
+class InteractivePipeWindow:
     """Display & refresh image results, hosts the sliders & allows refreshing layout grid.
 
     The window/figure displays the results & the sliders.
     `size = (w, h) | "fullscreen" | "maximized defines"` defines the user expected window size.
     - It deals with the graphical refresh
-    - It allows to refreshes the canvas 
+    - It allows to refreshes the canvas
     (displaying two images side by side or four images in a 2x2 square fashion for instance.)
     """
 
-    def __init__(self, *args, name=None, pipeline=None, size=None, style=None, **kwargs) -> None:
+    def __init__(
+        self, *args, name=None, pipeline=None, size=None, style=None, **kwargs
+    ) -> None:
         self.name = name
         self.image_canvas = None
         self._size = size
@@ -40,14 +42,17 @@ class InteractivePipeWindow():
 
     def get_current_style(self, row, col):
         img_name = self.pipeline.outputs[row][col]
-        current_style = self.pipeline.global_params["__output_styles"].get(img_name, {
-                                                                           "title": img_name})
+        current_style = self.pipeline.global_params["__output_styles"].get(
+            img_name, {"title": img_name}
+        )
         return current_style
 
     def check_image_canvas_changes(self, expected_image_canvas_shape):
         if self.image_canvas is not None:
-            current_canvas_shape = (len(self.image_canvas), max(
-                [len(image_row) for image_row in self.image_canvas]))
+            current_canvas_shape = (
+                len(self.image_canvas),
+                max([len(image_row) for image_row in self.image_canvas]),
+            )
             if current_canvas_shape != expected_image_canvas_shape:
                 for row_content in self.image_canvas:
                     for img_widget in row_content:
@@ -57,8 +62,10 @@ class InteractivePipeWindow():
                 logging.debug("Need to fully re-initialize canvas")
 
     def set_image_canvas(self, image_grid):
-        expected_image_canvas_shape = (len(image_grid), max(
-            [len(image_row) for image_row in image_grid]))
+        expected_image_canvas_shape = (
+            len(image_grid),
+            max([len(image_row) for image_row in image_grid]),
+        )
         # Check if the layout has been updated!
         self.check_image_canvas_changes(expected_image_canvas_shape)
         if self.image_canvas is None:

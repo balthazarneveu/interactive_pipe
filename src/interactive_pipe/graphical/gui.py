@@ -7,14 +7,14 @@ from typing import Callable, List
 from functools import partial
 
 
-class InteractivePipeGUI():
+class InteractivePipeGUI:
     """Adds a generic graphical user interface to HeadlessPipeline.
 
     Needs to be specified/customized for each backend.
     It adds an app with a GUI on top of a HeadlessPipeline.
     Widgets will update the pipeline parameters.
     - It deals with key bindings
-     (keyboard press triggers a function. 
+     (keyboard press triggers a function.
      function docstring is shown to the user when he presses "F1" help)
     - It deals with printing the help
     - Initializing the app `init_app` usually requires creating the window object
@@ -28,7 +28,16 @@ class InteractivePipeGUI():
     Do not re-implement the init function!
     """
 
-    def __init__(self, pipeline: HeadlessPipeline = None, controls=[], name="", custom_end=lambda: None, audio=False, size=None, **kwargs) -> None:
+    def __init__(
+        self,
+        pipeline: HeadlessPipeline = None,
+        controls=[],
+        name="",
+        custom_end=lambda: None,
+        audio=False,
+        size=None,
+        **kwargs,
+    ) -> None:
         self.pipeline = pipeline
         self.custom_end = custom_end
         self.audio = audio
@@ -71,8 +80,7 @@ class InteractivePipeGUI():
 
     def __call__(self, *args, parameters={}, **kwargs) -> None:
         self.pipeline.parameters = parameters
-        self.pipeline.parameters = self.pipeline.parameters_from_keyword_args(
-            **kwargs)
+        self.pipeline.parameters = self.pipeline.parameters_from_keyword_args(**kwargs)
         self.pipeline.inputs = args
         results = self.run()
         return results
@@ -81,10 +89,7 @@ class InteractivePipeGUI():
         self.key_bindings[key] = func
 
     def bind_key_to_context(self, key: str, context_param_name: str, doc: str):
-        self.context_key_bindings[key] = {
-            'param_name': context_param_name,
-            'doc': doc
-        }
+        self.context_key_bindings[key] = {"param_name": context_param_name, "doc": doc}
         # Not triggered!
         self.pipeline.global_params["__events"][context_param_name] = False
 
@@ -100,18 +105,22 @@ class InteractivePipeGUI():
         for key, event_dict in self.context_key_bindings.items():
 
             event_triggered = key_pressed == key
-            self.pipeline.global_params["__events"][event_dict["param_name"]
-                                                    ] = event_triggered
+            self.pipeline.global_params["__events"][
+                event_dict["param_name"]
+            ] = event_triggered
             if event_triggered:
                 logging.info(
-                    f"TRIGGERED A KEY EVENT {key_pressed} - {event_dict['doc']}")
+                    f"TRIGGERED A KEY EVENT {key_pressed} - {event_dict['doc']}"
+                )
                 is_any_event_triggered = True
         if is_any_event_triggered:
             self.pipeline.reset_cache()
             refresh_func()
         self.reset_context_events()
 
-    def bind_keyboard_slider(self, ctrl: KeyboardControl, key_update_parameter_func: Callable):
+    def bind_keyboard_slider(
+        self, ctrl: KeyboardControl, key_update_parameter_func: Callable
+    ):
         assert isinstance(ctrl, KeyboardControl)
         toggle_only = True
         doc = ""
@@ -134,8 +143,7 @@ class InteractivePipeGUI():
                     doc = f"[{ctrl.keydown}]/[{ctrl.keyup}]: {ctrl.name}"
                 else:
                     doc = None
-            update_func = partial(
-                key_update_parameter_func, slider_name, down_flag)
+            update_func = partial(key_update_parameter_func, slider_name, down_flag)
             self.bind_key(keyboard_key, update_func)
             update_func.__doc__ = doc
 
@@ -164,8 +172,9 @@ class InteractivePipeGUI():
     def save_images(self):
         """save images to disk"""
         pth = Image.check_path(Image.prompt_file(), load=False)
-        self.pipeline.save(pth, data_wrapper_fn=lambda im: Image(
-            im), save_entire_buffer=True)
+        self.pipeline.save(
+            pth, data_wrapper_fn=lambda im: Image(im), save_entire_buffer=True
+        )
 
     def display_graph(self):
         """display execution graph"""
@@ -182,7 +191,8 @@ class InteractivePipeGUI():
                     help.append(f"[{key}]    : {func.__doc__}")
         for key_context, event_dict in self.context_key_bindings.items():
             help.append(
-                f"[{key_context}]    : {event_dict['doc']} (context['__event'][{event_dict['param_name']}])")
+                f"[{key_context}]    : {event_dict['doc']} (context['__event'][{event_dict['param_name']}])"
+            )
         self.print_message(help)
         return help
 

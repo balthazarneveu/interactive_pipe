@@ -4,8 +4,11 @@ import shutil
 
 from interactive_pipe.data_objects.parameters import Parameters
 
-SAMPLE_DICT = {"key1": 25, "key2": {"key_2_1": 1,
-                                    "key_2_2": True}, "key_3": [True, 1.256664, False]}
+SAMPLE_DICT = {
+    "key1": 25,
+    "key2": {"key_2_1": 1, "key_2_2": True},
+    "key_3": [True, 1.256664, False],
+}
 
 
 @pytest.mark.parametrize("extension", ["json", "yaml"])
@@ -20,7 +23,7 @@ def test_save(tmp_path, extension):
 
 
 def test_invalid_file_extension(tmp_path):
-    file_path = tmp_path/"fake.txt"
+    file_path = tmp_path / "fake.txt"
     if file_path.exists():
         file_path.unlink()
     with pytest.raises(AssertionError):

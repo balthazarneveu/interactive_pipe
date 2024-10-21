@@ -1,8 +1,5 @@
-
 import pytest
-from pathlib import Path
 import numpy as np
-import shutil
 
 from interactive_pipe.data_objects.image import Image, IMAGE_BACKENDS
 
@@ -21,4 +18,4 @@ def test_save_load(tmp_path, backend_load, backend_save):
     # Load the image and check that the data is as expected
     loaded_data = Image.from_file(path, backend=backend_load).data
     # allow for slight differences
-    np.testing.assert_allclose(loaded_data, data, atol=1/255)
+    np.testing.assert_allclose(loaded_data, data, atol=1 / 255)

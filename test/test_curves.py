@@ -1,4 +1,3 @@
-
 import pytest
 import numpy as np
 
@@ -6,20 +5,25 @@ from interactive_pipe.data_objects.curves import Curve, SingleCurve
 
 
 def test_curve_abbreviations():
-    absciss = np.linspace(-1., 1.5, 25)
-    absciss_2 = np.linspace(-3., -1.5, 60)
-    _sig = Curve([np.cos(5.*absciss), np.sin(5.*absciss), np.tan(5.*absciss)])
-    _sig = Curve(np.cos(5.*absciss))
-    _sig = Curve({"y": np.log(8.*np.abs(absciss_2/10.)),
-                  "style": "m-.", "label": "log"})
+    absciss = np.linspace(-1.0, 1.5, 25)
+    absciss_2 = np.linspace(-3.0, -1.5, 60)
+    _sig = Curve([np.cos(5.0 * absciss), np.sin(5.0 * absciss), np.tan(5.0 * absciss)])
+    _sig = Curve(np.cos(5.0 * absciss))
+    _sig = Curve(
+        {"y": np.log(8.0 * np.abs(absciss_2 / 10.0)), "style": "m-.", "label": "log"}
+    )
     with pytest.raises(AssertionError):
-        _sig = Curve([(absciss, absciss_2),])  # wrong sizes
+        _sig = Curve(
+            [
+                (absciss, absciss_2),
+            ]
+        )  # wrong sizes
 
     # list of list OK
-    _sig = Curve([[absciss, 3.*absciss+1., "r-", "linear 3x+1"]])
+    _sig = Curve([[absciss, 3.0 * absciss + 1.0, "r-", "linear 3x+1"]])
     with pytest.raises(AssertionError):
         # missing list, sort of too short
-        _sig = Curve([absciss, 3.*absciss+1., "r-", "linear 3x+1"])
+        _sig = Curve([absciss, 3.0 * absciss + 1.0, "r-", "linear 3x+1"])
 
 
 def test_curves(tmp_path):
@@ -28,12 +32,12 @@ def test_curves(tmp_path):
 
     """
     # Initiate a complex multi curve
-    absciss = np.linspace(-1., 1.5, 25)
-    absciss_2 = np.linspace(-3., -1.5, 60)
+    absciss = np.linspace(-1.0, 1.5, 25)
+    absciss_2 = np.linspace(-3.0, -1.5, 60)
     sample_curve_path = tmp_path / "sample_curve.pkl"
     sample_curve = SingleCurve(
         absciss,
-        np.tan(5.*absciss),
+        np.tan(5.0 * absciss),
         label="tan",
         alpha=0.9,
     )
@@ -43,25 +47,30 @@ def test_curves(tmp_path):
 
     sig = Curve(
         [
-            (None, np.cos(5.*absciss), "r-o", "cos(5)"),
-            [absciss_2, np.sin(5.*absciss_2), "k--", "sin(5)"],
-            [absciss_2, np.sin(8.*absciss_2), None, "sin(8)"],
-            [absciss_2+2., 3.+np.sin(absciss_2+2.), {
-                "markersize": 10, "style": "go", "alpha": 0.2,
-                "label": "shifted"}],
+            (None, np.cos(5.0 * absciss), "r-o", "cos(5)"),
+            [absciss_2, np.sin(5.0 * absciss_2), "k--", "sin(5)"],
+            [absciss_2, np.sin(8.0 * absciss_2), None, "sin(8)"],
+            [
+                absciss_2 + 2.0,
+                3.0 + np.sin(absciss_2 + 2.0),
+                {"markersize": 10, "style": "go", "alpha": 0.2, "label": "shifted"},
+            ],
             SingleCurve(
                 absciss,
-                np.exp(5.*absciss),
+                np.exp(5.0 * absciss),
                 label="exp",
                 alpha=0.9,
             ),
             SingleCurve.from_file(sample_curve_path),
-            {"y": np.log(8.*np.abs(absciss_2[:5]/10.)),
-             "style": "m-.", "label": "log"}
+            {
+                "y": np.log(8.0 * np.abs(absciss_2[:5] / 10.0)),
+                "style": "m-.",
+                "label": "log",
+            },
         ],
         title="plot from abbreviations",
         ylim=(-5, 5),
-        grid=True
+        grid=True,
     )
     path = tmp_path / "test_curves.png"
     sig.save(path)

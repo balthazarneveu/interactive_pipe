@@ -29,6 +29,7 @@ def interactive_pipeline(
 
     Function decorator to add some controls @interactive_pipeline
     """
+
     def wrapper(pipeline_function):
         headless_pipeline = HeadlessPipeline.from_function(
             pipeline_function,
@@ -51,11 +52,13 @@ def interactive_pipeline(
                 pipeline=headless_pipeline,
                 markdown_description=markdown_description,
                 name=name if name is not None else pipeline_function.__name__,
-                **kwargs_gui
+                **kwargs_gui,
             )
 
-        @ functools.wraps(pipeline_function)
+        @functools.wraps(pipeline_function)
         def inner(*args, **kwargs):
             return gui_pipeline.__call__(*args, **kwargs)
+
         return inner
+
     return wrapper

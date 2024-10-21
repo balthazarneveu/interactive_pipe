@@ -6,7 +6,16 @@ from interactive_pipe.data_objects.curves import Curve
 
 
 class MatplotlibWindow(InteractivePipeWindow):
-    def __init__(self,  controls=[], name="", pipeline=None, size=None, style: str = None, rc_params=None, **unused_kwargs):
+    def __init__(
+        self,
+        controls=[],
+        name="",
+        pipeline=None,
+        size=None,
+        style: str = None,
+        rc_params=None,
+        **unused_kwargs,
+    ):
         """
         style: dark_background, seaborn-v0_8-dark
         https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html
@@ -73,7 +82,9 @@ class MatplotlibWindow(InteractivePipeWindow):
             elif isinstance(img, Curve):
                 ax_dict["data"] = img.create_plot(ax=ax_dict["ax"])
             elif isinstance(img, str):
-                ax_dict["data"] = ax_dict["ax"].text(0.5, 0.5, img, ha='center', va='center', fontsize=10)
+                ax_dict["data"] = ax_dict["ax"].text(
+                    0.5, 0.5, img, ha="center", va="center", fontsize=10
+                )
         if not (isinstance(img, Curve) and img.data["title"] is not None):
             self.update_style(ax_dict["ax"], style=current_style)
 
@@ -89,6 +100,6 @@ class MatplotlibWindow(InteractivePipeWindow):
 
     def convert_image(self, img):
         if isinstance(img, np.ndarray) and len(img.shape) > 1:
-            return img.clip(0., 1.)
+            return img.clip(0.0, 1.0)
         else:
             return img

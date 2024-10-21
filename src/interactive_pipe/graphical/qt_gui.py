@@ -10,23 +10,46 @@ from interactive_pipe.graphical.window import InteractivePipeWindow
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.headless.control import Control
 import logging
+
 PYQTVERSION = None
 MPL_SUPPORT = False
 
 if not PYQTVERSION:
     try:
-        from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout, QMessageBox
+        from PyQt6.QtWidgets import (
+            QApplication,
+            QWidget,
+            QLabel,
+            QFormLayout,
+            QGridLayout,
+            QHBoxLayout,
+            QVBoxLayout,
+            QHBoxLayout,
+            QMessageBox,
+        )
         from PyQt6.QtCore import QUrl, Qt
         from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
         from PyQt6.QtGui import QPixmap, QImage, QIcon
+
         PYQTVERSION = 6
     except ImportError:
         logging.warning("Cannot import PyQt 6")
         try:
-            from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout, QMessageBox
+            from PyQt5.QtWidgets import (
+                QApplication,
+                QWidget,
+                QLabel,
+                QFormLayout,
+                QGridLayout,
+                QHBoxLayout,
+                QVBoxLayout,
+                QHBoxLayout,
+                QMessageBox,
+            )
             from PyQt5.QtCore import QUrl, Qt
             from PyQt5.QtGui import QPixmap, QImage, QIcon
             from PyQt5.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaContent
+
             PYQTVERSION = 5
             logging.warning("Using PyQt 5")
         except:
@@ -34,10 +57,21 @@ if not PYQTVERSION:
 
 if not PYQTVERSION:
     try:
-        from PySide6.QtWidgets import QApplication, QWidget, QLabel, QFormLayout, QGridLayout, QHBoxLayout, QVBoxLayout, QHBoxLayout, QMessageBox
+        from PySide6.QtWidgets import (
+            QApplication,
+            QWidget,
+            QLabel,
+            QFormLayout,
+            QGridLayout,
+            QHBoxLayout,
+            QVBoxLayout,
+            QHBoxLayout,
+            QMessageBox,
+        )
         from PySide6.QtCore import QUrl, Qt
         from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
         from PySide6.QtGui import QPixmap, QImage, QIcon
+
         PYQTVERSION = 6
     except ImportError:
         logging.warning("Cannot import PySide 6")
@@ -46,9 +80,12 @@ if not PYQTVERSION:
     logging.warning("Cannot import PyQt or PySide - disable backend")
 try:
     from matplotlib.backends.backend_qtagg import (
-        FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
+        FigureCanvas,
+        NavigationToolbar2QT as NavigationToolbar,
+    )
     from matplotlib.figure import Figure
     from interactive_pipe.data_objects.curves import Curve, SingleCurve
+
     MPL_SUPPORT = True
 except ImportError:
     logging.warning("No support for Matplotlib widgets for Qt")
@@ -63,30 +100,41 @@ class InteractivePipeQT(InteractivePipeGUI):
 
         if self.audio:
             self.audio_player()
-        self.window = MainWindow(controls=self.controls, name=self.name,
-                                 pipeline=self.pipeline, size=self.size, main_gui=self, **kwargs)
+        self.window = MainWindow(
+            controls=self.controls,
+            name=self.name,
+            pipeline=self.pipeline,
+            size=self.size,
+            main_gui=self,
+            **kwargs,
+        )
         self.pipeline.global_params["__pipeline"] = self.pipeline
         self.set_default_key_bindings()
 
     def run(self) -> list:
-        assert self.pipeline._PipelineCore__initialized_inputs, "Did you forget to initialize the pipeline inputs?"
+        assert (
+            self.pipeline._PipelineCore__initialized_inputs
+        ), "Did you forget to initialize the pipeline inputs?"
         self.window.refresh()
         ret = self.app.exec()
         self.custom_end()
         return self.pipeline.results
 
     def set_default_key_bindings(self):
-        self.key_bindings = {**{
-            "f1": self.help,
-            "f11": self.toggle_full_screen,
-            "r": self.reset_parameters,
-            "w": self.save_images,
-            "o": self.load_parameters,
-            "e": self.save_parameters,
-            "i": self.print_parameters,
-            "q": self.close,
-            "g": self.display_graph
-        }, **self.key_bindings}
+        self.key_bindings = {
+            **{
+                "f1": self.help,
+                "f11": self.toggle_full_screen,
+                "r": self.reset_parameters,
+                "w": self.save_images,
+                "o": self.load_parameters,
+                "e": self.save_parameters,
+                "i": self.print_parameters,
+                "q": self.close,
+                "g": self.display_graph,
+            },
+            **self.key_bindings,
+        }
 
     def close(self):
         """close GUI"""
@@ -108,11 +156,15 @@ class InteractivePipeQT(InteractivePipeGUI):
                 for param_name in params.keys():
                     if param_name == widget.parameter_name_to_connect:
                         print(
-                            f"MATCH & update {filtname} {widget_idx} with {self.pipeline.parameters[filtname][param_name]}")
+                            f"MATCH & update {filtname} {widget_idx} with {self.pipeline.parameters[filtname][param_name]}"
+                        )
                         self.window.ctrl[widget_idx].update(
-                            self.pipeline.parameters[filtname][param_name])
+                            self.pipeline.parameters[filtname][param_name]
+                        )
                         matched = True
-            assert matched, f"could not match widget {widget_idx} with parameter to connect {widget.parameter_name_to_connect}"
+            assert (
+                matched
+            ), f"could not match widget {widget_idx} with parameter to connect {widget.parameter_name_to_connect}"
         print("------------")
         self.window.reset_sliders()
 
@@ -130,7 +182,11 @@ class InteractivePipeQT(InteractivePipeGUI):
             self.window.full_screen()
         else:
             window_size = self.window.size
-            if window_size is not None and isinstance(window_size, str) and "full" in window_size.lower():
+            if (
+                window_size is not None
+                and isinstance(window_size, str)
+                and "full" in window_size.lower()
+            ):
                 # Special case where the window naturally goes to fullscreen since user defined it...
                 # Force to go back to normal
                 self.window.showNormal()
@@ -209,10 +265,20 @@ class MainWindow(QWidget, InteractivePipeWindow):
         Qt.Key.Key_Space: KeyboardControl.KEY_SPACEBAR,
     }
 
-    def __init__(self, *args, controls=[], name="", pipeline: HeadlessPipeline = None, size=None, center=True, style=None, main_gui=None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        controls=[],
+        name="",
+        pipeline: HeadlessPipeline = None,
+        size=None,
+        center=True,
+        style=None,
+        main_gui=None,
+        **kwargs,
+    ):
         QWidget.__init__(self, *args, **kwargs)
-        InteractivePipeWindow.__init__(
-            self, name=name, pipeline=pipeline, size=size)
+        InteractivePipeWindow.__init__(self, name=name, pipeline=pipeline, size=size)
         self.main_gui = main_gui
         self.pipeline.global_params["__window"] = self
         self.setWindowTitle(self.name)
@@ -258,7 +324,8 @@ class MainWindow(QWidget, InteractivePipeWindow):
     @size.setter
     def size(self, _size):
         if isinstance(_size, str):
-            assert "full" in _size.lower() or "max" in _size.lower(
+            assert (
+                "full" in _size.lower() or "max" in _size.lower()
             ), f"size={_size} can only be among (full, fullscreen, maximized, max, maximum)"
         self._size = _size
         self.update_window()
@@ -307,17 +374,19 @@ class MainWindow(QWidget, InteractivePipeWindow):
         self.name_label = {}
         self.widget_list = {}
         control_factory = ControlFactory()
-        vertical_spacing = 1  # Decrease this value to reduce vertical space between sliders
+        vertical_spacing = (
+            1  # Decrease this value to reduce vertical space between sliders
+        )
         self.layout_obj.setSpacing(vertical_spacing)
         for ctrl in controls:
             slider_name = ctrl.name
             self.ctrl[slider_name] = ctrl
             if isinstance(ctrl, KeyboardControl):
-                self.main_gui.bind_keyboard_slider(
-                    ctrl, self.key_update_parameter)
+                self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
             elif isinstance(ctrl, Control):
                 slider_instance = control_factory.create_control(
-                    ctrl, self.update_parameter)
+                    ctrl, self.update_parameter
+                )
                 if ctrl._type == str and ctrl.icons is not None:
                     ctrl.filter_to_connect.cache = False
                     ctrl.filter_to_connect.cache_mem = None
@@ -330,7 +399,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
 
                 if isinstance(slider_or_layout, QWidget):
                     label_fixed_width = 200
-                    label = QLabel('', self)
+                    label = QLabel("", self)
                     label.setMinimumWidth(label_fixed_width)
                     self.name_label[slider_name] = label
                     slider_layout.addWidget(self.name_label[slider_name])
@@ -344,12 +413,11 @@ class MainWindow(QWidget, InteractivePipeWindow):
                     container_widget.setLayout(slider_or_layout)
                     slider_layout.addWidget(container_widget)
                 else:
-                    print(
-                        f"Unhandled type for slider: {type(slider_or_layout)}")
+                    print(f"Unhandled type for slider: {type(slider_or_layout)}")
                     continue
                 if isinstance(slider_or_layout, QWidget):
                     result_fixed_width = 100
-                    label = QLabel('', self)
+                    label = QLabel("", self)
                     label.setMinimumWidth(result_fixed_width)
                     self.result_label[slider_name] = label
                     slider_layout.addWidget(self.result_label[slider_name])
@@ -367,7 +435,8 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 # if fixed_height is not None:
                 #     row_container_widget.setFixedHeight(fixed_height)
                 row_container_widget.setContentsMargins(
-                    0, 0, 0, 0)  # Adjust these values as needed
+                    0, 0, 0, 0
+                )  # Adjust these values as needed
 
                 self.layout_obj.addRow(row_container_widget)
 
@@ -380,9 +449,9 @@ class MainWindow(QWidget, InteractivePipeWindow):
         if isinstance(val, float):
             val_to_print = f"{val:.3e}"
         if idx in self.result_label.keys():
-            self.result_label[idx].setText(f'{val_to_print}')
+            self.result_label[idx].setText(f"{val_to_print}")
         if idx in self.name_label.keys():
-            self.name_label[idx].setText(f'{self.ctrl[idx].name}')
+            self.name_label[idx].setText(f"{self.ctrl[idx].name}")
 
     def update_parameter(self, idx, value):
         """Required implementation for graphical controllers update"""
@@ -416,11 +485,16 @@ class MainWindow(QWidget, InteractivePipeWindow):
         image_label = QLabel(self)
         text_label = QLabel(text=f"{row} {col}")
         self.image_canvas[row][col] = {
-            "image": image_label, "title": text_label, "ax_placeholder": ax_placeholder}
+            "image": image_label,
+            "title": text_label,
+            "ax_placeholder": ax_placeholder,
+        }
         self.image_grid_layout.addWidget(
-            text_label, 2*row, col, alignment=Qt.AlignmentFlag.AlignCenter)
+            text_label, 2 * row, col, alignment=Qt.AlignmentFlag.AlignCenter
+        )
         self.image_grid_layout.addWidget(
-            image_label, 2*row+1, col, alignment=Qt.AlignmentFlag.AlignCenter)
+            image_label, 2 * row + 1, col, alignment=Qt.AlignmentFlag.AlignCenter
+        )
 
     def delete_image_placeholder(self, img_widget_dict):
         for obj_key, img_widget in img_widget_dict.items():
@@ -432,23 +506,32 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 img_widget.setParent(None)
 
     def update_image(self, image_array_original, row, col):
-        if isinstance(image_array_original, np.ndarray) and len(image_array_original.shape) == 1:
-            logging.warning("Audio playback not supported with 1D signal" +
-                            "\nuse live audio instead while using Qt!" +
-                            "\nuse instead: context['__set_audio'](audio_track)" +
-                            "\nSee example here: https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/jukebox.py")
+        if (
+            isinstance(image_array_original, np.ndarray)
+            and len(image_array_original.shape) == 1
+        ):
+            logging.warning(
+                "Audio playback not supported with 1D signal"
+                + "\nuse live audio instead while using Qt!"
+                + "\nuse instead: context['__set_audio'](audio_track)"
+                + "\nSee example here: https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/jukebox.py"
+            )
             logging.warning("We'll try to display the audio signal as an image instead")
-            image_array_original = Curve([
-                SingleCurve(
-                    # x=np.linspace(0, image_array_original.shape[0]/44100, image_array_original.shape[0]),
-                    y=image_array_original,
-                    # style="k"
-                )
-            ],
+            image_array_original = Curve(
+                [
+                    SingleCurve(
+                        # x=np.linspace(0, image_array_original.shape[0]/44100, image_array_original.shape[0]),
+                        y=image_array_original,
+                        # style="k"
+                    )
+                ],
                 # xlabel="Time[s]",
                 ylabel="Amplitude",
             )
-        elif isinstance(image_array_original, np.ndarray) and len(image_array_original.shape) > 1:
+        elif (
+            isinstance(image_array_original, np.ndarray)
+            and len(image_array_original.shape) > 1
+        ):
             if len(image_array_original.shape) == 2:
                 # Consider black & white
                 image_array = image_array_original.copy()
@@ -461,11 +544,13 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 image_array = image_array_original
             else:
                 raise NotImplementedError(
-                    f"{image_array_original.shape}4 dimensions image or more like burst are not supported")
+                    f"{image_array_original.shape}4 dimensions image or more like burst are not supported"
+                )
             h, w, c = image_array.shape
             bytes_per_line = c * w
-            image = QImage(image_array.data, w, h, bytes_per_line,
-                           QImage.Format.Format_RGB888)
+            image = QImage(
+                image_array.data, w, h, bytes_per_line, QImage.Format.Format_RGB888
+            )
             pixmap = QPixmap.fromImage(image)
             image_label = self.image_canvas[row][col]["image"]
             image_label.setPixmap(pixmap)
@@ -480,13 +565,18 @@ class MainWindow(QWidget, InteractivePipeWindow):
                     ax_placeholder = image_label.figure.subplots()
                     self.image_canvas[row][col]["image"] = image_label
                     self.image_grid_layout.addWidget(
-                        image_label, 2*row+1, col, alignment=Qt.AlignmentFlag.AlignCenter)
+                        image_label,
+                        2 * row + 1,
+                        col,
+                        alignment=Qt.AlignmentFlag.AlignCenter,
+                    )
                     self.image_canvas[row][col]["ax_placeholder"] = ax_placeholder
                 ax = self.image_canvas[row][col]["ax_placeholder"]
                 plt_obj = self.image_canvas[row][col].get("plot_object", None)
                 if plt_obj is None:
-                    self.image_canvas[row][col]["plot_object"] = image_array.create_plot(
-                        ax=ax)
+                    self.image_canvas[row][col]["plot_object"] = (
+                        image_array.create_plot(ax=ax)
+                    )
                 else:
                     image_array.update_plot(plt_obj, ax=ax)
                     ax.figure.canvas.draw()
@@ -499,7 +589,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
     @staticmethod
     def convert_image(out_im):
         if isinstance(out_im, np.ndarray) and len(out_im.shape) > 1:
-            return (out_im.clip(0., 1.) * 255).astype(np.uint8)
+            return (out_im.clip(0.0, 1.0) * 255).astype(np.uint8)
         else:
             return out_im
 

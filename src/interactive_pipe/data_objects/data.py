@@ -34,8 +34,7 @@ class Data:
             self._file_extensions = [new_file_extensions]
         else:
             self._file_extensions = new_file_extensions
-        assert self._file_extensions is None or isinstance(
-            self._file_extensions, list)
+        assert self._file_extensions is None or isinstance(self._file_extensions, list)
         if isinstance(self._file_extensions, list):
             for el in self._file_extensions:
                 assert isinstance(el, str)
@@ -56,15 +55,13 @@ class Data:
 
     def save(self, path: Path = None, override=True, **kwargs):
         path = self.check_path(
-            path if (override or path is None) else self.safe_path_with_suffix(
-                path),
-            extensions=self.file_extensions
+            path if (override or path is None) else self.safe_path_with_suffix(path),
+            extensions=self.file_extensions,
         )
         self._save(path, **kwargs)
 
     def load(self, path: Path = None, **kwargs):
-        path = self.check_path(
-            path, load=True, extensions=self.file_extensions)
+        path = self.check_path(path, load=True, extensions=self.file_extensions)
         self.data = self._load(path, **kwargs)
         return self.data
 
@@ -73,7 +70,9 @@ class Data:
         return input(message)
 
     @staticmethod
-    def check_path(path: Optional[Path] = None, load: bool = False, extensions=None) -> Path:
+    def check_path(
+        path: Optional[Path] = None, load: bool = False, extensions=None
+    ) -> Path:
         if path is None:
             path = Data.prompt_file()
         assert path is not None
@@ -83,7 +82,9 @@ class Data:
         if load:  # loading
             assert path.exists()
             if extensions is not None:
-                assert path.suffix in extensions, f"{path.suffix} shall be among {extensions}"
+                assert (
+                    path.suffix in extensions
+                ), f"{path.suffix} shall be among {extensions}"
             return path
         else:  # saving
             if not path.parent.exists():
@@ -103,23 +104,24 @@ class Data:
         idx = 1
         orig_path = path
         while path.is_file():
-            path = orig_path.with_name('%s_%d%s' % (
-                orig_path.stem, idx, orig_path.suffix))
+            path = orig_path.with_name(
+                "%s_%d%s" % (orig_path.stem, idx, orig_path.suffix)
+            )
             idx += 1
         return path
 
     @staticmethod
     def append_with_stem(path, extra):
-        return path.parent/(path.stem + extra + path.suffix)
+        return path.parent / (path.stem + extra + path.suffix)
 
     @staticmethod
     def save_binary(data, path: Path):
         assert path.suffix == ".pkl"
-        with open(path, 'wb') as handle:
+        with open(path, "wb") as handle:
             pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     @staticmethod
     def load_binary(path: Path):
-        with open(path, 'rb') as handle:
+        with open(path, "rb") as handle:
             data = pickle.load(handle)
         return data
