@@ -62,7 +62,7 @@ pip install -e ".[full]"
 
 ## :scroll:  Features
 
-**Version 0.8.5**
+**Version 0.8.6**
 - Modular multi-image processing filters
 - Declarative: Easily make graphical user interface without having to learn anything about pyQt or matplotlib
 - Support in jupyter notebooks
@@ -120,6 +120,11 @@ Shortcuts while using the GUI (QT & matplotlib backends)
 # Tutorials
 ### [Main tutorial](https://huggingface.co/spaces/balthou/interactive-pipe-tutorial)
 ![tuto](/doc/images/tutorial.png)
+
+[Tutorial on Hugging Face space](https://huggingface.co/spaces/balthou/interactive-pipe-tutorial)
+
+
+[Tutorial in a Colab notebook](https://colab.research.google.com/github/livalgo/interactive-pipe-examples/blob/main/interactive_pipe_tutorial.ipynb#scrollTo=U38Oh7coVKwf)
 
 ### Learn by examples
 #### [Basic image processing (python code sample for PyQT GUI)](/demo/multi_image.py)
