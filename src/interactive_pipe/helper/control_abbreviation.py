@@ -24,8 +24,8 @@ def analyze_expected_keyboard_argument(
     if arg is None:
         # supported None strange definition...
         logging.warning(
-            "Setting a Control with a None argument where it expects some key definition for KeyboardControl." +
-            "Prefer simply ignoring this argument"
+            "Setting a Control with a None argument where it expects some key definition for KeyboardControl."
+            + "Prefer simply ignoring this argument"
         )
         keyboard_slider_flag = False
         pass
@@ -35,8 +35,8 @@ def analyze_expected_keyboard_argument(
     elif isinstance(arg, list) or isinstance(arg, tuple):
         if len(arg) == 0:
             logging.warning(
-                "Setting a Control with an empty list where it expects some key definition for KeyboardControl." +
-                "Prefer simply ignoring this argument"
+                "Setting a Control with an empty list where it expects some key definition for KeyboardControl."
+                + "Prefer simply ignoring this argument"
             )
             keyboard_slider_flag = False
         else:
@@ -62,8 +62,8 @@ def analyze_expected_keyboard_argument(
                 modulo = arg[2]
             else:
                 raise ValueError(
-                    f"Too much elements in the keyboard provided list {arg} ," +
-                    "stick to 3 maximum [keydown, keyup, modulo]"
+                    f"Too much elements in the keyboard provided list {arg} ,"
+                    + "stick to 3 maximum [keydown, keyup, modulo]"
                 )
     else:
         raise TypeError(f"{arg} is not supported for keyboard")
@@ -135,10 +135,10 @@ def control_from_tuple(
         if len(short_params) >= 2:
             name = short_params[1]
             if name is not None:
-                assert isinstance(
-                    name, str
-                ), f"{name} name shall be a string or None." \
+                assert isinstance(name, str), (
+                    f"{name} name shall be a string or None."
                     "you do not need to provide a value range for a boolean slider."
+                )
             assert len(short_params) <= 3
             if len(short_params) == 3:
                 keyboard_slider_flag, keydown, keyup, _modulo = (

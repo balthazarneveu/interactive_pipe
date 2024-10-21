@@ -153,8 +153,8 @@ class InteractivePipeQT(InteractivePipeGUI):
                 for param_name in params.keys():
                     if param_name == widget.parameter_name_to_connect:
                         print(
-                            f"MATCH & update {filtname} {widget_idx} with" +
-                            f"{self.pipeline.parameters[filtname][param_name]}"
+                            f"MATCH & update {filtname} {widget_idx} with"
+                            + f"{self.pipeline.parameters[filtname][param_name]}"
                         )
                         self.window.ctrl[widget_idx].update(
                             self.pipeline.parameters[filtname][param_name]

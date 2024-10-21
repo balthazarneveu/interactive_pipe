@@ -35,7 +35,9 @@ def get_interactive_pipeline_class(gui="auto"):
     else:
         selected_gui = gui
     if selected_gui == "qt":
-        from interactive_pipe.graphical.qt_gui import InteractivePipeQT as ChosenGui  # noqa: F811
+        from interactive_pipe.graphical.qt_gui import (  # noqa: F811
+            InteractivePipeQT as ChosenGui,
+        )
     elif selected_gui == "mpl":
         from interactive_pipe.graphical.mpl_gui import (
             InteractivePipeMatplotlib as ChosenGui,

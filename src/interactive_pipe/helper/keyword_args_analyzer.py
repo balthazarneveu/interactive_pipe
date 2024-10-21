@@ -76,10 +76,10 @@ def get_controls_from_decorated_function_declaration(
     # 2. Analyzing decorator keyword args
     # @interactive(param_2=Control(...))
     for param_name, unknown_keyword_arg in decorator_controls.items():
-        assert (
-            param_name in keyword_names
-        ), f"typo: control {param_name} passed through the decorator " \
+        assert param_name in keyword_names, (
+            f"typo: control {param_name} passed through the decorator "
             f"does not match any of the function keyword args {keyword_names}"
+        )
         chosen_control = __create_control_from_keyword_argument(
             param_name, unknown_keyword_arg
         )

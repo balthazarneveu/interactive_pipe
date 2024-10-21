@@ -11,6 +11,7 @@ import numpy as np
 # Or you can decorate it afterwards, like in the main
 # interact(frequency=(3., [0, 10.], "freq[Hz]"), phase=(90.,[-180, 180], "phase °"), disable=True)(generate_sine_wave)
 
+
 # !! Uncomment to get a graphical interface test... !!
 # @interact(frequency=(3., [0, 10.], "freq[Hz]"), phase=(90.,[-180, 180], "phase °"))
 def generate_sine_wave(

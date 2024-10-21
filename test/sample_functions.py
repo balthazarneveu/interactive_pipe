@@ -13,9 +13,10 @@ def blend(img1, img2, blend_coeff=0.4):
 
 def split_horizontally(img, line=0.5):
     split_line = int(0.5 * img.shape[-2])
+    start, end = split_line - 10, split_line + 10
     return (
         img[..., :split_line, :],
-        img[..., split_line - 10: split_line + 10, :],
+        img[..., start:end, :],
         img[..., split_line:, :],
     )
 

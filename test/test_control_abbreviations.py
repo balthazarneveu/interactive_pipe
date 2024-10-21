@@ -60,7 +60,7 @@ def test_ultra_abbreviation_keyboard(inp_tuple):
 def test_abbreviation_keyboard_expected_fail(inp_tuple_and_error_type):
     inp_tuple, error_type = inp_tuple_and_error_type
     with pytest.raises(error_type):
-        ctrl = control_from_tuple(inp_tuple)   # noqa: F841
+        ctrl = control_from_tuple(inp_tuple)  # noqa: F841
 
 
 @pytest.mark.parametrize(
