@@ -5,6 +5,7 @@
 |:--:|
 |Quick setup `pip install interactive-pipe` |
 | [Project website](https://balthazarneveu.github.io/interactive_pipe/) |
+|[![Interactive pipe python package](https://github.com/balthazarneveu/interactive_pipe/actions/workflows/pytest.yaml/badge.svg)](https://github.com/balthazarneveu/interactive_pipe/actions/workflows/pytest.yaml) |
 
 </center>
 
