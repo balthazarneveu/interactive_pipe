@@ -1,4 +1,5 @@
 from interactive_pipe.helper import _private
+import signal
 import logging
 
 
@@ -35,6 +36,9 @@ def get_interactive_pipeline_class(gui="auto"):
     else:
         selected_gui = gui
     if selected_gui == "qt":
+        # make sure that the signal handlers are reset to default
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
         from interactive_pipe.graphical.qt_gui import (  # noqa: F811
             InteractivePipeQT as ChosenGui,
         )
