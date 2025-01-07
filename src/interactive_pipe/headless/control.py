@@ -214,6 +214,7 @@ class TextPrompt(Control):
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
     ) -> None:
+        """Text box"""
         super().__init__(
             value_default=value_default,
             value_range=None,
@@ -233,10 +234,12 @@ class TimeControl(Control):
         self,
         name=None,
         update_interval_ms: int = 1000,
+        pause_resume_key: str = "p",
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
 
     ) -> None:
+        """Time control. Start at 0.0. Time can be paused/resumed"""
         super().__init__(
             value_default=0.0,
             value_range=[0.0, 3600.],
@@ -247,6 +250,7 @@ class TimeControl(Control):
             icons=None,
         )
         self.update_interval_ms = update_interval_ms
+        self.pause_resume_key = pause_resume_key
 
     def __repr__(self) -> str:
         return super().__repr__()

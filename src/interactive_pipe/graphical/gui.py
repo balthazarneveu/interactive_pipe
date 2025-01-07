@@ -168,7 +168,7 @@ class InteractivePipeGUI:
         suspend_resume_timer: Callable = None,
     ):
         """Plug timer control to the processing block (pass the time to the block)
-        Bind the "p" play/pause key to the timer
+        Bind the pause_resume_key (default "p") play/pause key to the timer
         """
         assert isinstance(ctrl, TimeControl)
         doc = ""
@@ -183,7 +183,7 @@ class InteractivePipeGUI:
             delta_time = time.time() - self.start_time
             return update_parameter_func(slider_name, delta_time)
 
-        self.bind_key("p", partial(self.play_pause_time, suspend_resume_timer))
+        self.bind_key(ctrl.pause_resume_key, partial(self.play_pause_time, suspend_resume_timer))
         update_func.__doc__ = doc
         return update_func
 
