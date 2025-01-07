@@ -8,7 +8,7 @@ from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.graphical.qt_control import ControlFactory
 from interactive_pipe.graphical.window import InteractivePipeWindow
 from interactive_pipe.graphical.gui import InteractivePipeGUI
-from interactive_pipe.headless.control import Control
+from interactive_pipe.headless.control import Control, TimeControl
 import logging
 
 PYQTVERSION = None
@@ -27,7 +27,7 @@ if not PYQTVERSION:
             QHBoxLayout,
             QMessageBox,
         )
-        from PyQt6.QtCore import QUrl, Qt
+        from PyQt6.QtCore import QUrl, Qt, QTimer
         from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
         from PyQt6.QtGui import QPixmap, QImage
 
@@ -46,7 +46,7 @@ if not PYQTVERSION:
                 QHBoxLayout,
                 QMessageBox,
             )
-            from PyQt5.QtCore import QUrl, Qt
+            from PyQt5.QtCore import QUrl, Qt, QTimer
             from PyQt5.QtGui import QPixmap, QImage
             from PyQt5.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaContent
 
@@ -68,7 +68,7 @@ if not PYQTVERSION:
             QHBoxLayout,
             QMessageBox,
         )
-        from PySide6.QtCore import QUrl, Qt  # noqa: F811
+        from PySide6.QtCore import QUrl, Qt, QTimer  # noqa: F811
         from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer  # noqa: F811
         from PySide6.QtGui import QPixmap, QImage  # noqa: F811
 
@@ -141,6 +141,10 @@ class InteractivePipeQT(InteractivePipeGUI):
         """reset sliders to default parameters"""
         super().reset_parameters()
         for widget_idx, ctrl in self.window.ctrl.items():
+            if isinstance(ctrl, TimeControl):
+                # self.suspend_resume_timer(True)
+                # self.time_playing = False
+                self.start_time = None  # Reset the timer
             ctrl.value = ctrl.value_default
         self.window.reset_sliders()
 
@@ -382,6 +386,24 @@ class MainWindow(QWidget, InteractivePipeWindow):
             self.ctrl[slider_name] = ctrl
             if isinstance(ctrl, KeyboardControl):
                 self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
+            elif isinstance(ctrl, TimeControl):
+                self.timer = QTimer(self)
+
+                def suspend_resume_timer(suspend: bool):
+
+                    if suspend:
+                        logging.debug("Suspend")
+                        self.timer.stop()
+                    else:
+                        logging.debug("Resume")
+                        self.timer.start()
+                self.main_gui.suspend_resume_timer = suspend_resume_timer
+                plugged_func = self.main_gui.plug_timer_control(
+                    ctrl, self.update_parameter, suspend_resume_timer
+                )
+                self.timer.timeout.connect(plugged_func)
+                self.timer.start(ctrl.update_interval_ms)
+
             elif isinstance(ctrl, Control):
                 slider_instance = control_factory.create_control(
                     ctrl, self.update_parameter
@@ -462,7 +484,10 @@ class MainWindow(QWidget, InteractivePipeWindow):
         elif self.ctrl[idx]._type == bool:
             self.ctrl[idx].update(bool(value))
         elif self.ctrl[idx]._type == float:
-            self.ctrl[idx].update(self.ctrl[idx].convert_int_to_value(value))
+            if isinstance(self.ctrl[idx], TimeControl):
+                self.ctrl[idx].update(value)
+            else:
+                self.ctrl[idx].update(self.ctrl[idx].convert_int_to_value(value))
         elif self.ctrl[idx]._type == int:
             self.ctrl[idx].update(value)
         else:

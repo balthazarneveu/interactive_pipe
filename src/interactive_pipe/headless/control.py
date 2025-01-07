@@ -226,3 +226,27 @@ class TextPrompt(Control):
 
     def __repr__(self) -> str:
         return super().__repr__()
+
+
+class TimeControl(Control):
+    def __init__(
+        self,
+        name=None,
+        update_interval_ms: int = 1000,
+        filter_to_connect: Optional[FilterCore] = None,
+        parameter_name_to_connect: Optional[str] = None,
+
+    ) -> None:
+        super().__init__(
+            value_default=0.0,
+            value_range=[0.0, 3600.],
+            name=name,
+            step=None,
+            filter_to_connect=filter_to_connect,
+            parameter_name_to_connect=parameter_name_to_connect,
+            icons=None,
+        )
+        self.update_interval_ms = update_interval_ms
+
+    def __repr__(self) -> str:
+        return super().__repr__()

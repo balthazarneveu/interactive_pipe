@@ -2,9 +2,11 @@ from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.parameters import Parameters
 from interactive_pipe.headless.keyboard import KeyboardControl
+from interactive_pipe.headless.control import TimeControl
 import logging
 from typing import Callable, List
 from functools import partial
+import time
 
 
 class InteractivePipeGUI:
@@ -86,6 +88,8 @@ class InteractivePipeGUI:
         return results
 
     def bind_key(self, key, func: Callable):
+        if key in self.key_bindings.keys():
+            logging.warning(f"Key {key} already bound to {self.key_bindings[key]}")
         self.key_bindings[key] = func
 
     def bind_key_to_context(self, key: str, context_param_name: str, doc: str):
@@ -147,7 +151,44 @@ class InteractivePipeGUI:
             self.bind_key(keyboard_key, update_func)
             update_func.__doc__ = doc
 
+    def play_pause_time(self, suspend_resume_timer: Callable = None):
+        """Play or pause the timer"""
+        if self.start_time is None:
+            self.start_time = time.time()
+        else:
+            self.start_time = time.time() - self.start_time
+        self.time_playing = not self.time_playing
+        if suspend_resume_timer is not None:
+            suspend_resume_timer(not self.time_playing)
+
+    def plug_timer_control(
+        self,
+        ctrl: TimeControl,
+        update_parameter_func: Callable,
+        suspend_resume_timer: Callable = None,
+    ):
+        """Plug timer control to the processing block (pass the time to the block)
+        Bind the "p" play/pause key to the timer
+        """
+        assert isinstance(ctrl, TimeControl)
+        doc = ""
+        slider_name = ctrl.name
+        doc = None
+        self.start_time = time.time()
+        self.time_playing = True
+
+        def update_func():
+            if self.start_time is None:
+                self.start_time = time.time()
+            delta_time = time.time() - self.start_time
+            return update_parameter_func(slider_name, delta_time)
+
+        self.bind_key("p", partial(self.play_pause_time, suspend_resume_timer))
+        update_func.__doc__ = doc
+        return update_func
+
     # ---------------------------------------------------------------------
+
     def reset_parameters(self):
         """reset parameters"""
         logging.debug("Reset parameters")
