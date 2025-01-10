@@ -1,4 +1,4 @@
-__version__ = "0.8.6"
+__version__ = "0.8.7"
 from interactive_pipe.helper.pipeline_decorator import pipeline, interactive_pipeline
 from interactive_pipe.headless.control import (
     Control,

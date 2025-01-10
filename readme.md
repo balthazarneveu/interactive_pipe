@@ -63,18 +63,19 @@ pip install -e ".[full]"
 
 ## :scroll:  Features
 
-**Version 0.8.6**
+**Version 0.8.7**
 - Modular multi-image processing filters
 - Declarative: Easily make graphical user interface without having to learn anything about pyQt or matplotlib
 - Support in jupyter notebooks
 - Tuning sliders & check buttons  with a GUI
 - Cache intermediate results in RAM for much faster processing
 - `KeyboardControl` : no slider on UI but exactly the same internal mechanism, update on key press.
-- Support Curve plots (2D signals)
+- Support Curve plots (2D signalKeybos)
 - :new: gradio backend (+allows sharing with others). 
 - :new: Audio support in Gradio (live audio or display several players by returning 1D numpy arrays)
 - :new: Circular sliders for Qt Backend
 - :new: Text prompt (`free_text=("Hello world!", None),`)
+- :new: TimeControl (possibility to play/pause time using an incrementing timer)
 
 
 
