@@ -183,7 +183,9 @@ class InteractivePipeGUI:
             delta_time = time.time() - self.start_time
             return update_parameter_func(slider_name, delta_time)
 
-        self.bind_key(ctrl.pause_resume_key, partial(self.play_pause_time, suspend_resume_timer))
+        self.bind_key(
+            ctrl.pause_resume_key, partial(self.play_pause_time, suspend_resume_timer)
+        )
         update_func.__doc__ = doc
         return update_func
 

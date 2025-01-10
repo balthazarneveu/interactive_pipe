@@ -397,6 +397,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
                     else:
                         logging.debug("Resume")
                         self.timer.start()
+
                 self.main_gui.suspend_resume_timer = suspend_resume_timer
                 plugged_func = self.main_gui.plug_timer_control(
                     ctrl, self.update_parameter, suspend_resume_timer
