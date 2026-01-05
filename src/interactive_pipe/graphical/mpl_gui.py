@@ -179,6 +179,13 @@ class MainWindow(MatplotlibWindow):
             if isinstance(ctrl, KeyboardControl):
                 self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
                 continue
+            # Skip single-value controls (don't show anything)
+            if (
+                ctrl._type == str
+                and ctrl.value_range is not None
+                and len(ctrl.value_range) == 1
+            ):
+                continue
             if ctrl._type == bool or (
                 ctrl._type == str and ctrl.value_range is not None
             ):

@@ -183,9 +183,11 @@ class MainWindow(InteractivePipeWindow):
             return tuple(flat_out)
 
         def process_inputs_fn(*args) -> list:
-            all_keys = list(self.ctrl.keys())
+            # Only process controls that have widgets (args only contains values for widgets)
             for idx in range(len(args)):
-                self.ctrl[all_keys[idx]].update(args[idx])
+                if idx < len(self.ctrl_keys_with_widgets):
+                    ctrl_key = self.ctrl_keys_with_widgets[idx]
+                    self.ctrl[ctrl_key].update(args[idx])
             out = self.pipeline.run()
             return out
 
@@ -201,7 +203,7 @@ class MainWindow(InteractivePipeWindow):
             return out_tuple
 
         self.default_values = [
-            self.ctrl[ctrl_key].value for ctrl_key in self.ctrl.keys()
+            self.ctrl[ctrl_key].value for ctrl_key in self.ctrl_keys_with_widgets
         ]
         self.process_inputs_fn = process_inputs_fn
         self.run_fn = run_fn
@@ -346,8 +348,9 @@ class MainWindow(InteractivePipeWindow):
                     if isinstance(self.widget_list[idx], list):
                         for idy, elem in enumerate(self.widget_list[idx]):
                             changing_inputs_copy = changing_inputs.copy()
+                            ctrl_key = self.ctrl_keys_with_widgets[idx]
                             changing_inputs_copy[idx] = gr.State(
-                                self.ctrl[list(self.ctrl.keys())[idx]].value_range[idy]
+                                self.ctrl[ctrl_key].value_range[idy]
                             )
                             elem.click(
                                 fn=self.run_fn,
@@ -371,14 +374,24 @@ class MainWindow(InteractivePipeWindow):
         self.result_label = {}
         self.name_label = {}
         self.widget_list = []
+        self.ctrl_keys_with_widgets = []  # Track which controls have widgets
         control_factory = ControlFactory()
         for ctrl in controls:
             if isinstance(ctrl, Control):
                 slider_instance = control_factory.create_control(ctrl, None)
+                # Skip controls that return None (e.g., single-value controls)
+                if slider_instance is None:
+                    slider_name = ctrl.name
+                    self.ctrl[slider_name] = ctrl
+                    continue
                 control_widget = slider_instance.create()
                 self.widget_list.append(control_widget)
-            slider_name = ctrl.name
-            self.ctrl[slider_name] = ctrl
+                slider_name = ctrl.name
+                self.ctrl[slider_name] = ctrl
+                self.ctrl_keys_with_widgets.append(slider_name)
+            else:
+                slider_name = ctrl.name
+                self.ctrl[slider_name] = ctrl
 
     @staticmethod
     def convert_image(out_im):

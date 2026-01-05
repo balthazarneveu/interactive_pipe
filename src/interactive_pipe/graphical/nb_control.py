@@ -88,6 +88,14 @@ class ControlFactory:
     def create_control(control: Control):
         control_type = control._type
         name = control.name
+        # Return None for single-value controls (don't show anything)
+        if (
+            control_type == str
+            and control.value_range is not None
+            and len(control.value_range) == 1
+        ):
+            return None
+
         control_class_map = {
             bool: BoolCheckButtonNotebookControl,
             int: IntSliderNotebookControl,

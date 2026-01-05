@@ -25,6 +25,14 @@ class ControlFactory:
     def create_control(control: Control, update_func):
         control_type = control._type
         name = control.name
+        # Return None for single-value controls (don't show anything)
+        if (
+            control_type == str
+            and control.value_range is not None
+            and len(control.value_range) == 1
+        ):
+            return None
+
         control_class_map = {
             bool: TickBoxControl,
             int: IntSliderControl,
@@ -106,6 +114,7 @@ class DropdownMenuControl(BaseControl):
 class PromptControl(BaseControl):
     def check_control_type(self):
         assert self.ctrl._type == str
+        assert self.ctrl.value_range is None
 
     def create(self) -> gr.Text:
         self.control_widget = gr.Text(label=self.name, value=self.ctrl.value)

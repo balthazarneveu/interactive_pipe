@@ -415,6 +415,9 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 slider_instance = control_factory.create_control(
                     ctrl, self.update_parameter
                 )
+                # Skip controls that return None (e.g., single-value controls)
+                if slider_instance is None:
+                    continue
                 if ctrl._type == str and ctrl.icons is not None:
                     ctrl.filter_to_connect.cache = False
                     ctrl.filter_to_connect.cache_mem = None

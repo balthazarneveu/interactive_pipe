@@ -72,6 +72,10 @@ class MainWindow(MatplotlibWindow):
         for ctrl in controls:
             slider_name = ctrl.name
             slider_instance = control_factory.create_control(ctrl)
+            # Skip controls that return None (e.g., single-value controls)
+            if slider_instance is None:
+                self.ctrl[slider_name] = ctrl
+                continue
             slider_widget = slider_instance.create()
             # needed to keep the object alive
             self.sliders_dict[slider_name] = slider_widget
