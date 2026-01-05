@@ -1,4 +1,3 @@
-import time
 from pathlib import Path
 import sys
 import numpy as np
@@ -95,8 +94,6 @@ class InteractivePipeQT(InteractivePipeGUI):
         else:
             self.app = QApplication.instance()
 
-        if self.audio:
-            self.audio_player()
         self.window = MainWindow(
             controls=self.controls,
             name=self.name,
@@ -107,6 +104,15 @@ class InteractivePipeQT(InteractivePipeGUI):
         )
         self.pipeline.global_params["__pipeline"] = self.pipeline
         self.set_default_key_bindings()
+        
+        if self.audio:
+            # Set up placeholder functions so pipeline can run before audio is ready
+            self.pipeline.global_params["__set_audio"] = lambda x: None
+            self.pipeline.global_params["__play"] = lambda: None
+            self.pipeline.global_params["__pause"] = lambda: None
+            self.pipeline.global_params["__stop"] = lambda: None
+            # Defer audio initialization to avoid PipeWire sync blocking
+            QTimer.singleShot(100, self.audio_player)
 
     def run(self) -> list:
         assert (
@@ -206,7 +212,6 @@ class InteractivePipeQT(InteractivePipeGUI):
             self.player.errorChanged.connect(self.handle_audio_error)
         else:
             self.player.setVolume(50)
-            # currentVolume = self.player.volume()
             self.player.error.connect(self.handle_audio_error)
         self.pipeline.global_params["__player"] = self.player
         self.pipeline.global_params["__set_audio"] = self.__set_audio
@@ -219,11 +224,13 @@ class InteractivePipeQT(InteractivePipeGUI):
 
     def __set_audio(self, file_path):
         self.__stop()
-        time.sleep(0.01)
         if isinstance(file_path, str):
             file_path = Path(file_path)
+        if not file_path.is_absolute():
+            file_path = Path.cwd() / file_path
+        else:
+            file_path = file_path.resolve()
         assert file_path.exists()
-        file_path = Path.cwd() / file_path
         media_url = QUrl.fromLocalFile(str(file_path))
         if PYQTVERSION == 6:
             self.player.setSource(media_url)
@@ -231,7 +238,6 @@ class InteractivePipeQT(InteractivePipeGUI):
             content = QMediaContent(media_url)
             self.player.setMedia(content)
             self.player.play()
-        time.sleep(0.01)
         self.player.setPosition(0)
 
     def __play(self):
