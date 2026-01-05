@@ -221,7 +221,30 @@ class InteractivePipeGUI:
 
     def display_graph(self):
         """display execution graph"""
-        self.pipeline.graph_representation(view=True, ortho=False)
+        try:
+            result = self.pipeline.graph_representation(view=True, ortho=False)
+            if result is None:
+                self.print_message(
+                    [
+                        "Graph visualization failed.",
+                        "Graphviz executables are required to display the graph.",
+                        "Please install Graphviz system package:",
+                        "  - Ubuntu/Debian: sudo apt-get install graphviz",
+                        "  - macOS: brew install graphviz",
+                        "  - Windows: Download from https://graphviz.org/download/",
+                    ]
+                )
+        except Exception as exc:
+            self.print_message(
+                [
+                    f"Failed to display graph: {exc}",
+                    "Graphviz executables are required to display the graph.",
+                    "Please install Graphviz system package:",
+                    "  - Ubuntu/Debian: sudo apt-get install graphviz",
+                    "  - macOS: brew install graphviz",
+                    "  - Windows: Download from https://graphviz.org/download/",
+                ]
+            )
 
     def help(self) -> List[str]:
         """print this help in the console"""

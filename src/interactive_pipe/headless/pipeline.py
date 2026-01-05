@@ -308,10 +308,20 @@ class HeadlessPipeline(PipelineCore):
 
         try:
             import graphviz
+        except ImportError as exc:
+            logging.warning("cannot generate pipeline graph, need to install graphviz")
+            logging.warning(exc)
+            return None
         except Exception as exc:
             logging.warning("cannot generate pipeline graph, need to install graphviz")
             logging.warning(exc)
             return None
+
+        # Try to import ExecutableNotFound, but handle if it's not available
+        try:
+            from graphviz.backend.execute import ExecutableNotFound
+        except (ImportError, AttributeError):
+            ExecutableNotFound = None
 
         dot = graphviz.Digraph(comment=self.name)
         if ortho:
@@ -367,8 +377,31 @@ class HeadlessPipeline(PipelineCore):
             )
             if last_filter_found is not None:
                 dot.edge(last_filter_found, f"out {out}", label=edge_label(inp_name))
-        if path is not None:
-            dot.render(path, view=view)
-        else:
-            dot.render(self.name, view=view)
+        try:
+            if path is not None:
+                dot.render(path, view=view)
+            else:
+                dot.render(self.name, view=view)
+        except Exception as exc:
+            # Check if this is an ExecutableNotFound error
+            exc_type_name = type(exc).__name__
+            if ExecutableNotFound and isinstance(exc, ExecutableNotFound):
+                logging.error(
+                    "Graphviz executables not found. Please install Graphviz system package:\n"
+                    "  - Ubuntu/Debian: sudo apt-get install graphviz\n"
+                    "  - macOS: brew install graphviz\n"
+                    "  - Windows: Download from https://graphviz.org/download/"
+                )
+            elif "ExecutableNotFound" in exc_type_name or "ExecutableNotFound" in str(
+                exc
+            ):
+                logging.error(
+                    "Graphviz executables not found. Please install Graphviz system package:\n"
+                    "  - Ubuntu/Debian: sudo apt-get install graphviz\n"
+                    "  - macOS: brew install graphviz\n"
+                    "  - Windows: Download from https://graphviz.org/download/"
+                )
+            else:
+                logging.error(f"Failed to render graph: {exc}")
+            return None
         return dot
