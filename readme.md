@@ -364,19 +364,30 @@ def bad_processing_block(inp):
 
 #### Code quality checks
 
-Before committing, ensure your code passes the linters:
+Before committing, ensure your code passes the linters and tests. The CI runs these checks automatically:
+
+**What CI does:**
+- **Black formatting check** (`.github/workflows/formatting.yaml`): Runs `black --check` to verify code formatting
+- **Flake8 linting** (`.github/workflows/flake8.yaml`): Runs `flake8` to check code quality
+- **Pytest tests** (`.github/workflows/pytest.yaml`): Runs `pytest` on Python 3.9, 3.10, and 3.11
+
+**Local commands (match CI):**
 
 ```bash
-# Install linting tools
+# Install linting tools and test dependencies
 pip install black flake8
+pip install -e ".[pytest]"
 
-# Check code formatting (Black)
+# Check code formatting (Black) - matches CI
 black --check .
 
-# Auto-format code (Black)
+# Auto-format code (Black) - run this if check fails
 black .
 
-# Run linting checks (flake8)
+# Run linting checks (flake8) - matches CI
 flake8 .
+
+# Run tests (pytest) - matches CI
+pytest
 ```
 
