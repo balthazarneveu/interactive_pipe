@@ -358,3 +358,25 @@ def bad_processing_block(inp):
 
 ![Ultra simplistic ISP](/doc/images/isp_pipeline.png)
 
+----------------------
+
+### Development
+
+#### Code quality checks
+
+Before committing, ensure your code passes the linters:
+
+```bash
+# Install linting tools
+pip install black flake8
+
+# Check code formatting (Black)
+black --check .
+
+# Auto-format code (Black)
+black .
+
+# Run linting checks (flake8)
+flake8 .
+```
+
