@@ -1,10 +1,12 @@
 from interactive_pipe import Control
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.graphical.qt_gui import InteractivePipeQT
+from interactive_pipe.graphical.gradio_gui import InteractivePipeGradio
 from interactive_pipe import interactive
 from interactive_pipe.data_objects.image import Image
 from pathlib import Path
 import cv2
+import argparse
 
 root = Path(__file__).parent
 img_folder = root / "images"
@@ -78,7 +80,26 @@ def sample_pipeline():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Jukebox demo with backend selection")
+    parser.add_argument(
+        "-b", "--backend",
+        type=str,
+        choices=["qt", "gradio"],
+        default="qt",
+        help="Backend to use: qt or gradio (default: qt)"
+    )
+    args = parser.parse_args()
+    
     pip = HeadlessPipeline.from_function(sample_pipeline, cache=False)
-    app = InteractivePipeQT(pipeline=pip, name="music", size=None, audio=True)
+    backend_pipeline = {
+        "qt": InteractivePipeQT,
+        "gradio": InteractivePipeGradio,
+    }
+    app = backend_pipeline[args.backend](
+        pipeline=pip,
+        name="music",
+        size=None,
+        audio=True
+    )
     app()
 
