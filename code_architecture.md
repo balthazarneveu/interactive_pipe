@@ -216,18 +216,3 @@ Note: `InteractivePipeGUI` & `InteractivePipeWindow` have to be defined for each
 | [qt_control.py](/src/interactive_pipe/graphical/qt_gui.py)   | [mpl_gui.py](/src/interactive_pipe/graphical/mpl_gui.py) | [nb_gui.py](/src/interactive_pipe/graphical/nb_gui.py) | Code for GUI & Window |
 | [qt_control.py](/src/interactive_pipe/graphical/qt_control.py) | [mpl_control.py](/src/interactive_pipe/graphical/mpl_control.py) | [nb_control.py](/src/interactive_pipe/graphical/nb_control.py) | Code for widget controls|
 
-## thirdparty
-Some helpful helpers based on paid services
-### [`ImageFromPrompt`](src/interactive_pipe/thirdparty/images_openai_api.py) 
-Extends the `Image` class to generate images from a text prompt using the OpenAI Dall-E online API, store to disk & directly load to memory as a numpy array.
-- requires [`openai`](https://pypi.org/project/openai/) library  installed
-- :dollar:  requires an API account
-### [`get_spotify_music()`](src/interactive_pipe/thirdparty/music_spotify.py) 
-Allows you to acess the Spotify interface.
-- :dollar: requires the spotify app to be running & the user to be logged in
-- requires the `dbus` library, only supported under linux right now. *Use `apt-get install -y dbus` in sudo mode.*
-- In spotify, right click on a song, "share", "copy song link".
-```python
-spotify_music = get_spotify_music()
-spotify_music.set_audio('https://open.spotify.com/track/15VRO9CQwMpbqUYA7e6Hwg?si=bdc9ff37d5af4bb1')
-```
