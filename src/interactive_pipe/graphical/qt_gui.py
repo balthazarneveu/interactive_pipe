@@ -104,7 +104,7 @@ class InteractivePipeQT(InteractivePipeGUI):
         )
         self.pipeline.global_params["__pipeline"] = self.pipeline
         self.set_default_key_bindings()
-        
+
         if self.audio:
             # Set up placeholder functions so pipeline can run before audio is ready
             self.pipeline.global_params["__set_audio"] = lambda x: None

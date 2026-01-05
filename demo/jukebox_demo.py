@@ -64,9 +64,7 @@ def image_choice(global_params={}):
         img = cv2.resize(img, (w * max_height // h, max_height))
         h, w, _c = img.shape
     caption = TRACK_DICT[song][CAPTION]
-    global_params["__output_styles"]["img_out"] = {
-        "title": caption
-    }
+    global_params["__output_styles"]["img_out"] = {"title": caption}
     return img
 
 
@@ -82,24 +80,21 @@ def sample_pipeline():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Jukebox demo with backend selection")
     parser.add_argument(
-        "-b", "--backend",
+        "-b",
+        "--backend",
         type=str,
         choices=["qt", "gradio"],
         default="qt",
-        help="Backend to use: qt or gradio (default: qt)"
+        help="Backend to use: qt or gradio (default: qt)",
     )
     args = parser.parse_args()
-    
+
     pip = HeadlessPipeline.from_function(sample_pipeline, cache=False)
     backend_pipeline = {
         "qt": InteractivePipeQT,
         "gradio": InteractivePipeGradio,
     }
     app = backend_pipeline[args.backend](
-        pipeline=pip,
-        name="music",
-        size=None,
-        audio=True
+        pipeline=pip, name="music", size=None, audio=True
     )
     app()
-
