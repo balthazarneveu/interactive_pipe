@@ -14,6 +14,9 @@ EQUIVALENT_STATE_KEYS = [
     "state",
 ]
 
+# Sentinel object to distinguish between "not provided" and "explicitly None"
+_SENTINEL = object()
+
 
 class PureFilter:
     def __init__(
@@ -109,16 +112,22 @@ class FilterCore(PureFilter):
         apply_fn: Callable = None,
         name: Optional[str] = None,
         default_params: Optional[dict] = None,
-        inputs: Optional[List[Union[int, str]]] = None,
-        outputs: Optional[List[Union[int, str]]] = None,
+        inputs: Optional[List[Union[int, str]]] = _SENTINEL,
+        outputs: Optional[List[Union[int, str]]] = _SENTINEL,
         cache=True,
     ):
         if default_params is None:
             default_params = {}
-        if inputs is None:
+        if inputs is _SENTINEL:
             inputs = [0]
-        if outputs is None:
+        elif inputs is None:
+            # Explicitly None means no inputs
+            inputs = None
+        if outputs is _SENTINEL:
             outputs = [0]
+        elif outputs is None:
+            # Explicitly None means no outputs (though this is less common)
+            outputs = None
         super().__init__(apply_fn=apply_fn, name=name, default_params=default_params)
         self.inputs = inputs
         self.outputs = outputs
@@ -168,8 +177,15 @@ class FilterCore(PureFilter):
 
     def __repr__(self) -> str:
         descr = f"{self.name}: "
-        descr += "(" + (", ".join([f"{it}" for it in self.inputs])) + ")"
-        descr += " -> " + "(" + ", ".join([f"{it}" for it in self.outputs]) + ")"
+        if self.inputs is None:
+            descr += "()"
+        else:
+            descr += "(" + (", ".join([f"{it}" for it in self.inputs])) + ")"
+        descr += " -> "
+        if self.outputs is None:
+            descr += "()"
+        else:
+            descr += "(" + ", ".join([f"{it}" for it in self.outputs]) + ")"
         # descr += "\n"
         return descr
 
