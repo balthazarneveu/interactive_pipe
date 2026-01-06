@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.engine import PipelineEngine
 import logging
@@ -93,7 +93,7 @@ class PipelineCore:
         return parameters
 
     @parameters.setter
-    def parameters(self, new_parameters: Dict[str, any]):
+    def parameters(self, new_parameters: Dict[str, Any]):
         """Force tuning parameters
 
         ```

@@ -43,6 +43,10 @@ def get_call_graph(func: Callable, global_context=None) -> dict:
     for node in ast.walk(tree):
         if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
             function_name = get_name(node.value.func)
+            if function_name is None or function_name not in global_context:
+                raise KeyError(
+                    f"Function name '{function_name}' not found in global context"
+                )
             input_names = [get_name(arg) for arg in node.value.args]
             results.append(
                 {
@@ -60,9 +64,11 @@ def get_call_graph(func: Callable, global_context=None) -> dict:
             if isinstance(value, ast.Call):
                 function_name = get_name(value.func)
                 logging.debug(f"classic function with assignment {function_name}")
-                assert (
-                    function_name in global_context.keys()
-                ), f"Probably mispelled {function_name}"
+                if function_name is None or function_name not in global_context:
+                    raise KeyError(
+                        f"Function name '{function_name}' not found in global context. "
+                        f"Probably misspelled {function_name}"
+                    )
                 input_names = [get_name(arg) for arg in value.args]
                 output_names = flatten_target_names(targets, mapping_function=get_name)
                 function_object = global_context[function_name]
@@ -93,7 +99,11 @@ def get_call_graph(func: Callable, global_context=None) -> dict:
                         "returns": output_names,
                     }
                 )
+    if not tree.body:
+        raise ValueError("Function body is empty")
     main_function = tree.body[0]
+    if not hasattr(main_function, "body") or not hasattr(main_function, "name"):
+        raise ValueError("Function AST node is malformed")
     outputs = [
         get_name(ret.value) for ret in main_function.body if isinstance(ret, ast.Return)
     ]

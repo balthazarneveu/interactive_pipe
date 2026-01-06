@@ -1,5 +1,4 @@
 import logging
-import sys
 import time
 import traceback
 from copy import deepcopy
@@ -63,12 +62,16 @@ class PipelineEngine:
                     logging.debug(f"in types-> {[type(inp) for inp in routing_in]}")
                     out = prc.run(*routing_in)
                     if out is not None:
-                        logging.debug(f"out types-> {[type(ou) for ou in out]}")
+                        try:
+                            logging.debug(f"out types-> {[type(ou) for ou in out]}")
+                        except TypeError:
+                            # out is not iterable (e.g., single value)
+                            logging.debug(f"out type-> {type(out)}")
                 except Exception as e:
                     logging.error(f"Error in {prc.name} filter:")
                     logging.error(e)
                     traceback.print_exc()
-                    sys.exit(1)
+                    raise RuntimeError(f"Error in filter {prc.name}") from e
                 previous_calculation = True
                 if (
                     self.cache and prc.cache_mem is not None
