@@ -113,9 +113,10 @@ class PipelineCore:
         """
         available_filters_names = [filt.name for filt in self.filters]
         for filter_name in new_parameters.keys():
-            assert filter_name in available_filters_names, (
-                f"filter {filter_name}" + f"does not exist {available_filters_names}"
-            )
+            if filter_name not in available_filters_names:
+                raise ValueError(
+                    f"filter {filter_name} does not exist {available_filters_names}"
+                )
             self.filters[available_filters_names.index(filter_name)].values = (
                 new_parameters[filter_name]
             )

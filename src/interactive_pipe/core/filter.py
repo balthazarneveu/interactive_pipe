@@ -45,7 +45,10 @@ class PureFilter:
         This is just a way to provide a context to each filter so they communicate globally
         and the pointer to the shared dictionary shall be shared at an upper level (pipeline)
         """
-        assert isinstance(new_global_params, dict)
+        if not isinstance(new_global_params, dict):
+            raise TypeError(
+                f"global_params must be a dict, got {type(new_global_params)}"
+            )
         self._global_params = new_global_params
 
     def check_apply_signature(self):
@@ -54,11 +57,10 @@ class PureFilter:
                 self.apply
             )
             self.signature = (self.__args_names, self.__kwargs_names)
-        else:  # skip computing signature
-            pass
 
     def __initialize_default_values(self):
-        assert not hasattr(self, "_values")
+        if hasattr(self, "_values"):
+            raise RuntimeError("_values attribute already exists")
         self.check_apply_signature()
         self._values = self.__kwargs_names
         for global_key in EQUIVALENT_STATE_KEYS:
@@ -71,17 +73,20 @@ class PureFilter:
 
     @values.setter
     def values(self, new_values):
-        assert isinstance(new_values, dict), f"{new_values} is not a dictionary"
+        if not isinstance(new_values, dict):
+            raise TypeError(f"{new_values} is not a dictionary")
         self._values = {**self._values, **new_values}
 
-    def run(self, *imgs) -> Tuple[Any]:
+    def run(self, *imgs) -> Any:
         # First we check if the keyword args of the apply function match with self.values
-        assert isinstance(self.values, dict), f"{self.values}"
+        if not isinstance(self.values, dict):
+            raise TypeError(f"self.values must be a dict, got {type(self.values)}")
         self.check_apply_signature()
         for key, val in self.values.items():
-            assert (
-                key in self.__kwargs_names.keys()
-            ), f"{self.name} : {key} not in {self.__kwargs_names.keys()}"
+            if key not in self.__kwargs_names.keys():
+                raise ValueError(
+                    f"{self.name}: {key} not in {self.__kwargs_names.keys()}"
+                )
         global_key_found = False
         for global_key in EQUIVALENT_STATE_KEYS:
             if global_key in self.__kwargs_names.keys():
@@ -126,14 +131,17 @@ class FilterCore(PureFilter):
         else:
             self.cache_mem = None
 
-    def run(self, *imgs) -> Tuple[Any]:
+    def run(self, *imgs) -> Optional[Tuple[Any]]:
         if imgs:
-            assert len(imgs) == len(
-                self.inputs
-            ), "number of inputs shall match what's expected"
+            if len(imgs) != len(self.inputs):
+                raise ValueError(
+                    f"number of inputs ({len(imgs)}) shall match what's expected ({len(self.inputs)})"
+                )
         if self.inputs is None:
-            if imgs is not None:
-                assert len(imgs) == 0
+            if len(imgs) > 0:
+                raise ValueError(
+                    f"Expected no inputs when self.inputs is None, got {len(imgs)}"
+                )
             filter_in = ()
         else:
             filter_in = imgs
@@ -141,16 +149,21 @@ class FilterCore(PureFilter):
         if out is None:
             return None
         if isinstance(out, tuple) or isinstance(out, list):
-            assert len(out) >= len(
-                self.outputs
-            ), "number of outputs shall be at least greater or equal to what's expected by the filter"
+            if len(out) < len(self.outputs):
+                raise ValueError(
+                    f"number of outputs ({len(out)}) shall be at least greater or equal "
+                    f"to what's expected by the filter ({len(self.outputs)})"
+                )
             return out
 
         else:
             logging.debug(
                 f"need to return a tuple when you have a single element out {type(out)}"
             )
-            assert len(self.outputs) == 1, "returning a single element!"
+            if len(self.outputs) != 1:
+                raise ValueError(
+                    f"returning a single element but expected {len(self.outputs)} outputs!"
+                )
             return (out,)
 
     def __repr__(self) -> str:
