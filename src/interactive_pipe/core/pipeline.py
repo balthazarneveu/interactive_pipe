@@ -17,7 +17,7 @@ class PipelineCore:
         name="pipeline",
         cache=False,
         inputs: Optional[list] = None,
-        parameters: dict = {},
+        parameters: Optional[dict] = None,
         global_params: Optional[dict] = None,
         global_parameters: Optional[dict] = None,  # alias for global_params
         global_state: Optional[dict] = None,  # alias for global_params
@@ -67,6 +67,8 @@ class PipelineCore:
 
         self.outputs = outputs  # output indexes (routing)
         # You need to set the values to their default_value for each filter
+        if parameters is None:
+            parameters = {}
         self.parameters = parameters
         self.results = None
         self.name = name

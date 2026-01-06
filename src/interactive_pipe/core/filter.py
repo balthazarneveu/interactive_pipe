@@ -20,8 +20,10 @@ class PureFilter:
         self,
         apply_fn: Optional[Callable] = None,
         name: Optional[str] = None,
-        default_params: dict = {},
+        default_params: Optional[dict] = None,
     ):
+        if default_params is None:
+            default_params = {}
         self.name = (
             name
             if name
@@ -101,11 +103,17 @@ class FilterCore(PureFilter):
         self,
         apply_fn: Callable = None,
         name: Optional[str] = None,
-        default_params: dict = {},
-        inputs: List[Union[int, str]] = [0],
-        outputs: List[Union[int, str]] = [0],
+        default_params: Optional[dict] = None,
+        inputs: Optional[List[Union[int, str]]] = None,
+        outputs: Optional[List[Union[int, str]]] = None,
         cache=True,
     ):
+        if default_params is None:
+            default_params = {}
+        if inputs is None:
+            inputs = [0]
+        if outputs is None:
+            outputs = [0]
         super().__init__(apply_fn=apply_fn, name=name, default_params=default_params)
         self.inputs = inputs
         self.outputs = outputs
