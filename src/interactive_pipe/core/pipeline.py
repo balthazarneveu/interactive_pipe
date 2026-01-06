@@ -78,7 +78,7 @@ class PipelineCore:
             filter.reset_cache()
 
     def run(self) -> list:
-        """Useful for standalone python acess without gui or disk write"""
+        """Useful for standalone python access without gui or disk write"""
         return self.engine.run(self.filters, imglst=self.inputs)
 
     def _reset_global_params(self):
