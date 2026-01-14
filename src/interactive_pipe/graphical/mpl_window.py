@@ -2,20 +2,23 @@ import matplotlib.pyplot as plt
 from interactive_pipe.graphical.window import InteractivePipeWindow
 import numpy as np
 import matplotlib as mpl
+from typing import Optional
 from interactive_pipe.data_objects.curves import Curve
 
 
 class MatplotlibWindow(InteractivePipeWindow):
     def __init__(
         self,
-        controls=[],
+        controls=None,
         name="",
         pipeline=None,
         size=None,
-        style: str = None,
+        style: Optional[str] = None,
         rc_params=None,
         **unused_kwargs,
     ):
+        if controls is None:
+            controls = []
         """
         style: dark_background, seaborn-v0_8-dark
         https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html
@@ -45,9 +48,10 @@ class MatplotlibWindow(InteractivePipeWindow):
         ax["ax"].remove()
         self.need_redraw = True
 
-    def update_style(self, ax: plt.Axes, style: dict = {}):
+    def update_style(self, ax: plt.Axes, style: Optional[dict] = None):
         if style is None:
             return
+        style = style or {}
         title = style.get("title", None)
         if title:
             ax.set_title(title)
