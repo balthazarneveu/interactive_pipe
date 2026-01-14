@@ -58,7 +58,8 @@ class ControlFactory:
 
 class IntSliderControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == int
+        if self.ctrl._type != int:
+            raise TypeError(f"Expected int control type, got {self.ctrl._type}")
 
     def create(self) -> gr.Slider:
         self.control_widget = gr.Slider(
@@ -73,7 +74,8 @@ class IntSliderControl(BaseControl):
 
 class FloatSliderControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == float
+        if self.ctrl._type != float:
+            raise TypeError(f"Expected float control type, got {self.ctrl._type}")
 
     def create(self) -> gr.Slider:
         self.control_widget = gr.Slider(
@@ -88,7 +90,8 @@ class FloatSliderControl(BaseControl):
 
 class TickBoxControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == bool
+        if self.ctrl._type != bool:
+            raise TypeError(f"Expected bool control type, got {self.ctrl._type}")
 
     def create(self) -> gr.Checkbox:
         self.control_widget = gr.Checkbox(label=self.name, value=self.ctrl.value)
@@ -100,7 +103,8 @@ class TickBoxControl(BaseControl):
 
 class DropdownMenuControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == str
+        if self.ctrl._type != str:
+            raise TypeError(f"Expected str control type, got {self.ctrl._type}")
         if not hasattr(self.ctrl, "value_range"):
             raise ValueError("Invalid control type")
 
@@ -113,8 +117,10 @@ class DropdownMenuControl(BaseControl):
 
 class PromptControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == str
-        assert self.ctrl.value_range is None
+        if self.ctrl._type != str:
+            raise TypeError(f"Expected str control type, got {self.ctrl._type}")
+        if self.ctrl.value_range is not None:
+            raise ValueError("value_range must be None for PromptControl")
 
     def create(self) -> gr.Text:
         self.control_widget = gr.Text(label=self.name, value=self.ctrl.value)
@@ -123,7 +129,8 @@ class PromptControl(BaseControl):
 
 class IconButtonsControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == str
+        if self.ctrl._type != str:
+            raise TypeError(f"Expected str control type, got {self.ctrl._type}")
         if not hasattr(self.ctrl, "value_range"):
             raise ValueError("Invalid control type")
 
