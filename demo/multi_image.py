@@ -4,35 +4,8 @@ from typing import List
 import argparse
 from pathlib import Path
 from interactive_pipe.data_objects.image import Image
-from interactive_pipe import interactive
-from interactive_pipe.headless.pipeline import HeadlessPipeline
+from interactive_pipe import interactive, interactive_pipeline
 
-BACKEND_OPTIONS = []
-try:
-    from interactive_pipe.graphical.mpl_gui import InteractivePipeMatplotlib
-
-    BACKEND_OPTIONS.append("mpl")
-except ImportError:
-    InteractivePipeMatplotlib = None
-try:
-    from interactive_pipe.graphical.qt_gui import InteractivePipeQT
-
-    BACKEND_OPTIONS.append("qt")
-except ImportError:
-    InteractivePipeQT = None
-try:
-    from interactive_pipe.graphical.nb_gui import InteractivePipeJupyter
-
-    BACKEND_OPTIONS.append("nb")
-except ImportError:
-    InteractivePipeJupyter = None
-try:
-    from interactive_pipe.graphical.gradio_gui import InteractivePipeGradio
-
-    BACKEND_OPTIONS.append("gradio")
-except ImportError:
-    InteractivePipeGradio = None
-assert len(BACKEND_OPTIONS) > 0, "No backend available!"
 TORCH_AVAILABLE = True
 try:
     import torch
@@ -130,33 +103,29 @@ def image_pipeline(img_list: List[Path]):
 # --------------------------------------------------------------------------------------------
 
 
-def main_demo(img_list: List[Path], backend="qt"):
+if __name__ == "__main__":
+    img_list = get_paths()
+    parser = argparse.ArgumentParser(
+        description="Multi-image demo with backend selection"
+    )
+    parser.add_argument(
+        "-b",
+        "--backend",
+        type=str,
+        choices=["qt", "gradio", "mpl", "nb"],
+        default="qt",
+        help="Backend to use: qt, gradio, mpl, or nb (default: qt)",
+    )
+    args = parser.parse_args()
+
     # Decorate image selector - similar to @interactive
     interactive(index=(0, [0, len(img_list) - 1]))(  # from 0 to the number of images
         img_selector
     )
 
-    pipe = HeadlessPipeline.from_function(image_pipeline, cache=False)
-    assert backend in BACKEND_OPTIONS
-    backend_pipeline = {
-        "qt": InteractivePipeQT,
-        "mpl": InteractivePipeMatplotlib,
-        "nb": InteractivePipeJupyter,
-        "gradio": InteractivePipeGradio,
-    }
-    app = backend_pipeline[backend](
-        pipeline=pipe,
+    interactive_pipeline(
+        gui=args.backend,
+        cache=False,
         name="Demo interactive",
-        size=(10, 10) if backend == "nb" else None,
-    )
-    app(img_list)
-
-
-if __name__ == "__main__":
-    img_list = get_paths()
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-b", "--backend", type=str, choices=BACKEND_OPTIONS, default=BACKEND_OPTIONS[0]
-    )
-    args = parser.parse_args()
-    main_demo(img_list, backend=args.backend)
+        size=(10, 10) if args.backend == "nb" else None,
+    )(image_pipeline)(img_list)

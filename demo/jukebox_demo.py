@@ -1,8 +1,4 @@
-from interactive_pipe import Control
-from interactive_pipe.headless.pipeline import HeadlessPipeline
-from interactive_pipe.graphical.qt_gui import InteractivePipeQT
-from interactive_pipe.graphical.gradio_gui import InteractivePipeGradio
-from interactive_pipe import interactive
+from interactive_pipe import Control, interactive, interactive_pipeline
 from interactive_pipe.data_objects.image import Image
 from pathlib import Path
 import cv2
@@ -88,13 +84,6 @@ if __name__ == "__main__":
         help="Backend to use: qt or gradio (default: qt)",
     )
     args = parser.parse_args()
-
-    pip = HeadlessPipeline.from_function(sample_pipeline, cache=False)
-    backend_pipeline = {
-        "qt": InteractivePipeQT,
-        "gradio": InteractivePipeGradio,
-    }
-    app = backend_pipeline[args.backend](
-        pipeline=pip, name="music", size=None, audio=True
-    )
-    app()
+    interactive_pipeline(gui=args.backend, cache=False, name="music", audio=True)(
+        sample_pipeline
+    )()

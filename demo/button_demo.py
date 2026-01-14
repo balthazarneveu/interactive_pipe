@@ -1,10 +1,9 @@
 from interactive_pipe import Control
-from interactive_pipe.headless.pipeline import HeadlessPipeline
-from interactive_pipe.graphical.qt_gui import InteractivePipeQT
-from interactive_pipe import interactive
+from interactive_pipe import interactive, interactive_pipeline
 from interactive_pipe.data_objects.image import Image
 from pathlib import Path
 import cv2
+import argparse
 
 root = Path(__file__).parent
 img_folder = root / "images"
@@ -71,6 +70,14 @@ def sample_pipeline():
 
 
 if __name__ == "__main__":
-    pip = HeadlessPipeline.from_function(sample_pipeline, cache=False)
-    app = InteractivePipeQT(pipeline=pip, name="button_demo", size=None)
-    app()
+    parser = argparse.ArgumentParser(description="Button demo with backend selection")
+    parser.add_argument(
+        "-b",
+        "--backend",
+        type=str,
+        choices=["qt", "gradio", "mpl"],
+        default="qt",
+        help="Backend to use: qt, gradio, or mpl (default: qt)",
+    )
+    args = parser.parse_args()
+    interactive_pipeline(gui=args.backend)(sample_pipeline)()
