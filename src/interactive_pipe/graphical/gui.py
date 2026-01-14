@@ -4,7 +4,7 @@ from interactive_pipe.data_objects.parameters import Parameters
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.control import TimeControl
 import logging
-from typing import Callable, List
+from typing import Callable, List, Optional
 from functools import partial
 import time
 
@@ -32,14 +32,16 @@ class InteractivePipeGUI:
 
     def __init__(
         self,
-        pipeline: HeadlessPipeline = None,
-        controls=[],
-        name="",
-        custom_end=lambda: None,
-        audio=False,
+        pipeline: Optional[HeadlessPipeline] = None,
+        controls: Optional[List] = None,
+        name: str = "",
+        custom_end: Callable = lambda: None,
+        audio: bool = False,
         size=None,
         **kwargs,
     ) -> None:
+        if controls is None:
+            controls = []
         self.pipeline = pipeline
         self.custom_end = custom_end
         self.audio = audio
