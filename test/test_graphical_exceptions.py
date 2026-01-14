@@ -31,21 +31,35 @@ try:
     NB_CONTROL_AVAILABLE = IPYWIDGETS_AVAILABLE
 except ImportError:
     NB_CONTROL_AVAILABLE = False
-from interactive_pipe.graphical.qt_control import (
-    IntSliderControl,
-    FloatSliderControl,
-    TickBoxControl,
-    DropdownMenuControl,
-    PromptControl,
-    IconButtonsControl,
-)
-from interactive_pipe.graphical.gradio_control import (
-    IntSliderControl as GradioIntSliderControl,
-    FloatSliderControl as GradioFloatSliderControl,
-    TickBoxControl as GradioTickBoxControl,
-    DropdownMenuControl as GradioDropdownMenuControl,
-    PromptControl as GradioPromptControl,
-)
+
+try:
+    from interactive_pipe.graphical.qt_control import (
+        IntSliderControl,
+        FloatSliderControl,
+        TickBoxControl,
+        DropdownMenuControl,
+        PromptControl,
+        IconButtonsControl,
+        PYQT_AVAILABLE,
+    )
+
+    QT_CONTROL_AVAILABLE = PYQT_AVAILABLE
+except ImportError:
+    QT_CONTROL_AVAILABLE = False
+
+try:
+    from interactive_pipe.graphical.gradio_control import (
+        IntSliderControl as GradioIntSliderControl,
+        FloatSliderControl as GradioFloatSliderControl,
+        TickBoxControl as GradioTickBoxControl,
+        DropdownMenuControl as GradioDropdownMenuControl,
+        PromptControl as GradioPromptControl,
+        GRADIO_AVAILABLE,
+    )
+
+    GRADIO_CONTROL_AVAILABLE = GRADIO_AVAILABLE
+except ImportError:
+    GRADIO_CONTROL_AVAILABLE = False
 
 
 class MockGUI(InteractivePipeGUI):
@@ -181,6 +195,8 @@ class TestQtControlExceptions:
     @pytest.fixture(autouse=True)
     def setup_qt_app(self):
         """Initialize QApplication for Qt tests"""
+        if not QT_CONTROL_AVAILABLE:
+            pytest.skip("PyQt not available")
         try:
             from PyQt6.QtWidgets import QApplication
 
@@ -207,26 +223,31 @@ class TestQtControlExceptions:
                 except ImportError:
                     pytest.skip("Qt not available")
 
+    @pytest.mark.skipif(not QT_CONTROL_AVAILABLE, reason="PyQt not available")
     def test_int_slider_raises_typeerror_when_not_int(self):
         control = Control(value_default=5.5, value_range=[0.0, 10.0])
         with pytest.raises(TypeError, match="Expected int control type"):
             IntSliderControl("test", control, lambda name: None)
 
+    @pytest.mark.skipif(not QT_CONTROL_AVAILABLE, reason="PyQt not available")
     def test_float_slider_raises_typeerror_when_not_float(self):
         control = Control(value_default=5, value_range=[0, 10])
         with pytest.raises(TypeError, match="Expected float control type"):
             FloatSliderControl("test", control, lambda name: None)
 
+    @pytest.mark.skipif(not QT_CONTROL_AVAILABLE, reason="PyQt not available")
     def test_tickbox_raises_typeerror_when_not_bool(self):
         control = Control(value_default=5.0, value_range=[0.0, 10.0])
         with pytest.raises(TypeError, match="Expected bool control type"):
             TickBoxControl("test", control, lambda name: None)
 
+    @pytest.mark.skipif(not QT_CONTROL_AVAILABLE, reason="PyQt not available")
     def test_dropdown_raises_typeerror_when_not_str(self):
         control = Control(value_default=True)
         with pytest.raises(TypeError, match="Expected str control type"):
             DropdownMenuControl("test", control, lambda name: None)
 
+    @pytest.mark.skipif(not QT_CONTROL_AVAILABLE, reason="PyQt not available")
     def test_dropdown_raises_valueerror_when_value_range_missing(self):
         # This is tested in the check_control_type, but value_range check happens in __init__
         # Use a valid default that's in the range
@@ -235,17 +256,20 @@ class TestQtControlExceptions:
         dropdown = DropdownMenuControl("test", control, lambda name: None)
         assert dropdown is not None
 
+    @pytest.mark.skipif(not QT_CONTROL_AVAILABLE, reason="PyQt not available")
     def test_prompt_raises_typeerror_when_not_str(self):
         control = Control(value_default=True)
         with pytest.raises(TypeError, match="Expected str control type"):
             PromptControl("test", control, lambda name: None)
 
+    @pytest.mark.skipif(not QT_CONTROL_AVAILABLE, reason="PyQt not available")
     def test_prompt_raises_valueerror_when_value_range_not_none(self):
         # Use a valid default that's in the range, but PromptControl should reject value_range
         control = Control(value_default="a", value_range=["a", "b"])
         with pytest.raises(ValueError, match="must be None"):
             PromptControl("test", control, lambda name: None)
 
+    @pytest.mark.skipif(not QT_CONTROL_AVAILABLE, reason="PyQt not available")
     def test_icon_buttons_raises_typeerror_when_not_str(self):
         control = Control(value_default=True)
         with pytest.raises(TypeError, match="Expected str control type"):
@@ -255,31 +279,37 @@ class TestQtControlExceptions:
 class TestGradioControlExceptions:
     """Test exception handling in Gradio control classes"""
 
+    @pytest.mark.skipif(not GRADIO_CONTROL_AVAILABLE, reason="gradio not available")
     def test_int_slider_raises_typeerror_when_not_int(self):
         control = Control(value_default=5.5, value_range=[0.0, 10.0])
         with pytest.raises(TypeError, match="Expected int control type"):
             GradioIntSliderControl("test", control, lambda name: None)
 
+    @pytest.mark.skipif(not GRADIO_CONTROL_AVAILABLE, reason="gradio not available")
     def test_float_slider_raises_typeerror_when_not_float(self):
         control = Control(value_default=5, value_range=[0, 10])
         with pytest.raises(TypeError, match="Expected float control type"):
             GradioFloatSliderControl("test", control, lambda name: None)
 
+    @pytest.mark.skipif(not GRADIO_CONTROL_AVAILABLE, reason="gradio not available")
     def test_tickbox_raises_typeerror_when_not_bool(self):
         control = Control(value_default=5.0, value_range=[0.0, 10.0])
         with pytest.raises(TypeError, match="Expected bool control type"):
             GradioTickBoxControl("test", control, lambda name: None)
 
+    @pytest.mark.skipif(not GRADIO_CONTROL_AVAILABLE, reason="gradio not available")
     def test_dropdown_raises_typeerror_when_not_str(self):
         control = Control(value_default=True)
         with pytest.raises(TypeError, match="Expected str control type"):
             GradioDropdownMenuControl("test", control, lambda name: None)
 
+    @pytest.mark.skipif(not GRADIO_CONTROL_AVAILABLE, reason="gradio not available")
     def test_prompt_raises_typeerror_when_not_str(self):
         control = Control(value_default=True)
         with pytest.raises(TypeError, match="Expected str control type"):
             GradioPromptControl("test", control, lambda name: None)
 
+    @pytest.mark.skipif(not GRADIO_CONTROL_AVAILABLE, reason="gradio not available")
     def test_prompt_raises_valueerror_when_value_range_not_none(self):
         # Use a valid default that's in the range, but GradioPromptControl should reject value_range
         control = Control(value_default="a", value_range=["a", "b"])

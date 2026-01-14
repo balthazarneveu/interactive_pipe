@@ -1,10 +1,23 @@
 from interactive_pipe.headless.control import Control
 import logging
-import gradio as gr
+
+try:
+    import gradio as gr
+
+    GRADIO_AVAILABLE = True
+except ImportError:
+    GRADIO_AVAILABLE = False
+    gr = None
+    logging.warning("gradio not available. Gradio controls will not work.")
 
 
 class BaseControl:
     def __init__(self, name, ctrl: Control, update_func):
+        if not GRADIO_AVAILABLE:
+            raise ModuleNotFoundError(
+                "gradio is required for Gradio controls. "
+                "Install it with: pip install interactive-pipe[full]"
+            )
         super().__init__()
         self.name = name
         self.ctrl = ctrl
@@ -61,7 +74,9 @@ class IntSliderControl(BaseControl):
         if self.ctrl._type != int:
             raise TypeError(f"Expected int control type, got {self.ctrl._type}")
 
-    def create(self) -> gr.Slider:
+    def create(self) -> "gr.Slider":
+        if not GRADIO_AVAILABLE:
+            raise ModuleNotFoundError("gradio is required for Gradio controls")
         self.control_widget = gr.Slider(
             value=self.ctrl.value_default,
             minimum=self.ctrl.value_range[0],
@@ -77,7 +92,9 @@ class FloatSliderControl(BaseControl):
         if self.ctrl._type != float:
             raise TypeError(f"Expected float control type, got {self.ctrl._type}")
 
-    def create(self) -> gr.Slider:
+    def create(self) -> "gr.Slider":
+        if not GRADIO_AVAILABLE:
+            raise ModuleNotFoundError("gradio is required for Gradio controls")
         self.control_widget = gr.Slider(
             value=self.ctrl.value_default,
             minimum=self.ctrl.value_range[0],
@@ -93,7 +110,9 @@ class TickBoxControl(BaseControl):
         if self.ctrl._type != bool:
             raise TypeError(f"Expected bool control type, got {self.ctrl._type}")
 
-    def create(self) -> gr.Checkbox:
+    def create(self) -> "gr.Checkbox":
+        if not GRADIO_AVAILABLE:
+            raise ModuleNotFoundError("gradio is required for Gradio controls")
         self.control_widget = gr.Checkbox(label=self.name, value=self.ctrl.value)
         return self.control_widget
 
@@ -108,7 +127,9 @@ class DropdownMenuControl(BaseControl):
         if not hasattr(self.ctrl, "value_range"):
             raise ValueError("Invalid control type")
 
-    def create(self) -> gr.Dropdown:
+    def create(self) -> "gr.Dropdown":
+        if not GRADIO_AVAILABLE:
+            raise ModuleNotFoundError("gradio is required for Gradio controls")
         self.control_widget = gr.Dropdown(
             label=self.name, choices=self.ctrl.value_range, value=self.ctrl.value
         )
@@ -122,7 +143,9 @@ class PromptControl(BaseControl):
         if self.ctrl.value_range is not None:
             raise ValueError("value_range must be None for PromptControl")
 
-    def create(self) -> gr.Text:
+    def create(self) -> "gr.Text":
+        if not GRADIO_AVAILABLE:
+            raise ModuleNotFoundError("gradio is required for Gradio controls")
         self.control_widget = gr.Text(label=self.name, value=self.ctrl.value)
         return self.control_widget
 
@@ -134,7 +157,9 @@ class IconButtonsControl(BaseControl):
         if not hasattr(self.ctrl, "value_range"):
             raise ValueError("Invalid control type")
 
-    def create(self) -> gr.Radio:
+    def create(self) -> "gr.Radio":
+        if not GRADIO_AVAILABLE:
+            raise ModuleNotFoundError("gradio is required for Gradio controls")
         self.control_widget = []
         for idx, icon in enumerate(self.ctrl.icons):
             # text = self.ctrl.value_range[idx]

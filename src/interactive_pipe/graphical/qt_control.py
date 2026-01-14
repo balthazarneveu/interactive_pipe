@@ -3,7 +3,7 @@ from interactive_pipe.headless.control import Control
 import logging
 
 PYQTVERSION = None
-
+PYQT_AVAILABLE = False
 
 if not PYQTVERSION:
     try:
@@ -23,8 +23,9 @@ if not PYQTVERSION:
         from PyQt6.QtGui import QIcon  # noqa: F811
 
         PYQTVERSION = 6
+        PYQT_AVAILABLE = True
     except ImportError:
-        logging.warning("Cannot import PyQt")
+        logging.warning("Cannot import PyQt6")
         try:
             from PyQt5.QtWidgets import (  # noqa: F811
                 QWidget,
@@ -42,8 +43,9 @@ if not PYQTVERSION:
             from PyQt5.QtGui import QIcon
 
             PYQTVERSION = 5
+            PYQT_AVAILABLE = True
         except ImportError:
-            raise ModuleNotFoundError("No PyQt")
+            logging.warning("Cannot import PyQt5")
 if not PYQTVERSION:
     try:
         from PySide6.QtWidgets import (  # noqa: F811
@@ -62,12 +64,34 @@ if not PYQTVERSION:
         from PySide6.QtGui import QIcon  # noqa: F811
 
         PYQTVERSION = 6
+        PYQT_AVAILABLE = True
     except ImportError:
-        logging.warning("Cannot import PySide")
+        logging.warning("Cannot import PySide6")
+
+if not PYQT_AVAILABLE:
+    # Create dummy classes to allow import even when PyQt is not available
+    QWidget = None  # noqa: F811
+    QLabel = None  # noqa: F811
+    QSlider = None  # noqa: F811
+    QHBoxLayout = None  # noqa: F811
+    QLineEdit = None  # noqa: F811
+    QComboBox = None  # noqa: F811
+    QCheckBox = None  # noqa: F811
+    QPushButton = None  # noqa: F811
+    QDial = None  # noqa: F811
+    Qt = None  # noqa: F811
+    QSize = None  # noqa: F811
+    QIcon = None  # noqa: F811
+    logging.warning("PyQt not available. Qt controls will not work.")
 
 
-class BaseControl(QWidget):
+class BaseControl(QWidget if PYQT_AVAILABLE else object):
     def __init__(self, name, ctrl: Control, update_func, silent=False):
+        if not PYQT_AVAILABLE:
+            raise ModuleNotFoundError(
+                "PyQt is required for Qt controls. "
+                "Install it with: pip install interactive-pipe[qt6] or interactive-pipe[qt5]"
+            )
         super().__init__()
         self.name = name
         self.ctrl = ctrl
@@ -121,27 +145,32 @@ class ControlFactory:
         return control_class(name, control, update_func)
 
 
-class SilentSlider(QSlider):
-    def __init__(
-        self,
-        *args,
-        silent_keys=(
-            Qt.Key.Key_Left,
-            Qt.Key.Key_Right,
-            Qt.Key.Key_Up,
-            Qt.Key.Key_Down,
-            Qt.Key.Key_PageUp,
-            Qt.Key.Key_PageDown,
-        ),
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
-        self.silent_keys = silent_keys
+if PYQT_AVAILABLE:
 
-    def keyPressEvent(self, event):
-        if event.key() in self.silent_keys:
-            return
-        super(SilentSlider, self).keyPressEvent(event)
+    class SilentSlider(QSlider):
+        def __init__(
+            self,
+            *args,
+            silent_keys=(
+                Qt.Key.Key_Left,
+                Qt.Key.Key_Right,
+                Qt.Key.Key_Up,
+                Qt.Key.Key_Down,
+                Qt.Key.Key_PageUp,
+                Qt.Key.Key_PageDown,
+            ),
+            **kwargs,
+        ):
+            super().__init__(*args, **kwargs)
+            self.silent_keys = silent_keys
+
+        def keyPressEvent(self, event):
+            if event.key() in self.silent_keys:
+                return
+            super(SilentSlider, self).keyPressEvent(event)
+
+else:
+    SilentSlider = None
 
 
 class IntSliderControl(BaseControl):
