@@ -82,7 +82,9 @@ class InteractivePipeGUI:
         """
         raise NotImplementedError
 
-    def __call__(self, *args, parameters={}, **kwargs) -> None:
+    def __call__(self, *args, parameters=None, **kwargs) -> None:
+        if parameters is None:
+            parameters = {}
         self.pipeline.parameters = parameters
         self.pipeline.parameters = self.pipeline.parameters_from_keyword_args(**kwargs)
         self.pipeline.inputs = args
@@ -127,7 +129,8 @@ class InteractivePipeGUI:
     def bind_keyboard_slider(
         self, ctrl: KeyboardControl, key_update_parameter_func: Callable
     ):
-        assert isinstance(ctrl, KeyboardControl)
+        if not isinstance(ctrl, KeyboardControl):
+            raise TypeError(f"ctrl must be a KeyboardControl instance, got {type(ctrl)}")
         toggle_only = True
         doc = ""
         slider_name = ctrl.name
@@ -153,7 +156,7 @@ class InteractivePipeGUI:
             self.bind_key(keyboard_key, update_func)
             update_func.__doc__ = doc
 
-    def play_pause_time(self, suspend_resume_timer: Callable = None):
+    def play_pause_time(self, suspend_resume_timer: Optional[Callable] = None):
         """Play or pause the timer"""
         if self.start_time is None:
             self.start_time = time.time()
@@ -167,12 +170,13 @@ class InteractivePipeGUI:
         self,
         ctrl: TimeControl,
         update_parameter_func: Callable,
-        suspend_resume_timer: Callable = None,
+        suspend_resume_timer: Optional[Callable] = None,
     ):
         """Plug timer control to the processing block (pass the time to the block)
         Bind the pause_resume_key (default "p") play/pause key to the timer
         """
-        assert isinstance(ctrl, TimeControl)
+        if not isinstance(ctrl, TimeControl):
+            raise TypeError(f"ctrl must be a TimeControl instance, got {type(ctrl)}")
         doc = ""
         slider_name = ctrl.name
         doc = None
