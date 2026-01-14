@@ -61,9 +61,10 @@ class SingleCurve(Data):
         alpha: Optional[float] = None,
     ):
         if x is not None and y is not None:
-            assert len(x) == len(
-                y
-            ), f"abciss {len(x)} and oordinate {len(y)} shall match"
+            if len(x) != len(y):
+                raise ValueError(
+                    f"x and y lengths must match: x has {len(x)} elements, y has {len(y)} elements"
+                )
         data = {
             "x": x,
             "y": y,
@@ -98,7 +99,8 @@ class SingleCurve(Data):
 
     @label.setter
     def label(self, label):
-        assert label is None or isinstance(label, str)
+        if label is not None and not isinstance(label, str):
+            raise TypeError(f"label must be a string or None, got {type(label)}")
         self.data["label"] = label
 
     @property
@@ -107,7 +109,8 @@ class SingleCurve(Data):
 
     @style.setter
     def style(self, style):
-        assert style is None or isinstance(style, str)
+        if style is not None and not isinstance(style, str):
+            raise TypeError(f"style must be a string or None, got {type(style)}")
         self.data["style"] = style
 
     @property
@@ -119,12 +122,10 @@ class SingleCurve(Data):
         if alpha is None:
             self.data["alpha"] = None
         else:
-            assert isinstance(alpha, float) or isinstance(
-                alpha, int
-            ), "alpha should be numerical"
-            assert (
-                alpha <= 1 and alpha >= 0
-            ), f"wrong alpha {alpha} value should be between [0, 1]"
+            if not isinstance(alpha, (float, int)):
+                raise TypeError(f"alpha must be a number, got {type(alpha)}")
+            if not (0 <= alpha <= 1):
+                raise ValueError(f"alpha must be between [0, 1], got {alpha}")
             self.data["alpha"] = alpha
 
     def _set_file_extensions(self):
@@ -140,7 +141,8 @@ class SingleCurve(Data):
         title: Optional[str] = None,
         grid: Optional[bool] = None,
     ):
-        assert path is not None, "Save requires a path"
+        if path is None:
+            raise ValueError("Save requires a path")
         self.path = path
         crv = Curve([self], xlabel=xlabel, ylabel=ylabel, title=title, grid=grid)
         if path.suffix == ".csv":
@@ -160,7 +162,10 @@ class SingleCurve(Data):
         markersize: Optional[int] = None,
         alpha: Optional[float] = None,
     ) -> dict:
-        assert path.suffix in [".csv", ".pkl"]
+        if path.suffix not in [".csv", ".pkl"]:
+            raise ValueError(
+                f"Unsupported file extension: {path.suffix}, expected .csv or .pkl"
+            )
         self.path = path
         if path.suffix == ".csv":
             df = pd.read_csv(self.path)
@@ -208,13 +213,17 @@ class SingleCurve(Data):
 
     @staticmethod
     def dataframe_from_data(data):  # -> pd.DataFrame
-        assert SIGNAL_BACKEND_PD in signal_backends
+        if SIGNAL_BACKEND_PD not in signal_backends:
+            raise RuntimeError(
+                "pandas backend is not available. Install pandas to use this feature."
+            )
         df = pd.DataFrame.from_dict(dict(x=data["x"], y=data["y"]))
         return df
 
     @staticmethod
     def save_tabular(data, path: Path):
-        assert path.suffix == ".csv"
+        if path.suffix != ".csv":
+            raise ValueError(f"save_tabular requires .csv extension, got {path.suffix}")
         df = SingleCurve.dataframe_from_data(data)
         df.to_csv(path, index=False)
 
@@ -280,9 +289,10 @@ class Curve(Data):
     ):
         current_curve = None
         if isinstance(curve, list) or isinstance(curve, tuple):
-            assert (
-                len(curve) >= 2
-            ), f"wrong amount of parameters, should be x,y but got \n{curve}"
+            if len(curve) < 2:
+                raise ValueError(
+                    f"curve must have at least 2 elements (x, y), got {len(curve)} elements: {curve}"
+                )
             style = None
             if len(curve) >= 3:
                 style = curve[2]
@@ -291,7 +301,10 @@ class Curve(Data):
                     if len(curve) >= 4:
                         label = curve[3]
                         if label is not None:
-                            assert isinstance(label, str)
+                            if not isinstance(label, str):
+                                raise TypeError(
+                                    f"label must be a string, got {type(label)}"
+                                )
                     current_curve = SingleCurve(
                         x=curve[0], y=curve[1], style=style, label=label
                     )
@@ -305,9 +318,10 @@ class Curve(Data):
             current_curve = curve
         elif isinstance(curve, np.ndarray):
             current_curve = SingleCurve(x=None, y=curve)
-        assert (
-            current_curve is not None
-        ), f"could not create a single curve from abbreviation: {curve}"
+        if current_curve is None:
+            raise ValueError(
+                f"could not create a single curve from abbreviation: {curve}"
+            )
         return current_curve
 
     # .grid
@@ -385,45 +399,55 @@ class Curve(Data):
                 self.data["curves"][idx]
                 for idx in range(*key.indices(len(self.data["curves"])))
             ]
-        assert isinstance(key, int)
-        assert key < len(
-            self.data["curves"]
-        ), f"cannot access curve {key}/{len(self.data['curves']-1)}"
+        if not isinstance(key, int):
+            raise TypeError(f"key must be an integer, got {type(key)}")
+        if key >= len(self.data["curves"]):
+            raise IndexError(
+                f"curve index {key} out of range (max: {len(self.data['curves']) - 1})"
+            )
         return self.data["curves"][key]
 
     def __setitem__(self, key: int, value):
         if isinstance(key, slice):
             for lin_index, idx in enumerate(range(*key.indices(len(value)))):
-                assert idx < len(
-                    self.data["curves"]
-                ), f"cannot access curve {idx}/{len(self.data['curves']-1)}"
+                if idx >= len(self.data["curves"]):
+                    raise IndexError(
+                        f"curve index {idx} out of range (max: {len(self.data['curves']) - 1})"
+                    )
                 self.data["curves"][idx] = value[lin_index]
             return
-        assert isinstance(key, int)
-        assert key < len(
-            self.data["curves"]
-        ), f"cannot access curve {key}/{len(self.data['curves']-1)}"
-        assert isinstance(value, SingleCurve)
+        if not isinstance(key, int):
+            raise TypeError(f"key must be an integer, got {type(key)}")
+        if key >= len(self.data["curves"]):
+            raise IndexError(
+                f"curve index {key} out of range (max: {len(self.data['curves']) - 1})"
+            )
+        if not isinstance(value, SingleCurve):
+            raise TypeError(f"value must be a SingleCurve instance, got {type(value)}")
         self.data["curves"][key] = value
 
     def append(self, new_curve: SingleCurve):
         self.data["curves"].append(new_curve)
 
     def prepend(self, new_curve: SingleCurve):
-        self.data["curves"].insert(new_curve, 0)
+        self.data["curves"].insert(0, new_curve)
 
     def _set_file_extensions(self):
         self.file_extensions = [".png", ".jpg", ".pkl"]
 
     def _load(self, path: Path) -> dict:
-        assert path.suffix in [".pkl"]
+        if path.suffix != ".pkl":
+            raise ValueError(
+                f"Unsupported file extension: {path.suffix}, expected .pkl"
+            )
         self.path = path
         if path.suffix == ".pkl":
             data = Data.load_binary(path)
         return data
 
     def _save(self, path: Path, backend=None, figsize=None):
-        assert path is not None, "Save requires a path"
+        if path is None:
+            raise ValueError("Save requires a path")
         self.path = path
         if path.suffix == ".pkl":
             Data.save_binary(self.data, path)
@@ -434,7 +458,8 @@ class Curve(Data):
     def save_figure(data, path: Path, backend=None, figsize=None):
         if backend is None:
             backend = SIGNAL_BACKEND_MPL
-        assert backend in [SIGNAL_BACKEND_MPL]
+        if backend not in [SIGNAL_BACKEND_MPL]:
+            raise ValueError(f"backend must be {SIGNAL_BACKEND_MPL}, got {backend}")
         if backend == SIGNAL_BACKEND_MPL:
             Curve.save_figure_mpl(data, path, figsize=figsize)
 
