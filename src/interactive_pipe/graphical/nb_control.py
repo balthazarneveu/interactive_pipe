@@ -24,7 +24,8 @@ class BaseControl:
 
 class IntSliderNotebookControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == int
+        if self.ctrl._type != int:
+            raise TypeError(f"Expected int control type, got {self.ctrl._type}")
 
     def create(self):
         style = {"description_width": "initial"}
@@ -39,7 +40,8 @@ class IntSliderNotebookControl(BaseControl):
 
 class FloatSliderNotebookControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == float
+        if self.ctrl._type != float:
+            raise TypeError(f"Expected float control type, got {self.ctrl._type}")
 
     def create(self):
         style = {"description_width": "initial"}
@@ -54,7 +56,8 @@ class FloatSliderNotebookControl(BaseControl):
 
 class BoolCheckButtonNotebookControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == bool
+        if self.ctrl._type != bool:
+            raise TypeError(f"Expected bool control type, got {self.ctrl._type}")
 
     def create(self):
         checks = Checkbox(self.ctrl.value_default, layout=self.layout)
@@ -63,7 +66,8 @@ class BoolCheckButtonNotebookControl(BaseControl):
 
 class DialogNotebookControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == str
+        if self.ctrl._type != str:
+            raise TypeError(f"Expected str control type, got {self.ctrl._type}")
 
     def create(self):
         options = self.ctrl.value_range
@@ -73,8 +77,10 @@ class DialogNotebookControl(BaseControl):
 
 class PromptNotebookControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == str
-        assert self.ctrl.value_range is None
+        if self.ctrl._type != str:
+            raise TypeError(f"Expected str control type, got {self.ctrl._type}")
+        if self.ctrl.value_range is not None:
+            raise ValueError("value_range must be None for PromptNotebookControl")
 
     def create(self):
         text_box = Text(
