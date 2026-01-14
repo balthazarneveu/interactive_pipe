@@ -29,7 +29,7 @@ class KeyboardControl(Control):
     def __init__(
         self,
         value_default: Union[int, float, bool, str],
-        value_range: List[Union[int, float, str]] = None,
+        value_range: Optional[List[Union[int, float, str]]] = None,
         keydown=None,
         keyup=None,
         modulo=False,
@@ -91,11 +91,14 @@ class KeyboardControl(Control):
 
     @staticmethod
     def sanity_check_key(key):
-        assert isinstance(key, str), f"{key} shall be a string"
+        if not isinstance(key, str):
+            raise TypeError(f"key must be a string, got {type(key)}")
         key = key.lower()
-        assert len(key) > 0
+        if len(key) == 0:
+            raise ValueError("key cannot be empty")
         if len(key) > 1:
-            assert (
-                key in KeyboardControl.SPECIAL_KEYS_LIST
-            ), f"{key} is not supported - use {KeyboardControl.SPECIAL_KEYS_LIST}"
+            if key not in KeyboardControl.SPECIAL_KEYS_LIST:
+                raise ValueError(
+                    f"key '{key}' is not supported. Use one of {KeyboardControl.SPECIAL_KEYS_LIST}"
+                )
         return key
