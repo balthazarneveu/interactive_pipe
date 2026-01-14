@@ -37,9 +37,8 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
         }
 
     def run(self) -> list:
-        assert (
-            self.pipeline._PipelineCore__initialized_inputs
-        ), "Did you forget to initialize the pipeline inputs?"
+        if not self.pipeline._PipelineCore__initialized_inputs:
+            raise RuntimeError("Did you forget to initialize the pipeline inputs?")
         self.window.refresh()
         if isinstance(self.size, str) and "full" in self.size.lower():
             try:
@@ -75,9 +74,10 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
                             self.pipeline.parameters[filtname][param_name]
                         )
                         matched = True
-            assert (
-                matched
-            ), f"could not match widget {widget_idx} with parameter to connect {widget.parameter_name_to_connect}"
+            if not matched:
+                raise ValueError(
+                    f"could not match widget {widget_idx} with parameter to connect {widget.parameter_name_to_connect}"
+                )
         print("------------")
         self.window.reset_sliders()
 
@@ -106,19 +106,22 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
 class MainWindow(MatplotlibWindow):
     def __init__(
         self,
-        controls=[],
+        controls=None,
         name="",
         pipeline=None,
         size: Optional[Union[str, int, Tuple[int, int]]] = None,
-        style: str = None,
+        style: Optional[str] = None,
         rc_params=None,
         main_gui=None,
         **kwargs,
     ):
+        if controls is None:
+            controls = []
         if size is not None and isinstance(size, int):
             size = (size, size)
         if isinstance(size, str):
-            assert "full" in size.lower(), f"size={size} can be only fullscreen or full"
+            if "full" not in size.lower():
+                raise ValueError(f"size={size} can be only fullscreen or full")
         super().__init__(
             controls=controls,
             name=name,
