@@ -91,11 +91,11 @@ def test_headless_pipeline_single_input(routing_indexes):
     pip(0.5 * input_image)
     assert filt1.cache_mem.state_change.update_needed
     assert filt2.cache_mem.state_change.update_needed
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         pip(0.5 * input_image, input_image)
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         pip()
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         pip(inputs={"toto": input_image})
     pip(inputs={IMG_IN: input_image})
 
@@ -115,7 +115,7 @@ def test_headless_pipeline_multi_input(routing_indexes):
         BLEND_OUT = "blended"
     filt1 = FilterCore(apply_fn=blend, inputs=[IMG_IN_1, IMG_IN_2], outputs=[BLEND_OUT])
     filt2 = FilterCore(apply_fn=mad, name="mad", inputs=[IMG_IN_1], outputs=[MAD_OUT])
-    with pytest.raises(AssertionError):
+    with pytest.raises(RuntimeError):
         # no inputs routing provided
         pip = HeadlessPipeline(
             filters=[filt1, filt2],
@@ -125,7 +125,7 @@ def test_headless_pipeline_multi_input(routing_indexes):
         )
         out = pip.run()
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         # no inputs routing provided, still try to execute with two images
         pip = HeadlessPipeline(
             filters=[filt1, filt2],
@@ -145,7 +145,7 @@ def test_headless_pipeline_multi_input(routing_indexes):
     out = pip.run()
     assert len(out) == 2
     pip(inputs={IMG_IN_2: 0.3 * input_image, IMG_IN_1: input_image})
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         pip(inputs={IMG_IN_2: input_image})
 
 

@@ -123,7 +123,8 @@ class PipelineCore:
 
     @property
     def inputs(self):
-        assert self.__initialized_inputs, "Cannot access unitialized inputs!"
+        if not self.__initialized_inputs:
+            raise RuntimeError("Cannot access uninitialized inputs!")
         return self.__inputs
 
     @inputs.setter
@@ -132,35 +133,42 @@ class PipelineCore:
             if isinstance(inputs, dict):
                 provided_keys = list(inputs.keys())
                 for idx, input_name in enumerate(self.inputs_routing):
-                    assert (
-                        input_name in provided_keys
-                    ), f"{input_name} is not among {provided_keys}"
+                    if input_name not in provided_keys:
+                        raise ValueError(f"{input_name} is not among {provided_keys}")
                 self.__inputs = inputs
-            elif isinstance(inputs, list) or isinstance(inputs, tuple):
+            elif isinstance(inputs, (list, tuple)):
                 # inputs is a list or a tuple
-                assert len(inputs) == len(self.inputs_routing), (
-                    f"wrong amount of inputs\nprovided {len(inputs)}"
-                    + f"inputs vs expected:{len(self.inputs_routing)}"
-                )
+                if len(inputs) != len(self.inputs_routing):
+                    raise ValueError(
+                        f"Wrong amount of inputs: provided {len(inputs)} "
+                        f"vs expected {len(self.inputs_routing)}"
+                    )
                 self.__inputs = {}
                 for idx, input_name in enumerate(self.inputs_routing):
                     self.__inputs[input_name] = inputs[idx]
             else:
                 # single element
-                assert len(self.inputs_routing) == 1
+                if len(self.inputs_routing) != 1:
+                    raise ValueError(
+                        f"Single input provided but expected {len(self.inputs_routing)} inputs"
+                    )
                 self.__inputs = {self.inputs_routing[0]: inputs}
-            assert isinstance(self.__inputs, dict)
+            if not isinstance(self.__inputs, dict):
+                raise RuntimeError("Internal error: inputs should be a dict")
             if len(self.__inputs.keys()) == 0:
                 # similar to having no input, but explicitly saying that we have initialized it.
                 self.__inputs = None
         else:
-            assert self.inputs_routing is None or (
-                (
-                    isinstance(self.inputs_routing, tuple)
-                    or isinstance(self.inputs_routing, list)
+            if not (
+                self.inputs_routing is None
+                or (
+                    isinstance(self.inputs_routing, (tuple, list))
+                    and len(self.inputs_routing) == 0
                 )
-                and len(self.inputs_routing) == 0
-            )
+            ):
+                raise ValueError(
+                    "Cannot set inputs to None when inputs_routing is defined"
+                )
             self.__inputs = None
         self.__initialized_inputs = True
         self.reset_cache()

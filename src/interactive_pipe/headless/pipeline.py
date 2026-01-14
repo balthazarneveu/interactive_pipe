@@ -37,7 +37,8 @@ class HeadlessPipeline(PipelineCore):
     def from_function(
         cls, pipe: Callable, inputs=None, __routing_by_indexes=False, **kwargs
     ):
-        assert isinstance(pipe, Callable)
+        if not isinstance(pipe, Callable):
+            raise TypeError(f"pipe must be Callable, got {type(pipe)}")
         graph = get_call_graph(pipe)
         all_variables = {}
         total_index = 0
@@ -235,7 +236,10 @@ class HeadlessPipeline(PipelineCore):
         if not isinstance(path, Path):
             path = Path(path)
         self.export_tuning(path.with_suffix(".yaml"))
-        assert isinstance(result_full, dict)
+        if not isinstance(result_full, dict):
+            raise RuntimeError(
+                f"Expected dict from pipeline run, got {type(result_full)}"
+            )
         for num, res_current in result_full.items():
             if output_indexes is not None and num not in output_indexes:
                 continue
@@ -247,7 +251,10 @@ class HeadlessPipeline(PipelineCore):
                     if data_wrapper_fn is not None:
                         data_wrapper_fn(res_current).save(current_name)
                     else:
-                        assert hasattr(res_current, "save")
+                        if not hasattr(res_current, "save"):
+                            raise AttributeError(
+                                f"Result object {type(res_current)} has no 'save' method"
+                            )
                         res_current.save(current_name)
                 except Exception as exc:
                     logging.warning(f"Cannot save image {current_name}\n{exc}")
@@ -267,9 +274,12 @@ class HeadlessPipeline(PipelineCore):
                     new_param_dict[filter_name][key] = value
         return new_param_dict
 
-    def __call__(self, *inputs_tuple, inputs=None, parameters={}, **kwargs) -> Any:
+    def __call__(self, *inputs_tuple, inputs=None, parameters=None, **kwargs) -> Any:
+        if parameters is None:
+            parameters = {}
         if inputs is not None:
-            assert isinstance(inputs, dict)
+            if not isinstance(inputs, dict):
+                raise TypeError(f"inputs must be a dict, got {type(inputs)}")
             self.inputs = inputs
             logging.info(f"Dict style inputs {list(inputs.keys())}, {self.inputs}")
         else:
@@ -326,9 +336,8 @@ class HeadlessPipeline(PipelineCore):
         dot = graphviz.Digraph(comment=self.name)
         if ortho:
             dot.attr(splines="ortho")
-        assert (
-            self.inputs_routing is not None
-        ), "cannot plot the graph if input routing is not provided"
+        if self.inputs_routing is None:
+            raise ValueError("Cannot plot graph: input routing is not provided")
         input_indexes = self.inputs_routing
         with dot.subgraph(name="cluster_in") as inputs_graph:
             inputs_graph.attr(style="dashed", color="gray", label="Inputs")
