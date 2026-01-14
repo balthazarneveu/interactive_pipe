@@ -19,7 +19,8 @@ class Data:
     def from_file(cls, path=None, **kwargs):
         if isinstance(path, str):
             path = Path(path)
-        assert path is None or isinstance(path, Path), "not a path or None"
+        if path is not None and not isinstance(path, Path):
+            raise TypeError("path must be a Path object or None")
         data_class = cls(None)
         data_class.load(path, **kwargs)
         return data_class
@@ -34,11 +35,16 @@ class Data:
             self._file_extensions = [new_file_extensions]
         else:
             self._file_extensions = new_file_extensions
-        assert self._file_extensions is None or isinstance(self._file_extensions, list)
+        if self._file_extensions is not None and not isinstance(
+            self._file_extensions, list
+        ):
+            raise TypeError("file_extensions must be a list or None")
         if isinstance(self._file_extensions, list):
             for el in self._file_extensions:
-                assert isinstance(el, str)
-                assert el.startswith(".")
+                if not isinstance(el, str):
+                    raise TypeError(f"file extension must be a string, got {type(el)}")
+                if not el.startswith("."):
+                    raise ValueError(f"file extension must start with '.', got {el}")
 
     @abstractmethod
     def _set_file_extensions(self):
@@ -75,16 +81,20 @@ class Data:
     ) -> Path:
         if path is None:
             path = Data.prompt_file()
-        assert path is not None
+        if path is None:
+            raise RuntimeError("path cannot be None after prompt")
         if isinstance(path, str):
             path = Path(path)
-        assert isinstance(path, Path)
+        if not isinstance(path, Path):
+            raise TypeError(f"path must be a Path object, got {type(path)}")
         if load:  # loading
-            assert path.exists()
+            if not path.exists():
+                raise FileNotFoundError(f"Path does not exist: {path}")
             if extensions is not None:
-                assert (
-                    path.suffix in extensions
-                ), f"{path.suffix} shall be among {extensions}"
+                if path.suffix not in extensions:
+                    raise ValueError(
+                        f"File extension {path.suffix} must be among {extensions}"
+                    )
             return path
         else:  # saving
             if not path.parent.exists():
@@ -98,7 +108,8 @@ class Data:
     @staticmethod
     def safe_path_with_suffix(path: Path) -> Path:
         # Protect against overwritting an existing file
-        assert path is not None
+        if path is None:
+            raise ValueError("path cannot be None")
         if isinstance(path, str):
             path = Path(path)
         idx = 1
@@ -116,7 +127,8 @@ class Data:
 
     @staticmethod
     def save_binary(data, path: Path):
-        assert path.suffix == ".pkl"
+        if path.suffix != ".pkl":
+            raise ValueError(f"save_binary requires .pkl extension, got {path.suffix}")
         with open(path, "wb") as handle:
             pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
