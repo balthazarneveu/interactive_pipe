@@ -50,11 +50,20 @@ def test_ultra_abbreviation_keyboard(inp_tuple):
     "inp_tuple_and_error_type",
     [
         ((False, NAME, 12), TypeError),
-        ((False, NAME, "ctrl"), AssertionError),  # un supported key
-        ((False, NAME, "F25"), AssertionError),  # un supported key,
-        ((True, NAME, [True, False], "+"), AssertionError),
-        (("dog", CHOICES, None, (True, "b", True)), AssertionError),
-        (("dog", CHOICES, None, ("w", "b", "z")), AssertionError),
+        ((False, NAME, "ctrl"), ValueError),  # un supported key
+        ((False, NAME, "F25"), ValueError),  # un supported key,
+        (
+            (True, NAME, [True, False], "+"),
+            AssertionError,
+        ),  # assertion in control_abbreviation.py
+        (
+            ("dog", CHOICES, None, (True, "b", True)),
+            TypeError,
+        ),  # TypeError from keyboard.py (bool not str)
+        (
+            ("dog", CHOICES, None, ("w", "b", "z")),
+            AssertionError,
+        ),  # assertion in control_abbreviation.py
     ],
 )
 def test_abbreviation_keyboard_expected_fail(inp_tuple_and_error_type):
@@ -98,7 +107,10 @@ def test_ultra_abbreviation_control(inp_tuple):
     "inp_tuple_and_error_type",
     [
         ((True, [-2, 2]), AssertionError),  # assertion in control_abbreviation.py
-        ((True, "flag", [-2, 2]), AssertionError),  # assertion in keyboard.py
+        (
+            (True, "flag", [-2, 2]),
+            TypeError,
+        ),  # TypeError from keyboard.py (int not str)
         (
             (True, [True, False], "flag"),
             AssertionError,

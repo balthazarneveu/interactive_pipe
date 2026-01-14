@@ -24,8 +24,8 @@ def test_invalid_file_extension(tmp_path):
     file_path = tmp_path / "fake.txt"
     if file_path.exists():
         file_path.unlink()
-    with pytest.raises(AssertionError):
+    with pytest.raises(FileNotFoundError):  # File doesn't exist
         params = Parameters.from_file(file_path)
     file_path.write_text("fake")
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):  # Invalid extension
         params = Parameters.from_file(file_path)  # noqa: F841

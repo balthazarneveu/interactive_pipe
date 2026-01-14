@@ -12,7 +12,7 @@ def test_curve_abbreviations():
     _sig = Curve(
         {"y": np.log(8.0 * np.abs(absciss_2 / 10.0)), "style": "m-.", "label": "log"}
     )
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):  # wrong sizes
         _sig = Curve(
             [
                 (absciss, absciss_2),
@@ -21,7 +21,7 @@ def test_curve_abbreviations():
 
     # list of list OK
     _sig = Curve([[absciss, 3.0 * absciss + 1.0, "r-", "linear 3x+1"]])
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):  # missing list, sort of too short
         # missing list, sort of too short
         _sig = Curve([absciss, 3.0 * absciss + 1.0, "r-", "linear 3x+1"])
     _sig
