@@ -1,16 +1,34 @@
-from ipywidgets import Dropdown, FloatSlider, IntSlider, Checkbox, Layout, Text
 from interactive_pipe.headless.control import Control
 import logging
 
+try:
+    from ipywidgets import Dropdown, FloatSlider, IntSlider, Checkbox, Layout, Text
+
+    IPYWIDGETS_AVAILABLE = True
+except ImportError:
+    IPYWIDGETS_AVAILABLE = False
+    # Create dummy classes to allow import even when ipywidgets is not available
+    Dropdown = None
+    FloatSlider = None
+    IntSlider = None
+    Checkbox = None
+    Layout = None
+    Text = None
+    logging.warning("ipywidgets not available. Notebook controls will not work.")
+
 
 class BaseControl:
-    layout = Layout(width="500px")
-
     def __init__(self, name, ctrl: Control):
+        if not IPYWIDGETS_AVAILABLE:
+            raise ModuleNotFoundError(
+                "ipywidgets is required for notebook controls. "
+                "Install it with: pip install interactive-pipe[notebook]"
+            )
         super().__init__()
         self.name = name
         self.ctrl = ctrl
         self.control_widget = None
+        self.layout = Layout(width="500px")
         self.check_control_type()
 
     def create(self):
@@ -28,6 +46,8 @@ class IntSliderNotebookControl(BaseControl):
             raise TypeError(f"Expected int control type, got {self.ctrl._type}")
 
     def create(self):
+        if not IPYWIDGETS_AVAILABLE:
+            raise ModuleNotFoundError("ipywidgets is required for notebook controls")
         style = {"description_width": "initial"}
         return IntSlider(
             min=self.ctrl.value_range[0],
@@ -44,6 +64,8 @@ class FloatSliderNotebookControl(BaseControl):
             raise TypeError(f"Expected float control type, got {self.ctrl._type}")
 
     def create(self):
+        if not IPYWIDGETS_AVAILABLE:
+            raise ModuleNotFoundError("ipywidgets is required for notebook controls")
         style = {"description_width": "initial"}
         return FloatSlider(
             min=self.ctrl.value_range[0],
@@ -60,6 +82,8 @@ class BoolCheckButtonNotebookControl(BaseControl):
             raise TypeError(f"Expected bool control type, got {self.ctrl._type}")
 
     def create(self):
+        if not IPYWIDGETS_AVAILABLE:
+            raise ModuleNotFoundError("ipywidgets is required for notebook controls")
         checks = Checkbox(self.ctrl.value_default, layout=self.layout)
         return checks
 
@@ -70,6 +94,8 @@ class DialogNotebookControl(BaseControl):
             raise TypeError(f"Expected str control type, got {self.ctrl._type}")
 
     def create(self):
+        if not IPYWIDGETS_AVAILABLE:
+            raise ModuleNotFoundError("ipywidgets is required for notebook controls")
         options = self.ctrl.value_range
         dropdown = Dropdown(options=options, description=self.name, layout=self.layout)
         return dropdown
@@ -83,6 +109,8 @@ class PromptNotebookControl(BaseControl):
             raise ValueError("value_range must be None for PromptNotebookControl")
 
     def create(self):
+        if not IPYWIDGETS_AVAILABLE:
+            raise ModuleNotFoundError("ipywidgets is required for notebook controls")
         text_box = Text(
             value=self.ctrl.value, description=self.name, layout=self.layout
         )

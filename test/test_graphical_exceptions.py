@@ -17,13 +17,20 @@ from interactive_pipe.graphical.mpl_control import (
     StringRadioButtonMatplotlibControl,
     PromptMatplotlibControl,
 )
-from interactive_pipe.graphical.nb_control import (
-    IntSliderNotebookControl,
-    FloatSliderNotebookControl,
-    BoolCheckButtonNotebookControl,
-    DialogNotebookControl,
-    PromptNotebookControl,
-)
+
+try:
+    from interactive_pipe.graphical.nb_control import (
+        IntSliderNotebookControl,
+        FloatSliderNotebookControl,
+        BoolCheckButtonNotebookControl,
+        DialogNotebookControl,
+        PromptNotebookControl,
+        IPYWIDGETS_AVAILABLE,
+    )
+
+    NB_CONTROL_AVAILABLE = IPYWIDGETS_AVAILABLE
+except ImportError:
+    NB_CONTROL_AVAILABLE = False
 from interactive_pipe.graphical.qt_control import (
     IntSliderControl,
     FloatSliderControl,
@@ -130,31 +137,37 @@ class TestMatplotlibControlExceptions:
 class TestNotebookControlExceptions:
     """Test exception handling in notebook control classes"""
 
+    @pytest.mark.skipif(not NB_CONTROL_AVAILABLE, reason="ipywidgets not available")
     def test_int_slider_raises_typeerror_when_not_int(self):
         control = Control(value_default=5.5, value_range=[0.0, 10.0])
         with pytest.raises(TypeError, match="Expected int control type"):
             IntSliderNotebookControl("test", control)
 
+    @pytest.mark.skipif(not NB_CONTROL_AVAILABLE, reason="ipywidgets not available")
     def test_float_slider_raises_typeerror_when_not_float(self):
         control = Control(value_default=5, value_range=[0, 10])
         with pytest.raises(TypeError, match="Expected float control type"):
             FloatSliderNotebookControl("test", control)
 
+    @pytest.mark.skipif(not NB_CONTROL_AVAILABLE, reason="ipywidgets not available")
     def test_bool_checkbutton_raises_typeerror_when_not_bool(self):
         control = Control(value_default=5.0, value_range=[0.0, 10.0])
         with pytest.raises(TypeError, match="Expected bool control type"):
             BoolCheckButtonNotebookControl("test", control)
 
+    @pytest.mark.skipif(not NB_CONTROL_AVAILABLE, reason="ipywidgets not available")
     def test_dialog_raises_typeerror_when_not_str(self):
         control = Control(value_default=True)
         with pytest.raises(TypeError, match="Expected str control type"):
             DialogNotebookControl("test", control)
 
+    @pytest.mark.skipif(not NB_CONTROL_AVAILABLE, reason="ipywidgets not available")
     def test_prompt_raises_typeerror_when_not_str(self):
         control = Control(value_default=True)
         with pytest.raises(TypeError, match="Expected str control type"):
             PromptNotebookControl("test", control)
 
+    @pytest.mark.skipif(not NB_CONTROL_AVAILABLE, reason="ipywidgets not available")
     def test_prompt_raises_valueerror_when_value_range_not_none(self):
         # Use a valid default that's in the range, but PromptNotebookControl should reject value_range
         control = Control(value_default="a", value_range=["a", "b"])
