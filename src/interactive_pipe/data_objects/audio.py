@@ -26,10 +26,16 @@ def audio_to_html(
     if isinstance(audio, str) or isinstance(audio, Path):
         audio_base64 = base64.b64encode(open(str(audio), "rb").read()).decode("utf-8")
     elif isinstance(audio, tuple):
-        assert WAVIO_AVAILABLE, "wavio is not available"
-        assert len(audio) == 2, "audio tuple should have 2 elements: (rate, data)"
-        assert isinstance(audio[0], int), "audio[0] should be an integer"
-        assert isinstance(audio[1], np.ndarray), "audio[1] should be a numpy array"
+        if not WAVIO_AVAILABLE:
+            raise RuntimeError("wavio is not available")
+        if len(audio) != 2:
+            raise ValueError(
+                f"audio tuple should have 2 elements: (rate, data), got {len(audio)}"
+            )
+        if not isinstance(audio[0], int):
+            raise TypeError(f"audio[0] should be an integer, got {type(audio[0])}")
+        if not isinstance(audio[1], np.ndarray):
+            raise TypeError(f"audio[1] should be a numpy array, got {type(audio[1])}")
         audio_bytes = BytesIO()
         wavio.write(audio_bytes, audio[1].astype(np.float32), audio[0], sampwidth=4)
         audio_bytes.seek(0)
@@ -57,7 +63,8 @@ class Audio(Data):
         self.file_extensions = [".wav", ".mp3", ".mp4"]
 
     def _save(self, path: Path, backend=None):
-        assert path is not None, "Save requires a path"
+        if path is None:
+            raise ValueError("Save requires a path")
         if self.title is not None:
             self.path = self.append_with_stem(path, self.title)
         else:
@@ -83,7 +90,8 @@ class Audio(Data):
                     data_save = data
                 else:
                     raise ValueError(f"Data type {data.dtype} not supported")
-            assert WAVIO_AVAILABLE, "wavio is not available"
+            if not WAVIO_AVAILABLE:
+                raise RuntimeError("wavio is not available")
             wavio.write(path, data_save, sampling_rate)
         else:
             raise NotImplementedError(f"Unknown backend: {backend}")
@@ -93,7 +101,8 @@ class Audio(Data):
         if backend is None:
             backend = WAVIO
         if backend == WAVIO:
-            assert WAVIO_AVAILABLE, "wavio is not available"
+            if not WAVIO_AVAILABLE:
+                raise RuntimeError("wavio is not available")
             audio = wavio.read(str(path))
             return audio.rate, audio.data
         else:
