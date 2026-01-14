@@ -97,11 +97,14 @@ def test_ultra_abbreviation_control(inp_tuple):
 @pytest.mark.parametrize(
     "inp_tuple_and_error_type",
     [
-        ((True, [-2, 2]), AssertionError),
-        ((True, "flag", [-2, 2]), AssertionError),
-        ((True, [True, False], "flag"), AssertionError),
-        (("dolphin", CHOICES), AssertionError),
-        ((-10, [-5, 8], None), AssertionError),
+        ((True, [-2, 2]), AssertionError),  # assertion in control_abbreviation.py
+        ((True, "flag", [-2, 2]), AssertionError),  # assertion in keyboard.py
+        (
+            (True, [True, False], "flag"),
+            AssertionError,
+        ),  # assertion in control_abbreviation.py
+        (("dolphin", CHOICES), ValueError),
+        ((-10, [-5, 8], None), ValueError),
     ],
 )
 def test_abbreviation_control_expected_fail(inp_tuple_and_error_type):
