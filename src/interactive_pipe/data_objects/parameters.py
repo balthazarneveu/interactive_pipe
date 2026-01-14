@@ -22,9 +22,10 @@ class Parameters(Data):
             self.file_extensions.append(".yaml")
 
     def _load(self, path: Path):
-        assert (
-            path.suffix in self.file_extensions
-        ), f"Unsupported file extension: {path.suffix}, {self.file_extensions}"
+        if path.suffix not in self.file_extensions:
+            raise ValueError(
+                f"Unsupported file extension: {path.suffix}, expected one of {self.file_extensions}"
+            )
         if path.suffix == ".json":
             params = self.load_json(path)
         elif path.suffix == ".yaml":
@@ -34,9 +35,10 @@ class Parameters(Data):
         return params
 
     def _save(self, path: Path):
-        assert (
-            path.suffix in self.file_extensions
-        ), f"Unsupported file extension: {path.suffix}, {self.file_extensions}"
+        if path.suffix not in self.file_extensions:
+            raise ValueError(
+                f"Unsupported file extension: {path.suffix}, expected one of {self.file_extensions}"
+            )
         if path.suffix == ".json":
             self.save_json(self.data, path)
         elif path.suffix == ".yaml":
@@ -48,14 +50,16 @@ class Parameters(Data):
     def load_yaml(
         path: Path,
     ) -> dict:
-        assert YAML_SUPPORT, YAML_NOT_DETECTED_MESSAGE
+        if not YAML_SUPPORT:
+            raise RuntimeError(YAML_NOT_DETECTED_MESSAGE)
         with open(path) as file:
             params = yaml.load(file, Loader=SafeLoader)
         return params
 
     @staticmethod
     def save_yaml(data: dict, path: Path, **kwargs):
-        assert YAML_SUPPORT, YAML_NOT_DETECTED_MESSAGE
+        if not YAML_SUPPORT:
+            raise RuntimeError(YAML_NOT_DETECTED_MESSAGE)
         with open(path, "w") as outfile:
             yaml.dump(data, outfile, **kwargs)
 
