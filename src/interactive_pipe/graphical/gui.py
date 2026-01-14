@@ -130,7 +130,9 @@ class InteractivePipeGUI:
         self, ctrl: KeyboardControl, key_update_parameter_func: Callable
     ):
         if not isinstance(ctrl, KeyboardControl):
-            raise TypeError(f"ctrl must be a KeyboardControl instance, got {type(ctrl)}")
+            raise TypeError(
+                f"ctrl must be a KeyboardControl instance, got {type(ctrl)}"
+            )
         toggle_only = True
         doc = ""
         slider_name = ctrl.name

@@ -70,7 +70,9 @@ class StringRadioButtonMatplotlibControl(BaseControl):
         if self.ctrl._type != str:
             raise TypeError(f"Expected str control type, got {self.ctrl._type}")
         if self.ctrl.value_range is None:
-            raise ValueError("value_range must be provided for StringRadioButtonMatplotlibControl")
+            raise ValueError(
+                "value_range must be provided for StringRadioButtonMatplotlibControl"
+            )
 
     def create(self):
         options = self.ctrl.value_range

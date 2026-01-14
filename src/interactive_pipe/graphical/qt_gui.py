@@ -578,7 +578,9 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 image_array = np.repeat(image_array, c, axis=-1)
             elif len(image_array_original.shape) == 3:
                 if not isinstance(image_array_original, np.ndarray):
-                    raise TypeError(f"Expected numpy array, got {type(image_array_original)}")
+                    raise TypeError(
+                        f"Expected numpy array, got {type(image_array_original)}"
+                    )
                 if image_array_original.shape[-1] != 3:
                     raise ValueError(
                         f"Expected 3-channel image, got {image_array_original.shape[-1]} channels"
