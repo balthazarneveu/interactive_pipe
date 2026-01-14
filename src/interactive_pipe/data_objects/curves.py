@@ -522,20 +522,34 @@ class Curve(Data):
                 inps = [
                     curve.data["y"],
                 ]
-            if curve.data.get("style", None) is not None:
+            has_style_fmt = curve.data.get("style", None) is not None
+            if has_style_fmt:
                 inps.append(curve.data["style"])
             if curve.data.get("label", None) is not None:
                 legend_flag = True
-            plt_obj.append(
-                ax.plot(
-                    *inps,
-                    label=curve.data.get("label", None),
-                    linestyle=curve.data.get("linestyle", None),
-                    linewidth=curve.data.get("linewidth", None),
-                    markersize=curve.data.get("markersize", None),
-                    alpha=curve.data.get("alpha", None),
-                )
-            )
+
+            # Build kwargs - avoid redundant linestyle when style fmt string is provided
+            # The fmt string (e.g., "r-o") already contains linestyle info, so passing
+            # linestyle keyword would be redundant and trigger a warning
+            plot_kwargs = {
+                "label": curve.data.get("label", None),
+                "alpha": curve.data.get("alpha", None),
+            }
+            # Only add linestyle if style fmt string is not provided (to avoid redundancy warning)
+            if not has_style_fmt:
+                linestyle = curve.data.get("linestyle", None)
+                if linestyle is not None:
+                    plot_kwargs["linestyle"] = linestyle
+
+            linewidth = curve.data.get("linewidth", None)
+            if linewidth is not None:
+                plot_kwargs["linewidth"] = linewidth
+
+            markersize = curve.data.get("markersize", None)
+            if markersize is not None:
+                plot_kwargs["markersize"] = markersize
+
+            plt_obj.append(ax.plot(*inps, **plot_kwargs))
         if legend_flag:
             ax.legend(loc="upper right")
         if data.get("title", None) is not None:
