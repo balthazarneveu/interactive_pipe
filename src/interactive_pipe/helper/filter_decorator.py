@@ -74,7 +74,7 @@ def interact(
     except that you can return numpy arrays & Curve class instances to automatically deal with the plot mechanism
     Which avoids writing a lot of matplotlib boiler plate code
     """
-    ommitted_parentheses_flag = False
+    omitted_parentheses_flag = False
 
     def wrapper(func):
         if disable:
@@ -83,7 +83,7 @@ def interact(
         _private.registered_controls_names = []
         filter_instance = filter_from_function(func, **decorator_controls)
         filter_instance.run_gui(
-            *(decorator_args if not ommitted_parentheses_flag else decorator_args[1:]),
+            *(decorator_args if not omitted_parentheses_flag else decorator_args[1:]),
             gui=gui,
             output_routing=output_routing,
             size=size,
@@ -92,12 +92,14 @@ def interact(
         return func
 
     if len(decorator_args) == 1 and callable(decorator_args[0]):
-        ommitted_parentheses_flag = True
+        omitted_parentheses_flag = True
         return wrapper(decorator_args[0])  # no parenthesis
     return wrapper
 
 
-def filter_from_function(apply_fn, default_params={}, **kwargs) -> EnhancedFilterCore:
+def filter_from_function(apply_fn, default_params=None, **kwargs) -> EnhancedFilterCore:
+    if default_params is None:
+        default_params = {}
     controls = get_controls_from_decorated_function_declaration(apply_fn, kwargs)
     filter_instance = EnhancedFilterCore(
         apply_fn=apply_fn, default_params=default_params
