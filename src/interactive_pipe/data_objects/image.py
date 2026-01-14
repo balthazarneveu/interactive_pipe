@@ -22,7 +22,8 @@ try:
     image_backends.append(IMAGE_BACKEND_PILLOW)
 except ImportError:
     logging.info("PIL is not available")
-assert len(image_backends) > 0
+if len(image_backends) == 0:
+    raise RuntimeError("No image backends available. Please install either cv2 or PIL")
 
 try:
     import matplotlib.pyplot as plt
@@ -40,7 +41,8 @@ class Image(Data):
         self.file_extensions = [".png", ".jpg", ".tif"]
 
     def _save(self, path: Path, backend=None):
-        assert path is not None, "Save requires a path"
+        if path is None:
+            raise ValueError("Save requires a path")
         if self.title is not None:
             self.path = self.append_with_stem(path, self.title)
         else:
@@ -57,7 +59,8 @@ class Image(Data):
     def save_image(data, path: Path, precision=8, backend=None):
         if backend is None:
             backend = IMAGE_BACKEND_PILLOW
-        assert backend in IMAGE_BACKENDS
+        if backend not in IMAGE_BACKENDS:
+            raise ValueError(f"backend must be one of {IMAGE_BACKENDS}, got {backend}")
         if backend == IMAGE_BACKEND_OPENCV:
             Image.save_image_cv2(data, path, precision)
         if backend == IMAGE_BACKEND_PILLOW:
@@ -78,7 +81,8 @@ class Image(Data):
 
     @staticmethod
     def save_image_cv2(data, path: Path, precision=8):
-        assert isinstance(path, Path)
+        if not isinstance(path, Path):
+            raise TypeError(f"path must be a Path object, got {type(path)}")
         out = Image.rescale_dynamic(data, precision=precision)
         out = out.astype(np.uint8 if precision == 8 else np.uint16)
         out = cv2.cvtColor(out, cv2.COLOR_BGR2RGB)
@@ -86,8 +90,10 @@ class Image(Data):
 
     @staticmethod
     def save_image_PIL(data, path: Path, precision=8):
-        assert precision == 8
-        assert isinstance(path, Path)
+        if precision != 8:
+            raise ValueError(f"PIL backend requires precision=8, got {precision}")
+        if not isinstance(path, Path):
+            raise TypeError(f"path must be a Path object, got {type(path)}")
         out = Image.rescale_dynamic(data, precision=precision)
         out = out.astype(np.uint8)  # PIL requires image data in uint8 format
         out = PilImage.fromarray(out, "RGB")
@@ -108,7 +114,8 @@ class Image(Data):
     def load_image(path: Path, precision=8, backend=None) -> np.ndarray:
         if backend is None:
             backend = IMAGE_BACKEND_PILLOW
-        assert backend in IMAGE_BACKENDS
+        if backend not in IMAGE_BACKENDS:
+            raise ValueError(f"backend must be one of {IMAGE_BACKENDS}, got {backend}")
         if backend == IMAGE_BACKEND_OPENCV:
             return Image.load_image_cv2(path)
         if backend == IMAGE_BACKEND_PILLOW:
