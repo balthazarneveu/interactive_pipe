@@ -284,10 +284,8 @@ class HeadlessPipeline(PipelineCore):
             logging.info(f"Dict style inputs {list(inputs.keys())}, {self.inputs}")
         else:
             # @TODO: we could check that the number of inputs matches what's expected here.
-            self.inputs = list(inputs_tuple)
-            if self.inputs is None:
-                pass
-            elif len(self.inputs) == 0:
+            self.inputs = list(inputs_tuple) if inputs_tuple else None
+            if self.inputs is not None and len(self.inputs) == 0:
                 self.inputs = None
         self.parameters = parameters
         self.parameters = self.parameters_from_keyword_args(**kwargs)
