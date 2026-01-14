@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys
 import numpy as np
-from typing import List
+from typing import List, Optional
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.graphical.qt_control import ControlFactory
@@ -115,9 +115,8 @@ class InteractivePipeQT(InteractivePipeGUI):
             QTimer.singleShot(100, self.audio_player)
 
     def run(self) -> list:
-        assert (
-            self.pipeline._PipelineCore__initialized_inputs
-        ), "Did you forget to initialize the pipeline inputs?"
+        if not self.pipeline._PipelineCore__initialized_inputs:
+            raise RuntimeError("Did you forget to initialize the pipeline inputs?")
         self.window.refresh()
         self.app.exec()
         self.custom_end()
@@ -170,9 +169,10 @@ class InteractivePipeQT(InteractivePipeGUI):
                             self.pipeline.parameters[filtname][param_name]
                         )
                         matched = True
-            assert (
-                matched
-            ), f"could not match widget {widget_idx} with parameter to connect {widget.parameter_name_to_connect}"
+            if not matched:
+                raise ValueError(
+                    f"could not match widget {widget_idx} with parameter to connect {widget.parameter_name_to_connect}"
+                )
         print("------------")
         self.window.reset_sliders()
 
@@ -230,7 +230,8 @@ class InteractivePipeQT(InteractivePipeGUI):
             file_path = Path.cwd() / file_path
         else:
             file_path = file_path.resolve()
-        assert file_path.exists()
+        if not file_path.exists():
+            raise FileNotFoundError(f"Audio file does not exist: {file_path}")
         media_url = QUrl.fromLocalFile(str(file_path))
         if PYQTVERSION == 6:
             self.player.setSource(media_url)
@@ -276,15 +277,17 @@ class MainWindow(QWidget, InteractivePipeWindow):
     def __init__(
         self,
         *args,
-        controls=[],
+        controls=None,
         name="",
-        pipeline: HeadlessPipeline = None,
+        pipeline: Optional[HeadlessPipeline] = None,
         size=None,
         center=True,
         style=None,
         main_gui=None,
         **kwargs,
     ):
+        if controls is None:
+            controls = []
         QWidget.__init__(self, *args, **kwargs)
         InteractivePipeWindow.__init__(self, name=name, pipeline=pipeline, size=size)
         self.main_gui = main_gui
@@ -333,9 +336,10 @@ class MainWindow(QWidget, InteractivePipeWindow):
     @size.setter
     def size(self, _size):
         if isinstance(_size, str):
-            assert (
-                "full" in _size.lower() or "max" in _size.lower()
-            ), f"size={_size} can only be among (full, fullscreen, maximized, max, maximum)"
+            if "full" not in _size.lower() and "max" not in _size.lower():
+                raise ValueError(
+                    f"size={_size} can only be among (full, fullscreen, maximized, max, maximum)"
+                )
         self._size = _size
         self.update_window()
 
@@ -573,8 +577,12 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 image_array = np.expand_dims(image_array, axis=-1)
                 image_array = np.repeat(image_array, c, axis=-1)
             elif len(image_array_original.shape) == 3:
-                assert isinstance(image_array_original, np.ndarray)
-                assert (image_array_original.shape[-1]) == 3
+                if not isinstance(image_array_original, np.ndarray):
+                    raise TypeError(f"Expected numpy array, got {type(image_array_original)}")
+                if image_array_original.shape[-1] != 3:
+                    raise ValueError(
+                        f"Expected 3-channel image, got {image_array_original.shape[-1]} channels"
+                    )
                 image_array = image_array_original
             else:
                 raise NotImplementedError(
