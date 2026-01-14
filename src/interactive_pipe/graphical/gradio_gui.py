@@ -1,7 +1,7 @@
 import gradio as gr
 import numpy as np
 import math
-from typing import List
+from typing import List, Optional
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.graphical.gradio_control import ControlFactory
 from interactive_pipe.graphical.window import InteractivePipeWindow
@@ -55,9 +55,8 @@ class InteractivePipeGradio(InteractivePipeGUI):
         self.__set_audio(None)
 
     def run(self) -> list:
-        assert (
-            self.pipeline._PipelineCore__initialized_inputs
-        ), "Did you forget to initialize the pipeline inputs?"
+        if not self.pipeline._PipelineCore__initialized_inputs:
+            raise RuntimeError("Did you forget to initialize the pipeline inputs?")
         # In gradio, the first run is a "dry run", used to get the output types...
         try:
             global_params_first_run = copy(self.pipeline.global_params)
@@ -117,9 +116,9 @@ class MainWindow(InteractivePipeWindow):
     def __init__(
         self,
         *args,
-        controls=[],
+        controls=None,
         name="",
-        pipeline: HeadlessPipeline = None,
+        pipeline: Optional[HeadlessPipeline] = None,
         size=None,
         share_gradio_app=False,
         markdown_description=None,
@@ -129,6 +128,8 @@ class MainWindow(InteractivePipeWindow):
         audio_sampling_rate: int = 44100,
         **kwargs,
     ):
+        if controls is None:
+            controls = []
         InteractivePipeWindow.__init__(self, name=name, pipeline=pipeline, size=size)
         self.markdown_description = markdown_description
         self.sliders_layout = sliders_layout
@@ -245,12 +246,17 @@ class MainWindow(InteractivePipeWindow):
                     self.sliders_layout = "collapsible"
                 if self.sliders_per_row_layout is None:
                     self.sliders_per_row_layout = 1
-                assert self.sliders_layout in [
+                if self.sliders_layout not in [
                     "compact",
                     "vertical",
                     "collapsible",
                     "smart",
-                ]
+                ]:
+                    raise ValueError(
+                        f"sliders_layout must be one of "
+                        f"['compact', 'vertical', 'collapsible', 'smart'], "
+                        f"got {self.sliders_layout}"
+                    )
                 ctrl_dict_by_type = {"all": list(range(len(self.ctrl)))}
                 categories = ["all"]
                 if self.sliders_layout == "compact":
