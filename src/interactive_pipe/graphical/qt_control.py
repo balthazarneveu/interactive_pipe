@@ -146,7 +146,8 @@ class SilentSlider(QSlider):
 
 class IntSliderControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == int
+        if self.ctrl._type != int:
+            raise TypeError(f"Expected int control type, got {self.ctrl._type}")
 
     def create(self):
         if self.silent:
@@ -175,7 +176,8 @@ class IntSliderControl(BaseControl):
 
 class FloatSliderControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == float
+        if self.ctrl._type != float:
+            raise TypeError(f"Expected float control type, got {self.ctrl._type}")
 
     def convert_value_to_int(self, val):
         return int(
@@ -227,7 +229,8 @@ class FloatSliderControl(BaseControl):
 
 class IconButtonsControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == str
+        if self.ctrl._type != str:
+            raise TypeError(f"Expected str control type, got {self.ctrl._type}")
         if not hasattr(self.ctrl, "value_range") or not hasattr(self.ctrl, "icons"):
             raise ValueError(
                 "Invalid control type or missing value range for icons bar creation."
@@ -262,7 +265,8 @@ class IconButtonsControl(BaseControl):
 
 class DropdownMenuControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == str
+        if self.ctrl._type != str:
+            raise TypeError(f"Expected str control type, got {self.ctrl._type}")
         if not hasattr(self.ctrl, "value_range"):
             raise ValueError("Invalid control type")
 
@@ -297,8 +301,10 @@ class DropdownMenuControl(BaseControl):
 
 class PromptControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == str
-        assert self.ctrl.value_range is None
+        if self.ctrl._type != str:
+            raise TypeError(f"Expected str control type, got {self.ctrl._type}")
+        if self.ctrl.value_range is not None:
+            raise ValueError("value_range must be None for PromptControl")
 
     def create(self):
         # Create a horizontal layout to hold the text prompt
@@ -330,7 +336,8 @@ class PromptControl(BaseControl):
 
 class TickBoxControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == bool
+        if self.ctrl._type != bool:
+            raise TypeError(f"Expected bool control type, got {self.ctrl._type}")
 
     def create(self):
         hbox = QHBoxLayout()
