@@ -38,17 +38,20 @@ class SliderMatplotlibControl(BaseControl):
 
 class IntSliderMatplotlibControl(SliderMatplotlibControl):
     def check_control_type(self):
-        assert self.ctrl._type == int
+        if self.ctrl._type != int:
+            raise TypeError(f"Expected int control type, got {self.ctrl._type}")
 
 
 class FloatSliderMatplotlibControl(SliderMatplotlibControl):
     def check_control_type(self):
-        assert self.ctrl._type == float
+        if self.ctrl._type != float:
+            raise TypeError(f"Expected float control type, got {self.ctrl._type}")
 
 
 class BoolCheckButtonMatplotlibControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == bool
+        if self.ctrl._type != bool:
+            raise TypeError(f"Expected bool control type, got {self.ctrl._type}")
 
     def create(self):
         current_state = [self.ctrl.value]
@@ -64,8 +67,10 @@ class BoolCheckButtonMatplotlibControl(BaseControl):
 
 class StringRadioButtonMatplotlibControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == str
-        assert self.ctrl.value_range is not None
+        if self.ctrl._type != str:
+            raise TypeError(f"Expected str control type, got {self.ctrl._type}")
+        if self.ctrl.value_range is None:
+            raise ValueError("value_range must be provided for StringRadioButtonMatplotlibControl")
 
     def create(self):
         options = self.ctrl.value_range
@@ -83,8 +88,10 @@ class StringRadioButtonMatplotlibControl(BaseControl):
 
 class PromptMatplotlibControl(BaseControl):
     def check_control_type(self):
-        assert self.ctrl._type == str
-        assert self.ctrl.value_range is None
+        if self.ctrl._type != str:
+            raise TypeError(f"Expected str control type, got {self.ctrl._type}")
+        if self.ctrl.value_range is not None:
+            raise ValueError("value_range must be None for PromptMatplotlibControl")
 
     def create(self):
         # Create a prompt for text input
