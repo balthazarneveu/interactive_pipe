@@ -1,4 +1,11 @@
-from interactive_pipe import Control, interactive, interactive_pipeline
+from interactive_pipe import (
+    Control,
+    interactive,
+    interactive_pipeline,
+    audio,
+    layout,
+    get_context,
+)
 from interactive_pipe.data_objects.image import Image
 from pathlib import Path
 import cv2
@@ -33,26 +40,32 @@ ICONS = [it[ICON] for key, it in TRACK_DICT.items()]
 
 
 @interactive(song=Control("elephant", list(TRACK_DICT.keys()), icons=ICONS))
-def song_choice(global_params={}, song="elephant"):
-    global_params[TRACK] = song
+def song_choice(song="elephant"):
+    # Use clean context API to share song choice with other filters
+    ctx = get_context()
+    ctx[TRACK] = song
 
 
-def play_song(global_params={}):
-    song = global_params.get(TRACK, None)
-    first_exec = global_params.get("first_exec", True)
+def play_song():
+    # Use clean context API to get song choice and track first execution
+    ctx = get_context()
+    song = ctx.get(TRACK, None)
+    first_exec = ctx.get("first_exec", True)
     if not first_exec:
         audio_track = TRACK_DICT[song][TRACK]
         if audio_track is None:
-            global_params["__stop"]()
+            audio.stop()  # Clean audio API!
         else:
-            global_params["__set_audio"](audio_track)
-            global_params["__play"]()
+            audio.set(audio_track)  # Clean audio API!
+            audio.play()  # Clean audio API!
     else:
-        global_params["first_exec"] = False
+        ctx["first_exec"] = False
 
 
-def image_choice(global_params={}):
-    song = global_params.get(TRACK, list(TRACK_DICT.keys())[0])
+def image_choice():
+    # Use clean context API to get song choice
+    ctx = get_context()
+    song = ctx.get(TRACK, list(TRACK_DICT.keys())[0])
     img = Image.from_file(TRACK_DICT[song][IMAGE]).data
     max_height = 300
     h, w, _c = img.shape
@@ -60,7 +73,8 @@ def image_choice(global_params={}):
         img = cv2.resize(img, (w * max_height // h, max_height))
         h, w, _c = img.shape
     caption = TRACK_DICT[song][CAPTION]
-    global_params["__output_styles"]["img_out"] = {"title": caption}
+    # Clean layout API!
+    layout.output("img_out", title=caption)
     return img
 
 

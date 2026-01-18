@@ -10,7 +10,7 @@ This demo demonstrates:
 
 import numpy as np
 import argparse
-from interactive_pipe import interactive, interactive_pipeline, Control
+from interactive_pipe import interactive, interactive_pipeline, Control, layout
 from interactive_pipe.data_objects.curves import Curve
 
 
@@ -27,7 +27,6 @@ def generate_image(
     brightness: float = 0.5,
     contrast: float = 1.0,
     rotation: float = 0.0,
-    global_params={},
 ) -> np.ndarray:
     """Generate a pattern image with adjustable parameters"""
     # Create coordinate grids
@@ -60,12 +59,13 @@ def generate_image(
     combined = np.clip(combined, 0.0, 1.0)
     img = np.stack([combined] * 3, axis=2)
 
+    # Clean API - no global_params pollution!
     title = (
         f"Pattern: f={pattern_frequency:.1f}, "
         f"B={brightness:.2f}, C={contrast:.2f}, "
         f"R={rotation:.0f}°"
     )
-    global_params["__output_styles"]["image"] = {"title": title}
+    layout.output("image", title=title)
 
     return img
 
@@ -83,7 +83,6 @@ def extract_profile(
     img: np.ndarray,
     profile_line: float = 0.5,
     profile_direction: str = "horizontal",
-    global_params={},
 ) -> Curve:
     """Extract a profile (line section) from the image"""
     h, w = img.shape[:2]
@@ -130,9 +129,10 @@ def extract_profile(
         title=f"Image Profile ({profile_direction})",
     )
 
-    global_params["__output_styles"]["profile"] = {
-        "title": f"Profile: {profile_direction} at {profile_line:.2f}"
-    }
+    # Clean API - no global_params!
+    layout.output(
+        "profile", title=f"Profile: {profile_direction} at {profile_line:.2f}"
+    )
 
     return curve
 
@@ -147,7 +147,6 @@ def compute_histogram(
     img: np.ndarray,
     num_bins: int = 50,
     channel: str = "grayscale",
-    global_params={},
 ) -> Curve:
     """Compute histogram of the image"""
     if channel == "grayscale":
@@ -185,9 +184,8 @@ def compute_histogram(
         title=f"Image Histogram ({num_bins} bins)",
     )
 
-    global_params["__output_styles"]["histogram"] = {
-        "title": f"Histogram: {channel} channel ({num_bins} bins)"
-    }
+    # Clean API - no global_params!
+    layout.output("histogram", title=f"Histogram: {channel} channel ({num_bins} bins)")
 
     return curve
 
