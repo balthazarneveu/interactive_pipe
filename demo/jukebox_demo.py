@@ -4,7 +4,7 @@ from interactive_pipe import (
     interactive_pipeline,
     audio,
     layout,
-    get_context,
+    context,
 )
 from interactive_pipe.data_objects.image import Image
 from pathlib import Path
@@ -41,14 +41,12 @@ ICONS = [it[ICON] for key, it in TRACK_DICT.items()]
 
 @interactive(song=Control("elephant", list(TRACK_DICT.keys()), icons=ICONS))
 def song_choice(song="elephant"):
-    ctx = get_context()
-    ctx[TRACK] = song
+    context[TRACK] = song
 
 
 def play_song():
-    ctx = get_context()
-    song = ctx.get(TRACK, None)
-    first_exec = ctx.get("first_exec", True)
+    song = context.get(TRACK, None)
+    first_exec = context.get("first_exec", True)
     if not first_exec:
         audio_track = TRACK_DICT[song][TRACK]
         if audio_track is None:
@@ -57,12 +55,11 @@ def play_song():
             audio.set(audio_track)
             audio.play()
     else:
-        ctx["first_exec"] = False
+        context["first_exec"] = False
 
 
 def image_choice():
-    ctx = get_context()
-    song = ctx.get(TRACK, list(TRACK_DICT.keys())[0])
+    song = context.get(TRACK, list(TRACK_DICT.keys())[0])
     img = Image.from_file(TRACK_DICT[song][IMAGE]).data
     max_height = 300
     h, w, _c = img.shape

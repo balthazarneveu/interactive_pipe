@@ -14,6 +14,7 @@ from interactive_pipe.helper.filter_decorator import interactive, interact
 # Clean context API - no more global_params pollution!
 from interactive_pipe.core.context import (
     get_context,
+    context,  # Direct dict-like access
     layout,
     audio,
 )

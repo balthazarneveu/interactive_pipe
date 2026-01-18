@@ -24,7 +24,7 @@ from interactive_pipe import (
     TextPrompt,
     KeyboardControl,
     layout,
-    get_context,
+    context,
 )
 from interactive_pipe.data_objects.image import Image
 
@@ -57,9 +57,7 @@ def select_image(
     title = f"Original {idx+1}/{len(img_list)}: {img_list[idx].stem}"
 
     layout.style("original", title=title)
-
-    ctx = get_context()
-    ctx["layout_mode"] = layout_mode
+    context["layout_mode"] = layout_mode
 
     return img
 
@@ -72,8 +70,7 @@ def set_layout_outputs():
 
     The outputs use variable names (strings) matching the return statement variable names.
     """
-    ctx = get_context()
-    layout_mode = ctx.get("layout_mode", "last_output")
+    layout_mode = context.get("layout_mode", "last_output")
 
     # Define output layouts as 2D structures of variable names (strings)
     # Variable names must match the return statement variable names

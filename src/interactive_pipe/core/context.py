@@ -251,7 +251,7 @@ def get_context() -> Dict[str, Any]:
             ctx = get_context()
             objects = ctx.get("detected_objects", [])
             count = ctx.get("detection_count", 0)
-            layout.output("analysis", title=f"Found {count} objects")
+            layout.style("analysis", title=f"Found {count} objects")
             return analysis_result
     """
     ctx = _user_context.get()
@@ -264,8 +264,86 @@ def get_context() -> Dict[str, Any]:
 
 
 # ============================================================================
+# Context Proxy - Direct dict-like access
+# ============================================================================
+
+
+class _ContextProxy:
+    """Proxy object for direct dict-like access to user context.
+
+    This allows using context["key"] directly instead of ctx = get_context(); ctx["key"].
+
+    Example:
+        from interactive_pipe import context
+
+        @interactive()
+        def my_filter(img):
+            # Direct access - no need to call get_context()
+            context["my_data"] = value
+            other_data = context.get("other_key", default)
+            return img
+    """
+
+    def __getitem__(self, key: str) -> Any:
+        """Get item from context."""
+        return get_context()[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Set item in context."""
+        get_context()[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        """Delete item from context."""
+        del get_context()[key]
+
+    def __contains__(self, key: str) -> bool:
+        """Check if key exists in context."""
+        return key in get_context()
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get item from context with default value."""
+        return get_context().get(key, default)
+
+    def setdefault(self, key: str, default: Any = None) -> Any:
+        """Set default value if key doesn't exist."""
+        return get_context().setdefault(key, default)
+
+    def pop(self, key: str, *args) -> Any:
+        """Pop item from context."""
+        return get_context().pop(key, *args)
+
+    def keys(self):
+        """Get context keys."""
+        return get_context().keys()
+
+    def values(self):
+        """Get context values."""
+        return get_context().values()
+
+    def items(self):
+        """Get context items."""
+        return get_context().items()
+
+    def update(self, *args, **kwargs) -> None:
+        """Update context with dict or kwargs."""
+        get_context().update(*args, **kwargs)
+
+    def clear(self) -> None:
+        """Clear context."""
+        get_context().clear()
+
+    def __repr__(self) -> str:
+        """String representation."""
+        try:
+            return f"<ContextProxy: {get_context()}>"
+        except RuntimeError:
+            return "<ContextProxy: not in pipeline execution>"
+
+
+# ============================================================================
 # Module-level instances (exported)
 # ============================================================================
 
 layout = _LayoutProxy()
 audio = _AudioProxy()
+context = _ContextProxy()  # Direct dict-like access to user context

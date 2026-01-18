@@ -5,6 +5,7 @@ import numpy as np
 from interactive_pipe import (
     interactive,
     get_context,
+    context,
     layout,
     audio,
 )
@@ -479,6 +480,79 @@ def test_layout_canvas_aliases():
     pipeline2.inputs = [img]
     pipeline2.run()
     assert pipeline2.outputs == [["x", "y"]]
+
+
+def test_context_proxy_direct_access():
+    """Test that context proxy allows direct dict-like access."""
+
+    @interactive()
+    def test_filter(img, global_params={}):
+        # Direct access without calling get_context()
+        context["key1"] = "value1"
+        context["key2"] = 42
+        assert context["key1"] == "value1"
+        assert context.get("key2") == 42
+        assert "key1" in context
+        return img
+
+    img = np.ones((10, 10, 3))
+    filter_obj = FilterCore(apply_fn=test_filter, inputs=[0], outputs=[0])
+
+    pipeline = PipelineCore(
+        filters=[filter_obj],
+        inputs=[0],
+        outputs=[[0]],
+        cache=False,
+    )
+    pipeline.inputs = [img]
+    pipeline.run()
+
+    # Verify data was stored
+    assert pipeline._user_context["key1"] == "value1"
+    assert pipeline._user_context["key2"] == 42
+
+
+def test_context_proxy_equivalent_to_get_context():
+    """Test that context proxy and get_context() access the same data."""
+
+    @interactive()
+    def filter_a(img, global_params={}):
+        # Use context proxy
+        context["from_proxy"] = "proxy_data"
+        return img
+
+    @interactive()
+    def filter_b(img, global_params={}):
+        # Use get_context()
+        ctx = get_context()
+        ctx["from_get_context"] = "get_context_data"
+        # Can read data set by proxy
+        assert context["from_proxy"] == "proxy_data"
+        return img
+
+    @interactive()
+    def filter_c(img, global_params={}):
+        # Both should see all data
+        ctx = get_context()
+        assert ctx["from_proxy"] == "proxy_data"
+        assert ctx["from_get_context"] == "get_context_data"
+        assert context["from_proxy"] == "proxy_data"
+        assert context["from_get_context"] == "get_context_data"
+        return img
+
+    img = np.ones((10, 10, 3))
+    filter_a_obj = FilterCore(apply_fn=filter_a, inputs=[0], outputs=["a"])
+    filter_b_obj = FilterCore(apply_fn=filter_b, inputs=["a"], outputs=["b"])
+    filter_c_obj = FilterCore(apply_fn=filter_c, inputs=["b"], outputs=["c"])
+
+    pipeline = PipelineCore(
+        filters=[filter_a_obj, filter_b_obj, filter_c_obj],
+        inputs=[0],
+        outputs=[["c"]],
+        cache=False,
+    )
+    pipeline.inputs = [img]
+    pipeline.run()
 
 
 if __name__ == "__main__":
