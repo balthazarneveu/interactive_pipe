@@ -271,26 +271,46 @@ def get_context() -> Dict[str, Any]:
 class _ContextProxy:
     """Proxy object for direct dict-like access to user context.
 
-    This allows using context["key"] directly instead of ctx = get_context(); ctx["key"].
+    This allows using context["key"] or context.key directly instead of
+    ctx = get_context(); ctx["key"].
 
     Example:
         from interactive_pipe import context
 
         @interactive()
         def my_filter(img):
-            # Direct access - no need to call get_context()
+            # Direct dict-style access
             context["my_data"] = value
             other_data = context.get("other_key", default)
+
+            # Or attribute-style access
+            context.my_data = value
+            other_data = context.other_key
+
             return img
     """
 
     def __getitem__(self, key: str) -> Any:
-        """Get item from context."""
+        """Get item from context using dict-style access."""
         return get_context()[key]
 
     def __setitem__(self, key: str, value: Any) -> None:
-        """Set item in context."""
+        """Set item in context using dict-style access."""
         get_context()[key] = value
+
+    def __getattr__(self, name: str) -> Any:
+        """Get item from context using attribute-style access."""
+        try:
+            return get_context()[name]
+        except KeyError:
+            raise AttributeError(
+                f"Context has no attribute '{name}'. "
+                f"Available keys: {list(get_context().keys())}"
+            )
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Set item in context using attribute-style access."""
+        get_context()[name] = value
 
     def __delitem__(self, key: str) -> None:
         """Delete item from context."""

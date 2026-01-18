@@ -41,6 +41,7 @@ ICONS = [it[ICON] for key, it in TRACK_DICT.items()]
 
 @interactive(song=Control("elephant", list(TRACK_DICT.keys()), icons=ICONS))
 def song_choice(song="elephant"):
+    # Can use dict-style or attribute-style access
     context[TRACK] = song
 
 
@@ -55,7 +56,8 @@ def play_song():
             audio.set(audio_track)
             audio.play()
     else:
-        context["first_exec"] = False
+        # Attribute-style access
+        context.first_exec = False
 
 
 def image_choice():

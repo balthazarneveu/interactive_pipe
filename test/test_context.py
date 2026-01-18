@@ -555,5 +555,76 @@ def test_context_proxy_equivalent_to_get_context():
     pipeline.run()
 
 
+def test_context_proxy_attribute_access():
+    """Test that context proxy supports attribute-style access."""
+
+    @interactive()
+    def test_filter(img, global_params={}):
+        # Attribute-style write
+        context.my_data = "attribute_value"
+        context.count = 42
+        context.flag = True
+
+        # Attribute-style read
+        assert context.my_data == "attribute_value"
+        assert context.count == 42
+        assert context.flag is True
+
+        # Mix with dict-style access
+        context["dict_key"] = "dict_value"
+        assert context.dict_key == "dict_value"
+        context.attr_key = "attr_value"
+        assert context["attr_key"] == "attr_value"
+
+        return img
+
+    img = np.ones((10, 10, 3))
+    filter_obj = FilterCore(apply_fn=test_filter, inputs=[0], outputs=[0])
+
+    pipeline = PipelineCore(
+        filters=[filter_obj],
+        inputs=[0],
+        outputs=[[0]],
+        cache=False,
+    )
+    pipeline.inputs = [img]
+    pipeline.run()
+
+    # Verify data was stored
+    assert pipeline._user_context["my_data"] == "attribute_value"
+    assert pipeline._user_context["count"] == 42
+    assert pipeline._user_context["flag"] is True
+    assert pipeline._user_context["dict_key"] == "dict_value"
+    assert pipeline._user_context["attr_key"] == "attr_value"
+
+
+def test_context_proxy_attribute_error():
+    """Test that accessing non-existent attribute raises AttributeError."""
+
+    @interactive()
+    def test_filter(img, global_params={}):
+        context.existing_key = "value"
+        try:
+            # Should raise AttributeError for non-existent key
+            _ = context.non_existent_key
+            assert False, "Should have raised AttributeError"
+        except AttributeError as e:
+            assert "non_existent_key" in str(e)
+            assert "existing_key" in str(e)  # Shows available keys
+        return img
+
+    img = np.ones((10, 10, 3))
+    filter_obj = FilterCore(apply_fn=test_filter, inputs=[0], outputs=[0])
+
+    pipeline = PipelineCore(
+        filters=[filter_obj],
+        inputs=[0],
+        outputs=[[0]],
+        cache=False,
+    )
+    pipeline.inputs = [img]
+    pipeline.run()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

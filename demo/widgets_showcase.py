@@ -57,7 +57,8 @@ def select_image(
     title = f"Original {idx+1}/{len(img_list)}: {img_list[idx].stem}"
 
     layout.style("original", title=title)
-    context["layout_mode"] = layout_mode
+    # Attribute-style access
+    context.layout_mode = layout_mode
 
     return img
 
