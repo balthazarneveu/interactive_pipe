@@ -41,29 +41,26 @@ ICONS = [it[ICON] for key, it in TRACK_DICT.items()]
 
 @interactive(song=Control("elephant", list(TRACK_DICT.keys()), icons=ICONS))
 def song_choice(song="elephant"):
-    # Use clean context API to share song choice with other filters
     ctx = get_context()
     ctx[TRACK] = song
 
 
 def play_song():
-    # Use clean context API to get song choice and track first execution
     ctx = get_context()
     song = ctx.get(TRACK, None)
     first_exec = ctx.get("first_exec", True)
     if not first_exec:
         audio_track = TRACK_DICT[song][TRACK]
         if audio_track is None:
-            audio.stop()  # Clean audio API!
+            audio.stop()
         else:
-            audio.set(audio_track)  # Clean audio API!
-            audio.play()  # Clean audio API!
+            audio.set(audio_track)
+            audio.play()
     else:
         ctx["first_exec"] = False
 
 
 def image_choice():
-    # Use clean context API to get song choice
     ctx = get_context()
     song = ctx.get(TRACK, list(TRACK_DICT.keys())[0])
     img = Image.from_file(TRACK_DICT[song][IMAGE]).data
@@ -73,8 +70,7 @@ def image_choice():
         img = cv2.resize(img, (w * max_height // h, max_height))
         h, w, _c = img.shape
     caption = TRACK_DICT[song][CAPTION]
-    # Clean layout API!
-    layout.output("img_out", title=caption)
+    layout.style("img_out", title=caption)
     return img
 
 

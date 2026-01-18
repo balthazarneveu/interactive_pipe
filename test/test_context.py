@@ -18,10 +18,10 @@ def test_get_context_outside_pipeline_raises_error():
         get_context()
 
 
-def test_layout_output_outside_pipeline_raises_error():
-    """Test that layout.output() raises error when called outside pipeline."""
+def test_layout_style_outside_pipeline_raises_error():
+    """Test that layout.style() raises error when called outside pipeline."""
     with pytest.raises(RuntimeError, match="outside of filter execution"):
-        layout.output("test", title="Test")
+        layout.style("test", title="Test")
 
 
 def test_layout_grid_outside_pipeline_raises_error():
@@ -95,12 +95,12 @@ def test_get_context_no_internal_keys_visible():
     pipeline.run()
 
 
-def test_layout_output_sets_title():
-    """Test that layout.output() correctly sets output title."""
+def test_layout_style_sets_title():
+    """Test that layout.style() correctly sets output title."""
 
     @interactive(brightness=(0.5, [0.0, 1.0]))
     def adjust_brightness(img, brightness=0.5, global_params={}):
-        layout.output("adjusted", title=f"Brightness: {brightness:.2f}")
+        layout.style("adjusted", title=f"Brightness: {brightness:.2f}")
         return img * brightness
 
     img = np.ones((10, 10, 3))
@@ -126,12 +126,12 @@ def test_layout_output_sets_title():
     )
 
 
-def test_layout_output_with_extra_style_kwargs():
-    """Test that layout.output() supports additional style kwargs."""
+def test_layout_style_with_extra_style_kwargs():
+    """Test that layout.style() supports additional style kwargs."""
 
     @interactive()
     def test_filter(img, global_params={}):
-        layout.output(
+        layout.style(
             "output",
             title="Test",
             colormap="viridis",
@@ -304,7 +304,7 @@ def test_new_api_without_global_params_signature():
     )  # Using 'gain' instead of 'brightness' to avoid conflicts
     def clean_filter(img, gain=0.5):
         # No global_params in signature - clean!
-        layout.output("result", title=f"G={gain:.2f}")
+        layout.style("result", title=f"G={gain:.2f}")
         ctx = get_context()
         ctx["gain_used"] = gain
         return img * gain
@@ -403,6 +403,82 @@ def test_context_isolation_between_pipeline_runs():
     pipeline2.run()
     # Should start fresh, not continue from pipeline1
     assert pipeline2._user_context["count"] == 1
+
+
+def test_layout_aliases():
+    """Test that layout aliases work (set_style, set_grid, canvas, set_canvas)."""
+
+    @interactive()
+    def test_filter(img, global_params={}):
+        # Test set_style alias
+        layout.set_style("output1", title="Using set_style alias")
+        # Test set_grid alias
+        layout.set_grid([["output1", "output2"]])
+        return img, img * 0.5
+
+    img = np.ones((10, 10, 3))
+    filter_obj = FilterCore(
+        apply_fn=test_filter, inputs=[0], outputs=["output1", "output2"]
+    )
+
+    pipeline = PipelineCore(
+        filters=[filter_obj],
+        inputs=[0],
+        outputs=[["output1"]],
+        cache=False,
+    )
+    pipeline.global_params["__pipeline"] = pipeline
+    pipeline.inputs = [img]
+    pipeline.run()
+
+    # Check that set_style alias works
+    assert pipeline.global_params["__output_styles"]["output1"]["title"] == (
+        "Using set_style alias"
+    )
+    # Check that set_grid alias works
+    assert pipeline.outputs == [["output1", "output2"]]
+
+
+def test_layout_canvas_aliases():
+    """Test that layout.canvas and layout.set_canvas aliases work."""
+
+    @interactive()
+    def test_canvas_filter(img, global_params={}):
+        # Test canvas alias
+        layout.canvas([["a", "b"], ["c", "d"]])
+        return img, img * 0.5, img * 0.25, img * 0.1
+
+    @interactive()
+    def test_set_canvas_filter(img, global_params={}):
+        # Test set_canvas alias
+        layout.set_canvas([["x", "y"]])
+        return img, img * 2
+
+    img = np.ones((10, 10, 3))
+
+    # Test canvas alias
+    filter1 = FilterCore(
+        apply_fn=test_canvas_filter, inputs=[0], outputs=["a", "b", "c", "d"]
+    )
+    pipeline1 = PipelineCore(
+        filters=[filter1], inputs=[0], outputs=[["a"]], cache=False
+    )
+    pipeline1.global_params["__pipeline"] = pipeline1
+    pipeline1.inputs = [img]
+    pipeline1.run()
+    assert pipeline1.outputs == [["a", "b"], ["c", "d"]]
+
+    # Test set_canvas alias
+    filter2 = FilterCore(
+        apply_fn=test_set_canvas_filter, inputs=[0], outputs=["x", "y"]
+    )
+    pipeline2 = PipelineCore(
+        filters=[filter2], inputs=[0], outputs=[["x"]], cache=False
+    )
+    pipeline2.global_params["__pipeline"] = pipeline2
+    pipeline2.inputs = [img]
+    pipeline2.run()
+    assert pipeline2.outputs == [["x", "y"]]
 
 
 if __name__ == "__main__":

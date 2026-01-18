@@ -56,10 +56,8 @@ def select_image(
     img = Image.load_image(str(img_list[idx]))
     title = f"Original {idx+1}/{len(img_list)}: {img_list[idx].stem}"
 
-    # Clean layout API!
-    layout.output("original", title=title)
+    layout.style("original", title=title)
 
-    # Store layout_mode in context for set_layout_outputs to use
     ctx = get_context()
     ctx["layout_mode"] = layout_mode
 
@@ -74,7 +72,6 @@ def set_layout_outputs():
 
     The outputs use variable names (strings) matching the return statement variable names.
     """
-    # Clean context API!
     ctx = get_context()
     layout_mode = ctx.get("layout_mode", "last_output")
 
@@ -98,7 +95,6 @@ def set_layout_outputs():
         "last_output": [["noisy"]],  # Show only the last output (noisy)
     }
 
-    # Clean layout API - no more ugly global_params["__pipeline"].outputs!
     if layout_mode in layouts:
         layout.grid(layouts[layout_mode])
 
@@ -126,9 +122,8 @@ def adjust_brightness_contrast(
     # Clamp to valid range [0, 1]
     contrasted_img = np.clip(contrasted_img, 0.0, 1.0)
 
-    # Clean layout API!
     title = f"Brightness: {brightness:+.2f}, Contrast: {contrast:+.2f}"
-    layout.output("adjusted", title=title)
+    layout.style("adjusted", title=title)
     return contrasted_img
 
 
@@ -141,7 +136,7 @@ def apply_blur(
 ) -> np.ndarray:
     """Apply blur effect"""
     if not enable_blur:
-        layout.output("blurred", title="Blur: OFF")
+        layout.style("blurred", title="Blur: OFF")
         return img
 
     # Simple box blur
@@ -162,9 +157,8 @@ def apply_blur(
             y_end = min(h, y + blur_amount + 1)
             blurred[y, x] = blurred[y_start:y_end, x].mean(axis=0)
 
-    # Clean layout API!
     title = f"Blur: ON (radius={blur_amount})"
-    layout.output("blurred", title=title)
+    layout.style("blurred", title=title)
     return blurred
 
 
@@ -185,9 +179,8 @@ def apply_threshold(
     # Convert back to RGB
     binary_rgb = np.stack([binary] * 3, axis=2)
 
-    # Clean layout API!
     title = f"Threshold: {threshold:.2f}, Invert: {'ON' if invert else 'OFF'}"
-    layout.output("thresholded", title=title)
+    layout.style("thresholded", title=title)
     return binary_rgb
 
 
@@ -231,9 +224,8 @@ def apply_transform(
     else:
         transformed = img.copy()
 
-    # Clean layout API!
     title = f"Rotation: {rotation:.0f}°, Scale: {scale:.2f}"
-    layout.output("transformed", title=title)
+    layout.style("transformed", title=title)
     return transformed
 
 
@@ -263,9 +255,8 @@ def apply_color_effect(
         negative = 1.0 - img
         result = result * (1 - intensity) + negative * intensity
 
-    # Clean layout API!
     title = f"Color: {color_mode}, Intensity: {intensity:.2f}"
-    layout.output("colored", title=title)
+    layout.style("colored", title=title)
     return result
 
 
@@ -290,9 +281,8 @@ def add_text_overlay(
     overlay = overlay * 0.7 + 0.3  # Darken slightly
     result[-overlay_height:, :] = overlay
 
-    # Clean layout API!
     title = f"Text: '{custom_text}' (size: {text_size})"
-    layout.output("text_overlay", title=title)
+    layout.style("text_overlay", title=title)
     return result
 
 
@@ -309,15 +299,14 @@ def add_noise(
 ) -> np.ndarray:
     """Add noise effect (controlled by keyboard)"""
     if not enable_noise:
-        layout.output("noisy", title="Noise: OFF")
+        layout.style("noisy", title="Noise: OFF")
         return img
 
     noise = np.random.normal(0, noise_amount, img.shape)
     noisy_img = np.clip(img + noise, 0.0, 1.0)
 
-    # Clean layout API!
     title = f"Noise: ON (amount: {noise_amount:.3f}, use ↑↓ keys)"
-    layout.output("noisy", title=title)
+    layout.style("noisy", title=title)
     return noisy_img
 
 
@@ -333,8 +322,7 @@ def widgets_showcase_pipeline(img_list: List[Path]):
     Pipeline functions must contain ONLY function calls - no control flow (if/else/for).
     The AST parser analyzes the function to build the execution graph.
 
-    Layout is controlled via context["layout_mode"] string and set_layout_outputs()
-    using the new clean layout API.
+    Layout is controlled via context["layout_mode"] string and set_layout_outputs().
     """
     # Process images through various filters
     original = select_image(img_list)
@@ -351,7 +339,7 @@ def widgets_showcase_pipeline(img_list: List[Path]):
     set_layout_outputs()
 
     # Return all images - the actual layout is controlled by pipeline.outputs
-    # which is set by set_layout_outputs() using the clean layout.grid() API
+    # which is set by set_layout_outputs()
     return [
         original,
         adjusted,

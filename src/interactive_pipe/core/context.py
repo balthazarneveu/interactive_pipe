@@ -66,9 +66,14 @@ class _LayoutProxy:
 
     This class provides a clean API for controlling output display properties
     and grid arrangements without polluting function signatures.
+
+    Available methods:
+        - style() / set_style(): Set display properties (title, colormap, etc.)
+        - grid() / set_grid() / canvas() / set_canvas(): Set the output grid layout
+        - row(): Convenience for single-row layout
     """
 
-    def output(self, name: str, *, title: str = None, **style_kwargs) -> None:
+    def style(self, name: str, *, title: str = None, **style_kwargs) -> None:
         """Set display properties for an output.
 
         Args:
@@ -77,8 +82,8 @@ class _LayoutProxy:
             **style_kwargs: Additional style properties (colormap, vmin, vmax, etc.)
 
         Example:
-            layout.output("processed", title=f"Brightness: {brightness:.2f}")
-            layout.output("heatmap", title="Heat Map", colormap="viridis", vmin=0, vmax=1)
+            layout.style("processed", title=f"Brightness: {brightness:.2f}")
+            layout.style("heatmap", title="Heat Map", colormap="viridis", vmin=0, vmax=1)
 
         Raises:
             RuntimeError: If called outside of filter execution context.
@@ -133,6 +138,12 @@ class _LayoutProxy:
             RuntimeError: If called outside of filter execution context.
         """
         self.grid([outputs])
+
+    # Aliases for backwards compatibility and alternative naming preferences
+    set_style = style  # Alias: layout.set_style() is equivalent to layout.style()
+    set_grid = grid  # Alias: layout.set_grid() is equivalent to layout.grid()
+    canvas = grid  # Alias: layout.canvas() is equivalent to layout.grid()
+    set_canvas = grid  # Alias: layout.set_canvas() is equivalent to layout.grid()
 
 
 # ============================================================================

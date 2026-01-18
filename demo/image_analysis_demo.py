@@ -59,13 +59,12 @@ def generate_image(
     combined = np.clip(combined, 0.0, 1.0)
     img = np.stack([combined] * 3, axis=2)
 
-    # Clean API - no global_params pollution!
     title = (
         f"Pattern: f={pattern_frequency:.1f}, "
         f"B={brightness:.2f}, C={contrast:.2f}, "
         f"R={rotation:.0f}°"
     )
-    layout.output("image", title=title)
+    layout.style("image", title=title)
 
     return img
 
@@ -129,10 +128,7 @@ def extract_profile(
         title=f"Image Profile ({profile_direction})",
     )
 
-    # Clean API - no global_params!
-    layout.output(
-        "profile", title=f"Profile: {profile_direction} at {profile_line:.2f}"
-    )
+    layout.style("profile", title=f"Profile: {profile_direction} at {profile_line:.2f}")
 
     return curve
 
@@ -184,8 +180,7 @@ def compute_histogram(
         title=f"Image Histogram ({num_bins} bins)",
     )
 
-    # Clean API - no global_params!
-    layout.output("histogram", title=f"Histogram: {channel} channel ({num_bins} bins)")
+    layout.style("histogram", title=f"Histogram: {channel} channel ({num_bins} bins)")
 
     return curve
 
