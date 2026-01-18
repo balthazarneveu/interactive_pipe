@@ -4,6 +4,7 @@ from typing import Callable, List, Optional, Union, Tuple, Any
 
 from interactive_pipe.core.cache import CachedResults
 from interactive_pipe.core.signature import analyze_apply_fn_signature
+from interactive_pipe.core.context import _set_framework_state
 
 EQUIVALENT_STATE_KEYS = [
     "global_params",
@@ -90,18 +91,25 @@ class PureFilter:
                 raise ValueError(
                     f"{self.name}: {key} not in {self.__kwargs_names.keys()}"
                 )
-        global_key_found = False
-        for global_key in EQUIVALENT_STATE_KEYS:
-            if global_key in self.__kwargs_names.keys():
-                # special key to provide the context dictionary
-                out = self.apply(
-                    *imgs, **{**{global_key: self.global_params}, **self.values}
-                )
-                global_key_found = True
-                break
-        if not global_key_found:
-            out = self.apply(*imgs, **self.values)
-        return out
+
+        # Set framework state for context-based API (layout, audio, etc.)
+        _set_framework_state(self.global_params)
+        try:
+            global_key_found = False
+            for global_key in EQUIVALENT_STATE_KEYS:
+                if global_key in self.__kwargs_names.keys():
+                    # special key to provide the context dictionary (legacy API)
+                    out = self.apply(
+                        *imgs, **{**{global_key: self.global_params}, **self.values}
+                    )
+                    global_key_found = True
+                    break
+            if not global_key_found:
+                out = self.apply(*imgs, **self.values)
+            return out
+        finally:
+            # Clear framework state after execution
+            _set_framework_state(None)
 
 
 class FilterCore(PureFilter):

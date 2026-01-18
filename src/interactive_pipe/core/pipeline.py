@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.engine import PipelineEngine
+from interactive_pipe.core.context import _set_user_context
 import logging
 
 
@@ -51,6 +52,10 @@ class PipelineCore:
         for filter in self.filters:
             # link each filter to global params
             filter.global_params = self.global_params
+
+        # Initialize user context (separate from global_params for clean API)
+        self._user_context = {}
+
         self.reset_cache()
         if inputs is None:
             logging.warning(
@@ -79,7 +84,13 @@ class PipelineCore:
 
     def run(self) -> list:
         """Useful for standalone python access without gui or disk write"""
-        return self.engine.run(self.filters, imglst=self.inputs)
+        # Set user context before running pipeline
+        _set_user_context(self._user_context)
+        try:
+            return self.engine.run(self.filters, imglst=self.inputs)
+        finally:
+            # Clear user context after execution
+            _set_user_context(None)
 
     def _reset_global_params(self):
         for filter in self.filters:

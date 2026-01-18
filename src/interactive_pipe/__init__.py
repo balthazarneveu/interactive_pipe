@@ -11,6 +11,13 @@ from interactive_pipe.data_objects.image import Image
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.helper.filter_decorator import interactive, interact
 
+# Clean context API - no more global_params pollution!
+from interactive_pipe.core.context import (
+    get_context,
+    layout,
+    audio,
+)
+
 # Allowing more straightforward naming convention
 block = interactive
 pipeline = interactive_pipeline
