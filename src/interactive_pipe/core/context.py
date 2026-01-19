@@ -432,11 +432,14 @@ class SharedContext(dict):
         if not cls._deprecation_warned:
             import warnings
 
-            warnings.warn(
-                "SharedContext/global_params parameter injection is deprecated. "
+            message = (
+                "global_param or context parameter injection is deprecated. "
                 "Consider migrating to the new API: use `layout.style()` for output styling, "
+                "`layout.grid()` for output grid arrangement, "
                 "`context` for shared state between filters, and `audio` for audio control. "
-                "See documentation for migration guide.",
+            )
+            warnings.warn(
+                message,
                 DeprecationWarning,
                 stacklevel=6,  # Adjust to point to user's filter function
             )

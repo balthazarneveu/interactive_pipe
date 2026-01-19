@@ -6,6 +6,7 @@ import pytest
 import numpy as np
 from interactive_pipe.core.filter import FilterCore, PureFilter
 from interactive_pipe.core.pipeline import PipelineCore
+from interactive_pipe.core.engine import FilterError
 
 
 # Test helper functions
@@ -184,7 +185,7 @@ class TestGraphExceptions:
 class TestEngineExceptions:
     """Test exception handling in PipelineEngine"""
 
-    def test_run_raises_runtimeerror_when_filter_raises_exception(self):
+    def test_run_raises_filtererror_when_filter_raises_exception(self):
         def failing_func(x):
             raise ValueError("Test error")
 
@@ -192,7 +193,7 @@ class TestEngineExceptions:
         pipeline = PipelineCore(filters=[filter1], inputs=[0])
         pipeline.inputs = [np.array([1, 2, 3])]
 
-        with pytest.raises(RuntimeError, match="Error in filter"):
+        with pytest.raises(FilterError, match="failing_func"):
             pipeline.run()
 
     def test_run_handles_non_iterable_output(self):
@@ -217,9 +218,13 @@ class TestEngineExceptions:
         pipeline = PipelineCore(filters=[filter1], inputs=[0])
         pipeline.inputs = [np.array([1, 2, 3])]
 
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(FilterError) as exc_info:
             pipeline.run()
 
+        # FilterError includes filter name and original error message
         assert "TestFilter" in str(exc_info.value)
-        assert isinstance(exc_info.value.__cause__, ValueError)
-        assert "Original error" in str(exc_info.value.__cause__)
+        assert "ValueError" in str(exc_info.value)
+        assert "Original error" in str(exc_info.value)
+        # Verify the original error is stored
+        assert exc_info.value.filter_name == "TestFilter"
+        assert isinstance(exc_info.value.original_error, ValueError)

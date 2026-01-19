@@ -20,6 +20,9 @@ from interactive_pipe.core.context import (
     SharedContext,  # For legacy code migration with explicit injection
 )
 
+# Clean exception handling
+from interactive_pipe.core.engine import FilterError
+
 # Allowing more straightforward naming convention
 block = interactive
 pipeline = interactive_pipeline

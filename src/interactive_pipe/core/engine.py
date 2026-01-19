@@ -1,9 +1,94 @@
 import logging
+import os
+import sys
 import time
 import traceback
 from copy import deepcopy
 from typing import List
 from interactive_pipe.core.filter import FilterCore
+
+
+class FilterError(Exception):
+    """Clean, user-friendly exception for filter errors.
+
+    Displays only the relevant error information without the full
+    framework traceback, making it easier to identify issues in user code.
+    """
+
+    def __init__(self, filter_name: str, original_error: Exception, tb=None):
+        self.filter_name = filter_name
+        self.original_error = original_error
+        self.tb = tb
+        self._user_frames = self._extract_user_frames()
+        super().__init__(self._format_message())
+
+    def _extract_user_frames(self):
+        """Extract relevant frames from the traceback (user code, not framework)."""
+        if self.tb is None:
+            return []
+
+        # Walk through traceback to find the user's code (not in interactive_pipe/src)
+        tb_list = traceback.extract_tb(self.tb)
+        user_frames = []
+        for frame in tb_list:
+            # Skip frames from the interactive_pipe framework itself
+            if "interactive_pipe" in frame.filename and "/src/" in frame.filename:
+                continue
+            user_frames.append(frame)
+
+        # If no user frames found, return last frame from traceback
+        if not user_frames and tb_list:
+            return [tb_list[-1]]
+        return user_frames
+
+    def _format_message(self):
+        """Format a clean, readable error message."""
+        error_str = str(self.original_error)
+
+        lines = [
+            "",
+            f"  Filter '{self.filter_name}' raised {type(self.original_error).__name__}:",
+            f"    {error_str}",
+        ]
+
+        if self._user_frames:
+            lines.append("")
+            lines.append("  Traceback (user code only):")
+            for frame in self._user_frames:
+                lines.append(f"    {frame.filename}:{frame.lineno} in {frame.name}()")
+                if frame.line:
+                    lines.append(f"      >>> {frame.line.strip()}")
+
+        lines.append("")
+        return "\n".join(lines)
+
+    def print_compact(self, file=None):
+        """Print a compact version of the error to stderr or specified file."""
+        if file is None:
+            file = sys.stderr
+        print(f"\n{'='*60}", file=file)
+        print("PIPELINE ERROR", file=file)
+        print(f"{'='*60}", file=file)
+        print(str(self), file=file)
+        print(f"{'='*60}\n", file=file)
+
+
+# Install a custom exception hook to handle FilterError cleanly
+_original_excepthook = sys.excepthook
+
+
+def _filter_error_excepthook(exc_type, exc_value, exc_tb):
+    """Custom exception hook that handles FilterError without full traceback."""
+    if exc_type is FilterError:
+        # FilterError already printed its compact form, just show a hint
+        print("Hint: Set INTERACTIVE_PIPE_DEBUG=1 for full traceback", file=sys.stderr)
+        if os.environ.get("INTERACTIVE_PIPE_DEBUG"):
+            _original_excepthook(exc_type, exc_value, exc_tb)
+    else:
+        _original_excepthook(exc_type, exc_value, exc_tb)
+
+
+sys.excepthook = _filter_error_excepthook
 
 
 class PipelineEngine:
@@ -68,10 +153,11 @@ class PipelineEngine:
                             # out is not iterable (e.g., single value)
                             logging.debug(f"out type-> {type(out)}")
                 except Exception as e:
-                    logging.error(f"Error in {prc.name} filter:")
-                    logging.error(e)
-                    traceback.print_exc()
-                    raise RuntimeError(f"Error in filter {prc.name}") from e
+                    # Create a clean, user-friendly error
+                    _, _, tb = sys.exc_info()
+                    filter_error = FilterError(prc.name, e, tb)
+                    filter_error.print_compact()
+                    raise filter_error from None  # 'from None' suppresses the chained traceback
                 previous_calculation = True
                 if (
                     self.cache and prc.cache_mem is not None

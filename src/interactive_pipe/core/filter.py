@@ -4,11 +4,7 @@ from typing import Callable, List, Optional, Union, Tuple, Any
 
 from interactive_pipe.core.cache import CachedResults
 from interactive_pipe.core.signature import analyze_apply_fn_signature
-from interactive_pipe.core.context import (
-    _set_framework_state,
-    is_injected_sentinel,
-    SharedContext,
-)
+from interactive_pipe.core.context import _set_framework_state, SharedContext
 
 EQUIVALENT_STATE_KEYS = [
     "global_params",
@@ -102,11 +98,8 @@ class PureFilter:
             global_key_found = False
             for global_key in EQUIVALENT_STATE_KEYS:
                 if global_key in self.__kwargs_names.keys():
-                    # Check if user is using the explicit SharedContext.injected() sentinel
-                    default_val = self.__kwargs_names.get(global_key)
-                    if is_injected_sentinel(default_val):
-                        # Using new explicit sentinel - warn about deprecation
-                        SharedContext._warn_deprecation_once()
+                    # Warn about deprecated parameter injection (any magic parameter name)
+                    SharedContext._warn_deprecation_once()
 
                     # Inject the context dictionary (legacy API)
                     out = self.apply(
