@@ -15,7 +15,6 @@ from interactive_pipe.core.graph import get_call_graph
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.data_objects.image import Image
 
-
 input_image = np.array([[1, 2, 3], [4, 5, 6]])
 
 

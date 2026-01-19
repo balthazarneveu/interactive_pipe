@@ -2,7 +2,6 @@ import numpy as np
 
 from interactive_pipe.core.filter import PureFilter
 
-
 input_image = np.array([[1, 2, 3], [4, 5, 6]])
 
 # -----------------------------------------------------

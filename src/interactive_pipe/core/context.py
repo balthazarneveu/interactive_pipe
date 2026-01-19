@@ -11,7 +11,6 @@ Internal implementation uses contextvars to maintain separate framework and user
 from contextvars import ContextVar
 from typing import Dict, Any, Optional, List
 
-
 # ============================================================================
 # Internal Context Variables (not exported)
 # ============================================================================
