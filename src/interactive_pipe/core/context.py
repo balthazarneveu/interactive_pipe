@@ -361,6 +361,106 @@ class _ContextProxy:
 
 
 # ============================================================================
+# SharedContext - Explicit sentinel for legacy code migration
+# ============================================================================
+
+
+class _InjectedSentinel:
+    """Sentinel indicating this parameter will be auto-injected by the pipeline.
+
+    This is a singleton - only one instance exists.
+    """
+
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __repr__(self):
+        return "SharedContext.injected()"
+
+
+class SharedContext(dict):
+    """Explicitly typed context for filter functions (legacy migration helper).
+
+    Use `SharedContext.injected()` as the default value to indicate
+    this parameter will be auto-injected by the pipeline. This makes
+    the injection explicit and self-documenting, while maintaining
+    backwards compatibility with existing code.
+
+    Example:
+        from interactive_pipe import SharedContext
+
+        @interactive(brightness=(0.5, [0.0, 1.0]))
+        def my_filter(img, brightness=0.5, global_params: SharedContext = SharedContext.injected()):
+            global_params["__output_styles"]["result"] = {"title": f"B={brightness}"}
+            return img
+
+    Note:
+        This is provided for legacy code migration. For new code, prefer using
+        the `layout`, `context`, and `audio` module-level proxies instead:
+
+        from interactive_pipe import layout, context
+
+        @interactive(brightness=(0.5, [0.0, 1.0]))
+        def my_filter(img, brightness=0.5):
+            layout.style("result", title=f"B={brightness}")
+            return img
+    """
+
+    _injected_sentinel = _InjectedSentinel()
+    _deprecation_warned = False
+
+    @classmethod
+    def injected(cls) -> "_InjectedSentinel":
+        """Marker indicating this context will be auto-injected by the pipeline.
+
+        Returns:
+            A sentinel object that signals the framework to inject the shared context.
+
+        Example:
+            def my_filter(img, global_params: SharedContext = SharedContext.injected()):
+                ...
+        """
+        return cls._injected_sentinel
+
+    @classmethod
+    def _warn_deprecation_once(cls):
+        """Emit a deprecation warning once per session."""
+        if not cls._deprecation_warned:
+            import warnings
+
+            warnings.warn(
+                "SharedContext/global_params parameter injection is deprecated. "
+                "Consider migrating to the new API: use `layout.style()` for output styling, "
+                "`context` for shared state between filters, and `audio` for audio control. "
+                "See documentation for migration guide.",
+                DeprecationWarning,
+                stacklevel=6,  # Adjust to point to user's filter function
+            )
+            cls._deprecation_warned = True
+
+    @classmethod
+    def _reset_warning(cls):
+        """Reset the deprecation warning flag (for testing)."""
+        cls._deprecation_warned = False
+
+
+def is_injected_sentinel(value) -> bool:
+    """Check if a value is the SharedContext.injected() sentinel.
+
+    Args:
+        value: The value to check
+
+    Returns:
+        True if the value is the injected sentinel, False otherwise.
+    """
+    return isinstance(value, _InjectedSentinel)
+
+
+# ============================================================================
 # Module-level instances (exported)
 # ============================================================================
 

@@ -17,6 +17,7 @@ from interactive_pipe.core.context import (
     context,  # Direct dict-like access
     layout,
     audio,
+    SharedContext,  # For legacy code migration with explicit injection
 )
 
 # Allowing more straightforward naming convention
