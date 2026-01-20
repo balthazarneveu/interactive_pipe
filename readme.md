@@ -63,19 +63,21 @@ pip install -e ".[full]"
 
 ## :scroll:  Features
 
-**Version 0.8.7**
+**Version 0.8.8**
 - Modular multi-image processing filters
 - Declarative: Easily make graphical user interface without having to learn anything about pyQt or matplotlib
 - Support in jupyter notebooks
 - Tuning sliders & check buttons  with a GUI
 - Cache intermediate results in RAM for much faster processing
 - `KeyboardControl` : no slider on UI but exactly the same internal mechanism, update on key press.
-- Support Curve plots (2D signalKeybos)
-- :new: gradio backend (+allows sharing with others). 
-- :new: Audio support in Gradio (live audio or display several players by returning 1D numpy arrays)
-- :new: Circular sliders for Qt Backend
-- :new: Text prompt (`free_text=("Hello world!", None),`)
-- :new: TimeControl (possibility to play/pause time using an incrementing timer)
+- Support Curve plots (2D signals)
+- Gradio backend (+allows sharing with others). 
+- Audio support in Gradio (live audio or display several players by returning 1D numpy arrays)
+- Circular sliders for Qt Backend
+- Text prompt (`free_text=("Hello world!", None),`)
+- TimeControl (possibility to play/pause time using an incrementing timer)
+- :new: **Context API**: Direct access to shared context across filters via `get_context()`, `context`, `layout`, `audio` 
+- :new: MIT License
 
 
 
@@ -283,21 +285,119 @@ if __name__ == '__main__':
 
 ----------
 
+### Release Notes
+
+#### Version 0.8.8 (January 2026)
+
+**New Features:**
+- **Clean Context API**: Access shared context directly without `global_params` pollution
+  - `get_context()` - Get the shared context dictionary
+  - `context` - Direct dict-like access to context
+  - `layout` - Access layout configuration directly
+  - `audio` - Access audio functionality directly
+
+**Code Quality Improvements:**
+- Replaced all assertions with proper exceptions (`ValueError`, `TypeError`, `RuntimeError`)
+- Fixed all mutable default arguments across the codebase (prevents shared state bugs)
+- Improved type hints with proper `Optional` and `Any` types
+- Better error messages for debugging
+
+**UX Improvements:**
+- Dropdown menus are now hidden when only a single choice is available
+- Helpful message displayed when Graphviz is not available (when pressing `G`)
+- Fixed warning in linestyle for curves
+
+**Bug Fixes:**
+- Fixed audio initialization order in Qt backend
+- Fixed pytest failures for optional dependencies in CI
+- Fixed various edge cases in error handling
+
+**Migration of old context or global_params:**  
+- Use `global_params=SharedContext.injected()` to let code interpreters know that there's no need to pass this parameter.
+
+```python
+# Before
+def apply_brightness(img:np.ndarray, brightness: float = 0.5, global_params:dict =None):
+    global_params["brightness"] = brightness
+    return img * brightness
+
+# Progressive migration
+def apply_brightness(img:np.ndarray, brightness: float = 0.5, global_params:dict ==SharedContext.injected()):
+    global_params["brightness"] = brightness
+    return img * brightness
+
+# Recommended version
+from interactive_pipe import context
+def apply_brightness(img:np.ndarray, brightness: float = 0.5):
+    context.shared_brightness = brightness # shared with all filters
+    return img * brightness
+```
+
+
+
+
+**License:**
+- Updated to MIT License
+
+---
+
 ### History
-- Interactive pipe was initially developped by [Balthazar Neveu](https://github.com/balthazarneveu) as part of the [irdrone project](https://github.com/wisescootering/infrareddrone/tree/master/interactive) based on matplotlib.
+- Interactive pipe was initially developed by [Balthazar Neveu](https://github.com/balthazarneveu) as part of the [irdrone project](https://github.com/wisescootering/infrareddrone/tree/master/interactive) based on matplotlib.
 - Later, more contributions were also made by [Giuseppe Moschetti](https://github.com/g-moschetti) and Sylvain Leroy.
 - August 2023: rewriting the whole core and supporting several graphical backends!
 - September 2024: Gradio backend
+- January 2026: Clean Context API and code quality improvements (v0.8.8)
 
 
 ### FAQ
-- :question: Is there a difference between `global_params` and `context` ?
-> No, `global_params`, `global_parameters`, `global_state`, `global_context`, `context`, `state` all mean the same thing and are all supported for legacy reasons. `context` is the preferred wording.
+- :question: What is the recommended way to access shared context?
+> **New in v0.8.8**: Use the clean context API for direct access:
+> ```python
+> from interactive_pipe import context, layout, audio, get_context
+> 
+> @interactive()
+> def my_filter(img):
+>     context["shared_key"] = "shared_value"  # Direct dict-like access
+>     context.brightness = 0.5
+>     layout.set_title("output_image", "My Image")  # Layout helpers
+>
+>     return img
+> ```
+
+- :question: How do I change the layout?  *Can I change the grid layout of images live? (like you compare 2 images side by side and you want to start comparing 4 images in a 2x2 fashion for debugging purpose)*. It is possible with Qt backend. 
+
+> Use the `layout` helper to control image arrangement and styling:
+> ```python
+> from interactive_pipe import layout
+> 
+> def change_layout(layout: str="side_by_side"):
+>     # Arrange outputs in a 2x2 grid
+>       if layout == "side_by_side":
+>            layout.grid([["input", "result"]])
+>       if layout == "grid2x2":
+>           layout.grid([["input", "processed"], ["histogram_graph", "result"]])
+>     # Style individual outputs
+>     layout.style("result", title="Final Result")
+>     # Note that the string "input", "processed", "histogram_graph", "result"
+>     # are the variables used in the pipeline (see below)!
+> 
+> def pipeline(input):
+>     processed = denoise(input)
+>     result = change_brightness(processed)
+>     histogram_graph = compute_histo(processed)
+>     change_layout()
+>     return result
+> ```
+
 - :question: Do I have to remove `KeyboardSlider` when using gradio or notebook backends?
 > No, don't worry, these will be mapped back to regular sliders!
 - :question: How do I play audio live?
-> :sound: Inside a processing block, write the audio file to disk 
-> and use `context["__set_audio"](audio_file)`
+> :sound: Inside a processing block, write the audio file to disk and use the audio helper:
+> ```python
+> from interactive_pipe import audio
+> audio.set_audio(audio_file)  # New clean API (v0.8.8)
+> # or legacy: context["__set_audio"](audio_file)
+> ```
 - :question: Do I have to decorate my processing block using the `@interactive` 
 > If you use the `@` decoration style, your function won't be useable in a regular manner (wich may be problematic in a serious development environment)
 ```python
@@ -330,7 +430,14 @@ def add_interactivity():
 # Don't do that!
 def bad_processing_block(inp):
     inp+=1
-``` 
+```
+
+- :question: Is there a difference between `global_params` and `context` ?
+> No, `global_params`, `global_parameters`, `global_state`, `global_context`, `context`, `state` all mean the same thing and are all supported for legacy reasons. `context` is the preferred wording. However, we now recommend using the clean context API (see above).
+> :warning: The old `global_params={}` / `context={}` keyword argument style still works for backwards compatibility but is deprecated.
+
+
+
 # Roadmap and todos
 :bug: Want to contribute or interested in adding new features? Enter a new [Github issue](https://github.com/balthazarneveu/interactive_pipe/issues)
 
