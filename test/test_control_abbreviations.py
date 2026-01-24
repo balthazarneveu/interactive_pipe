@@ -7,66 +7,31 @@ NAME = "light_is_on"
 CHOICES = ["dog", "cat", "elephant", "rabbit"]
 
 
-@pytest.mark.parametrize(
-    "inp_tuple",
-    [
-        (False, NAME, "+"),
-        (False, NAME, ("-", "+")),
-        (10, [-15, 18], None, ("-", "+", True)),
-        (10, [-15, 18], None, ["-", "+", True]),
-        (10, [-15, 18], None, ("pageup", "pagedown", True)),
-        (0, [-5, 8], None, ("up", "down", False)),
-        ("dog", CHOICES, None, ["p", "n", True]),
-        ("dog", CHOICES, None, ("p", "n", True)),
-        ("dog", CHOICES, None, (None, "n", True)),
-        ("dog", CHOICES, None, ("w", True)),
-        ("dog", CHOICES, None, ("w", None, True)),
-    ],
-)
-def test_abbreviation_keyboard(inp_tuple):
-    ctrl = control_from_tuple(inp_tuple)
-    assert isinstance(ctrl, KeyboardControl)
+# Keyboard abbreviations have been removed for simplicity
+# Use KeyboardControl(...) directly instead of tuple abbreviations
+# Tests removed: test_abbreviation_keyboard
 
 
-@pytest.mark.parametrize(
-    "inp_tuple",
-    [
-        ((-10, 10), "counter", ("-", "+")),
-        ((-10, 10, 3, -4), "counter_assym", ("-", "+", True)),
-        (CHOICES, None, ["p", "n", True]),
-        (CHOICES, None, ("p", "n", True)),
-        (CHOICES, None, (None, "n", True)),
-        (CHOICES, None, ("w", True)),
-        (CHOICES, None, ("w", None, True)),
-    ],
-)
-def test_ultra_abbreviation_keyboard(inp_tuple):
-    ctrl = control_from_tuple(inp_tuple)
-    print(ctrl)
-    assert isinstance(ctrl, KeyboardControl)
+# Keyboard abbreviations have been removed for simplicity
+# Use KeyboardControl(...) directly instead of tuple abbreviations
+# Tests removed: test_ultra_abbreviation_keyboard
 
 
 @pytest.mark.parametrize(
     "inp_tuple_and_error_type",
     [
-        ((False, NAME, 12), TypeError),
-        ((False, NAME, "ctrl"), ValueError),  # un supported key
-        ((False, NAME, "F25"), ValueError),  # un supported key,
+        # Test that tuples with too many elements fail
         (
-            (True, NAME, [True, False], "+"),
-            TypeError,
-        ),  # TypeError from keyboard.py (bool not str) - 4th param is group
-        (
-            ("dog", CHOICES, None, (True, "b", True)),
-            TypeError,
-        ),  # TypeError from keyboard.py (bool not str)
-        (
-            ("dog", CHOICES, None, ("w", "b", "z")),
+            (False, NAME, "group1", "extra"),
             AssertionError,
-        ),  # assertion in control_abbreviation.py
+        ),  # Too many elements for boolean
+        (
+            (10, [-15, 18], "name", "group", "extra"),
+            AssertionError,
+        ),  # Too many elements for numeric
     ],
 )
-def test_abbreviation_keyboard_expected_fail(inp_tuple_and_error_type):
+def test_abbreviation_expected_fail(inp_tuple_and_error_type):
     inp_tuple, error_type = inp_tuple_and_error_type
     with pytest.raises(error_type):
         ctrl = control_from_tuple(inp_tuple)  # noqa: F841
@@ -106,17 +71,13 @@ def test_ultra_abbreviation_control(inp_tuple):
 @pytest.mark.parametrize(
     "inp_tuple_and_error_type",
     [
-        ((True, [-2, 2]), AssertionError),  # assertion in control_abbreviation.py
-        (
-            (True, "flag", [-2, 2]),
-            TypeError,
-        ),  # TypeError from keyboard.py (int not str)
+        ((True, [-2, 2]), AssertionError),  # Wrong: bool with range
         (
             (True, [True, False], "flag"),
             AssertionError,
-        ),  # assertion in control_abbreviation.py
-        (("dolphin", CHOICES), ValueError),
-        ((-10, [-5, 8], None), ValueError),
+        ),  # Wrong: list as name
+        (("dolphin", CHOICES), ValueError),  # Value not in choices
+        ((-10, [-5, 8], None), ValueError),  # Default outside range
     ],
 )
 def test_abbreviation_control_expected_fail(inp_tuple_and_error_type):

@@ -129,9 +129,9 @@ def control_from_tuple(
     name = None
     step = None
     group = None
-    keyboard_slider_flag = False
     if isinstance(value_default, bool):
-        # BOOLEAN: (bool, name, keyboard, group)
+        # BOOLEAN: (bool, name, group)
+        # No keyboard support in abbreviations - use KeyboardControl directly
         value_range = None
         if len(short_params) >= 2:
             name = short_params[1]
@@ -140,18 +140,22 @@ def control_from_tuple(
                     f"{name} name shall be a string or None."
                     "you do not need to provide a value range for a boolean slider."
                 )
-            assert len(short_params) <= 4  # Extended to support group
-            if len(short_params) >= 3:
-                keyboard_slider_flag, keydown, keyup, _modulo = (
-                    analyze_expected_keyboard_argument(short_params[2])
-                )
-                modulo = True
-            if len(short_params) == 4:
-                group = short_params[3]
-                if group is not None:
-                    assert isinstance(
-                        group, str
-                    ), f"{group} group shall be a string or None"
+
+        assert len(short_params) <= 3, (
+            f"Boolean abbreviation has too many elements: {short_params}. "
+            "Expected: (bool, name, group). "
+            "For keyboard controls, use KeyboardControl(...) directly."
+        )
+
+        # Check for group (3rd element)
+        if len(short_params) == 3:
+            group = short_params[2]
+            if group is not None:
+                from interactive_pipe.headless.panel import Panel
+
+                assert isinstance(
+                    group, (str, Panel)
+                ), f"{group} group shall be a string or Panel"
     else:
         if first_value_is_default_val:
             # INT/FLOAT/STR
@@ -214,33 +218,32 @@ def control_from_tuple(
             else:
                 raise ValueError(f"wrong abbreviation {special_list}")
 
+        # Numeric/String: (default, range, name, group)
+        # No keyboard support in abbreviations - use KeyboardControl directly
         if len(short_params) >= start + 2:
             name = short_params[start + 1]
-        assert len(short_params) <= start + 4  # Extended to support group
-        if len(short_params) >= start + 3:
-            keyboard_slider_flag, keydown, keyup, modulo = (
-                analyze_expected_keyboard_argument(short_params[start + 2])
-            )
-        if len(short_params) == start + 4:
-            group = short_params[start + 3]
+
+        assert len(short_params) <= start + 3, (
+            f"Control abbreviation has too many elements: {short_params}. "
+            f"Expected: (default, range, name, group). "
+            "For keyboard controls, use KeyboardControl(...) directly."
+        )
+
+        # Check for group (4th element for default-first, 3rd for list-first)
+        if len(short_params) == start + 3:
+            group = short_params[start + 2]
             if group is not None:
+                from interactive_pipe.headless.panel import Panel
+
                 assert isinstance(
-                    group, str
-                ), f"{group} group shall be a string or None"
+                    group, (str, Panel)
+                ), f"{group} group shall be a string or Panel"
 
     if name is None:
         name = param_name
-    if keyboard_slider_flag:
-        return KeyboardControl(
-            value_default,
-            value_range=value_range,
-            name=name,
-            step=step,
-            keydown=keydown,
-            keyup=keyup,
-            modulo=modulo,
-            group=group,
-        )
+
+    # Keyboard controls are no longer supported via abbreviations
+    # Users should use KeyboardControl(...) directly
     return Control(
         value_default, value_range=value_range, name=name, step=step, group=group
     )
