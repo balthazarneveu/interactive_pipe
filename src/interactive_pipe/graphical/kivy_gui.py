@@ -406,7 +406,7 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
         main_gui=None,
         **kwargs,
     ):
-        BoxLayout.__init__(self, orientation="vertical")
+        BoxLayout.__init__(self, orientation="vertical", spacing=0, padding=0)
         InteractivePipeWindow.__init__(self, name=name, pipeline=pipeline, size=size)
         self.main_gui = main_gui
         self.pipeline.global_params["__window"] = self
@@ -419,8 +419,13 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
         self.image_grid_layout = GridLayout(
             cols=1, spacing=10, padding=10, size_hint_y=None, size_hint_x=1.0
         )
-        self.image_scroll = ScrollView(size_hint_x=1.0, size_hint_y=0.7)
+        # Bind grid layout height to its minimum height (tight fit to content)
+        self.image_grid_layout.bind(minimum_height=self.image_grid_layout.setter("height"))
+        # Image area: tight and responsive - sizes itself to fit grid content
+        self.image_scroll = ScrollView(size_hint_x=1.0, size_hint_y=None)
         self.image_scroll.add_widget(self.image_grid_layout)
+        # Bind image scroll height to grid layout height (tight fit, no extra space)
+        self.image_grid_layout.bind(height=self.image_scroll.setter("height"))
 
         # Create controls panel - vertical layout that sizes to content
         self.controls_panel = BoxLayout(
@@ -428,16 +433,27 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
         )
         # Bind controls panel height to its minimum height
         self.controls_panel.bind(minimum_height=self.controls_panel.setter("height"))
-        # Use a non-scrolling container - just use BoxLayout directly since we don't want scrolling
-        # Wrap in a container to maintain size_hint behavior
-        controls_container = BoxLayout(
-            orientation="vertical", size_hint_x=1.0, size_hint_y=0.3
+        # Wrap controls panel in a ScrollView so controls can scroll when there are many sliders
+        # Configure ScrollView to expand and fill remaining space when window is extended
+        controls_scroll = ScrollView(
+            size_hint_x=1.0,
+            size_hint_y=1.0,  # Expand to fill remaining vertical space
+            do_scroll_x=False,  # Disable horizontal scrolling
+            do_scroll_y=True,  # Enable vertical scrolling
+            bar_width=10,  # Make scrollbar visible
+            scroll_type=[
+                "bars"
+            ],  # Only scroll via scrollbar, not when interacting with widgets
         )
-        controls_container.add_widget(self.controls_panel)
+        controls_scroll.add_widget(self.controls_panel)
+        # Bind controls panel width to ScrollView width to ensure proper touch event handling
+        controls_scroll.bind(
+            width=lambda instance, value: setattr(self.controls_panel, "width", value)
+        )
 
         # Add both panels to main layout - images on top, controls below
         self.add_widget(self.image_scroll)
-        self.add_widget(controls_container)
+        self.add_widget(controls_scroll)
 
         self.init_sliders(controls)
 
@@ -561,7 +577,7 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
     def add_image_placeholder(self, row, col):
         # Create container for title and image
         container = BoxLayout(
-            orientation="vertical", size_hint_y=None, size_hint_x=1.0, height=400
+            orientation="vertical", size_hint_y=None, size_hint_x=1.0, height=500
         )
         title_label = Label(
             text=f"{row} {col}",
