@@ -54,6 +54,10 @@ def get_interactive_pipeline_class(gui="auto"):
         from interactive_pipe.graphical.gradio_gui import (
             InteractivePipeGradio as ChosenGui,
         )
+    elif selected_gui == "kivy":
+        from interactive_pipe.graphical.kivy_gui import (
+            InteractivePipeKivy as ChosenGui,
+        )
     else:
         raise NotImplementedError(f"Gui {gui} not available")
     return ChosenGui
