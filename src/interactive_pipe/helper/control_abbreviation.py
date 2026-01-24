@@ -128,9 +128,10 @@ def control_from_tuple(
     first_value_is_default_val = default_value_check(value_default)
     name = None
     step = None
+    group = None
     keyboard_slider_flag = False
     if isinstance(value_default, bool):
-        # BOOLEAN
+        # BOOLEAN: (bool, name, keyboard, group)
         value_range = None
         if len(short_params) >= 2:
             name = short_params[1]
@@ -139,12 +140,18 @@ def control_from_tuple(
                     f"{name} name shall be a string or None."
                     "you do not need to provide a value range for a boolean slider."
                 )
-            assert len(short_params) <= 3
-            if len(short_params) == 3:
+            assert len(short_params) <= 4  # Extended to support group
+            if len(short_params) >= 3:
                 keyboard_slider_flag, keydown, keyup, _modulo = (
                     analyze_expected_keyboard_argument(short_params[2])
                 )
                 modulo = True
+            if len(short_params) == 4:
+                group = short_params[3]
+                if group is not None:
+                    assert isinstance(
+                        group, str
+                    ), f"{group} group shall be a string or None"
     else:
         if first_value_is_default_val:
             # INT/FLOAT/STR
@@ -209,11 +216,17 @@ def control_from_tuple(
 
         if len(short_params) >= start + 2:
             name = short_params[start + 1]
-        assert len(short_params) <= start + 3
-        if len(short_params) == start + 3:
+        assert len(short_params) <= start + 4  # Extended to support group
+        if len(short_params) >= start + 3:
             keyboard_slider_flag, keydown, keyup, modulo = (
                 analyze_expected_keyboard_argument(short_params[start + 2])
             )
+        if len(short_params) == start + 4:
+            group = short_params[start + 3]
+            if group is not None:
+                assert isinstance(
+                    group, str
+                ), f"{group} group shall be a string or None"
 
     if name is None:
         name = param_name
@@ -226,5 +239,8 @@ def control_from_tuple(
             keydown=keydown,
             keyup=keyup,
             modulo=modulo,
+            group=group,
         )
-    return Control(value_default, value_range=value_range, name=name, step=step)
+    return Control(
+        value_default, value_range=value_range, name=name, step=step, group=group
+    )

@@ -31,11 +31,13 @@ class Control:
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
         icons: Optional[List] = None,
+        group: Optional[str] = None,
     ) -> None:
         self.value_default = value_default
         self._type = None
         self._auto_named = False
         self.step = step
+        self.group = group
         if isinstance(value_default, bool):
             self._type = bool
             self.step = 1
@@ -216,6 +218,7 @@ class CircularControl(Control):
         step: Optional[Union[int, float]] = None,
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
+        group: Optional[str] = None,
     ) -> None:
         super().__init__(
             value_default=value_default,
@@ -225,6 +228,7 @@ class CircularControl(Control):
             filter_to_connect=filter_to_connect,
             parameter_name_to_connect=parameter_name_to_connect,
             icons=None,
+            group=group,
         )
         self.modulo = modulo
 
@@ -239,6 +243,7 @@ class TextPrompt(Control):
         name: Optional[str] = None,
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
+        group: Optional[str] = None,
     ) -> None:
         """Text box"""
         super().__init__(
@@ -249,6 +254,7 @@ class TextPrompt(Control):
             filter_to_connect=filter_to_connect,
             parameter_name_to_connect=parameter_name_to_connect,
             icons=None,
+            group=group,
         )
 
     def __repr__(self) -> str:
@@ -263,6 +269,7 @@ class TimeControl(Control):
         pause_resume_key: str = "p",
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
+        group: Optional[str] = None,
     ) -> None:
         """Time control. Start at 0.0. Time can be paused/resumed"""
         super().__init__(
@@ -273,6 +280,7 @@ class TimeControl(Control):
             filter_to_connect=filter_to_connect,
             parameter_name_to_connect=parameter_name_to_connect,
             icons=None,
+            group=group,
         )
         self.update_interval_ms = update_interval_ms
         self.pause_resume_key = pause_resume_key

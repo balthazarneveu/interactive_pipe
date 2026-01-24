@@ -54,8 +54,8 @@ def test_ultra_abbreviation_keyboard(inp_tuple):
         ((False, NAME, "F25"), ValueError),  # un supported key,
         (
             (True, NAME, [True, False], "+"),
-            AssertionError,
-        ),  # assertion in control_abbreviation.py
+            TypeError,
+        ),  # TypeError from keyboard.py (bool not str) - 4th param is group
         (
             ("dog", CHOICES, None, (True, "b", True)),
             TypeError,

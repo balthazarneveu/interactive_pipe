@@ -18,6 +18,7 @@ if not PYQTVERSION:
         from PyQt6.QtWidgets import (  # noqa: F811
             QApplication,
             QWidget,
+            QGroupBox,
             QLabel,
             QFormLayout,
             QGridLayout,
@@ -37,6 +38,7 @@ if not PYQTVERSION:
             from PyQt5.QtWidgets import (  # noqa: F811
                 QApplication,
                 QWidget,
+                QGroupBox,
                 QLabel,
                 QFormLayout,
                 QGridLayout,
@@ -59,6 +61,7 @@ if not PYQTVERSION:
         from PySide6.QtWidgets import (  # noqa: F811
             QApplication,
             QWidget,
+            QGroupBox,
             QLabel,
             QFormLayout,
             QGridLayout,
@@ -381,6 +384,85 @@ class MainWindow(QWidget, InteractivePipeWindow):
             mapped_str = event.text()
         self.main_gui.on_press(mapped_str, refresh_func=self.refresh)
 
+    def _create_control_widget(
+        self, ctrl: Control, control_factory: ControlFactory
+    ) -> Optional[QWidget]:
+        """Helper method to create a single control widget with labels.
+        Returns the row container widget or None if control should be skipped."""
+        slider_name = ctrl.name
+
+        if isinstance(ctrl, KeyboardControl):
+            self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
+            return None
+        elif isinstance(ctrl, TimeControl):
+            self.timer = QTimer(self)
+
+            def suspend_resume_timer(suspend: bool):
+                if suspend:
+                    logging.debug("Suspend")
+                    self.timer.stop()
+                else:
+                    logging.debug("Resume")
+                    self.timer.start()
+
+            self.main_gui.suspend_resume_timer = suspend_resume_timer
+            plugged_func = self.main_gui.plug_timer_control(
+                ctrl, self.update_parameter, suspend_resume_timer
+            )
+            self.timer.timeout.connect(plugged_func)
+            self.timer.start(ctrl.update_interval_ms)
+            return None
+        elif isinstance(ctrl, Control):
+            slider_instance = control_factory.create_control(
+                ctrl, self.update_parameter
+            )
+            # Skip controls that return None (e.g., single-value controls)
+            if slider_instance is None:
+                return None
+            if ctrl._type == str and ctrl.icons is not None:
+                ctrl.filter_to_connect.cache = False
+                ctrl.filter_to_connect.cache_mem = None
+                # Disable cache for dropdown menu with icons!
+                # Allows clicking on the same item multiple times
+            slider_or_layout = slider_instance.create()
+            self.widget_list[slider_name] = slider_instance
+
+            slider_layout = QHBoxLayout()
+
+            if isinstance(slider_or_layout, QWidget):
+                label_fixed_width = 200
+                label = QLabel("", self)
+                label.setMinimumWidth(label_fixed_width)
+                self.name_label[slider_name] = label
+                slider_layout.addWidget(self.name_label[slider_name])
+            if isinstance(slider_or_layout, QWidget):
+                # If it's a QWidget, add it directly to the layout
+                slider_layout.addWidget(slider_or_layout)
+            elif isinstance(slider_or_layout, QHBoxLayout):
+                slider_or_layout.setContentsMargins(0, 0, 0, 0)
+                # If it's a QHBoxLayout, embed it in a QWidget first
+                container_widget = QWidget()
+                container_widget.setLayout(slider_or_layout)
+                slider_layout.addWidget(container_widget)
+            else:
+                print(f"Unhandled type for slider: {type(slider_or_layout)}")
+                return None
+            if isinstance(slider_or_layout, QWidget):
+                result_fixed_width = 100
+                label = QLabel("", self)
+                label.setMinimumWidth(result_fixed_width)
+                self.result_label[slider_name] = label
+                slider_layout.addWidget(self.result_label[slider_name])
+
+            # Create a container widget for the entire row
+            row_container_widget = QWidget()
+            row_container_widget.setLayout(slider_layout)
+            row_container_widget.setContentsMargins(0, 0, 0, 0)
+
+            self.update_label(slider_name)
+            return row_container_widget
+        return None
+
     def init_sliders(self, controls: List[Control]):
         self.ctrl = {}
         self.result_label = {}
@@ -391,91 +473,35 @@ class MainWindow(QWidget, InteractivePipeWindow):
             1  # Decrease this value to reduce vertical space between sliders
         )
         self.layout_obj.setSpacing(vertical_spacing)
+
+        # Organize controls by group
+        grouped_controls = {}
+        ungrouped_controls = []
         for ctrl in controls:
-            slider_name = ctrl.name
-            self.ctrl[slider_name] = ctrl
-            if isinstance(ctrl, KeyboardControl):
-                self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
-            elif isinstance(ctrl, TimeControl):
-                self.timer = QTimer(self)
+            self.ctrl[ctrl.name] = ctrl
+            if ctrl.group:
+                grouped_controls.setdefault(ctrl.group, []).append(ctrl)
+            else:
+                ungrouped_controls.append(ctrl)
 
-                def suspend_resume_timer(suspend: bool):
+        # Add ungrouped controls first
+        for ctrl in ungrouped_controls:
+            row_widget = self._create_control_widget(ctrl, control_factory)
+            if row_widget is not None:
+                self.layout_obj.addRow(row_widget)
 
-                    if suspend:
-                        logging.debug("Suspend")
-                        self.timer.stop()
-                    else:
-                        logging.debug("Resume")
-                        self.timer.start()
+        # Add grouped controls in QGroupBox widgets
+        for group_name, group_controls in grouped_controls.items():
+            group_box = QGroupBox(group_name)
+            group_layout = QVBoxLayout()
+            group_box.setLayout(group_layout)
 
-                self.main_gui.suspend_resume_timer = suspend_resume_timer
-                plugged_func = self.main_gui.plug_timer_control(
-                    ctrl, self.update_parameter, suspend_resume_timer
-                )
-                self.timer.timeout.connect(plugged_func)
-                self.timer.start(ctrl.update_interval_ms)
+            for ctrl in group_controls:
+                row_widget = self._create_control_widget(ctrl, control_factory)
+                if row_widget is not None:
+                    group_layout.addWidget(row_widget)
 
-            elif isinstance(ctrl, Control):
-                slider_instance = control_factory.create_control(
-                    ctrl, self.update_parameter
-                )
-                # Skip controls that return None (e.g., single-value controls)
-                if slider_instance is None:
-                    continue
-                if ctrl._type == str and ctrl.icons is not None:
-                    ctrl.filter_to_connect.cache = False
-                    ctrl.filter_to_connect.cache_mem = None
-                    # Disable cache for dropdown menu with icons!
-                    # Allows clicking on the same item multiple times
-                slider_or_layout = slider_instance.create()
-                self.widget_list[slider_name] = slider_instance
-
-                slider_layout = QHBoxLayout()
-
-                if isinstance(slider_or_layout, QWidget):
-                    label_fixed_width = 200
-                    label = QLabel("", self)
-                    label.setMinimumWidth(label_fixed_width)
-                    self.name_label[slider_name] = label
-                    slider_layout.addWidget(self.name_label[slider_name])
-                if isinstance(slider_or_layout, QWidget):
-                    # If it's a QWidget, add it directly to the layout
-                    slider_layout.addWidget(slider_or_layout)
-                elif isinstance(slider_or_layout, QHBoxLayout):
-                    slider_or_layout.setContentsMargins(0, 0, 0, 0)
-                    # If it's a QHBoxLayout, embed it in a QWidget first
-                    container_widget = QWidget()
-                    container_widget.setLayout(slider_or_layout)
-                    slider_layout.addWidget(container_widget)
-                else:
-                    print(f"Unhandled type for slider: {type(slider_or_layout)}")
-                    continue
-                if isinstance(slider_or_layout, QWidget):
-                    result_fixed_width = 100
-                    label = QLabel("", self)
-                    label.setMinimumWidth(result_fixed_width)
-                    self.result_label[slider_name] = label
-                    slider_layout.addWidget(self.result_label[slider_name])
-
-                # Create a container widget for the entire row
-                row_container_widget = QWidget()
-                row_container_widget.setLayout(slider_layout)
-                # Set a fixed height for the row container
-
-                # fixed_height = None
-                # if ctrl._type is float or ctrl._type is int:
-                #     fixed_height = 32 # Adjust this value as needed
-                # elif ctrl._type is bool:
-                #     pass
-                # if fixed_height is not None:
-                #     row_container_widget.setFixedHeight(fixed_height)
-                row_container_widget.setContentsMargins(
-                    0, 0, 0, 0
-                )  # Adjust these values as needed
-
-                self.layout_obj.addRow(row_container_widget)
-
-                self.update_label(slider_name)
+            self.layout_obj.addRow(group_box)
 
     def update_label(self, idx):
         # pass

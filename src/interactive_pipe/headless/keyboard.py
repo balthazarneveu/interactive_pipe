@@ -37,6 +37,7 @@ class KeyboardControl(Control):
         step=None,
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
+        group: Optional[str] = None,
     ) -> None:
         super().__init__(
             value_default=value_default,
@@ -46,6 +47,7 @@ class KeyboardControl(Control):
             filter_to_connect=filter_to_connect,
             parameter_name_to_connect=parameter_name_to_connect,
             icons=None,
+            group=group,
         )
         self.keyup = keyup
         self.keydown = keydown
