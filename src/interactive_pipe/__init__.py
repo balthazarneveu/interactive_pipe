@@ -6,6 +6,7 @@ from interactive_pipe.headless.control import (
     TextPrompt,
     TimeControl,
 )
+from interactive_pipe.headless.panel import Panel
 from interactive_pipe.data_objects.curves import Curve, SingleCurve
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.headless.keyboard import KeyboardControl

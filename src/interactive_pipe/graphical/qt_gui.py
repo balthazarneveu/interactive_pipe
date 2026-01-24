@@ -4,6 +4,7 @@ import numpy as np
 from typing import List, Optional
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.headless.keyboard import KeyboardControl
+from interactive_pipe.headless.panel import Panel
 from interactive_pipe.graphical.qt_control import ControlFactory
 from interactive_pipe.graphical.window import InteractivePipeWindow
 from interactive_pipe.graphical.gui import InteractivePipeGUI
@@ -26,6 +27,7 @@ if not PYQTVERSION:
             QVBoxLayout,
             QHBoxLayout,
             QMessageBox,
+            QPushButton,
         )
         from PyQt6.QtCore import QUrl, Qt, QTimer
         from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
@@ -46,6 +48,7 @@ if not PYQTVERSION:
                 QVBoxLayout,
                 QHBoxLayout,
                 QMessageBox,
+                QPushButton,
             )
             from PyQt5.QtCore import QUrl, Qt, QTimer
             from PyQt5.QtGui import QPixmap, QImage
@@ -69,6 +72,7 @@ if not PYQTVERSION:
             QVBoxLayout,
             QHBoxLayout,
             QMessageBox,
+            QPushButton,
         )
         from PySide6.QtCore import QUrl, Qt, QTimer  # noqa: F811
         from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer  # noqa: F811
@@ -88,6 +92,78 @@ try:
     MPL_SUPPORT = True
 except ImportError:
     logging.warning("No support for Matplotlib widgets for Qt")
+
+
+class CollapsibleBox(QWidget):
+    """Modern collapsible panel with smooth animation and arrow indicator."""
+
+    def __init__(self, title="", collapsed=False, parent=None):
+        super().__init__(parent)
+        self.is_collapsed = collapsed
+
+        # Main layout
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
+
+        # Toggle button with arrow
+        self.toggle_button = QPushButton(title)
+        self.toggle_button.setCheckable(True)
+        self.toggle_button.setChecked(not collapsed)
+        self.toggle_button.setStyleSheet(
+            """
+            QPushButton {
+                text-align: left;
+                padding: 8px;
+                border: none;
+                background-color: #f0f0f0;
+                font-weight: bold;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #e0e0e0;
+            }
+            QPushButton:checked {
+                background-color: #d0d0d0;
+            }
+        """
+        )
+        self.toggle_button.clicked.connect(self.toggle)
+
+        # Content area (no layout initially - will be set later)
+        self.content_area = QWidget()
+
+        # Add widgets to main layout
+        self.main_layout.addWidget(self.toggle_button)
+        self.main_layout.addWidget(self.content_area)
+
+        # Set initial state
+        if collapsed:
+            self.content_area.setVisible(False)
+
+        self.update_arrow()
+
+    def update_arrow(self):
+        """Update the arrow icon based on collapsed state."""
+        arrow = "▼" if not self.is_collapsed else "▶"
+        current_text = self.toggle_button.text()
+        # Remove existing arrow if present
+        if current_text.startswith("▼ ") or current_text.startswith("▶ "):
+            current_text = current_text[2:]
+        self.toggle_button.setText(f"{arrow} {current_text}")
+
+    def toggle(self):
+        """Toggle the collapsed state with smooth animation."""
+        self.is_collapsed = not self.is_collapsed
+        self.content_area.setVisible(not self.is_collapsed)
+        self.update_arrow()
+
+    def set_layout(self, layout):
+        """Set the layout for the content area."""
+        # Set margins on the layout
+        layout.setContentsMargins(8, 8, 8, 8)
+        # Set the layout (only called once, no existing layout)
+        self.content_area.setLayout(layout)
 
 
 class InteractivePipeQT(InteractivePipeGUI):
@@ -384,6 +460,76 @@ class MainWindow(QWidget, InteractivePipeWindow):
             mapped_str = event.text()
         self.main_gui.on_press(mapped_str, refresh_func=self.refresh)
 
+    def _build_element_widget(
+        self, element, control_factory: ControlFactory
+    ) -> Optional[QWidget]:
+        """Build widget for an element (Panel or Control).
+
+        Args:
+            element: Can be a Panel or Control instance
+            control_factory: Factory for creating control widgets
+
+        Returns:
+            QWidget or None if element should be skipped
+        """
+        if isinstance(element, Panel):
+            return self._build_panel_widget(element, control_factory)
+        elif isinstance(element, Control):
+            return self._create_control_widget(element, control_factory)
+        return None
+
+    def _build_panel_widget(
+        self, panel: Panel, control_factory: ControlFactory
+    ) -> QWidget:
+        """Recursively build Qt widget for a Panel.
+
+        Args:
+            panel: The Panel to build
+            control_factory: Factory for creating control widgets
+
+        Returns:
+            QWidget containing the panel's content (CollapsibleBox or QGroupBox)
+        """
+        # Determine layout based on elements structure
+        if panel.elements and isinstance(panel.elements[0], list):
+            # Grid layout: list of lists
+            layout = QGridLayout()
+            for row_idx, row in enumerate(panel.elements):
+                for col_idx, element in enumerate(row):
+                    widget = self._build_element_widget(element, control_factory)
+                    if widget is not None:
+                        layout.addWidget(widget, row_idx, col_idx)
+        elif panel.elements:
+            # Vertical layout: flat list
+            layout = QVBoxLayout()
+            for element in panel.elements:
+                widget = self._build_element_widget(element, control_factory)
+                if widget is not None:
+                    layout.addWidget(widget)
+        else:
+            # No child elements, just a simple vertical layout for controls
+            layout = QVBoxLayout()
+
+        # Add controls assigned directly to this panel
+        for ctrl in panel._controls:
+            widget = self._create_control_widget(ctrl, control_factory)
+            if widget is not None:
+                layout.addWidget(widget)
+
+        # Create the panel widget (collapsible or regular)
+        if panel.collapsible:
+            # Use modern CollapsibleBox
+            panel_widget = CollapsibleBox(
+                title=panel.name or "", collapsed=panel.collapsed
+            )
+            panel_widget.set_layout(layout)
+        else:
+            # Use regular QGroupBox
+            panel_widget = QGroupBox(panel.name or "")
+            panel_widget.setLayout(layout)
+
+        return panel_widget
+
     def _create_control_widget(
         self, ctrl: Control, control_factory: ControlFactory
     ) -> Optional[QWidget]:
@@ -474,34 +620,29 @@ class MainWindow(QWidget, InteractivePipeWindow):
         )
         self.layout_obj.setSpacing(vertical_spacing)
 
-        # Organize controls by group
-        grouped_controls = {}
+        # Collect all panels and build hierarchy
+        root_panels = set()  # Use set to avoid duplicates
         ungrouped_controls = []
+
         for ctrl in controls:
             self.ctrl[ctrl.name] = ctrl
-            if ctrl.group:
-                grouped_controls.setdefault(ctrl.group, []).append(ctrl)
-            else:
+            if ctrl.panel is None:
                 ungrouped_controls.append(ctrl)
+            else:
+                # Find the root panel by traversing up the parent chain
+                root_panel = ctrl.panel.get_root()
+                root_panels.add(root_panel)
 
-        # Add ungrouped controls first
+        # Render ungrouped controls first
         for ctrl in ungrouped_controls:
             row_widget = self._create_control_widget(ctrl, control_factory)
             if row_widget is not None:
                 self.layout_obj.addRow(row_widget)
 
-        # Add grouped controls in QGroupBox widgets
-        for group_name, group_controls in grouped_controls.items():
-            group_box = QGroupBox(group_name)
-            group_layout = QVBoxLayout()
-            group_box.setLayout(group_layout)
-
-            for ctrl in group_controls:
-                row_widget = self._create_control_widget(ctrl, control_factory)
-                if row_widget is not None:
-                    group_layout.addWidget(row_widget)
-
-            self.layout_obj.addRow(group_box)
+        # Render panel hierarchy
+        for panel in root_panels:
+            panel_widget = self._build_panel_widget(panel, control_factory)
+            self.layout_obj.addRow(panel_widget)
 
     def update_label(self, idx):
         # pass

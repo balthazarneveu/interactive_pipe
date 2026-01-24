@@ -1,14 +1,19 @@
-from typing import List, Optional, Union, Callable
+from __future__ import annotations
+from typing import List, Optional, Union, Callable, TYPE_CHECKING
 from copy import deepcopy
 from abc import abstractmethod
 from interactive_pipe.core.filter import FilterCore
 from pathlib import Path
 import logging
 
+if TYPE_CHECKING:
+    from interactive_pipe.headless.panel import Panel
+
 
 class Control:
     counter = 0
     _registry = {}  # Global registry to store controls for each function
+    _panel_cache = {}  # Cache for string-based panels (to avoid duplicates)
 
     @classmethod
     def register(cls, func_name, param_name, control_instance):
@@ -31,13 +36,26 @@ class Control:
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
         icons: Optional[List] = None,
-        group: Optional[str] = None,
+        group: Optional[Union[str, "Panel"]] = None,
     ) -> None:
         self.value_default = value_default
         self._type = None
         self._auto_named = False
         self.step = step
-        self.group = group
+
+        # Convert string to Panel for backward compatibility
+        # Use cached Panel if same string name was used before
+        if isinstance(group, str):
+            from interactive_pipe.headless.panel import Panel
+
+            if group not in Control._panel_cache:
+                Control._panel_cache[group] = Panel(name=group)
+            self.panel = Control._panel_cache[group]
+        else:
+            self.panel = group
+
+        # Keep group attribute for backward compatibility (references panel)
+        self.group = self.panel
         if isinstance(value_default, bool):
             self._type = bool
             self.step = 1
@@ -133,6 +151,10 @@ class Control:
         self.parameter_name_to_connect = parameter_name_to_connect
         self.filter_to_connect = filter_to_connect
 
+        # Register with panel if provided
+        if self.panel is not None:
+            self.panel._register_control(self)
+
     def check_value(self, value):
         if isinstance(value, int) and self._type == float:
             value = float(value)
@@ -218,7 +240,7 @@ class CircularControl(Control):
         step: Optional[Union[int, float]] = None,
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
-        group: Optional[str] = None,
+        group: Optional[Union[str, Panel]] = None,
     ) -> None:
         super().__init__(
             value_default=value_default,
@@ -243,7 +265,7 @@ class TextPrompt(Control):
         name: Optional[str] = None,
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
-        group: Optional[str] = None,
+        group: Optional[Union[str, Panel]] = None,
     ) -> None:
         """Text box"""
         super().__init__(
@@ -269,7 +291,7 @@ class TimeControl(Control):
         pause_resume_key: str = "p",
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
-        group: Optional[str] = None,
+        group: Optional[Union[str, Panel]] = None,
     ) -> None:
         """Time control. Start at 0.0. Time can be paused/resumed"""
         super().__init__(

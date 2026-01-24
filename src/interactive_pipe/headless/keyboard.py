@@ -1,6 +1,10 @@
+from __future__ import annotations
 from interactive_pipe.headless.control import Control
-from typing import Union, List, Optional
+from typing import Union, List, Optional, TYPE_CHECKING
 from interactive_pipe.core.filter import FilterCore
+
+if TYPE_CHECKING:
+    from interactive_pipe.headless.panel import Panel
 
 
 class KeyboardControl(Control):
@@ -37,7 +41,7 @@ class KeyboardControl(Control):
         step=None,
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
-        group: Optional[str] = None,
+        group: Optional[Union[str, Panel]] = None,
     ) -> None:
         super().__init__(
             value_default=value_default,
