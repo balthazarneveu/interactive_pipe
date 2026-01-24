@@ -443,27 +443,7 @@ def bad_processing_block(inp):
 
 :gift: Want to dig into the code? Take a look at [code_architecture.md](/code_architecture.md)
 
-## Short term roadmap
-- Backport previous features
-    - Image class support in interactive pipe (Heatmaps/Float images)
 
-## Long term roadmap
-- Advanced feature
-    - Webcam based "slider" for dropdown menu (like "elephant" will trigget if an elephant is magically detected on the webcam)
-    - Animations/While loops/Video source (Time slider)
-- Exploratory backends
-    - Create a [textual](https://github.com/Textualize/textual) backend for simplified GUI (probably no images displayed)
-    - Create a [Kivy](https://kivy.org/) backend
-
-
-### Further examples
-
-#### [Minimalistic pytorch based ISP ](https://github.com/balthazarneveu/interactive_pipe/tree/sample_interactive_isp/samples/isp)
-[ISP means image signal processor](https://en.wikipedia.org/wiki/Image_processor)
-
-:warning: Work in progess (no proper demosaicking, no denoiser, no tone mapping.)
-
-![Ultra simplistic ISP](/doc/images/isp_pipeline.png)
 
 ----------------------
 
