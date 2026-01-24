@@ -83,6 +83,7 @@ class IntSliderControl(BaseControl):
             maximum=self.ctrl.value_range[1],
             label=self.name,
             step=1,
+            info=self.ctrl.tooltip,
         )
         return self.control_widget
 
@@ -100,6 +101,7 @@ class FloatSliderControl(BaseControl):
             minimum=self.ctrl.value_range[0],
             maximum=self.ctrl.value_range[1],
             label=self.name,
+            info=self.ctrl.tooltip,
         )
 
         return self.control_widget
@@ -113,7 +115,9 @@ class TickBoxControl(BaseControl):
     def create(self) -> "gr.Checkbox":
         if not GRADIO_AVAILABLE:
             raise ModuleNotFoundError("gradio is required for Gradio controls")
-        self.control_widget = gr.Checkbox(label=self.name, value=self.ctrl.value)
+        self.control_widget = gr.Checkbox(
+            label=self.name, value=self.ctrl.value, info=self.ctrl.tooltip
+        )
         return self.control_widget
 
     def reset(self):
@@ -131,7 +135,10 @@ class DropdownMenuControl(BaseControl):
         if not GRADIO_AVAILABLE:
             raise ModuleNotFoundError("gradio is required for Gradio controls")
         self.control_widget = gr.Dropdown(
-            label=self.name, choices=self.ctrl.value_range, value=self.ctrl.value
+            label=self.name,
+            choices=self.ctrl.value_range,
+            value=self.ctrl.value,
+            info=self.ctrl.tooltip,
         )
         return self.control_widget
 
@@ -146,7 +153,9 @@ class PromptControl(BaseControl):
     def create(self) -> "gr.Text":
         if not GRADIO_AVAILABLE:
             raise ModuleNotFoundError("gradio is required for Gradio controls")
-        self.control_widget = gr.Text(label=self.name, value=self.ctrl.value)
+        self.control_widget = gr.Text(
+            label=self.name, value=self.ctrl.value, info=self.ctrl.tooltip
+        )
         return self.control_widget
 
 

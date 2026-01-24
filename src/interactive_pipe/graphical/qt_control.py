@@ -196,6 +196,8 @@ class IntSliderControl(BaseControl):
         slider.setPageStep(10)
         # slider.setTickPosition(QSlider.TickPosition.TicksAbove)
         slider.valueChanged.connect(partial(self.update_func, self.name))
+        if self.ctrl.tooltip:
+            slider.setToolTip(self.ctrl.tooltip)
         self.control_widget = slider
         return self.control_widget
 
@@ -245,6 +247,9 @@ class FloatSliderControl(BaseControl):
         # Connect the slider's value changed signal to update the line edit
         slider.valueChanged.connect(partial(self.update_func, self.name))
 
+        if self.ctrl.tooltip:
+            slider.setToolTip(self.ctrl.tooltip)
+
         # Add the slider and line edit to the horizontal layout
         # hbox.addWidget(slider)
 
@@ -282,6 +287,8 @@ class IconButtonsControl(BaseControl):
 
             # Connect the button's clicked signal to some update function
             btn.clicked.connect(partial(self.update_func, self.name, idx))
+            if self.ctrl.tooltip:
+                btn.setToolTip(self.ctrl.tooltip)
             self.control_widgets.append(btn)
             hbox.addWidget(btn)
 
@@ -314,6 +321,8 @@ class DropdownMenuControl(BaseControl):
         self.control_widget.currentIndexChanged.connect(
             partial(self.update_func, self.name)
         )
+        if self.ctrl.tooltip:
+            self.control_widget.setToolTip(self.ctrl.tooltip)
         # Add the combo box to the horizontal layout
         hbox.addWidget(self.control_widget)
         label = QLabel(self.name, self)
@@ -349,6 +358,9 @@ class PromptControl(BaseControl):
         # Connect the textChanged signal to the update function if needed
         self.control_widget.textChanged.connect(partial(self.update_func, self.name))
 
+        if self.ctrl.tooltip:
+            self.control_widget.setToolTip(self.ctrl.tooltip)
+
         # Add the text input field to the horizontal layout
         hbox.addWidget(self.control_widget)
 
@@ -379,6 +391,9 @@ class TickBoxControl(BaseControl):
         self.control_widget.stateChanged.connect(
             partial(self.update_func, self.ctrl.name)
         )
+
+        if self.ctrl.tooltip:
+            self.control_widget.setToolTip(self.ctrl.tooltip)
 
         # Add the checkbox to the horizontal layout
         hbox.addWidget(self.control_widget)

@@ -1,6 +1,13 @@
-from interactive_pipe import interactive, interactive_pipeline, Panel, TextPrompt
+from interactive_pipe import (
+    interactive,
+    interactive_pipeline,
+    Panel,
+    TextPrompt,
+    Control,
+)
 import numpy as np
 import cv2
+import argparse
 
 
 def apply_knobs(
@@ -146,30 +153,83 @@ def add_interactivity():
     main_panel = Panel("Image Editing", collapsible=True, collapsed=True)
     main_panel.add_elements([[lighting_panel, color_panel]])
     interactive(
-        black_point=(0.0, [0.0, 1.0], "Black Point", contrast_panel),
-        white_point=(1.0, [0.0, 1.0], "White Point", contrast_panel),
-        gamma=(1.0, [0.0, 1.0], "Gamma", stretching_panel),
-        contrast=(1.0, [0.0, 1.0], "Contrast", stretching_panel),
-        brightness=(0.0, [0.0, 1.0], "Brightness", color_panel),
-        saturation=(1.0, [0.0, 1.0], "Saturation", color_panel),
-        hue=(0.0, [0.0, 1.0], "Hue", color_panel),
+        black_point=Control(
+            0.0,
+            [0.0, 1.0],
+            name="Black Point",
+            group=contrast_panel,
+            tooltip="Set the darkest point in the image. Values below this become black.",
+        ),
+        white_point=Control(
+            1.0,
+            [0.0, 1.0],
+            name="White Point",
+            group=contrast_panel,
+            tooltip="Set the brightest point in the image. Values above this become white.",
+        ),
+        gamma=Control(
+            1.0,
+            [0.0, 1.0],
+            name="Gamma",
+            group=stretching_panel,
+            tooltip="Adjust gamma correction. <0.5 darkens midtones, >0.5 brightens them.",
+        ),
+        contrast=Control(
+            1.0,
+            [0.0, 1.0],
+            name="Contrast",
+            group=stretching_panel,
+            tooltip="Adjust image contrast. <0.5 reduces contrast, >0.5 increases it.",
+        ),
+        brightness=Control(
+            0.0,
+            [0.0, 1.0],
+            name="Brightness",
+            group=color_panel,
+            tooltip="Adjust overall image brightness. Higher values make the image brighter.",
+        ),
+        saturation=Control(
+            1.0,
+            [0.0, 1.0],
+            name="Saturation",
+            group=color_panel,
+            tooltip="Adjust color saturation. 0=grayscale, 1=original, >1=more vibrant.",
+        ),
+        hue=Control(
+            0.0,
+            [0.0, 1.0],
+            name="Hue",
+            group=color_panel,
+            tooltip="Shift color hue by rotating RGB channels.",
+        ),
     )(apply_knobs)
     interactive(
-        text=TextPrompt("Text", group=main_panel),
+        text=TextPrompt(
+            "Text",
+            group=main_panel,
+            tooltip="Enter text to overlay on the image. Leave empty for no text.",
+        ),
     )(add_text)
 
 
-def launch():
+def launch(backend="qt"):
     add_interactivity()
     interactive_pipeline(
-        gui="qt",
+        gui=backend,
         cache=False,
         name="Image Editing",
         size=(10, 10),
-    )(
-        image_editing_pipeline
-    )(np.ones((256, 256, 3)) * 0.5)
+    )(image_editing_pipeline)(np.ones((256, 256, 3)) * 0.5)
 
 
 if __name__ == "__main__":
-    launch()
+    parser = argparse.ArgumentParser(description="Image Editing Demo")
+    parser.add_argument(
+        "-b",
+        "--backend",
+        choices=["qt", "gradio", "mpl", "notebook"],
+        default="qt",
+        help="GUI backend to use (default: qt)",
+    )
+    args = parser.parse_args()
+    launch(backend=args.backend)

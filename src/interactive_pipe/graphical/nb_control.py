@@ -55,6 +55,7 @@ class IntSliderNotebookControl(BaseControl):
             value=self.ctrl.value_default,
             style=style,
             layout=self.layout,
+            tooltip=self.ctrl.tooltip,
         )
 
 
@@ -73,6 +74,7 @@ class FloatSliderNotebookControl(BaseControl):
             value=self.ctrl.value_default,
             style=style,
             layout=self.layout,
+            tooltip=self.ctrl.tooltip,
         )
 
 
@@ -84,7 +86,9 @@ class BoolCheckButtonNotebookControl(BaseControl):
     def create(self):
         if not IPYWIDGETS_AVAILABLE:
             raise ModuleNotFoundError("ipywidgets is required for notebook controls")
-        checks = Checkbox(self.ctrl.value_default, layout=self.layout)
+        checks = Checkbox(
+            self.ctrl.value_default, layout=self.layout, tooltip=self.ctrl.tooltip
+        )
         return checks
 
 
@@ -97,7 +101,12 @@ class DialogNotebookControl(BaseControl):
         if not IPYWIDGETS_AVAILABLE:
             raise ModuleNotFoundError("ipywidgets is required for notebook controls")
         options = self.ctrl.value_range
-        dropdown = Dropdown(options=options, description=self.name, layout=self.layout)
+        dropdown = Dropdown(
+            options=options,
+            description=self.name,
+            layout=self.layout,
+            tooltip=self.ctrl.tooltip,
+        )
         return dropdown
 
 
@@ -112,7 +121,10 @@ class PromptNotebookControl(BaseControl):
         if not IPYWIDGETS_AVAILABLE:
             raise ModuleNotFoundError("ipywidgets is required for notebook controls")
         text_box = Text(
-            value=self.ctrl.value, description=self.name, layout=self.layout
+            value=self.ctrl.value,
+            description=self.name,
+            layout=self.layout,
+            tooltip=self.ctrl.tooltip,
         )
         return text_box
 

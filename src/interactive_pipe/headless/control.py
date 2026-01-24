@@ -37,11 +37,13 @@ class Control:
         parameter_name_to_connect: Optional[str] = None,
         icons: Optional[List] = None,
         group: Optional[Union[str, "Panel"]] = None,
+        tooltip: Optional[str] = None,
     ) -> None:
         self.value_default = value_default
         self._type = None
         self._auto_named = False
         self.step = step
+        self.tooltip = tooltip
 
         # Convert string to Panel for backward compatibility
         # Use cached Panel if same string name was used before
@@ -241,6 +243,7 @@ class CircularControl(Control):
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
         group: Optional[Union[str, Panel]] = None,
+        tooltip: Optional[str] = None,
     ) -> None:
         super().__init__(
             value_default=value_default,
@@ -251,6 +254,7 @@ class CircularControl(Control):
             parameter_name_to_connect=parameter_name_to_connect,
             icons=None,
             group=group,
+            tooltip=tooltip,
         )
         self.modulo = modulo
 
@@ -266,6 +270,7 @@ class TextPrompt(Control):
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
         group: Optional[Union[str, Panel]] = None,
+        tooltip: Optional[str] = None,
     ) -> None:
         """Text box"""
         super().__init__(
@@ -277,6 +282,7 @@ class TextPrompt(Control):
             parameter_name_to_connect=parameter_name_to_connect,
             icons=None,
             group=group,
+            tooltip=tooltip,
         )
 
     def __repr__(self) -> str:
@@ -292,6 +298,7 @@ class TimeControl(Control):
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
         group: Optional[Union[str, Panel]] = None,
+        tooltip: Optional[str] = None,
     ) -> None:
         """Time control. Start at 0.0. Time can be paused/resumed"""
         super().__init__(
@@ -303,6 +310,7 @@ class TimeControl(Control):
             parameter_name_to_connect=parameter_name_to_connect,
             icons=None,
             group=group,
+            tooltip=tooltip,
         )
         self.update_interval_ms = update_interval_ms
         self.pause_resume_key = pause_resume_key
