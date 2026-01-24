@@ -54,6 +54,16 @@ def get_interactive_pipeline_class(gui="auto"):
         from interactive_pipe.graphical.gradio_gui import (
             InteractivePipeGradio as ChosenGui,
         )
+    elif selected_gui == "textual":
+        try:
+            from interactive_pipe.graphical.textual_gui import (
+                InteractivePipeTextual as ChosenGui,
+            )
+        except ImportError as textual_import_exception:
+            raise ImportError(
+                f"Textual backend is not available: {textual_import_exception}\n"
+                "Install with: pip install textual"
+            )
     else:
         raise NotImplementedError(f"Gui {gui} not available")
     return ChosenGui

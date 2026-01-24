@@ -1,6 +1,6 @@
 import logging
 from copy import deepcopy
-from typing import Any, Optional
+from typing import Any
 
 
 class CachedResults:
@@ -26,7 +26,7 @@ class CachedResults:
     Underlying class used in the interactive pipe cache mechanism.
     """
 
-    def __init__(self, name: Optional[str] = None, safe_buffer_deepcopy: bool = True):
+    def __init__(self, name: str = None, safe_buffer_deepcopy: bool = True):
         self.name = name
         self.result = None
         self.state_change = StateChange(name=name)
@@ -78,7 +78,7 @@ class StateChange:
     Underlying class used in the interactive pipe cache mechanism.
     """
 
-    def __init__(self, name: Optional[str] = None):
+    def __init__(self, name: str = None):
         self.name = name
         self._stored_params = None
         self._update_needed = False

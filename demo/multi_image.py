@@ -5,7 +5,6 @@ import argparse
 from pathlib import Path
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe import interactive, interactive_pipeline
-
 TORCH_AVAILABLE = True
 try:
     import torch
@@ -112,9 +111,9 @@ if __name__ == "__main__":
         "-b",
         "--backend",
         type=str,
-        choices=["qt", "gradio", "mpl", "nb"],
+        choices=["qt", "gradio", "mpl", "nb", "textual"],
         default="qt",
-        help="Backend to use: qt, gradio, mpl, or nb (default: qt)",
+        help="Backend to use: qt, gradio, mpl, nb, or textual (default: qt)",
     )
     args = parser.parse_args()
 

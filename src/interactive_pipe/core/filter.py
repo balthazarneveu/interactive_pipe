@@ -81,7 +81,7 @@ class PureFilter:
             raise TypeError(f"{new_values} is not a dictionary")
         self._values = {**self._values, **new_values}
 
-    def run(self, *imgs) -> Tuple[Any, ...]:
+    def run(self, *imgs) -> Tuple[Any]:
         # First we check if the keyword args of the apply function match with self.values
         if not isinstance(self.values, dict):
             raise TypeError(f"self.values must be a dict, got {type(self.values)}")
@@ -151,7 +151,7 @@ class FilterCore(PureFilter):
         else:
             self.cache_mem = None
 
-    def run(self, *imgs) -> Tuple[Any, ...]:
+    def run(self, *imgs) -> Tuple[Any]:
         if imgs:
             if len(imgs) != len(self.inputs):
                 raise ValueError(
