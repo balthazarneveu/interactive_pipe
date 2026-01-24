@@ -19,10 +19,115 @@ try:
     from kivy.uix.image import Image as KivyImage
     from kivy.uix.behaviors import ButtonBehavior
     from kivy.clock import Clock
+    from kivy.graphics import Rectangle, Line, Color
 
     KIVY_AVAILABLE = True
 except ImportError:
     logging.warning("Kivy not available")
+
+
+class BorderedCheckBox(CheckBox):
+    """CheckBox with a subtle border around the checkbox square for better visibility."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Use a subtle border color that matches Qt's style
+        self.border_color = (0.6, 0.6, 0.6, 1)  # Light gray, subtle
+        self.border_width = 1
+        self.bind(pos=self._update_border, size=self._update_border)
+        Clock.schedule_once(lambda dt: self._update_border(), 0.01)
+
+    def _update_border(self, *args):
+        """Update the border around the checkbox square."""
+        if not hasattr(self, "_border_added"):
+            # Use canvas.after to draw border on top of the checkbox square
+            with self.canvas.after:
+                Color(*self.border_color)
+                self._checkbox_border = Line(width=self.border_width)
+            self._border_added = True
+
+        if hasattr(self, "_checkbox_border"):
+            # Kivy's CheckBox draws the square centered, sized based on height
+            # For a 40px widget, the square is typically ~18-20px (about 45-50% of height)
+            # Use a size that matches Kivy's default checkbox square rendering
+            checkbox_size = min(
+                self.height * 0.48, self.width * 0.48
+            )  # ~48% matches Kivy's ~18-20px for 40px widget
+            # Center the square in the widget (Kivy centers it)
+            checkbox_x = self.x + (self.width - checkbox_size) / 2
+            checkbox_y = self.y + (self.height - checkbox_size) / 2
+
+            # Draw border rectangle around the checkbox square itself (not the whole widget)
+            self._checkbox_border.rectangle = (
+                checkbox_x,
+                checkbox_y,
+                checkbox_size,
+                checkbox_size,
+            )
+
+
+class BorderedSlider(Slider):
+    """Slider with subtle borders on the track and knob for better visibility."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Subtle border colors matching Qt's style
+        self.track_border_color = (0.6, 0.6, 0.6, 1)  # Light gray
+        self.knob_border_color = (0.55, 0.55, 0.55, 1)  # Slightly darker
+        self.border_width = 1
+
+        self.bind(
+            pos=self._update_borders,
+            size=self._update_borders,
+            value=self._update_borders,
+        )
+        Clock.schedule_once(lambda dt: self._update_borders(), 0.01)
+
+    def _update_borders(self, *args):
+        """Update borders on slider track and knob."""
+        if not hasattr(self, "_borders_added"):
+            # Use canvas.before for better integration
+            with self.canvas.before:
+                Color(*self.track_border_color)
+                self._track_border = Line(width=self.border_width)
+                Color(*self.knob_border_color)
+                self._knob_border = Line(width=self.border_width)
+            self._borders_added = True
+
+        self._update_border_positions()
+
+    def _update_border_positions(self):
+        """Update the positions of track and knob borders."""
+        if not hasattr(self, "_track_border") or not hasattr(self, "_knob_border"):
+            return
+
+        # Get padding
+        padding = getattr(self, "padding", 16)
+        if isinstance(padding, (list, tuple)):
+            padding_x = padding[0] if len(padding) > 0 else 16
+        else:
+            padding_x = padding
+
+        # Track dimensions (match Kivy's rendering)
+        track_height = max(2, int(self.height * 0.08))  # ~8% of height, min 2px
+        track_y = self.y + (self.height - track_height) / 2
+        track_x = self.x + padding_x
+        track_width = max(0, self.width - 2 * padding_x)
+
+        self._track_border.rectangle = (track_x, track_y, track_width, track_height)
+
+        # Knob position - calculate from value
+        value_range = self.max - self.min
+        if value_range > 0:
+            value_normalized = (self.value - self.min) / value_range
+        else:
+            value_normalized = 0
+
+        knob_x = track_x + value_normalized * track_width
+        knob_y = self.y + self.height / 2
+        knob_radius = max(5, int(self.height * 0.18))  # ~18% of height
+
+        self._knob_border.circle = (knob_x, knob_y, knob_radius)
 
 
 class BaseControl:
@@ -94,7 +199,7 @@ class IntSliderControl(BaseControl):
         )
         layout.add_widget(label)
 
-        slider = Slider(
+        slider = BorderedSlider(
             min=self.ctrl.value_range[0],
             max=self.ctrl.value_range[1],
             value=self.ctrl.value_default,
@@ -172,7 +277,7 @@ class FloatSliderControl(BaseControl):
         )
         layout.add_widget(label)
 
-        slider = Slider(
+        slider = BorderedSlider(
             min=0,
             max=1000,
             value=self.convert_value_to_int(self.ctrl.value_default),
@@ -228,7 +333,9 @@ class TickBoxControl(BaseControl):
         layout = BoxLayout(
             orientation="horizontal", size_hint_y=None, height=40, size_hint_x=1.0
         )
-        checkbox = CheckBox(active=self.ctrl.value_default, size_hint_x=None, width=40)
+        checkbox = BorderedCheckBox(
+            active=self.ctrl.value_default, size_hint_x=None, width=40
+        )
 
         # Create wrapper to ignore checkbox instance argument from Kivy
         def on_active_change(instance, value):
@@ -238,7 +345,16 @@ class TickBoxControl(BaseControl):
         self.control_widget = checkbox
         layout.add_widget(checkbox)
 
-        label = Label(text=self.name, size_hint_x=1.0, color=(0, 0, 0, 1))
+        # Label should be left-aligned and positioned next to the checkbox
+        label = Label(
+            text=self.name,
+            size_hint_x=1.0,
+            color=(0, 0, 0, 1),
+            halign="left",
+            valign="middle",
+        )
+        # Bind text_size to size for proper text alignment
+        label.bind(size=label.setter("text_size"))
         layout.add_widget(label)
         return layout
 
