@@ -1,4 +1,11 @@
-from interactive_pipe import Control, interactive, interactive_pipeline
+from interactive_pipe import (
+    context,
+    audio,
+    layout,
+    Control,
+    interactive,
+    interactive_pipeline,
+)
 from interactive_pipe.data_objects.image import Image
 from pathlib import Path
 import cv2
