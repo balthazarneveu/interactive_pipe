@@ -55,6 +55,10 @@ def get_interactive_pipeline_class(gui="auto"):
             InteractivePipeGradio as ChosenGui,
         )
     elif selected_gui == "kivy":
+        # Disable Kivy's argument parser before importing to avoid conflicts with argparse
+        import os
+
+        os.environ.setdefault("KIVY_NO_ARGS", "1")
         from interactive_pipe.graphical.kivy_gui import (
             InteractivePipeKivy as ChosenGui,
         )

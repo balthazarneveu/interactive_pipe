@@ -1,5 +1,10 @@
 from interactive_pipe.headless.control import Control
 import logging
+import os
+
+# Disable Kivy's argument parser to avoid conflicts with argparse
+# This must be set BEFORE importing any Kivy modules
+os.environ.setdefault("KIVY_NO_ARGS", "1")
 
 KIVY_AVAILABLE = False
 try:
@@ -81,8 +86,12 @@ class IntSliderControl(BaseControl):
         assert self.ctrl._type == int
 
     def create(self):
-        layout = BoxLayout(orientation="horizontal", size_hint_y=None, height=40, size_hint_x=1.0)
-        label = Label(text=self.name, size_hint_x=0.3, size_hint_y=1.0, color=(0, 0, 0, 1))
+        layout = BoxLayout(
+            orientation="horizontal", size_hint_y=None, height=40, size_hint_x=1.0
+        )
+        label = Label(
+            text=self.name, size_hint_x=0.3, size_hint_y=1.0, color=(0, 0, 0, 1)
+        )
         layout.add_widget(label)
 
         slider = Slider(
@@ -92,29 +101,36 @@ class IntSliderControl(BaseControl):
             step=1,
             size_hint_x=0.5,
             size_hint_y=1.0,
-            sensitivity='all',
+            sensitivity="all",
         )
-        
+
         # Use Clock to throttle updates during dragging
         slider._pending_refresh = None
-        
+
         def on_value_change(instance, value):
             # Update label immediately
             value_label.text = str(int(value))
             # Cancel any pending refresh
             if slider._pending_refresh:
                 Clock.unschedule(slider._pending_refresh)
+
             # Schedule a throttled update (refresh after 50ms of no changes)
             def delayed_update(dt):
                 self.update_func(self.name, int(value))
                 slider._pending_refresh = None
+
             slider._pending_refresh = Clock.schedule_once(delayed_update, 0.05)
-        
+
         slider.bind(value=on_value_change)
         self.control_widget = slider
         layout.add_widget(slider)
 
-        value_label = Label(text=str(self.ctrl.value_default), size_hint_x=0.2, size_hint_y=1.0, color=(0, 0, 0, 1))
+        value_label = Label(
+            text=str(self.ctrl.value_default),
+            size_hint_x=0.2,
+            size_hint_y=1.0,
+            color=(0, 0, 0, 1),
+        )
         self.value_label = value_label
         layout.add_widget(value_label)
 
@@ -148,8 +164,12 @@ class FloatSliderControl(BaseControl):
         )
 
     def create(self):
-        layout = BoxLayout(orientation="horizontal", size_hint_y=None, height=40, size_hint_x=1.0)
-        label = Label(text=self.name, size_hint_x=0.3, size_hint_y=1.0, color=(0, 0, 0, 1))
+        layout = BoxLayout(
+            orientation="horizontal", size_hint_y=None, height=40, size_hint_x=1.0
+        )
+        label = Label(
+            text=self.name, size_hint_x=0.3, size_hint_y=1.0, color=(0, 0, 0, 1)
+        )
         layout.add_widget(label)
 
         slider = Slider(
@@ -158,10 +178,10 @@ class FloatSliderControl(BaseControl):
             value=self.convert_value_to_int(self.ctrl.value_default),
             size_hint_x=0.5,
             size_hint_y=1.0,
-            sensitivity='all',
+            sensitivity="all",
         )
         self.ctrl.convert_int_to_value = self.convert_int_to_value
-        
+
         # Use Clock to throttle updates during dragging
         slider._pending_refresh = None
 
@@ -172,10 +192,12 @@ class FloatSliderControl(BaseControl):
             # Cancel any pending refresh
             if slider._pending_refresh:
                 Clock.unschedule(slider._pending_refresh)
+
             # Schedule a throttled update (refresh after 50ms of no changes)
             def delayed_update(dt):
                 self.update_func(self.name, converted_value)
                 slider._pending_refresh = None
+
             slider._pending_refresh = Clock.schedule_once(delayed_update, 0.05)
 
         slider.bind(value=on_value_change)
@@ -183,7 +205,10 @@ class FloatSliderControl(BaseControl):
         layout.add_widget(slider)
 
         value_label = Label(
-            text=f"{self.ctrl.value_default:.3e}", size_hint_x=0.2, size_hint_y=1.0, color=(0, 0, 0, 1)
+            text=f"{self.ctrl.value_default:.3e}",
+            size_hint_x=0.2,
+            size_hint_y=1.0,
+            color=(0, 0, 0, 1),
         )
         self.value_label = value_label
         layout.add_widget(value_label)
@@ -200,11 +225,15 @@ class TickBoxControl(BaseControl):
         assert self.ctrl._type == bool
 
     def create(self):
-        layout = BoxLayout(orientation="horizontal", size_hint_y=None, height=40, size_hint_x=1.0)
+        layout = BoxLayout(
+            orientation="horizontal", size_hint_y=None, height=40, size_hint_x=1.0
+        )
         checkbox = CheckBox(active=self.ctrl.value_default, size_hint_x=None, width=40)
+
         # Create wrapper to ignore checkbox instance argument from Kivy
         def on_active_change(instance, value):
             self.update_func(self.name, value)
+
         checkbox.bind(active=on_active_change)
         self.control_widget = checkbox
         layout.add_widget(checkbox)
@@ -225,8 +254,12 @@ class DropdownMenuControl(BaseControl):
             raise ValueError("Invalid control type")
 
     def create(self):
-        layout = BoxLayout(orientation="horizontal", size_hint_y=None, height=40, size_hint_x=1.0)
-        label = Label(text=self.name, size_hint_x=0.3, size_hint_y=1.0, color=(0, 0, 0, 1))
+        layout = BoxLayout(
+            orientation="horizontal", size_hint_y=None, height=40, size_hint_x=1.0
+        )
+        label = Label(
+            text=self.name, size_hint_x=0.3, size_hint_y=1.0, color=(0, 0, 0, 1)
+        )
         layout.add_widget(label)
 
         spinner = Spinner(
@@ -235,9 +268,11 @@ class DropdownMenuControl(BaseControl):
             size_hint_x=0.7,
             size_hint_y=1.0,
         )
+
         # Create wrapper to ignore spinner instance argument from Kivy
         def on_text_change(instance, text):
             self.update_func(self.name, text)
+
         spinner.bind(text=on_text_change)
         self.control_widget = spinner
         layout.add_widget(spinner)
@@ -254,14 +289,26 @@ class PromptControl(BaseControl):
         assert self.ctrl.value_range is None
 
     def create(self):
-        layout = BoxLayout(orientation="horizontal", size_hint_y=None, height=40, size_hint_x=1.0)
-        label = Label(text=self.name, size_hint_x=0.3, size_hint_y=1.0, color=(0, 0, 0, 1))
+        layout = BoxLayout(
+            orientation="horizontal", size_hint_y=None, height=40, size_hint_x=1.0
+        )
+        label = Label(
+            text=self.name, size_hint_x=0.3, size_hint_y=1.0, color=(0, 0, 0, 1)
+        )
         layout.add_widget(label)
 
-        text_input = TextInput(text=str(self.ctrl.value), multiline=False, size_hint_x=0.7, size_hint_y=1.0, foreground_color=(0, 0, 0, 1))
+        text_input = TextInput(
+            text=str(self.ctrl.value),
+            multiline=False,
+            size_hint_x=0.7,
+            size_hint_y=1.0,
+            foreground_color=(0, 0, 0, 1),
+        )
+
         # Create wrapper to ignore text input instance argument from Kivy
         def on_text_change(instance, text):
             self.update_func(self.name, text)
+
         text_input.bind(text=on_text_change)
         self.control_widget = text_input
         layout.add_widget(text_input)
@@ -284,26 +331,30 @@ class IconButtonsControl(BaseControl):
         # Create a clickable image button class using ButtonBehavior
         class ImageButton(ButtonBehavior, KivyImage):
             pass
-        
-        layout = BoxLayout(orientation="horizontal", size_hint_y=None, height=80, size_hint_x=1.0)
+
+        layout = BoxLayout(
+            orientation="horizontal", size_hint_y=None, height=80, size_hint_x=1.0
+        )
         label = Label(text=self.name, size_hint_x=0.2, color=(0, 0, 0, 1))
         layout.add_widget(label)
 
         self.control_widgets = []
-        buttons_layout = BoxLayout(orientation="horizontal", size_hint_x=0.8, size_hint_y=1.0)
+        buttons_layout = BoxLayout(
+            orientation="horizontal", size_hint_x=0.8, size_hint_y=1.0
+        )
         for idx, icon_name in enumerate(self.ctrl.value_range):
             icon_path = str(self.ctrl.icons[idx])
-            
+
             img_btn = ImageButton(
                 source=icon_path,
                 size_hint_x=1.0 / len(self.ctrl.value_range),
-                size_hint_y=1.0
+                size_hint_y=1.0,
             )
-            
+
             # Create wrapper to handle button press
             def on_press(instance, button_idx=idx):
                 self.update_func(self.name, button_idx)
-            
+
             img_btn.bind(on_press=on_press)
             self.control_widgets.append(img_btn)
             buttons_layout.add_widget(img_btn)
@@ -313,4 +364,3 @@ class IconButtonsControl(BaseControl):
     def reset(self):
         # Icon buttons don't need reset as they're stateless
         pass
-

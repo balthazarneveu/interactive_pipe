@@ -12,16 +12,17 @@ import logging
 import time
 
 # Disable Kivy's argument parser to avoid conflicts with argparse
-os.environ["KIVY_NO_ARGS"] = "1"
+# This must be set BEFORE importing any Kivy modules
+os.environ.setdefault("KIVY_NO_ARGS", "1")
 # Suppress MTD (multitouch device) warnings - these are harmless permission warnings
-os.environ["KIVY_LOG_LEVEL"] = "warning"
+os.environ.setdefault("KIVY_LOG_LEVEL", "warning")
 
 KIVY_AVAILABLE = False
 try:
     # Configure Kivy before importing to suppress MTD warnings
     # Disable MTD (multitouch device) provider to avoid permission warnings
     os.environ.setdefault("KIVY_METRICS_DENSITY", "1")
-    
+
     from kivy.app import App
     from kivy.uix.boxlayout import BoxLayout
     from kivy.uix.gridlayout import GridLayout
@@ -34,17 +35,21 @@ try:
     from kivy.clock import Clock
     from kivy.uix.popup import Popup
     from kivy.uix.slider import Slider
-    
+
     # Suppress MTD warnings by filtering logger
     from kivy.logger import Logger
     import logging as kivy_logging
-    
+
     # Create filter to suppress MTD-related warnings
     class MTDFilter(kivy_logging.Filter):
         def filter(self, record):
             msg = record.getMessage()
-            return 'MTD' not in msg and 'multitouch' not in msg.lower() and 'event5' not in msg
-    
+            return (
+                "MTD" not in msg
+                and "multitouch" not in msg.lower()
+                and "event5" not in msg
+            )
+
     Logger.addFilter(MTDFilter())
 
     KIVY_AVAILABLE = True
@@ -55,6 +60,7 @@ MPL_SUPPORT = False
 try:
     from interactive_pipe.data_objects.curves import Curve, SingleCurve
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from io import BytesIO
@@ -167,10 +173,10 @@ class InteractivePipeKivy(InteractivePipeGUI):
                 Window.fullscreen = "0"
 
 
-
-
 class KivyApp(App):
-    def __init__(self, controls=[], name="", pipeline=None, size=None, main_gui=None, **kwargs):
+    def __init__(
+        self, controls=[], name="", pipeline=None, size=None, main_gui=None, **kwargs
+    ):
         super().__init__()
         self.controls = controls
         self._app_name = name  # Store name separately since App.name is read-only
@@ -260,27 +266,29 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
         InteractivePipeWindow.__init__(self, name=name, pipeline=pipeline, size=size)
         self.main_gui = main_gui
         self.pipeline.global_params["__window"] = self
-        self._window_size = size  # Use different name to avoid conflict with Kivy's size property
+        self._window_size = (
+            size  # Use different name to avoid conflict with Kivy's size property
+        )
 
         # Create image grid layout - will be updated dynamically
         # Initialize with 1 column, will be updated when images are added
         self.image_grid_layout = GridLayout(
-            cols=1, 
-            spacing=10, 
-            padding=10,
-            size_hint_y=None,
-            size_hint_x=1.0
+            cols=1, spacing=10, padding=10, size_hint_y=None, size_hint_x=1.0
         )
         self.image_scroll = ScrollView(size_hint_x=1.0, size_hint_y=0.7)
         self.image_scroll.add_widget(self.image_grid_layout)
 
         # Create controls panel - vertical layout that sizes to content
-        self.controls_panel = BoxLayout(orientation="vertical", size_hint_y=None, size_hint_x=1.0)
+        self.controls_panel = BoxLayout(
+            orientation="vertical", size_hint_y=None, size_hint_x=1.0
+        )
         # Bind controls panel height to its minimum height
-        self.controls_panel.bind(minimum_height=self.controls_panel.setter('height'))
+        self.controls_panel.bind(minimum_height=self.controls_panel.setter("height"))
         # Use a non-scrolling container - just use BoxLayout directly since we don't want scrolling
         # Wrap in a container to maintain size_hint behavior
-        controls_container = BoxLayout(orientation="vertical", size_hint_x=1.0, size_hint_y=0.3)
+        controls_container = BoxLayout(
+            orientation="vertical", size_hint_x=1.0, size_hint_y=0.3
+        )
         controls_container.add_widget(self.controls_panel)
 
         # Add both panels to main layout - images on top, controls below
@@ -313,8 +321,14 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
                 # Use Clock to create a timer
                 def create_timer(ctrl_obj):
                     def timer_callback(dt):
-                        if hasattr(self.main_gui, "start_time") and self.main_gui.start_time is not None:
-                            if hasattr(self.main_gui, "time_playing") and self.main_gui.time_playing:
+                        if (
+                            hasattr(self.main_gui, "start_time")
+                            and self.main_gui.start_time is not None
+                        ):
+                            if (
+                                hasattr(self.main_gui, "time_playing")
+                                and self.main_gui.time_playing
+                            ):
                                 delta_time = time.time() - self.main_gui.start_time
                                 self.update_parameter(ctrl_obj.name, delta_time)
 
@@ -322,14 +336,20 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
 
                 timer_func = create_timer(ctrl)
                 self.main_gui.suspend_resume_timer = lambda suspend: (
-                    Clock.unschedule(timer_func) if suspend else Clock.schedule_interval(timer_func, ctrl.update_interval_ms / 1000.0)
+                    Clock.unschedule(timer_func)
+                    if suspend
+                    else Clock.schedule_interval(
+                        timer_func, ctrl.update_interval_ms / 1000.0
+                    )
                 )
                 plugged_func = self.main_gui.plug_timer_control(
                     ctrl, self.update_parameter, self.main_gui.suspend_resume_timer
                 )
                 Clock.schedule_interval(timer_func, ctrl.update_interval_ms / 1000.0)
             elif isinstance(ctrl, Control):
-                slider_instance = control_factory.create_control(ctrl, self.update_parameter)
+                slider_instance = control_factory.create_control(
+                    ctrl, self.update_parameter
+                )
                 if slider_instance is None:
                     continue
                 if ctrl._type == str and ctrl.icons is not None:
@@ -338,18 +358,28 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
                 try:
                     control_widget = slider_instance.create()
                     if control_widget is None:
-                        logging.warning(f"Control widget for {slider_name} is None, skipping")
+                        logging.warning(
+                            f"Control widget for {slider_name} is None, skipping"
+                        )
                         continue
                     # Ensure widget has proper size hints
-                    if hasattr(control_widget, 'size_hint_x') and control_widget.size_hint_x is None:
+                    if (
+                        hasattr(control_widget, "size_hint_x")
+                        and control_widget.size_hint_x is None
+                    ):
                         control_widget.size_hint_x = 1.0
-                    if hasattr(control_widget, 'size_hint_y') and control_widget.size_hint_y is None:
+                    if (
+                        hasattr(control_widget, "size_hint_y")
+                        and control_widget.size_hint_y is None
+                    ):
                         # For vertical layout, widgets should have size_hint_y=None with explicit height
                         pass  # Keep as None if it's set that way
                     self.widget_list[slider_name] = slider_instance
                     self.controls_panel.add_widget(control_widget)
                 except Exception as e:
-                    logging.error(f"Error creating control widget for {slider_name}: {e}")
+                    logging.error(
+                        f"Error creating control widget for {slider_name}: {e}"
+                    )
                     continue
 
     def update_parameter(self, idx, value):
@@ -387,19 +417,19 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
     def add_image_placeholder(self, row, col):
         # Create container for title and image
         container = BoxLayout(
-            orientation="vertical", 
-            size_hint_y=None, 
+            orientation="vertical", size_hint_y=None, size_hint_x=1.0, height=400
+        )
+        title_label = Label(
+            text=f"{row} {col}",
+            size_hint_y=None,
+            height=30,
             size_hint_x=1.0,
-            height=400
+            color=(0, 0, 0, 1),
         )
-        title_label = Label(text=f"{row} {col}", size_hint_y=None, height=30, size_hint_x=1.0, color=(0, 0, 0, 1))
-        image_widget = KivyImage(
-            size_hint_y=1.0,
-            size_hint_x=1.0
-        )
+        image_widget = KivyImage(size_hint_y=1.0, size_hint_x=1.0)
         container.add_widget(title_label)
         container.add_widget(image_widget)
-        
+
         self.image_canvas[row][col] = {
             "image": image_widget,
             "title": title_label,
@@ -407,7 +437,7 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
             "ax_placeholder": None,
         }
         self.image_grid_layout.add_widget(container)
-    
+
     def set_image_canvas(self, image_grid):
         # Override to update grid layout columns
         expected_image_canvas_shape = (
@@ -428,7 +458,10 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
             if obj_key == "ax_placeholder" and img_widget is not None:
                 # Matplotlib axes cleanup if needed
                 pass
-            elif obj_key not in ["container", "image", "title"] and img_widget is not None:
+            elif (
+                obj_key not in ["container", "image", "title"]
+                and img_widget is not None
+            ):
                 if hasattr(img_widget, "parent") and img_widget.parent:
                     img_widget.parent.remove_widget(img_widget)
 
@@ -481,7 +514,9 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
             image_array = np.flipud(image_array)
             # Create texture
             texture = Texture.create(size=(w, h), colorfmt="rgb")
-            texture.blit_buffer(image_array.tobytes(), colorfmt="rgb", bufferfmt="ubyte")
+            texture.blit_buffer(
+                image_array.tobytes(), colorfmt="rgb", bufferfmt="ubyte"
+            )
             image_widget = self.image_canvas[row][col]["image"]
             image_widget.texture = texture
         elif isinstance(image_array_original, str):
@@ -508,11 +543,15 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
                 if len(img_array.shape) == 2:
                     # Grayscale
                     texture = Texture.create(size=(w, h), colorfmt="luminance")
-                    texture.blit_buffer(img_array.tobytes(), colorfmt="luminance", bufferfmt="ubyte")
+                    texture.blit_buffer(
+                        img_array.tobytes(), colorfmt="luminance", bufferfmt="ubyte"
+                    )
                 else:
                     # RGB
                     texture = Texture.create(size=(w, h), colorfmt="rgb")
-                    texture.blit_buffer(img_array.tobytes(), colorfmt="rgb", bufferfmt="ubyte")
+                    texture.blit_buffer(
+                        img_array.tobytes(), colorfmt="rgb", bufferfmt="ubyte"
+                    )
                 image_widget = self.image_canvas[row][col]["image"]
                 image_widget.texture = texture
                 buf.close()
@@ -542,4 +581,3 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
             if widget_idx in self.widget_list.keys():
                 self.widget_list[widget_idx].reset()
         self.refresh()
-
