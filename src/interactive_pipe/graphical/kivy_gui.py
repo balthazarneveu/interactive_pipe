@@ -154,7 +154,7 @@ class InteractivePipeKivy(InteractivePipeGUI):
 
     def print_message(self, message_list: List[str]):
         print("\n".join(message_list))
-        if hasattr(self.app, "root") and hasattr(self.app.root, "window"):
+        if hasattr(self, "app") and hasattr(self.app, "window"):
             popup = Popup(
                 title=self.name,
                 content=Label(text="\n".join(message_list), color=(0, 0, 0, 1)),
@@ -164,11 +164,10 @@ class InteractivePipeKivy(InteractivePipeGUI):
 
     def toggle_full_screen(self):
         """toggle full screen"""
-        if hasattr(self.app, "root") and hasattr(self.app.root, "window"):
-            if Window.fullscreen == "0":
-                Window.fullscreen = "auto"
-            else:
-                Window.fullscreen = "0"
+        if Window.fullscreen in (False, "0", 0, ""):
+            Window.fullscreen = "auto"
+        else:
+            Window.fullscreen = False
 
     # ---------------------------- AUDIO FEATURE ----------------------------------------
 
