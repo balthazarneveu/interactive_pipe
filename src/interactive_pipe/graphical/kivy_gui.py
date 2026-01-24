@@ -342,11 +342,84 @@ class KivyApp(App):
                 Window.size = (self.size, self.size)
             elif isinstance(self.size, (tuple, list)):
                 Window.size = tuple(self.size)
+        else:
+            # Adaptive sizing: will be calculated after layout is complete
+            # Set a temporary reasonable size to allow layout measurement
+            Window.size = (1200, 800)
         # Bind keyboard events
         Window.bind(on_keyboard=self.on_keyboard)
-        # Trigger initial refresh to display images
+        # Trigger initial refresh to display images, then resize window to fit content
         if hasattr(self, "window"):
-            Clock.schedule_once(lambda dt: self.window.refresh(), 0.1)
+
+            def refresh_and_resize(dt):
+                self.window.refresh()
+                # Schedule window resize after content is rendered
+                Clock.schedule_once(lambda dt2: self._resize_window_to_content(), 0.2)
+
+            Clock.schedule_once(refresh_and_resize, 0.1)
+
+    def _resize_window_to_content(self):
+        """Measure actual content size and resize window to fit"""
+        if not hasattr(self, "window"):
+            return
+        try:
+            # Temporarily set controls_scroll to size_hint_y=None to get accurate measurements
+            # This ensures controls_panel can size to its content without being constrained
+            original_size_hint_y = None
+            if hasattr(self.window, "controls_scroll"):
+                original_size_hint_y = self.window.controls_scroll.size_hint_y
+                self.window.controls_scroll.size_hint_y = None
+
+            # Force layout update to get accurate measurements
+            self.window.do_layout()
+
+            # Measure image area height - use minimum_height which reflects actual content
+            image_height = 0
+            if hasattr(self.window, "image_grid_layout"):
+                self.window.image_grid_layout.do_layout()
+                image_height = self.window.image_grid_layout.minimum_height
+
+            # Measure controls area height - use minimum_height which reflects actual content
+            controls_height = 0
+            if hasattr(self.window, "controls_panel"):
+                self.window.controls_panel.do_layout()
+                controls_height = self.window.controls_panel.minimum_height
+
+            # Restore original size_hint_y
+            if original_size_hint_y is not None:
+                self.window.controls_scroll.size_hint_y = original_size_hint_y
+
+            # Calculate window dimensions
+            # Width: measure from image grid or use current width
+            window_width = Window.width if Window.width > 0 else 1200
+            if (
+                hasattr(self.window, "image_grid_layout")
+                and self.window.image_grid_layout.width > 0
+            ):
+                # Account for grid padding
+                padding = (
+                    self.window.image_grid_layout.padding[0]
+                    if isinstance(self.window.image_grid_layout.padding, (list, tuple))
+                    else self.window.image_grid_layout.padding
+                )
+                content_width = self.window.image_grid_layout.width + (padding * 2)
+                window_width = max(window_width, content_width)
+            # Height: sum of content heights + spacing between panels
+            window_height = (
+                image_height + controls_height + 20
+            )  # Small margin between panels
+
+            # Apply reasonable constraints (minimums to ensure usability, maximums to prevent oversized windows)
+            window_width = max(400, min(window_width, 1920))
+            window_height = max(300, min(window_height, 1400))
+
+            # Only resize if we got valid measurements
+            if image_height > 0 or controls_height > 0:
+                Window.size = (int(window_width), int(window_height))
+        except Exception as e:
+            logging.debug(f"Error resizing window to content: {e}")
+            # Fallback to reasonable defaults if measurement fails
+            Window.size = (1200, 800)
 
     def on_stop(self):
         """Called when the app is closing - cleanup audio"""
@@ -420,7 +493,9 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
             cols=1, spacing=10, padding=10, size_hint_y=None, size_hint_x=1.0
         )
         # Bind grid layout height to its minimum height (tight fit to content)
-        self.image_grid_layout.bind(minimum_height=self.image_grid_layout.setter("height"))
+        self.image_grid_layout.bind(
+            minimum_height=self.image_grid_layout.setter("height")
+        )
         # Image area: tight and responsive - sizes itself to fit grid content
         self.image_scroll = ScrollView(size_hint_x=1.0, size_hint_y=None)
         self.image_scroll.add_widget(self.image_grid_layout)
@@ -435,7 +510,7 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
         self.controls_panel.bind(minimum_height=self.controls_panel.setter("height"))
         # Wrap controls panel in a ScrollView so controls can scroll when there are many sliders
         # Configure ScrollView to expand and fill remaining space when window is extended
-        controls_scroll = ScrollView(
+        self.controls_scroll = ScrollView(
             size_hint_x=1.0,
             size_hint_y=1.0,  # Expand to fill remaining vertical space
             do_scroll_x=False,  # Disable horizontal scrolling
@@ -445,15 +520,15 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
                 "bars"
             ],  # Only scroll via scrollbar, not when interacting with widgets
         )
-        controls_scroll.add_widget(self.controls_panel)
+        self.controls_scroll.add_widget(self.controls_panel)
         # Bind controls panel width to ScrollView width to ensure proper touch event handling
-        controls_scroll.bind(
+        self.controls_scroll.bind(
             width=lambda instance, value: setattr(self.controls_panel, "width", value)
         )
 
         # Add both panels to main layout - images on top, controls below
         self.add_widget(self.image_scroll)
-        self.add_widget(controls_scroll)
+        self.add_widget(self.controls_scroll)
 
         self.init_sliders(controls)
 
@@ -735,6 +810,45 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
         if self.pipeline is not None:
             out = self.pipeline.run()
             self.refresh_display(out)
+
+    def measure_and_resize_window(self):
+        """Measure actual content size and resize window to fit"""
+        # Force layout update to ensure all widgets are measured
+        self.image_grid_layout.do_layout()
+        self.controls_panel.do_layout()
+
+        # Measure actual content heights
+        # Image area: measure the grid layout's minimum height (content height)
+        image_height = self.image_grid_layout.minimum_height
+        if image_height == 0:
+            # If no images yet, use a reasonable default
+            image_height = 100
+
+        # Controls area: measure the controls panel's minimum height
+        controls_height = self.controls_panel.minimum_height
+        if controls_height == 0:
+            # If no controls, use a small default
+            controls_height = 50
+
+        # Measure width: use the image grid layout width or a reasonable default
+        # The grid layout will size based on its content
+        image_width = self.image_grid_layout.width
+        if image_width == 0:
+            # Use a reasonable default width if not yet measured
+            image_width = 800
+
+        # Calculate total window size
+        # Add some padding for window decorations and spacing
+        padding = 20
+        window_width = max(400, image_width + padding * 2)
+        window_height = max(300, image_height + controls_height + padding * 2)
+
+        # Apply reasonable maximums to prevent window from being too large
+        window_width = min(window_width, 1920)
+        window_height = min(window_height, 1400)
+
+        # Set window size
+        Window.size = (int(window_width), int(window_height))
 
     def reset_sliders(self):
         for widget_idx, ctrl in self.ctrl.items():
