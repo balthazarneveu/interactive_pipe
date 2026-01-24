@@ -7,6 +7,7 @@ from interactive_pipe.graphical.gradio_control import ControlFactory
 from interactive_pipe.graphical.window import InteractivePipeWindow
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.headless.control import Control
+from interactive_pipe.headless.panel import Panel
 from interactive_pipe.data_objects.audio import audio_to_html
 from copy import copy
 import logging
@@ -242,79 +243,102 @@ class MainWindow(InteractivePipeWindow):
                     with gr.Row():
                         self.audio.render()
 
-                if self.sliders_layout is None:
-                    self.sliders_layout = "collapsible"
-                if self.sliders_per_row_layout is None:
-                    self.sliders_per_row_layout = 1
-                if self.sliders_layout not in [
-                    "compact",
-                    "vertical",
-                    "collapsible",
-                    "smart",
-                ]:
-                    raise ValueError(
-                        f"sliders_layout must be one of "
-                        f"['compact', 'vertical', 'collapsible', 'smart'], "
-                        f"got {self.sliders_layout}"
-                    )
-                ctrl_dict_by_type = {"all": list(range(len(self.ctrl)))}
-                categories = ["all"]
-                if self.sliders_layout == "compact":
-                    selected_mode = gr.Row()
-                elif self.sliders_layout == "vertical":
-                    # Use Column to stack elements vertically
-                    selected_mode = gr.Column()
-                elif self.sliders_layout == "collapsible":
-                    selected_mode = gr.Accordion("Parameters", open=True)
-                elif self.sliders_layout == "smart":
-                    # Group sliders by type
-                    ctrl_dict_by_type = {}
-                    for ctrl_index, ctrl_key in enumerate(self.ctrl.keys()):
-                        ctrl_type = self.ctrl[ctrl_key]._type
-                        ctrl_type = (
-                            str(ctrl_type).split("<class '")[1].replace("'>", "")
-                        )
-                        if ctrl_type == "int":
-                            ctrl_type = "float"
-                        if ctrl_type not in ctrl_dict_by_type:
-                            ctrl_dict_by_type[ctrl_type] = []
-                        ctrl_dict_by_type[ctrl_type].append(ctrl_index)
-                    categories = ["str", "bool", "float"]
-                    selected_mode = gr.Column()
+                # Check if we have panels to render
+                if hasattr(self, "root_panels") and self.root_panels:
+                    # Panel-based rendering
+                    # First render ungrouped controls
+                    if self.ungrouped_controls:
+                        with gr.Column():
+                            for ctrl in self.ungrouped_controls:
+                                widget = self._get_control_widget(ctrl)
+                                if widget is not None:
+                                    if isinstance(widget, list):
+                                        # Handle button groups
+                                        with gr.Row():
+                                            for elem in widget:
+                                                elem.render()
+                                    else:
+                                        widget.render()
+
+                    # Then render panel hierarchy
+                    for panel in self.root_panels:
+                        self._build_panel_widget(panel)
                 else:
-                    raise NotImplementedError(
-                        f"Sliders layout {self.sliders_layout} not supported"
-                    )
-                for ctrl_type in categories:
-                    ctrl_indices = ctrl_dict_by_type.get(ctrl_type, [])
-                    if len(ctrl_indices) == 0:
-                        continue
-                    if self.sliders_per_row_layout == 1:
-                        with selected_mode:
-                            for idx in range(len(self.widget_list)):
-                                if isinstance(self.widget_list[idx], list):
-                                    with gr.Row():
-                                        for elem in self.widget_list[idx]:
-                                            elem.render()
-                                else:
-                                    elem = self.widget_list[idx]
-                                    elem.render()
+                    # Fall back to original flat rendering when no panels exist
+                    if self.sliders_layout is None:
+                        self.sliders_layout = "collapsible"
+                    if self.sliders_per_row_layout is None:
+                        self.sliders_per_row_layout = 1
+                    if self.sliders_layout not in [
+                        "compact",
+                        "vertical",
+                        "collapsible",
+                        "smart",
+                    ]:
+                        raise ValueError(
+                            f"sliders_layout must be one of "
+                            f"['compact', 'vertical', 'collapsible', 'smart'], "
+                            f"got {self.sliders_layout}"
+                        )
+                    ctrl_dict_by_type = {"all": list(range(len(self.ctrl)))}
+                    categories = ["all"]
+                    if self.sliders_layout == "compact":
+                        selected_mode = gr.Row()
+                    elif self.sliders_layout == "vertical":
+                        # Use Column to stack elements vertically
+                        selected_mode = gr.Column()
+                    elif self.sliders_layout == "collapsible":
+                        selected_mode = gr.Accordion("Parameters", open=True)
+                    elif self.sliders_layout == "smart":
+                        # Group sliders by type
+                        ctrl_dict_by_type = {}
+                        for ctrl_index, ctrl_key in enumerate(self.ctrl.keys()):
+                            ctrl_type = self.ctrl[ctrl_key]._type
+                            ctrl_type = (
+                                str(ctrl_type).split("<class '")[1].replace("'>", "")
+                            )
+                            if ctrl_type == "int":
+                                ctrl_type = "float"
+                            if ctrl_type not in ctrl_dict_by_type:
+                                ctrl_dict_by_type[ctrl_type] = []
+                            ctrl_dict_by_type[ctrl_type].append(ctrl_index)
+                        categories = ["str", "bool", "float"]
+                        selected_mode = gr.Column()
                     else:
-                        with selected_mode:
-                            for split_num in range(
-                                math.ceil(
-                                    len(ctrl_indices) / self.sliders_per_row_layout
-                                )
-                            ):
-                                with gr.Row():
-                                    start = split_num * self.sliders_per_row_layout
-                                    end = min(
-                                        (split_num + 1) * self.sliders_per_row_layout,
-                                        len(ctrl_indices),
-                                    )
-                                    for idx in ctrl_indices[start:end]:
+                        raise NotImplementedError(
+                            f"Sliders layout {self.sliders_layout} not supported"
+                        )
+                    for ctrl_type in categories:
+                        ctrl_indices = ctrl_dict_by_type.get(ctrl_type, [])
+                        if len(ctrl_indices) == 0:
+                            continue
+                        if self.sliders_per_row_layout == 1:
+                            with selected_mode:
+                                for idx in range(len(self.widget_list)):
+                                    if isinstance(self.widget_list[idx], list):
+                                        with gr.Row():
+                                            for elem in self.widget_list[idx]:
+                                                elem.render()
+                                    else:
                                         elem = self.widget_list[idx]
                                         elem.render()
+                        else:
+                            with selected_mode:
+                                for split_num in range(
+                                    math.ceil(
+                                        len(ctrl_indices) / self.sliders_per_row_layout
+                                    )
+                                ):
+                                    with gr.Row():
+                                        start = split_num * self.sliders_per_row_layout
+                                        end = min(
+                                            (split_num + 1)
+                                            * self.sliders_per_row_layout,
+                                            len(ctrl_indices),
+                                        )
+                                        for idx in ctrl_indices[start:end]:
+                                            elem = self.widget_list[idx]
+                                            elem.render()
                 changing_inputs = []
                 discard_reset_button = False
                 for idx in range(len(self.widget_list)):
@@ -382,22 +406,118 @@ class MainWindow(InteractivePipeWindow):
         self.widget_list = []
         self.ctrl_keys_with_widgets = []  # Track which controls have widgets
         control_factory = ControlFactory()
+
+        # Collect all panels and build hierarchy
+        root_panels = set()  # Use set to avoid duplicates
+        ungrouped_controls = []
+
+        for ctrl in controls:
+            if isinstance(ctrl, Control):
+                self.ctrl[ctrl.name] = ctrl
+                if ctrl.panel is None:
+                    ungrouped_controls.append(ctrl)
+                else:
+                    # Find the root panel by traversing up the parent chain
+                    root_panel = ctrl.panel.get_root()
+                    root_panels.add(root_panel)
+
+        # Store panel hierarchy for later rendering
+        self.root_panels = list(root_panels)
+        self.ungrouped_controls = ungrouped_controls
+
+        # Create widgets for all controls (maintain flat list for event binding)
         for ctrl in controls:
             if isinstance(ctrl, Control):
                 slider_instance = control_factory.create_control(ctrl, None)
                 # Skip controls that return None (e.g., single-value controls)
                 if slider_instance is None:
-                    slider_name = ctrl.name
-                    self.ctrl[slider_name] = ctrl
                     continue
                 control_widget = slider_instance.create()
                 self.widget_list.append(control_widget)
-                slider_name = ctrl.name
-                self.ctrl[slider_name] = ctrl
-                self.ctrl_keys_with_widgets.append(slider_name)
+                self.ctrl_keys_with_widgets.append(ctrl.name)
             else:
-                slider_name = ctrl.name
-                self.ctrl[slider_name] = ctrl
+                self.ctrl[ctrl.name] = ctrl
+
+    def _get_control_widget(self, ctrl: Control):
+        """Get the widget for a given control from widget_list."""
+        if ctrl.name not in self.ctrl_keys_with_widgets:
+            return None
+        idx = self.ctrl_keys_with_widgets.index(ctrl.name)
+        return self.widget_list[idx]
+
+    def _build_panel_widget(self, panel: Panel):
+        """Recursively build Gradio components for a Panel hierarchy.
+
+        Args:
+            panel: The Panel to build
+
+        Returns:
+            None (renders widgets in place using Gradio context managers)
+        """
+        # Determine if we need a container based on collapsible state
+        if panel.collapsible:
+            # Use Accordion for collapsible panels
+            container = gr.Accordion(
+                label=panel.name or "Group", open=not panel.collapsed
+            )
+        elif panel.name:
+            # Use Column with a visible label/title for non-collapsible named panels
+            # We'll use a Column and add the panel name as markdown
+            container = gr.Column()
+        else:
+            # No name and not collapsible - just use a Column
+            container = gr.Column()
+
+        with container:
+            # Add panel title for non-collapsible named panels (not using Accordion)
+            if not panel.collapsible and panel.name:
+                gr.Markdown(f"**{panel.name}**")
+
+            # Determine layout based on elements structure
+            if panel.elements and isinstance(panel.elements[0], list):
+                # Grid layout: list of lists
+                for row in panel.elements:
+                    with gr.Row():
+                        for element in row:
+                            if isinstance(element, Panel):
+                                self._build_panel_widget(element)
+                            elif isinstance(element, Control):
+                                widget = self._get_control_widget(element)
+                                if widget is not None:
+                                    if isinstance(widget, list):
+                                        # Handle button groups
+                                        with gr.Row():
+                                            for elem in widget:
+                                                elem.render()
+                                    else:
+                                        widget.render()
+            elif panel.elements:
+                # Vertical layout: flat list
+                for element in panel.elements:
+                    if isinstance(element, Panel):
+                        self._build_panel_widget(element)
+                    elif isinstance(element, Control):
+                        widget = self._get_control_widget(element)
+                        if widget is not None:
+                            if isinstance(widget, list):
+                                # Handle button groups
+                                with gr.Row():
+                                    for elem in widget:
+                                        elem.render()
+                            else:
+                                widget.render()
+
+            # Add controls assigned directly to this panel
+            for ctrl in panel._controls:
+                widget = self._get_control_widget(ctrl)
+                if widget is not None:
+                    if isinstance(widget, list):
+                        # Handle button groups
+                        with gr.Row():
+                            for elem in widget:
+                                elem.render()
+                    else:
+                        widget.render()
 
     @staticmethod
     def convert_image(out_im):
