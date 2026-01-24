@@ -1,19 +1,14 @@
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.textual_window import TextualWindow
-from interactive_pipe.headless.keyboard import KeyboardControl
-from typing import Optional, Union, Tuple
 import logging
 import sys
 import os
-import contextlib
-from io import StringIO
 
 try:
     from textual.app import App, ComposeResult
     from textual.widgets import Static, Header, Footer, Switch, Select, Input
-    from textual.containers import Container, Horizontal, Vertical, Grid
+    from textual.containers import Container, Vertical, Grid
     from textual.binding import Binding
-    from textual.message import Message
 
     TEXTUAL_AVAILABLE = True
 except ImportError:
@@ -100,6 +95,34 @@ class InteractivePipeTextualApp(App):
                 label.styles.width = 20
                 controls_container.mount(label)
                 controls_container.mount(widget)
+
+            # Show image rendering method status
+            try:
+                import textual_image.renderable  # noqa: F401
+
+                TEXTUAL_IMAGE_AVAILABLE = True
+            except ImportError:
+                TEXTUAL_IMAGE_AVAILABLE = False
+
+            status_msg = "Image rendering: "
+            if TEXTUAL_IMAGE_AVAILABLE:
+                status_msg += (
+                    "textual-image available (will try graphics protocol first)"
+                )
+            else:
+                status_msg += "textual-image not installed, using Unicode art"
+            status_widget = Static(status_msg, id="image_status")
+            status_widget.styles.color = "dim"
+            controls_container.mount(status_widget)
+
+            # Also show log file location
+            import os
+
+            log_file = os.path.expanduser("~/.interactive_pipe_textual.log")
+            log_msg = f"Debug logs: {log_file}"
+            log_widget = Static(log_msg, id="log_status")
+            log_widget.styles.color = "dim"
+            controls_container.mount(log_widget)
 
             # Initial refresh - wrap in try/except to prevent app crash
             try:

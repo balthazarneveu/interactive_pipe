@@ -1,7 +1,5 @@
 import numpy as np
 import logging
-import sys
-import os
 from typing import Optional, Union, Tuple, List
 from interactive_pipe.graphical.window import InteractivePipeWindow
 from interactive_pipe.headless.control import Control
@@ -10,9 +8,7 @@ from interactive_pipe.graphical.textual_control import ControlFactory
 from interactive_pipe.data_objects.curves import Curve
 
 try:
-    from textual.app import App, ComposeResult
-    from textual.widgets import Static, Header, Footer
-    from textual.containers import Container, Horizontal, Vertical, Grid
+    from textual.widgets import Static
 
     TEXTUAL_AVAILABLE = True
 except ImportError:
@@ -26,6 +22,15 @@ try:
 except ImportError:
     PIL_AVAILABLE = False
     PILImage = None
+
+# Try to import textual-image for better image display
+try:
+    from textual_image.renderable import Image as TextualImageRenderable
+
+    TEXTUAL_IMAGE_AVAILABLE = True
+except ImportError:
+    TEXTUAL_IMAGE_AVAILABLE = False
+    TextualImageRenderable = None
 
 
 class TextualWindow(InteractivePipeWindow):
@@ -103,90 +108,332 @@ class TextualWindow(InteractivePipeWindow):
                 pil_img = self._numpy_to_pil(img)
                 if pil_img:
                     try:
-                        # Create a visual text representation of the image with colors
+                        # Try to use textual-image for better image display
                         title = current_style.get("title", f"Image {row}x{col}")
+                        use_textual_image = False
+                        image_method = "unknown"
 
-                        # Create ASCII/Unicode art representation with colors
-                        # Resize image to a smaller size for display
-                        display_width = 40
-                        display_height = 20
+                        if TEXTUAL_IMAGE_AVAILABLE and TextualImageRenderable:
+                            try:
+                                # Use textual-image renderable - it can accept PIL Image directly!
+                                # Let textual-image auto-size or use minimal constraints to maintain aspect ratio
+                                # Get original image dimensions (PIL returns width, height)
+                                img_width, img_height = pil_img.size
+                                img_aspect = (
+                                    img_width / img_height
+                                )  # width/height ratio
 
-                        try:
-                            # Resize PIL image for display
-                            small_img = pil_img.resize(
-                                (display_width, display_height),
-                                PILImage.Resampling.LANCZOS,
-                            )
-                            # Ensure RGB mode for color
-                            if small_img.mode != "RGB":
-                                small_img = small_img.convert("RGB")
-
-                            # Create colored text representation using Rich Text
-                            from rich.text import Text
-
-                            pixels = small_img.load()
-                            colored_lines = []
-                            for y in range(display_height):
-                                line_text = Text()
-                                for x in range(display_width):
-                                    # Get pixel RGB values
-                                    r, g, b = pixels[x, y]
-                                    # Calculate brightness for character selection
-                                    brightness = (r + g + b) / 3
-
-                                    # Map to Unicode block characters based on brightness
-                                    if brightness < 32:
-                                        char = " "
-                                    elif brightness < 64:
-                                        char = "░"
-                                    elif brightness < 96:
-                                        char = "▒"
-                                    elif brightness < 128:
-                                        char = "▓"
-                                    elif brightness < 192:
-                                        char = "█"
-                                    else:
-                                        char = "█"
-
-                                    # Add character with RGB color
-                                    # Rich uses format: rgb(r,g,b) or #rrggbb
-                                    hex_color = f"#{r:02x}{g:02x}{b:02x}"
-                                    line_text.append(char, style=hex_color)
-                                colored_lines.append(line_text)
-
-                            # Create a single Rich Text object with all lines
-                            # Static widget can display Rich renderables
-                            from rich.console import RenderableType
-
-                            # Combine title and colored image
-                            full_text = Text(f"{title}\n", style="bold")
-                            for line in colored_lines:
-                                full_text.append_text(line)
-                                full_text.append("\n")
-                            full_text.append(f"Shape: {img.shape}", style="dim")
-
-                            text_repr = full_text
-
-                        except Exception as e:
-                            logging.debug(
-                                f"Could not create colored visual representation: {e}"
-                            )
-                            # Fallback to simple text
-                            text_repr = f"{title}\nShape: {img.shape}\nRange: [{img.min():.3f}, {img.max():.3f}]"
-
-                        if img_dict.get("widget") is None:
-                            text_widget = Static(text_repr, id=f"image_{row}_{col}")
-                            img_dict["widget"] = text_widget
-                            img_dict["data"] = pil_img
-                            # Add to layout if we have a reference to the grid
-                            if hasattr(self, "image_grid") and self.image_grid:
                                 try:
-                                    self.image_grid.mount(text_widget, row=row, col=col)
+                                    import shutil
+
+                                    term_cols, term_rows = shutil.get_terminal_size()
+                                    # Use terminal's actual dimensions, respecting its aspect ratio
+                                    # Leave some margin for controls
+                                    margin_cols = 10
+                                    margin_rows = 15
+                                    avail_width = term_cols - margin_cols
+                                    avail_height = term_rows - margin_rows
+
+                                    # Apply reasonable maximums, but maintain terminal's aspect ratio
+                                    # Don't force a 2:1 ratio - use the terminal's natural ratio
+                                    max_term_width = 300
+                                    max_term_height = 150
+
+                                    # Scale down if terminal is larger than max, but maintain ratio
+                                    if avail_width > max_term_width:
+                                        scale_term = max_term_width / avail_width
+                                        avail_width = max_term_width
+                                        avail_height = int(avail_height * scale_term)
+                                    if avail_height > max_term_height:
+                                        scale_term = max_term_height / avail_height
+                                        avail_height = max_term_height
+                                        avail_width = int(avail_width * scale_term)
+
+                                    # Scale to fit while maintaining aspect ratio
+                                    # Calculate scale factors for both dimensions
+                                    scale_w = avail_width / img_width
+                                    scale_h = avail_height / img_height
+                                    # Use the smaller scale to ensure image fits in both dimensions
+                                    scale = min(scale_w, scale_h)
+
+                                    # Calculate final dimensions maintaining aspect ratio
+                                    calc_width = int(img_width * scale)
+                                    calc_height = int(img_height * scale)
+
+                                    # Apply minimum size, but recalculate to maintain aspect ratio
+                                    min_width = 120
+                                    min_height = 60
+
+                                    # If calculated size is below minimum, scale up proportionally
+                                    if (
+                                        calc_width < min_width
+                                        or calc_height < min_height
+                                    ):
+                                        # Calculate scale needed to reach minimum
+                                        scale_w_min = min_width / img_width
+                                        scale_h_min = min_height / img_height
+                                        # Use larger scale to ensure both dimensions meet minimum
+                                        scale_min = max(scale_w_min, scale_h_min)
+                                        # But don't exceed available space
+                                        scale = min(scale, scale_min)
+                                        # Recalculate with new scale
+                                        calc_width = int(img_width * scale)
+                                        calc_height = int(img_height * scale)
+
+                                    max_width = calc_width
+                                    max_height = calc_height
                                 except Exception:
-                                    self.image_grid.mount(text_widget)
-                        else:
-                            img_dict["widget"].update(text_repr)
-                            img_dict["data"] = pil_img
+                                    # Fallback - use high quality defaults with correct aspect ratio
+                                    max_size = 200
+                                    # Maintain aspect ratio: if width is larger dimension, use it as base
+                                    if img_width >= img_height:
+                                        max_width = max_size
+                                        max_height = int(max_size / img_aspect)
+                                    else:
+                                        max_height = max_size
+                                        max_width = int(max_size * img_aspect)
+
+                                # Create the renderable with both width and height to maintain aspect ratio
+                                # Specify both dimensions to ensure correct aspect ratio
+                                image_renderable = TextualImageRenderable(
+                                    pil_img, width=max_width, height=max_height
+                                )
+
+                                # Create a Static widget to display the renderable
+                                # Static widgets can display Rich renderables
+                                from textual.widgets import Static
+
+                                if img_dict.get("widget") is None:
+                                    # Create Static widget with the image renderable and title
+                                    # Combine title and image in a single Static widget
+                                    if title:
+                                        # Use Rich Text to combine title and image
+                                        # The image renderable will be rendered by Rich
+                                        # We'll use a Static widget that can display Rich renderables
+                                        # For now, just use the image renderable directly
+                                        image_widget = Static(
+                                            image_renderable, id=f"image_{row}_{col}"
+                                        )
+                                    else:
+                                        image_widget = Static(
+                                            image_renderable, id=f"image_{row}_{col}"
+                                        )
+
+                                    img_dict["widget"] = image_widget
+                                    img_dict["data"] = pil_img
+
+                                    # Mount widget to grid
+                                    if hasattr(self, "image_grid") and self.image_grid:
+                                        try:
+                                            self.image_grid.mount(
+                                                image_widget, row=row, col=col
+                                            )
+                                        except Exception:
+                                            self.image_grid.mount(image_widget)
+                                else:
+                                    # Update existing widget - replace the image renderable
+                                    existing_widget = img_dict.get("widget")
+                                    if existing_widget and isinstance(
+                                        existing_widget, Static
+                                    ):
+                                        # Calculate size again (in case terminal size changed)
+                                        # Use same logic as above for consistency
+                                        img_width, img_height = pil_img.size
+                                        img_aspect = img_width / img_height
+
+                                        try:
+                                            import shutil
+
+                                            term_cols, term_rows = (
+                                                shutil.get_terminal_size()
+                                            )
+                                            # Use terminal's actual dimensions, respecting its aspect ratio
+                                            # Leave some margin for controls
+                                            margin_cols = 10
+                                            margin_rows = 15
+                                            avail_width = term_cols - margin_cols
+                                            avail_height = term_rows - margin_rows
+
+                                            # Apply reasonable maximums, but maintain terminal's aspect ratio
+                                            # Don't force a 2:1 ratio - use the terminal's natural ratio
+                                            max_term_width = 300
+                                            max_term_height = 150
+
+                                            # Scale down if terminal is larger than max, but maintain ratio
+                                            if avail_width > max_term_width:
+                                                scale_term = (
+                                                    max_term_width / avail_width
+                                                )
+                                                avail_width = max_term_width
+                                                avail_height = int(
+                                                    avail_height * scale_term
+                                                )
+                                            if avail_height > max_term_height:
+                                                scale_term = (
+                                                    max_term_height / avail_height
+                                                )
+                                                avail_height = max_term_height
+                                                avail_width = int(
+                                                    avail_width * scale_term
+                                                )
+
+                                            # Scale to fit while maintaining aspect ratio
+                                            scale_w = avail_width / img_width
+                                            scale_h = avail_height / img_height
+                                            scale = min(scale_w, scale_h)
+
+                                            calc_width = int(img_width * scale)
+                                            calc_height = int(img_height * scale)
+
+                                            # Apply minimum size, but recalculate to maintain aspect ratio
+                                            min_width = 120
+                                            min_height = 60
+
+                                            # If calculated size is below minimum, scale up proportionally
+                                            if (
+                                                calc_width < min_width
+                                                or calc_height < min_height
+                                            ):
+                                                # Calculate scale needed to reach minimum
+                                                scale_w_min = min_width / img_width
+                                                scale_h_min = min_height / img_height
+                                                # Use larger scale to ensure both dimensions meet minimum
+                                                scale_min = max(
+                                                    scale_w_min, scale_h_min
+                                                )
+                                                # But don't exceed available space
+                                                scale = min(scale, scale_min)
+                                                # Recalculate with new scale
+                                                calc_width = int(img_width * scale)
+                                                calc_height = int(img_height * scale)
+
+                                            max_width = calc_width
+                                            max_height = calc_height
+                                        except Exception:
+                                            max_size = 200
+                                            # Maintain aspect ratio: if width is larger dimension, use it as base
+                                            if img_width >= img_height:
+                                                max_width = max_size
+                                                max_height = int(max_size / img_aspect)
+                                            else:
+                                                max_height = max_size
+                                                max_width = int(max_size * img_aspect)
+
+                                        # Create new renderable with both dimensions to maintain aspect ratio
+                                        new_renderable = TextualImageRenderable(
+                                            pil_img, width=max_width, height=max_height
+                                        )
+                                        existing_widget.update(new_renderable)
+                                    img_dict["data"] = pil_img
+
+                                use_textual_image = True
+                                image_method = "textual-image (graphics protocol)"
+
+                            except Exception as e:
+                                logging.debug(f"Could not use textual-image: {e}")
+                                image_method = (
+                                    f"textual-image failed: {e}, using Unicode art"
+                                )
+                                # Fall back to Unicode art
+
+                        if not use_textual_image:
+                            if image_method == "unknown":
+                                image_method = (
+                                    "Unicode art (textual-image not available)"
+                                )
+                            # Fallback: Create high-resolution colored Unicode art representation
+                            # Use higher resolution for better quality
+                            display_width = 80  # Increased from 40
+                            display_height = 40  # Increased from 20
+
+                            try:
+                                # Resize PIL image for display
+                                small_img = pil_img.resize(
+                                    (display_width, display_height),
+                                    PILImage.Resampling.LANCZOS,
+                                )
+                                # Ensure RGB mode for color
+                                if small_img.mode != "RGB":
+                                    small_img = small_img.convert("RGB")
+
+                                # Create colored text representation using Rich Text
+                                from rich.text import Text
+
+                                pixels = small_img.load()
+                                colored_lines = []
+                                for y in range(display_height):
+                                    line_text = Text()
+                                    for x in range(display_width):
+                                        # Get pixel RGB values
+                                        r, g, b = pixels[x, y]
+                                        # Calculate brightness for character selection
+                                        brightness = (r + g + b) / 3
+
+                                        # Use better character set for smoother gradients
+                                        # Using half-block characters for better detail
+                                        if brightness < 16:
+                                            char = " "
+                                        elif brightness < 32:
+                                            char = "░"
+                                        elif brightness < 48:
+                                            char = "▒"
+                                        elif brightness < 64:
+                                            char = "▓"
+                                        elif brightness < 80:
+                                            char = "█"
+                                        elif brightness < 112:
+                                            char = "█"
+                                        elif brightness < 144:
+                                            char = "█"
+                                        elif brightness < 176:
+                                            char = "█"
+                                        elif brightness < 208:
+                                            char = "█"
+                                        else:
+                                            char = "█"
+
+                                        # Add character with RGB color using foreground color
+                                        # Rich uses format: rgb(r,g,b) or #rrggbb
+                                        hex_color = f"#{r:02x}{g:02x}{b:02x}"
+                                        line_text.append(char, style=hex_color)
+                                    colored_lines.append(line_text)
+
+                                # Create a single Rich Text object with all lines
+                                # Combine title and colored image
+                                full_text = Text(f"{title}\n", style="bold")
+                                # Add method indicator (subtle)
+                                full_text.append(
+                                    f"[{image_method}]\n", style="dim italic"
+                                )
+                                for line in colored_lines:
+                                    full_text.append_text(line)
+                                    full_text.append("\n")
+                                full_text.append(f"Shape: {img.shape}", style="dim")
+
+                                text_repr = full_text
+
+                            except Exception as e:
+                                logging.debug(
+                                    f"Could not create colored visual representation: {e}"
+                                )
+                                # Fallback to simple text
+                                text_repr = f"{title}\nShape: {img.shape}\nRange: [{img.min():.3f}, {img.max():.3f}]"
+
+                            if img_dict.get("widget") is None:
+                                text_widget = Static(text_repr, id=f"image_{row}_{col}")
+                                img_dict["widget"] = text_widget
+                                img_dict["data"] = pil_img
+                                # Add to layout if we have a reference to the grid
+                                if hasattr(self, "image_grid") and self.image_grid:
+                                    try:
+                                        self.image_grid.mount(
+                                            text_widget, row=row, col=col
+                                        )
+                                    except Exception:
+                                        self.image_grid.mount(text_widget)
+                            else:
+                                img_dict["widget"].update(text_repr)
+                                img_dict["data"] = pil_img
                     except Exception as e:
                         logging.warning(f"Could not display image: {e}")
                         # Fallback to text representation

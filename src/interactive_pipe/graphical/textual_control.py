@@ -1,9 +1,6 @@
 from interactive_pipe.headless.control import Control
-from textual.widgets import Switch, Select, Input, Static, ProgressBar
-from textual.containers import Horizontal, Vertical
-from textual.message import Message
+from textual.widgets import Switch, Select, Input
 import logging
-from functools import partial
 
 
 class BaseControl:
