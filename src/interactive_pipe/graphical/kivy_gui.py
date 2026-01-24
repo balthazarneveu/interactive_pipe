@@ -30,6 +30,7 @@ try:
     from kivy.uix.image import Image as KivyImage
     from kivy.uix.label import Label
     from kivy.uix.scrollview import ScrollView
+    from kivy.uix.button import Button
     from kivy.core.window import Window
     from kivy.graphics.texture import Texture
     from kivy.clock import Clock
@@ -84,6 +85,7 @@ class InteractivePipeKivy(InteractivePipeGUI):
         )
         self.pipeline.global_params["__pipeline"] = self.pipeline
         self.set_default_key_bindings()
+        self._current_popup = None  # Track current popup to prevent stacking
 
         if self.audio:
             self.audio_player()
@@ -123,18 +125,18 @@ class InteractivePipeKivy(InteractivePipeGUI):
     def reset_parameters(self):
         """reset sliders to default parameters"""
         super().reset_parameters()
-        if hasattr(self.app, "root") and hasattr(self.app.root, "window"):
-            for widget_idx, ctrl in self.app.root.window.ctrl.items():
+        if hasattr(self.app, "window"):
+            for widget_idx, ctrl in self.app.window.ctrl.items():
                 if isinstance(ctrl, TimeControl):
                     self.start_time = None
                 ctrl.value = ctrl.value_default
-            self.app.root.window.reset_sliders()
+            self.app.window.reset_sliders()
 
     def load_parameters(self):
         """import parameters dictionary from a yaml/json file on disk"""
         super().load_parameters()
-        if hasattr(self.app, "root") and hasattr(self.app.root, "window"):
-            for widget_idx, widget in self.app.root.window.ctrl.items():
+        if hasattr(self.app, "window"):
+            for widget_idx, widget in self.app.window.ctrl.items():
                 matched = False
                 for filtname, params in self.pipeline.parameters.items():
                     for param_name in params.keys():
@@ -143,22 +145,54 @@ class InteractivePipeKivy(InteractivePipeGUI):
                                 f"MATCH & update {filtname} {widget_idx} with"
                                 + f"{self.pipeline.parameters[filtname][param_name]}"
                             )
-                            self.app.root.window.ctrl[widget_idx].update(
+                            self.app.window.ctrl[widget_idx].update(
                                 self.pipeline.parameters[filtname][param_name]
                             )
                             matched = True
                 assert (
                     matched
                 ), f"could not match widget {widget_idx} with parameter to connect {widget.parameter_name_to_connect}"
-            self.app.root.window.reset_sliders()
+            self.app.window.reset_sliders()
 
     def print_message(self, message_list: List[str]):
         print("\n".join(message_list))
         if hasattr(self, "app") and hasattr(self.app, "window"):
+            # Close existing popup if one is open to prevent stacking
+            if self._current_popup is not None:
+                self._current_popup.dismiss()
+                self._current_popup = None
+
+            # Create content layout with message and OK button
+            content_layout = BoxLayout(orientation="vertical", spacing=10, padding=10)
+            message_label = Label(
+                text="\n".join(message_list),
+                color=(0, 0, 0, 1),
+                text_size=(None, None),
+                halign="left",
+                valign="top",
+            )
+            message_label.bind(size=message_label.setter("text_size"))
+            content_layout.add_widget(message_label)
+
+            # Create OK button
+            ok_button = Button(text="OK", size_hint_y=None, height=40)
+            content_layout.add_widget(ok_button)
+
+            # Create popup
             popup = Popup(
                 title=self.name,
-                content=Label(text="\n".join(message_list), color=(0, 0, 0, 1)),
+                content=content_layout,
                 size_hint=(0.8, 0.8),
+                auto_dismiss=False,  # Prevent closing by clicking outside
+            )
+
+            # Bind OK button to close popup
+            ok_button.bind(on_press=popup.dismiss)
+
+            # Store reference and open popup
+            self._current_popup = popup
+            popup.bind(
+                on_dismiss=lambda instance: setattr(self, "_current_popup", None)
             )
             popup.open()
 
