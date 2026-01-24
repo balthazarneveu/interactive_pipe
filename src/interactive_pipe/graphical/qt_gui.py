@@ -25,6 +25,9 @@ if not PYQTVERSION:
             QVBoxLayout,
             QHBoxLayout,
             QMessageBox,
+            QScrollArea,
+            QGroupBox,
+            QSizePolicy,
         )
         from PyQt6.QtCore import QUrl, Qt, QTimer
         from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
@@ -44,6 +47,9 @@ if not PYQTVERSION:
                 QVBoxLayout,
                 QHBoxLayout,
                 QMessageBox,
+                QScrollArea,
+                QGroupBox,
+                QSizePolicy,
             )
             from PyQt5.QtCore import QUrl, Qt, QTimer
             from PyQt5.QtGui import QPixmap, QImage
@@ -66,6 +72,9 @@ if not PYQTVERSION:
             QVBoxLayout,
             QHBoxLayout,
             QMessageBox,
+            QScrollArea,
+            QGroupBox,
+            QSizePolicy,
         )
         from PySide6.QtCore import QUrl, Qt, QTimer  # noqa: F811
         from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer  # noqa: F811
@@ -94,12 +103,15 @@ class InteractivePipeQT(InteractivePipeGUI):
         else:
             self.app = QApplication.instance()
 
+        # Extract sliders_layout from kwargs if present, default to "scrollable"
+        sliders_layout = kwargs.pop("sliders_layout", "scrollable")
         self.window = MainWindow(
             controls=self.controls,
             name=self.name,
             pipeline=self.pipeline,
             size=self.size,
             main_gui=self,
+            sliders_layout=sliders_layout,
             **kwargs,
         )
         self.pipeline.global_params["__pipeline"] = self.pipeline
@@ -284,6 +296,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
         center=True,
         style=None,
         main_gui=None,
+        sliders_layout="scrollable",
         **kwargs,
     ):
         if controls is None:
@@ -293,6 +306,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
         self.main_gui = main_gui
         self.pipeline.global_params["__window"] = self
         self.setWindowTitle(self.name)
+        self.sliders_layout = sliders_layout
 
         self.layout_obj = QFormLayout()
         self.setLayout(self.layout_obj)
@@ -316,6 +330,49 @@ class MainWindow(QWidget, InteractivePipeWindow):
         else:
             self.image_grid_layout = QGridLayout(self)
             self.layout_obj.addRow(self.image_grid_layout)
+
+        # Create container for sliders based on layout mode
+        self.controls_container = QWidget()
+        if self.sliders_layout == "collapsible":
+            # For collapsible layout, use vertical layout to hold groups
+            self.controls_layout = QVBoxLayout()
+        else:
+            # For scrollable/default layout, use form layout
+            self.controls_layout = QFormLayout()
+        self.controls_container.setLayout(self.controls_layout)
+
+        # Create scroll area for controls
+        self.controls_scroll = QScrollArea()
+        self.controls_scroll.setWidget(self.controls_container)
+        self.controls_scroll.setWidgetResizable(True)
+        self.controls_scroll.setMinimumHeight(200)  # Minimum height for controls area
+        # Remove maximum height constraint to allow expansion when maximized
+        # Set size policy to Expanding so it uses available vertical space
+        # Handle PyQt5 vs PyQt6 enum differences
+        if PYQTVERSION == 6:
+            size_policy = QSizePolicy(
+                QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding
+            )
+        else:
+            # PyQt5 uses different enum access
+            size_policy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        self.controls_scroll.setSizePolicy(size_policy)
+        # Ensure the container can expand horizontally to fill the scroll area width
+        if PYQTVERSION == 6:
+            container_size_policy = QSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+            )
+        else:
+            container_size_policy = QSizePolicy(
+                QSizePolicy.Expanding, QSizePolicy.Preferred
+            )
+        self.controls_container.setSizePolicy(container_size_policy)
+
+        # Add scroll area to main layout
+        self.layout_obj.addRow(self.controls_scroll)
+
+        # Store group boxes for collapsible layout
+        self.control_groups = {}
 
         self.init_sliders(controls)
         # if self.pipeline._PipelineCore__initialized_inputs:
@@ -390,92 +447,127 @@ class MainWindow(QWidget, InteractivePipeWindow):
         vertical_spacing = (
             1  # Decrease this value to reduce vertical space between sliders
         )
-        self.layout_obj.setSpacing(vertical_spacing)
-        for ctrl in controls:
-            slider_name = ctrl.name
-            self.ctrl[slider_name] = ctrl
-            if isinstance(ctrl, KeyboardControl):
-                self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
-            elif isinstance(ctrl, TimeControl):
-                self.timer = QTimer(self)
+        self.controls_layout.setSpacing(vertical_spacing)
 
-                def suspend_resume_timer(suspend: bool):
-
-                    if suspend:
-                        logging.debug("Suspend")
-                        self.timer.stop()
-                    else:
-                        logging.debug("Resume")
-                        self.timer.start()
-
-                self.main_gui.suspend_resume_timer = suspend_resume_timer
-                plugged_func = self.main_gui.plug_timer_control(
-                    ctrl, self.update_parameter, suspend_resume_timer
-                )
-                self.timer.timeout.connect(plugged_func)
-                self.timer.start(ctrl.update_interval_ms)
-
-            elif isinstance(ctrl, Control):
-                slider_instance = control_factory.create_control(
-                    ctrl, self.update_parameter
-                )
-                # Skip controls that return None (e.g., single-value controls)
-                if slider_instance is None:
-                    continue
-                if ctrl._type == str and ctrl.icons is not None:
-                    ctrl.filter_to_connect.cache = False
-                    ctrl.filter_to_connect.cache_mem = None
-                    # Disable cache for dropdown menu with icons!
-                    # Allows clicking on the same item multiple times
-                slider_or_layout = slider_instance.create()
-                self.widget_list[slider_name] = slider_instance
-
-                slider_layout = QHBoxLayout()
-
-                if isinstance(slider_or_layout, QWidget):
-                    label_fixed_width = 200
-                    label = QLabel("", self)
-                    label.setMinimumWidth(label_fixed_width)
-                    self.name_label[slider_name] = label
-                    slider_layout.addWidget(self.name_label[slider_name])
-                if isinstance(slider_or_layout, QWidget):
-                    # If it's a QWidget, add it directly to the layout
-                    slider_layout.addWidget(slider_or_layout)
-                elif isinstance(slider_or_layout, QHBoxLayout):
-                    slider_or_layout.setContentsMargins(0, 0, 0, 0)
-                    # If it's a QHBoxLayout, embed it in a QWidget first
-                    container_widget = QWidget()
-                    container_widget.setLayout(slider_or_layout)
-                    slider_layout.addWidget(container_widget)
+        # Group controls by filter for collapsible layout
+        if self.sliders_layout == "collapsible":
+            controls_by_filter = {}
+            for ctrl in controls:
+                if (
+                    isinstance(ctrl, Control)
+                    and hasattr(ctrl, "filter_to_connect")
+                    and ctrl.filter_to_connect is not None
+                ):
+                    filter_name = ctrl.filter_to_connect.name
                 else:
-                    print(f"Unhandled type for slider: {type(slider_or_layout)}")
-                    continue
-                if isinstance(slider_or_layout, QWidget):
-                    result_fixed_width = 100
-                    label = QLabel("", self)
-                    label.setMinimumWidth(result_fixed_width)
-                    self.result_label[slider_name] = label
-                    slider_layout.addWidget(self.result_label[slider_name])
+                    filter_name = "Other Controls"
+                if filter_name not in controls_by_filter:
+                    controls_by_filter[filter_name] = []
+                controls_by_filter[filter_name].append(ctrl)
+        else:
+            controls_by_filter = {"all": controls}
 
-                # Create a container widget for the entire row
-                row_container_widget = QWidget()
-                row_container_widget.setLayout(slider_layout)
-                # Set a fixed height for the row container
+        # Process controls, grouping by filter if collapsible
+        for filter_name, filter_controls in controls_by_filter.items():
+            # Create group box for collapsible layout
+            if self.sliders_layout == "collapsible":
+                group_box = QGroupBox(filter_name)
+                group_box.setCheckable(True)
+                group_box.setChecked(True)  # Expanded by default
+                group_layout = QFormLayout()
+                group_box.setLayout(group_layout)
+                group_layout.setSpacing(vertical_spacing)
+                self.control_groups[filter_name] = group_box
+                self.controls_layout.addWidget(group_box)
+                target_layout = group_layout
+            else:
+                target_layout = self.controls_layout
 
-                # fixed_height = None
-                # if ctrl._type is float or ctrl._type is int:
-                #     fixed_height = 32 # Adjust this value as needed
-                # elif ctrl._type is bool:
-                #     pass
-                # if fixed_height is not None:
-                #     row_container_widget.setFixedHeight(fixed_height)
-                row_container_widget.setContentsMargins(
-                    0, 0, 0, 0
-                )  # Adjust these values as needed
+            for ctrl in filter_controls:
+                slider_name = ctrl.name
+                self.ctrl[slider_name] = ctrl
+                if isinstance(ctrl, KeyboardControl):
+                    self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
+                elif isinstance(ctrl, TimeControl):
+                    self.timer = QTimer(self)
 
-                self.layout_obj.addRow(row_container_widget)
+                    def suspend_resume_timer(suspend: bool):
 
-                self.update_label(slider_name)
+                        if suspend:
+                            logging.debug("Suspend")
+                            self.timer.stop()
+                        else:
+                            logging.debug("Resume")
+                            self.timer.start()
+
+                    self.main_gui.suspend_resume_timer = suspend_resume_timer
+                    plugged_func = self.main_gui.plug_timer_control(
+                        ctrl, self.update_parameter, suspend_resume_timer
+                    )
+                    self.timer.timeout.connect(plugged_func)
+                    self.timer.start(ctrl.update_interval_ms)
+
+                elif isinstance(ctrl, Control):
+                    slider_instance = control_factory.create_control(
+                        ctrl, self.update_parameter
+                    )
+                    # Skip controls that return None (e.g., single-value controls)
+                    if slider_instance is None:
+                        continue
+                    if ctrl._type == str and ctrl.icons is not None:
+                        ctrl.filter_to_connect.cache = False
+                        ctrl.filter_to_connect.cache_mem = None
+                        # Disable cache for dropdown menu with icons!
+                        # Allows clicking on the same item multiple times
+                    slider_or_layout = slider_instance.create()
+                    self.widget_list[slider_name] = slider_instance
+
+                    slider_layout = QHBoxLayout()
+
+                    if isinstance(slider_or_layout, QWidget):
+                        label_fixed_width = 200
+                        label = QLabel("", self)
+                        label.setMinimumWidth(label_fixed_width)
+                        self.name_label[slider_name] = label
+                        slider_layout.addWidget(self.name_label[slider_name])
+                    if isinstance(slider_or_layout, QWidget):
+                        # If it's a QWidget, add it directly to the layout
+                        slider_layout.addWidget(slider_or_layout)
+                    elif isinstance(slider_or_layout, QHBoxLayout):
+                        slider_or_layout.setContentsMargins(0, 0, 0, 0)
+                        # If it's a QHBoxLayout, embed it in a QWidget first
+                        container_widget = QWidget()
+                        container_widget.setLayout(slider_or_layout)
+                        slider_layout.addWidget(container_widget)
+                    else:
+                        print(f"Unhandled type for slider: {type(slider_or_layout)}")
+                        continue
+                    if isinstance(slider_or_layout, QWidget):
+                        result_fixed_width = 100
+                        label = QLabel("", self)
+                        label.setMinimumWidth(result_fixed_width)
+                        self.result_label[slider_name] = label
+                        slider_layout.addWidget(self.result_label[slider_name])
+
+                    # Create a container widget for the entire row
+                    row_container_widget = QWidget()
+                    row_container_widget.setLayout(slider_layout)
+                    # Set a fixed height for the row container
+
+                    # fixed_height = None
+                    # if ctrl._type is float or ctrl._type is int:
+                    #     fixed_height = 32 # Adjust this value as needed
+                    # elif ctrl._type is bool:
+                    #     pass
+                    # if fixed_height is not None:
+                    #     row_container_widget.setFixedHeight(fixed_height)
+                    row_container_widget.setContentsMargins(
+                        0, 0, 0, 0
+                    )  # Adjust these values as needed
+
+                    target_layout.addRow(row_container_widget)
+
+                    self.update_label(slider_name)
 
     def update_label(self, idx):
         # pass
@@ -590,10 +682,22 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 raise NotImplementedError(
                     f"{image_array_original.shape}4 dimensions image or more like burst are not supported"
                 )
+            # Ensure image is uint8 and contiguous for QImage
+            # Note: convert_image may have already converted to uint8, but we ensure it here too
+            if image_array.dtype != np.uint8:
+                # Convert from float [0,1] to uint8 [0,255]
+                image_array = (image_array.clip(0.0, 1.0) * 255).astype(np.uint8)
+            else:
+                # If already uint8, ensure values are in valid range [0, 255]
+                image_array = image_array.clip(0, 255).astype(np.uint8)
+            # Ensure array is contiguous in memory
+            if not image_array.flags["C_CONTIGUOUS"]:
+                image_array = np.ascontiguousarray(image_array)
             h, w, c = image_array.shape
             bytes_per_line = c * w
+            # Create QImage from numpy array - use bytes() to ensure proper format
             image = QImage(
-                image_array.data, w, h, bytes_per_line, QImage.Format.Format_RGB888
+                image_array.tobytes(), w, h, bytes_per_line, QImage.Format.Format_RGB888
             )
             pixmap = QPixmap.fromImage(image)
             image_label = self.image_canvas[row][col]["image"]
