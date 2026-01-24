@@ -185,20 +185,36 @@ class MainWindow(InteractivePipeWindow):
 
         def process_inputs_fn(*args) -> list:
             # Only process controls that have widgets (args only contains values for widgets)
-            from interactive_pipe.headless.control import RangeSliderControlWrapper
-            
             for idx in range(len(args)):
                 if idx < len(self.ctrl_keys_with_widgets):
                     ctrl_key = self.ctrl_keys_with_widgets[idx]
                     ctrl_obj = self.ctrl[ctrl_key]
-                    # RangeSliderControlWrapper.update() expects tuple/list
-                    if isinstance(ctrl_obj, RangeSliderControlWrapper):
-                        # Ensure args[idx] is a tuple/list
-                        if isinstance(args[idx], (tuple, list)):
-                            ctrl_obj.update(args[idx])
+                    # Check if this is a range slider (value is tuple/list)
+                    if isinstance(args[idx], (tuple, list)) and len(args[idx]) == 2:
+                        # Range slider update - update both controls
+                        if (
+                            hasattr(ctrl_obj, "_is_range_slider_param")
+                            and ctrl_obj._is_range_slider_param
+                        ):
+                            range_slider = ctrl_obj.parent_control
+                            left_val, right_val = args[idx][0], args[idx][1]
+                            range_slider.set_values(left_val, right_val)
+                            # Update both controls in the group
+                            if hasattr(ctrl_obj, "_range_slider_group"):
+                                for (
+                                    param_name,
+                                    param_control,
+                                ) in ctrl_obj._range_slider_group:
+                                    if param_name == ctrl_obj._range_slider_group[0][0]:
+                                        param_control.value = left_val
+                                        if param_control.update_param_func:
+                                            param_control.update_param_func(left_val)
+                                    else:
+                                        param_control.value = right_val
+                                        if param_control.update_param_func:
+                                            param_control.update_param_func(right_val)
                         else:
-                            # Fallback: treat as single value (shouldn't happen)
-                            ctrl_obj.update([args[idx], args[idx]])
+                            ctrl_obj.update(args[idx])
                     else:
                         ctrl_obj.update(args[idx])
             out = self.pipeline.run()
@@ -215,14 +231,16 @@ class MainWindow(InteractivePipeWindow):
                     return out_tuple, html_audio
             return out_tuple
 
-        from interactive_pipe.headless.control import RangeSliderControlWrapper
-        
         self.default_values = []
         for ctrl_key in self.ctrl_keys_with_widgets:
             ctrl_obj = self.ctrl[ctrl_key]
-            if isinstance(ctrl_obj, RangeSliderControlWrapper):
+            if (
+                hasattr(ctrl_obj, "_is_range_slider_param")
+                and ctrl_obj._is_range_slider_param
+            ):
                 # Return tuple for range slider
-                self.default_values.append(list(ctrl_obj.range_slider.default))
+                range_slider = ctrl_obj.parent_control
+                self.default_values.append(list(range_slider.default))
             else:
                 self.default_values.append(ctrl_obj.value)
         self.process_inputs_fn = process_inputs_fn
@@ -336,8 +354,7 @@ class MainWindow(InteractivePipeWindow):
                                         elem.render()
                 changing_inputs = []
                 discard_reset_button = False
-                from interactive_pipe.headless.control import RangeSliderControlWrapper
-                
+
                 for idx in range(len(self.widget_list)):
                     if isinstance(self.widget_list[idx], list):
                         changing_inputs.append(
@@ -353,13 +370,8 @@ class MainWindow(InteractivePipeWindow):
                             list(self.ctrl.keys())[idx]
                         ].filter_to_connect.cache_mem = None
                     else:
-                        ctrl_key = list(self.ctrl.keys())[idx]
-                        ctrl_obj = self.ctrl[ctrl_key]
-                        # For RangeSliderControlWrapper, ensure value_default is a tuple
-                        if isinstance(ctrl_obj, RangeSliderControlWrapper):
-                            # Temporarily override value_default to return tuple for Gradio
-                            original_value_default = ctrl_obj._value_default_tuple
-                            ctrl_obj.value_default = original_value_default
+                        # Range slider controls are handled in default_values setup above
+                        # No special handling needed here since we're using the widget directly
                         changing_inputs.append(self.widget_list[idx])
                 if not discard_reset_button:
                     with gr.Accordion("Reset to default values", open=False):

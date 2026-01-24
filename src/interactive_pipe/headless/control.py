@@ -31,6 +31,7 @@ class Control:
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
         icons: Optional[List] = None,
+        parent_control: Optional["RangeSlider"] = None,
     ) -> None:
         self.value_default = value_default
         self._type = None
@@ -130,6 +131,18 @@ class Control:
 
         self.parameter_name_to_connect = parameter_name_to_connect
         self.filter_to_connect = filter_to_connect
+        self.parent_control = parent_control
+        if parent_control is not None:
+            if not isinstance(parent_control, RangeSlider):
+                raise TypeError(
+                    f"parent_control must be a RangeSlider instance, got {type(parent_control)}"
+                )
+            # Validate that value_default and value_range match parent
+            if value_range != parent_control.value_range:
+                raise ValueError(
+                    f"Control value_range {value_range} must match parent RangeSlider "
+                    f"value_range {parent_control.value_range}"
+                )
 
     def check_value(self, value):
         if isinstance(value, int) and self._type == float:
@@ -281,38 +294,15 @@ class TimeControl(Control):
         return super().__repr__()
 
 
-class RangeSliderHandle:
-    """Proxy object representing one handle of a RangeSlider.
-    
-    This is used to bind a single parameter to one handle of a dual-handle range slider.
-    The decorator detects these handles and groups them by their parent RangeSlider.
-    """
-
-    def __init__(self, parent: "RangeSlider", side: str):
-        if side not in ("left", "right"):
-            raise ValueError(f"side must be 'left' or 'right', got {side}")
-        self.parent = parent
-        self.side = side  # 'left' or 'right'
-
-    @property
-    def value_default(self):
-        """Get the default value for this handle."""
-        idx = 0 if self.side == "left" else 1
-        return self.parent.default[idx]
-
-    def __repr__(self) -> str:
-        return f"RangeSliderHandle(parent={self.parent.name}, side={self.side})"
-
-
 class RangeSlider:
     """A dual-handle slider that controls two parameters simultaneously.
-    
+
     Usage:
-        brightness_range = RangeSlider([-1, 1], default=(-0.5, 0.5), name="Brightness")
-        
+        my_range_slider = RangeSlider([-1, 1], default=(-0.5, 0.5), name="Brightness")
+
         @interactive(
-            param_min=brightness_range.left,   # Left handle -> param_min
-            param_max=brightness_range.right   # Right handle -> param_max
+            param_min=Control(-0.5, [-1., 1.], parent_control=my_range_slider),
+            param_max=Control(0.5, [-1., 1.], parent_control=my_range_slider),
         )
         def my_filter(img, param_min=-0.5, param_max=0.5):
             # Both are regular floats, slider ensures param_min <= param_max
@@ -351,9 +341,7 @@ class RangeSlider:
             default = (value_range[0], value_range[1])
         else:
             if not isinstance(default, (list, tuple)):
-                raise TypeError(
-                    f"default must be a list or tuple, got {type(default)}"
-                )
+                raise TypeError(f"default must be a list or tuple, got {type(default)}")
             if len(default) != 2:
                 raise ValueError(
                     f"default must have exactly 2 elements (left, right), got {len(default)}"
@@ -379,9 +367,7 @@ class RangeSlider:
         self.default = tuple(default)
 
         # Determine type (int or float) based on inputs
-        all_int = all(
-            isinstance(v, int) for v in value_range + list(default)
-        )
+        all_int = all(isinstance(v, int) for v in value_range + list(default))
         self._type = int if all_int else float
 
         # Current values (updated by GUI)
@@ -410,20 +396,6 @@ class RangeSlider:
         if not isinstance(self.name, str):
             raise TypeError(f"name must be a string, got {type(self.name)}")
 
-        # Create handle proxies
-        self._left_handle = RangeSliderHandle(self, "left")
-        self._right_handle = RangeSliderHandle(self, "right")
-
-    @property
-    def left(self) -> RangeSliderHandle:
-        """Get the left handle proxy."""
-        return self._left_handle
-
-    @property
-    def right(self) -> RangeSliderHandle:
-        """Get the right handle proxy."""
-        return self._right_handle
-
     def set_values(self, left_value: Union[int, float], right_value: Union[int, float]):
         """Update both handle values (called by GUI backends)."""
         # Clamp values to range
@@ -445,106 +417,4 @@ class RangeSlider:
         return (
             f"{self.name} | RangeSlider - range {self.value_range} "
             f"default = {self.default} type: {self._type} - step={self.step}"
-        )
-
-
-class RangeSliderControlWrapper(Control):
-    """Wrapper Control that represents a RangeSlider with parameter mappings.
-    
-    This is created automatically by the decorator when RangeSliderHandle objects
-    are detected. It stores the RangeSlider and which parameters map to left/right handles.
-    """
-
-    def __init__(
-        self,
-        range_slider: RangeSlider,
-        left_param_name: str,
-        right_param_name: str,
-    ):
-        # Use the left handle's default value as the Control's default
-        # The _type will be determined from the range_slider
-        super().__init__(
-            value_default=range_slider.default[0],
-            value_range=range_slider.value_range,
-            name=range_slider.name,
-            step=range_slider.step,
-        )
-        self.range_slider = range_slider
-        self.left_param_name = left_param_name
-        self.right_param_name = right_param_name
-        # Override _type to match range_slider
-        self._type = range_slider._type
-        # Override value_default to return tuple for range slider compatibility
-        self._value_default_tuple = range_slider.default
-        # Store filter connections for both parameters
-        self._left_filter = None
-        self._left_param_to_connect = None
-        self._right_filter = None
-        self._right_param_to_connect = None
-
-    def connect_filter(self, filter: FilterCore, parameter_name):
-        """Connect to filter - this will be called for both left and right params."""
-        # Store both connections - the GUI will call this for the wrapper name
-        # but we need to track which filter/param pairs to update
-        # For now, we'll connect when the individual params are processed
-        # This method may be called multiple times, so we need to handle that
-        pass
-
-    def connect_both_parameters(self, filter: FilterCore):
-        """Connect both left and right parameters to the filter."""
-        self._left_filter = filter
-        self._left_param_to_connect = self.left_param_name
-        self._right_filter = filter
-        self._right_param_to_connect = self.right_param_name
-        # Set initial values
-        filter.values[self.left_param_name] = self.range_slider.default[0]
-        filter.values[self.right_param_name] = self.range_slider.default[1]
-
-    @property
-    def value_default(self):
-        """Return tuple for range slider compatibility with Gradio."""
-        return self._value_default_tuple
-    
-    @value_default.setter
-    def value_default(self, value):
-        """Setter for value_default - store as tuple."""
-        if isinstance(value, (tuple, list)) and len(value) == 2:
-            self._value_default_tuple = tuple(value)
-        else:
-            # Fallback to single value (for compatibility)
-            self._value_default_tuple = (value, value)
-    
-    def update(self, new_value):
-        """Update from Gradio - new_value is a tuple/list [left, right]."""
-        if isinstance(new_value, (tuple, list)) and len(new_value) == 2:
-            left_value, right_value = new_value[0], new_value[1]
-            self.update_both_values(left_value, right_value)
-        else:
-            # Fallback to single value (shouldn't happen for range slider)
-            super().update(new_value)
-
-    def update_both_values(self, left_value: Union[int, float], right_value: Union[int, float]):
-        """Update both parameter values in the connected filter."""
-        self.range_slider.set_values(left_value, right_value)
-        # Update the Control's value property to the tuple for compatibility
-        self._value = (left_value, right_value)
-        if self._left_filter is not None:
-            self._left_filter.values[self._left_param_to_connect] = left_value
-        if self._right_filter is not None:
-            self._right_filter.values[self._right_param_to_connect] = right_value
-        # Also update the individual control values so decorator can access them
-        if hasattr(self, "_left_control"):
-            self._left_control.value = left_value
-        if hasattr(self, "_right_control"):
-            self._right_control.value = right_value
-        # Also call update_param_func if set (for compatibility)
-        if self.update_param_func is not None:
-            # Call with a tuple to indicate both values changed
-            self.update_param_func((left_value, right_value))
-
-    def __repr__(self) -> str:
-        return (
-            f"{self.name} | RangeSliderControlWrapper - "
-            f"left={self.left_param_name}, right={self.right_param_name}, "
-            f"range={self.value_range}"
         )

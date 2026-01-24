@@ -311,12 +311,14 @@ def add_noise(
 
 
 # Create a range slider for brightness range
-brightness_range = RangeSlider([-1.0, 1.0], default=(-0.3, 0.3), name="Brightness Range")
+brightness_range = RangeSlider(
+    [-1.0, 1.0], default=(-0.3, 0.3), name="Brightness Range"
+)
 
 
 @interactive(
-    brightness_min=brightness_range.left,   # Left handle -> brightness_min
-    brightness_max=brightness_range.right,   # Right handle -> brightness_max
+    brightness_min=Control(-0.3, [-1.0, 1.0], parent_control=brightness_range),
+    brightness_max=Control(0.3, [-1.0, 1.0], parent_control=brightness_range),
 )
 def apply_brightness_range(
     img: np.ndarray,
@@ -329,18 +331,20 @@ def apply_brightness_range(
     # Values below brightness_min become 0, values above brightness_max become 1
     # Values in between are linearly mapped
     result = img.copy()
-    
+
     # Normalize to [0, 1] range first
     img_normalized = (result - result.min()) / (result.max() - result.min() + 1e-8)
-    
+
     # Apply brightness range mapping
     # Map [brightness_min, brightness_max] to [0, 1]
     if brightness_max > brightness_min:
-        result = (img_normalized - brightness_min) / (brightness_max - brightness_min + 1e-8)
+        result = (img_normalized - brightness_min) / (
+            brightness_max - brightness_min + 1e-8
+        )
         result = np.clip(result, 0.0, 1.0)
     else:
         result = img_normalized
-    
+
     title = f"Brightness Range: [{brightness_min:.2f}, {brightness_max:.2f}]"
     global_params["__output_styles"]["brightness_ranged"] = {"title": title}
     return result

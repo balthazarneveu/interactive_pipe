@@ -1,5 +1,11 @@
-from matplotlib.widgets import Slider, CheckButtons, RadioButtons, TextBox, RangeSlider
-from interactive_pipe.headless.control import Control, RangeSliderControlWrapper
+from matplotlib.widgets import (
+    Slider,
+    CheckButtons,
+    RadioButtons,
+    TextBox,
+    RangeSlider as MatplotlibRangeSlider,
+)
+from interactive_pipe.headless.control import Control, RangeSlider
 import logging
 
 
@@ -115,40 +121,58 @@ class RangeSliderMatplotlibControl(BaseControl):
     def __init__(
         self,
         name,
-        ctrl: RangeSliderControlWrapper,
+        range_slider: RangeSlider,
         update_func,
         ax_control=None,
         left_param_name: str = None,
         right_param_name: str = None,
     ):
-        super().__init__(name, ctrl, update_func, ax_control)
+        # Set range_slider BEFORE calling super().__init__() because check_control_type() is called there
+        self.range_slider = range_slider
         self.left_param_name = left_param_name
         self.right_param_name = right_param_name
 
+        # Create a dummy control for BaseControl compatibility
+        dummy_control = Control(
+            value_default=range_slider.default[0],
+            value_range=range_slider.value_range,
+            name=name,
+        )
+        dummy_control._type = range_slider._type
+        super().__init__(name, dummy_control, update_func, ax_control)
+        self.update_func = update_func
+
     def check_control_type(self):
-        if not isinstance(self.ctrl, RangeSliderControlWrapper):
-            raise TypeError(
-                f"Expected RangeSliderControlWrapper, got {type(self.ctrl)}"
-            )
+        if not isinstance(self.range_slider, RangeSlider):
+            raise TypeError(f"Expected RangeSlider, got {type(self.range_slider)}")
 
     def create(self):
-        range_slider = self.ctrl.range_slider
-        slider = RangeSlider(
+        slider = MatplotlibRangeSlider(
             self.ax_control,
             self.name,
-            range_slider.value_range[0],
-            range_slider.value_range[1],
-            valinit=range_slider.default,
+            self.range_slider.value_range[0],
+            self.range_slider.value_range[1],
+            valinit=self.range_slider.default,
         )
 
         def on_change(val):
             # val is a tuple (left, right) from RangeSlider
             left_val, right_val = val[0], val[1]
-            # Update both parameters via the wrapper
-            self.ctrl.update_both_values(left_val, right_val)
-            # Trigger refresh
+            # Update the range slider's internal values
+            self.range_slider.set_values(left_val, right_val)
+            # Update both controls directly if we have access to them
+            # Otherwise, update via update_func (only for the first param, which is in self.ctrl)
+            if hasattr(self, "left_control") and self.left_control:
+                self.left_control.value = left_val
+                if self.left_control.update_param_func:
+                    self.left_control.update_param_func(left_val)
+            if hasattr(self, "right_control") and self.right_control:
+                self.right_control.value = right_val
+                if self.right_control.update_param_func:
+                    self.right_control.update_param_func(right_val)
+            # Trigger refresh via update_func with the first param name (which exists in self.ctrl)
             if self.update_func:
-                self.update_func(self.name, (left_val, right_val))
+                self.update_func(self.left_param_name, (left_val, right_val))
 
         slider.on_changed(on_change)
         return slider
@@ -157,16 +181,26 @@ class RangeSliderMatplotlibControl(BaseControl):
 class ControlFactory:
     @staticmethod
     def create_control(control: Control, update_func, ax_control=None):
-        # Check for RangeSliderControlWrapper first
-        if isinstance(control, RangeSliderControlWrapper):
-            return RangeSliderMatplotlibControl(
-                control.name,
-                control,
-                update_func,
-                ax_control,
-                control.left_param_name,
-                control.right_param_name,
-            )
+        # Check if this control is part of a range slider group
+        if (
+            hasattr(control, "_is_range_slider_param")
+            and control._is_range_slider_param
+        ):
+            # Only create range slider for the first control in the group
+            if hasattr(control, "_range_slider_group"):
+                param_list = control._range_slider_group
+                # Check if this is the first one (to avoid creating duplicate widgets)
+                if control.name == param_list[0][0]:
+                    return RangeSliderMatplotlibControl(
+                        control.parent_control.name,
+                        control.parent_control,
+                        update_func,
+                        ax_control,
+                        param_list[0][0],  # left param name
+                        param_list[1][0],  # right param name
+                    )
+            # Skip the second control (already handled by first)
+            return None
 
         control_type = control._type
         name = control.name

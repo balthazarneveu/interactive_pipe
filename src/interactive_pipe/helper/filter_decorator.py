@@ -1,4 +1,4 @@
-from interactive_pipe.headless.control import Control, RangeSliderHandle, RangeSliderControlWrapper
+from interactive_pipe.headless.control import Control
 import functools
 import inspect
 from interactive_pipe.helper.keyword_args_analyzer import (
@@ -130,11 +130,7 @@ def interactive(**decorator_controls):
             bound_args.apply_defaults()
 
             for k, v in bound_args.arguments.items():
-                if isinstance(v, RangeSliderHandle):
-                    # Get the current value from the parent RangeSlider
-                    idx = 0 if v.side == "left" else 1
-                    bound_args.arguments[k] = v.parent.get_values()[idx]
-                elif isinstance(v, Control):
+                if isinstance(v, Control):
                     bound_args.arguments[k] = v.value
 
             # Call the original function with the processed arguments

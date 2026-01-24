@@ -218,6 +218,23 @@ class MainWindow(MatplotlibWindow):
                 slider_instance = control_factory.create_control(
                     ctrl, self.update_parameter, ax_control=ax_control
                 )
+                # Store control references for range sliders
+                if hasattr(slider_instance, "left_param_name"):
+                    # Get both controls from registered controls
+                    from interactive_pipe.headless.control import (
+                        Control as ControlClass,
+                    )
+
+                    filter_name = (
+                        ctrl.filter_to_connect.name if ctrl.filter_to_connect else ""
+                    )
+                    registered = ControlClass.get_controls(filter_name)
+                    slider_instance.left_control = registered.get(
+                        slider_instance.left_param_name
+                    )
+                    slider_instance.right_control = registered.get(
+                        slider_instance.right_param_name
+                    )
                 slider = slider_instance.create()
                 # needed to keep the object alive
                 self.sliders_list[slider_name] = slider
@@ -226,12 +243,9 @@ class MainWindow(MatplotlibWindow):
 
     def update_parameter(self, idx, value):
         """Required implementation for graphical controllers update"""
-        from interactive_pipe.headless.control import RangeSliderControlWrapper
-        
-        if isinstance(self.ctrl[idx], RangeSliderControlWrapper):
-            # RangeSliderControlWrapper handles updates internally via update_both_values
-            # value is a tuple (left_val, right_val) from the range slider
-            # The wrapper already updated the filter values, just refresh
+        # Check if this is a range slider update (value is a tuple)
+        if isinstance(value, (tuple, list)) and len(value) == 2:
+            # Range slider update - both values already updated by RangeSliderMatplotlibControl
             self.refresh()
         else:
             self.ctrl[idx].update(value)

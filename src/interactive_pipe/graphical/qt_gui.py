@@ -422,13 +422,32 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 # Skip controls that return None (e.g., single-value controls)
                 if slider_instance is None:
                     continue
+                # Store control references in RangeSliderControl if it's a range slider
+                if hasattr(slider_instance, "left_param_name"):
+                    # Store reference to ctrl dict for later access
+                    slider_instance._gui_ctrl_dict = self.ctrl
                 if ctrl._type == str and ctrl.icons is not None:
                     ctrl.filter_to_connect.cache = False
                     ctrl.filter_to_connect.cache_mem = None
                     # Disable cache for dropdown menu with icons!
                     # Allows clicking on the same item multiple times
                 slider_or_layout = slider_instance.create()
-                self.widget_list[slider_name] = slider_instance
+                # For range sliders, use the first param name as the key (not the range slider name)
+                if hasattr(slider_instance, "ctrl_name"):
+                    widget_key = slider_instance.ctrl_name
+                else:
+                    widget_key = slider_name
+                self.widget_list[widget_key] = slider_instance
+                # After creating the widget, store control references for range sliders
+                if hasattr(slider_instance, "left_param_name") and hasattr(
+                    slider_instance, "_gui_ctrl_dict"
+                ):
+                    slider_instance.left_control = slider_instance._gui_ctrl_dict.get(
+                        slider_instance.left_param_name
+                    )
+                    slider_instance.right_control = slider_instance._gui_ctrl_dict.get(
+                        slider_instance.right_param_name
+                    )
 
                 slider_layout = QHBoxLayout()
 
@@ -436,8 +455,8 @@ class MainWindow(QWidget, InteractivePipeWindow):
                     label_fixed_width = 200
                     label = QLabel("", self)
                     label.setMinimumWidth(label_fixed_width)
-                    self.name_label[slider_name] = label
-                    slider_layout.addWidget(self.name_label[slider_name])
+                    self.name_label[widget_key] = label
+                    slider_layout.addWidget(self.name_label[widget_key])
                 if isinstance(slider_or_layout, QWidget):
                     # If it's a QWidget, add it directly to the layout
                     slider_layout.addWidget(slider_or_layout)
@@ -454,8 +473,8 @@ class MainWindow(QWidget, InteractivePipeWindow):
                     result_fixed_width = 100
                     label = QLabel("", self)
                     label.setMinimumWidth(result_fixed_width)
-                    self.result_label[slider_name] = label
-                    slider_layout.addWidget(self.result_label[slider_name])
+                    self.result_label[widget_key] = label
+                    slider_layout.addWidget(self.result_label[widget_key])
 
                 # Create a container widget for the entire row
                 row_container_widget = QWidget()
@@ -475,59 +494,64 @@ class MainWindow(QWidget, InteractivePipeWindow):
 
                 self.layout_obj.addRow(row_container_widget)
 
-                self.update_label(slider_name)
+                self.update_label(widget_key)
 
     def update_label(self, idx):
-        from interactive_pipe.headless.control import RangeSliderControlWrapper
-        
-        # Special handling for RangeSliderControlWrapper
-        if isinstance(self.ctrl[idx], RangeSliderControlWrapper):
-            range_slider = self.ctrl[idx].range_slider
+        # Special handling for range slider controls
+        ctrl = self.ctrl[idx]
+        if hasattr(ctrl, "_is_range_slider_param") and ctrl._is_range_slider_param:
+            range_slider = ctrl.parent_control
             left_val, right_val = range_slider.get_values()
             if range_slider._type == float:
                 val_to_print = f"[{left_val:.3f}, {right_val:.3f}]"
             else:
                 val_to_print = f"[{left_val}, {right_val}]"
         else:
-            val = self.ctrl[idx].value
+            val = ctrl.value
             val_to_print = val
             if isinstance(val, float):
                 val_to_print = f"{val:.3e}"
-        
+
         if idx in self.result_label.keys():
             self.result_label[idx].setText(f"{val_to_print}")
         if idx in self.name_label.keys():
-            self.name_label[idx].setText(f"{self.ctrl[idx].name}")
+            # For range sliders, use the range slider's name, not the param name
+            if hasattr(ctrl, "_is_range_slider_param") and ctrl._is_range_slider_param:
+                display_name = ctrl.parent_control.name
+            else:
+                display_name = ctrl.name
+            self.name_label[idx].setText(f"{display_name}")
 
     def update_parameter(self, idx, value):
         """Required implementation for graphical controllers update"""
-        from interactive_pipe.headless.control import RangeSliderControlWrapper
-        
-        if isinstance(self.ctrl[idx], RangeSliderControlWrapper):
-            # RangeSliderControlWrapper handles updates internally via update_both_values
-            # value is a tuple (left_val, right_val) from the range slider
-            # The wrapper already updated the filter values, just refresh
+        # Check if this is a range slider update (value is a tuple)
+        if isinstance(value, (tuple, list)) and len(value) == 2:
+            # Range slider update - both values already updated by RangeSliderControl
+            # Just refresh the display
             self.update_label(idx)
             self.refresh()
-        elif self.ctrl[idx]._type == str:
+            return
+
+        # Regular control update
+        ctrl = self.ctrl[idx]
+        if ctrl._type == str:
             if self.ctrl[idx].value_range is None:
                 self.ctrl[idx].update(value)
             else:
                 self.ctrl[idx].update(self.ctrl[idx].value_range[value])
-        elif self.ctrl[idx]._type == bool:
-            self.ctrl[idx].update(bool(value))
-        elif self.ctrl[idx]._type == float:
-            if isinstance(self.ctrl[idx], TimeControl):
-                self.ctrl[idx].update(value)
+        elif ctrl._type == bool:
+            ctrl.update(bool(value))
+        elif ctrl._type == float:
+            if isinstance(ctrl, TimeControl):
+                ctrl.update(value)
             else:
-                self.ctrl[idx].update(self.ctrl[idx].convert_int_to_value(value))
-        elif self.ctrl[idx]._type == int:
-            self.ctrl[idx].update(value)
+                ctrl.update(ctrl.convert_int_to_value(value))
+        elif ctrl._type == int:
+            ctrl.update(value)
         else:
-            raise NotImplementedError("{self.ctrl[idx]._type} not supported")
-        if not isinstance(self.ctrl[idx], RangeSliderControlWrapper):
-            self.update_label(idx)
-            self.refresh()
+            raise NotImplementedError(f"{ctrl._type} not supported")
+        self.update_label(idx)
+        self.refresh()
 
     def key_update_parameter(self, idx, down):
         """Required implementation for keyboard sliders update"""

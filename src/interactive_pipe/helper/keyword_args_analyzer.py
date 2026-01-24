@@ -1,22 +1,16 @@
-from interactive_pipe.headless.control import (
-    Control,
-    RangeSliderHandle,
-    RangeSlider,
-    RangeSliderControlWrapper,
-)
+from interactive_pipe.headless.control import Control, RangeSlider
 from interactive_pipe.helper.control_abbreviation import control_from_tuple
-from typing import Callable, Union, Dict, Optional
+from typing import Callable, Union, Dict
 from interactive_pipe.core.graph import analyze_apply_fn_signature
 from interactive_pipe.helper import _private
 
 
 def __create_control_from_keyword_argument(
-    param_name: str, unknown_keyword_arg: Union[Control, list, tuple, RangeSliderHandle]
-) -> Union[None, Control, RangeSliderHandle]:
+    param_name: str, unknown_keyword_arg: Union[Control, list, tuple]
+) -> Union[None, Control]:
     """Create a Control from a given keyword argument named  param_name with value unknown_keyword_arg
 
     - If unknown_keyword_arg is already a Control, nothing to do.
-    - If unknown_keyword_arg is a RangeSliderHandle, return it as-is (will be processed later)
     - If unknown_keyword_arg is a tuple or a list or something else,
     guess the Slider declaration automatically (see `control_from_tuple`)
 
@@ -24,10 +18,7 @@ def __create_control_from_keyword_argument(
     See https://github.com/balthazarneveu/interactive_pipe/issues/35 for more details
     """
     chosen_control = None
-    if isinstance(unknown_keyword_arg, RangeSliderHandle):
-        # Return RangeSliderHandle as-is - will be processed in get_controls_from_decorated_function_declaration
-        return unknown_keyword_arg
-    elif isinstance(
+    if isinstance(
         unknown_keyword_arg, Control
     ):  # This includes KeyboardControl aswell!!
         if unknown_keyword_arg.name is None or unknown_keyword_arg._auto_named:
@@ -66,8 +57,8 @@ def get_controls_from_decorated_function_declaration(
     keyword_args = analyze_apply_fn_signature(func)[1]
     keyword_names = list(keyword_args.keys())
 
-    # Track RangeSliderHandle objects to group them later
-    range_slider_handles: Dict[RangeSlider, Dict[str, str]] = {}  # RangeSlider -> {side: param_name}
+    # Track Controls with parent_control (RangeSlider) to group them
+    range_slider_groups: Dict[RangeSlider, list] = {}  # RangeSlider -> [param_names]
 
     # Analyze at 2 levels (function keyword args & decorator keyword args)  then register controls when necessary.
     # -------------------------------------------
@@ -82,14 +73,17 @@ def get_controls_from_decorated_function_declaration(
         chosen_control = __create_control_from_keyword_argument(
             param_name, unknown_keyword_arg
         )
-        if isinstance(chosen_control, RangeSliderHandle):
-            # Store handle for later processing
-            parent = chosen_control.parent
-            if parent not in range_slider_handles:
-                range_slider_handles[parent] = {}
-            range_slider_handles[parent][chosen_control.side] = param_name
-        elif chosen_control is not None:
+        if chosen_control is not None:
             controls[param_name] = chosen_control
+            # Track if this control has a parent_control (RangeSlider)
+            if (
+                hasattr(chosen_control, "parent_control")
+                and chosen_control.parent_control is not None
+            ):
+                parent = chosen_control.parent_control
+                if parent not in range_slider_groups:
+                    range_slider_groups[parent] = []
+                range_slider_groups[parent].append(param_name)
 
     # 2. Analyzing decorator keyword args
     # @interactive(param_2=Control(...))
@@ -101,64 +95,29 @@ def get_controls_from_decorated_function_declaration(
         chosen_control = __create_control_from_keyword_argument(
             param_name, unknown_keyword_arg
         )
-        if isinstance(chosen_control, RangeSliderHandle):
-            # Store handle for later processing
-            parent = chosen_control.parent
-            if parent not in range_slider_handles:
-                range_slider_handles[parent] = {}
-            range_slider_handles[parent][chosen_control.side] = param_name
-        elif chosen_control is not None:
+        if chosen_control is not None:
             controls[param_name] = chosen_control
+            # Track if this control has a parent_control (RangeSlider)
+            if (
+                hasattr(chosen_control, "parent_control")
+                and chosen_control.parent_control is not None
+            ):
+                parent = chosen_control.parent_control
+                if parent not in range_slider_groups:
+                    range_slider_groups[parent] = []
+                range_slider_groups[parent].append(param_name)
 
-    # Process RangeSlider handles - create wrapper controls
-    for range_slider, handle_mapping in range_slider_handles.items():
-        if "left" not in handle_mapping or "right" not in handle_mapping:
+    # Validate range slider groups - must have exactly 2 controls
+    for range_slider, param_names in range_slider_groups.items():
+        if len(param_names) != 2:
             raise ValueError(
-                f"RangeSlider {range_slider.name} must have both .left and .right handles bound to parameters. "
-                f"Found: {handle_mapping}"
+                f"RangeSlider {range_slider.name} must have exactly 2 Controls with parent_control, "
+                f"found {len(param_names)}: {param_names}"
             )
-        left_param = handle_mapping["left"]
-        right_param = handle_mapping["right"]
-        
-        # Create wrapper control
-        wrapper = RangeSliderControlWrapper(
-            range_slider=range_slider,
-            left_param_name=left_param,
-            right_param_name=right_param,
-        )
-        
-        # Create individual parameter controls for function signature defaults
-        # These need to be in controls dict so the decorator can resolve their values
-        # They will be updated by the wrapper when the slider changes
-        # Mark them so they're not added to control_list (only wrapper is shown in GUI)
-        left_control = Control(
-            value_default=range_slider.default[0],
-            value_range=range_slider.value_range,
-            name=left_param,
-        )
-        left_control._type = range_slider._type
-        left_control._is_range_slider_param = True  # Mark as range slider parameter
-        left_control._range_slider_wrapper = wrapper  # Store reference to wrapper
-        controls[left_param] = left_control
-        
-        right_control = Control(
-            value_default=range_slider.default[1],
-            value_range=range_slider.value_range,
-            name=right_param,
-        )
-        right_control._type = range_slider._type
-        right_control._is_range_slider_param = True  # Mark as range slider parameter
-        right_control._range_slider_wrapper = wrapper  # Store reference to wrapper
-        controls[right_param] = right_control
-        
-        # Store references in the wrapper for later value updates
-        wrapper._left_control = left_control
-        wrapper._right_control = right_control
-        
-        # Register the wrapper separately so Control.get_controls() can find it
-        # But DON'T add it to controls dict - it's not a function parameter
-        # The wrapper name is used as a key to find it in the registry
-        Control.register(func.__name__, wrapper.name, wrapper)
+        # Mark controls as part of range slider (so they're not shown individually)
+        for param_name in param_names:
+            controls[param_name]._is_range_slider_param = True
+            controls[param_name]._range_slider_group = param_names
 
     for param_name, unknown_control in controls.items():
         Control.register(func.__name__, param_name, controls[param_name])
