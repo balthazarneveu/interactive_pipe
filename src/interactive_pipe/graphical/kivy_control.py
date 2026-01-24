@@ -12,14 +12,12 @@ try:
     from kivy.uix.checkbox import CheckBox
     from kivy.uix.spinner import Spinner
     from kivy.uix.textinput import TextInput
-    from kivy.uix.button import Button
     from kivy.uix.label import Label
     from kivy.uix.boxlayout import BoxLayout
-    from kivy.uix.widget import Widget
     from kivy.uix.image import Image as KivyImage
     from kivy.uix.behaviors import ButtonBehavior
     from kivy.clock import Clock
-    from kivy.graphics import Rectangle, Line, Color
+    from kivy.graphics import Line, Color
 
     KIVY_AVAILABLE = True
 except ImportError:

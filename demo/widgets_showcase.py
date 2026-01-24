@@ -140,7 +140,6 @@ def apply_blur(
         return img
 
     # Simple box blur
-    kernel_size = blur_amount * 2 + 1
     h, w, c = img.shape
     blurred = img.copy()
 
