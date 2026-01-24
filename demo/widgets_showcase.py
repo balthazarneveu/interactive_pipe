@@ -9,6 +9,7 @@ This demo demonstrates:
 - TextPrompt (text input)
 - CircularControl (circular slider)
 - KeyboardControl (keyboard shortcuts)
+- RangeSlider (dual-handle range slider)
 - Multi-image layouts (1x3, 2x2, 3x1, etc.)
 """
 
@@ -23,6 +24,7 @@ from interactive_pipe import (
     CircularControl,
     TextPrompt,
     KeyboardControl,
+    RangeSlider,
     layout,
     context,
 )
@@ -90,7 +92,7 @@ def set_layout_outputs():
             ["original", "adjusted", "blurred", "thresholded"],
             ["transformed", "colored", "text_overlay", "noisy"],
         ],
-        "last_output": [["noisy"]],  # Show only the last output (noisy)
+        "last_output": [["brightness_ranged"]],  # Show range slider example
     }
 
     if layout_mode in layouts:
@@ -308,6 +310,42 @@ def add_noise(
     return noisy_img
 
 
+# Create a range slider for brightness range
+brightness_range = RangeSlider([-1.0, 1.0], default=(-0.3, 0.3), name="Brightness Range")
+
+
+@interactive(
+    brightness_min=brightness_range.left,   # Left handle -> brightness_min
+    brightness_max=brightness_range.right,   # Right handle -> brightness_max
+)
+def apply_brightness_range(
+    img: np.ndarray,
+    brightness_min: float = -0.3,
+    brightness_max: float = 0.3,
+    global_params={},
+) -> np.ndarray:
+    """Apply brightness adjustment within a range using RangeSlider"""
+    # Clamp image values to the brightness range
+    # Values below brightness_min become 0, values above brightness_max become 1
+    # Values in between are linearly mapped
+    result = img.copy()
+    
+    # Normalize to [0, 1] range first
+    img_normalized = (result - result.min()) / (result.max() - result.min() + 1e-8)
+    
+    # Apply brightness range mapping
+    # Map [brightness_min, brightness_max] to [0, 1]
+    if brightness_max > brightness_min:
+        result = (img_normalized - brightness_min) / (brightness_max - brightness_min + 1e-8)
+        result = np.clip(result, 0.0, 1.0)
+    else:
+        result = img_normalized
+    
+    title = f"Brightness Range: [{brightness_min:.2f}, {brightness_max:.2f}]"
+    global_params["__output_styles"]["brightness_ranged"] = {"title": title}
+    return result
+
+
 # ============================================================================
 # Pipeline function - demonstrates multi-image layouts
 # NOTE: Pipeline functions can ONLY contain function calls, no if/else statements!
@@ -331,6 +369,7 @@ def widgets_showcase_pipeline(img_list: List[Path]):
     colored = apply_color_effect(original)
     text_overlay = add_text_overlay(original)
     noisy = add_noise(original)
+    brightness_ranged = apply_brightness_range(original)
 
     # Set layout outputs based on layout_mode in context
     # This modifies pipeline.outputs to control the grid arrangement
@@ -347,6 +386,7 @@ def widgets_showcase_pipeline(img_list: List[Path]):
         colored,
         text_overlay,
         noisy,
+        brightness_ranged,
     ]
 
 

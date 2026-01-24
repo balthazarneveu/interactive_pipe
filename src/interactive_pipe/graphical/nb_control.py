@@ -1,8 +1,17 @@
-from interactive_pipe.headless.control import Control
+from interactive_pipe.headless.control import Control, RangeSliderControlWrapper
 import logging
 
 try:
-    from ipywidgets import Dropdown, FloatSlider, IntSlider, Checkbox, Layout, Text
+    from ipywidgets import (
+        Dropdown,
+        FloatSlider,
+        IntSlider,
+        FloatRangeSlider,
+        IntRangeSlider,
+        Checkbox,
+        Layout,
+        Text,
+    )
 
     IPYWIDGETS_AVAILABLE = True
 except ImportError:
@@ -11,6 +20,8 @@ except ImportError:
     Dropdown = None
     FloatSlider = None
     IntSlider = None
+    FloatRangeSlider = None
+    IntRangeSlider = None
     Checkbox = None
     Layout = None
     Text = None
@@ -120,6 +131,10 @@ class PromptNotebookControl(BaseControl):
 class ControlFactory:
     @staticmethod
     def create_control(control: Control):
+        # Check for RangeSliderControlWrapper first
+        if isinstance(control, RangeSliderControlWrapper):
+            return RangeSliderNotebookControl(control.name, control)
+
         control_type = control._type
         name = control.name
         # Return None for single-value controls (don't show anything)
@@ -149,3 +164,43 @@ class ControlFactory:
 
         control_class = control_class_map[control_type]
         return control_class(name, control)
+
+
+class RangeSliderNotebookControl(BaseControl):
+    """Dual-handle range slider using ipywidgets IntRangeSlider/FloatRangeSlider."""
+
+    def check_control_type(self):
+        if not isinstance(self.ctrl, RangeSliderControlWrapper):
+            raise TypeError(
+                f"Expected RangeSliderControlWrapper, got {type(self.ctrl)}"
+            )
+
+    def create(self):
+        if not IPYWIDGETS_AVAILABLE:
+            raise ModuleNotFoundError("ipywidgets is required for notebook controls")
+        range_slider = self.ctrl.range_slider
+
+        # Choose the appropriate slider class based on type
+        if range_slider._type == int:
+            SliderClass = IntRangeSlider
+        else:
+            SliderClass = FloatRangeSlider
+
+        style = {"description_width": "initial"}
+
+        def on_change(change):
+            # change['new'] is a tuple (left, right)
+            left_val, right_val = change["new"][0], change["new"][1]
+            # Update both parameters via the wrapper
+            self.ctrl.update_both_values(left_val, right_val)
+
+        slider = SliderClass(
+            value=range_slider.default,
+            min=range_slider.value_range[0],
+            max=range_slider.value_range[1],
+            description=self.name,
+            style=style,
+            layout=self.layout,
+        )
+        slider.observe(on_change, names="value")
+        return slider

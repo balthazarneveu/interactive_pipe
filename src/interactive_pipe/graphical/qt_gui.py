@@ -478,11 +478,22 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 self.update_label(slider_name)
 
     def update_label(self, idx):
-        # pass
-        val = self.ctrl[idx].value
-        val_to_print = val
-        if isinstance(val, float):
-            val_to_print = f"{val:.3e}"
+        from interactive_pipe.headless.control import RangeSliderControlWrapper
+        
+        # Special handling for RangeSliderControlWrapper
+        if isinstance(self.ctrl[idx], RangeSliderControlWrapper):
+            range_slider = self.ctrl[idx].range_slider
+            left_val, right_val = range_slider.get_values()
+            if range_slider._type == float:
+                val_to_print = f"[{left_val:.3f}, {right_val:.3f}]"
+            else:
+                val_to_print = f"[{left_val}, {right_val}]"
+        else:
+            val = self.ctrl[idx].value
+            val_to_print = val
+            if isinstance(val, float):
+                val_to_print = f"{val:.3e}"
+        
         if idx in self.result_label.keys():
             self.result_label[idx].setText(f"{val_to_print}")
         if idx in self.name_label.keys():
@@ -490,7 +501,15 @@ class MainWindow(QWidget, InteractivePipeWindow):
 
     def update_parameter(self, idx, value):
         """Required implementation for graphical controllers update"""
-        if self.ctrl[idx]._type == str:
+        from interactive_pipe.headless.control import RangeSliderControlWrapper
+        
+        if isinstance(self.ctrl[idx], RangeSliderControlWrapper):
+            # RangeSliderControlWrapper handles updates internally via update_both_values
+            # value is a tuple (left_val, right_val) from the range slider
+            # The wrapper already updated the filter values, just refresh
+            self.update_label(idx)
+            self.refresh()
+        elif self.ctrl[idx]._type == str:
             if self.ctrl[idx].value_range is None:
                 self.ctrl[idx].update(value)
             else:
@@ -506,8 +525,9 @@ class MainWindow(QWidget, InteractivePipeWindow):
             self.ctrl[idx].update(value)
         else:
             raise NotImplementedError("{self.ctrl[idx]._type} not supported")
-        self.update_label(idx)
-        self.refresh()
+        if not isinstance(self.ctrl[idx], RangeSliderControlWrapper):
+            self.update_label(idx)
+            self.refresh()
 
     def key_update_parameter(self, idx, down):
         """Required implementation for keyboard sliders update"""

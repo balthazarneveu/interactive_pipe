@@ -226,10 +226,18 @@ class MainWindow(MatplotlibWindow):
 
     def update_parameter(self, idx, value):
         """Required implementation for graphical controllers update"""
-        self.ctrl[idx].update(value)
-        if self.ctrl[idx]._type == bool or self.ctrl[idx]._type == str:
-            self.need_redraw = True
-        self.refresh()
+        from interactive_pipe.headless.control import RangeSliderControlWrapper
+        
+        if isinstance(self.ctrl[idx], RangeSliderControlWrapper):
+            # RangeSliderControlWrapper handles updates internally via update_both_values
+            # value is a tuple (left_val, right_val) from the range slider
+            # The wrapper already updated the filter values, just refresh
+            self.refresh()
+        else:
+            self.ctrl[idx].update(value)
+            if self.ctrl[idx]._type == bool or self.ctrl[idx]._type == str:
+                self.need_redraw = True
+            self.refresh()
 
     def key_update_parameter(self, idx, down):
         """Required implementation for keyboard sliders update"""

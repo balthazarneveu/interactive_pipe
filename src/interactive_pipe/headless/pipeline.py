@@ -7,7 +7,7 @@ from interactive_pipe.core.pipeline import PipelineCore
 from interactive_pipe.data_objects.parameters import Parameters
 from interactive_pipe.core.graph import get_call_graph
 from interactive_pipe.core.filter import analyze_apply_fn_signature
-from interactive_pipe.headless.control import Control
+from interactive_pipe.headless.control import Control, RangeSliderControlWrapper
 
 
 class HeadlessPipeline(PipelineCore):
@@ -102,7 +102,31 @@ class HeadlessPipeline(PipelineCore):
                     1
                 ]
                 params_to_analyze = {**func_kwargs, **Control.get_controls(filt_name)}
+            # Also check for RangeSliderControlWrapper by scanning all registered controls
+            registered_controls = Control.get_controls(filt_name)
+            for ctrl_name, ctrl_value in registered_controls.items():
+                if isinstance(ctrl_value, RangeSliderControlWrapper):
+                    # RangeSliderControlWrapper connects to both left and right parameters
+                    ctrl_value.connect_both_parameters(filter)
+                    control_list.append(ctrl_value)
+                    # Also connect the individual left/right controls if they exist
+                    if hasattr(ctrl_value, "_left_control"):
+                        ctrl_value._left_control.connect_filter(filter, ctrl_value.left_param_name)
+                        # Don't add to control_list - they're managed by the wrapper
+                    if hasattr(ctrl_value, "_right_control"):
+                        ctrl_value._right_control.connect_filter(filter, ctrl_value.right_param_name)
+                        # Don't add to control_list - they're managed by the wrapper
             for param_name, param_value in params_to_analyze.items():
+                # Skip if this is a RangeSliderControlWrapper (already processed above)
+                if isinstance(param_value, RangeSliderControlWrapper):
+                    continue
+                # Skip if this is a range slider parameter (managed by wrapper)
+                if isinstance(param_value, Control) and hasattr(param_value, "_is_range_slider_param"):
+                    if param_value._is_range_slider_param:
+                        # Still connect to filter for value updates, but don't add to control_list
+                        param_value.connect_filter(filter, param_name)
+                        filter.values = {param_name: param_value.value_default}
+                        continue
                 if isinstance(param_value, Control):
                     param_value.connect_filter(filter, param_name)
                     filter.values = {param_name: param_value.value_default}
@@ -180,6 +204,12 @@ class HeadlessPipeline(PipelineCore):
             # This happens for headless pipelines which have no list of controls
             return
         for ctrl in self.controls:
+            # Skip RangeSliderControlWrapper - it updates filter values directly
+            # and doesn't use the standard filter_to_connect mechanism
+            if isinstance(ctrl, RangeSliderControlWrapper):
+                continue
+            if ctrl.filter_to_connect is None:
+                continue
             logging.info(
                 f"{ctrl.filter_to_connect.name}, {ctrl.parameter_name_to_connect}, {ctrl.value}"
             )

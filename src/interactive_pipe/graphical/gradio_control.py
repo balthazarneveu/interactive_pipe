@@ -1,4 +1,4 @@
-from interactive_pipe.headless.control import Control
+from interactive_pipe.headless.control import Control, RangeSliderControlWrapper
 import logging
 
 try:
@@ -9,6 +9,20 @@ except ImportError:
     GRADIO_AVAILABLE = False
     gr = None
     logging.warning("gradio not available. Gradio controls will not work.")
+
+# Try to import RangeSlider from gradio_rangeslider
+GRADIO_RANGESLIDER_AVAILABLE = False
+GradioRangeSlider = None
+if GRADIO_AVAILABLE:
+    try:
+        from gradio_rangeslider import RangeSlider as GradioRangeSlider
+
+        GRADIO_RANGESLIDER_AVAILABLE = True
+    except ImportError:
+        logging.warning(
+            "gradio_rangeslider not available. Range sliders will not work in Gradio backend. "
+            "Install with: pip install gradio_rangeslider"
+        )
 
 
 class BaseControl:
@@ -36,6 +50,22 @@ class BaseControl:
 class ControlFactory:
     @staticmethod
     def create_control(control: Control, update_func):
+        # Check for RangeSliderControlWrapper first
+        if isinstance(control, RangeSliderControlWrapper):
+            if not GRADIO_RANGESLIDER_AVAILABLE:
+                logging.warning(
+                    f"RangeSlider {control.name} requires gradio_rangeslider. "
+                    "Install with: pip install gradio_rangeslider"
+                )
+                return None
+            return RangeSliderGradioControl(
+                control.name,
+                control,
+                update_func,
+                control.left_param_name,
+                control.right_param_name,
+            )
+
         control_type = control._type
         name = control.name
         # Return None for single-value controls (don't show anything)
@@ -166,3 +196,66 @@ class IconButtonsControl(BaseControl):
             text = ""
             self.control_widget.append(gr.Button(text, icon=self.ctrl.icons[idx]))
         return self.control_widget
+
+
+if GRADIO_AVAILABLE and GRADIO_RANGESLIDER_AVAILABLE:
+
+    class RangeSliderGradioControl(BaseControl):
+        """Dual-handle range slider that updates two parameters."""
+
+        def __init__(
+            self,
+            name,
+            ctrl: RangeSliderControlWrapper,
+            update_func,
+            left_param_name: str,
+            right_param_name: str,
+        ):
+            super().__init__(name, ctrl, update_func)
+            self.left_param_name = left_param_name
+            self.right_param_name = right_param_name
+
+        def check_control_type(self):
+            if not isinstance(self.ctrl, RangeSliderControlWrapper):
+                raise TypeError(
+                    f"Expected RangeSliderControlWrapper, got {type(self.ctrl)}"
+                )
+
+        def create(self) -> "GradioRangeSlider":
+            if not GRADIO_AVAILABLE:
+                raise ModuleNotFoundError("gradio is required for Gradio controls")
+            range_slider = self.ctrl.range_slider
+
+            def on_change(value):
+                # value is a tuple (left, right) from gradio_rangeslider
+                left_val, right_val = value[0], value[1]
+                # Update both parameters via the wrapper
+                self.ctrl.update_both_values(left_val, right_val)
+                # Trigger refresh
+                if self.update_func:
+                    self.update_func(self.name, (left_val, right_val))
+
+            # Ensure value is a tuple/list for gradio_rangeslider
+            default_value = range_slider.default
+            if not isinstance(default_value, (tuple, list)):
+                default_value = (default_value, default_value)
+            
+            self.control_widget = GradioRangeSlider(
+                minimum=range_slider.value_range[0],
+                maximum=range_slider.value_range[1],
+                value=list(default_value),  # Convert to list for gradio_rangeslider
+                label=self.name,
+            )
+            
+            # Connect change event if gradio_rangeslider supports it
+            try:
+                self.control_widget.change(on_change, inputs=[self.control_widget], outputs=[])
+            except Exception:
+                # If change event doesn't work, try alternative API
+                pass
+            
+            return self.control_widget
+
+else:
+    # Dummy class when gradio_rangeslider is not available
+    RangeSliderGradioControl = None

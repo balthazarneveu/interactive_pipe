@@ -5,6 +5,10 @@ import logging
 PYQTVERSION = None
 PYQT_AVAILABLE = False
 
+# Try to import QRangeSlider from qtrangeslider (after PYQT_AVAILABLE is set)
+QTRANGESLIDER_AVAILABLE = False
+QRangeSlider = None
+
 if not PYQTVERSION:
     try:
         from PyQt6.QtWidgets import (  # noqa: F811
@@ -83,6 +87,17 @@ if not PYQT_AVAILABLE:
     QSize = None  # noqa: F811
     QIcon = None  # noqa: F811
     logging.warning("PyQt not available. Qt controls will not work.")
+else:
+    # Try to import QRangeSlider from qtrangeslider
+    try:
+        from qtrangeslider import QRangeSlider
+
+        QTRANGESLIDER_AVAILABLE = True
+    except ImportError:
+        logging.warning(
+            "qtrangeslider not available. Range sliders will not work in Qt backend. "
+            "Install with: pip install qtrangeslider"
+        )
 
 
 class BaseControl(QWidget if PYQT_AVAILABLE else object):
@@ -112,6 +127,24 @@ class BaseControl(QWidget if PYQT_AVAILABLE else object):
 class ControlFactory:
     @staticmethod
     def create_control(control: Control, update_func):
+        from interactive_pipe.headless.control import RangeSliderControlWrapper
+        
+        # Check for RangeSliderControlWrapper first
+        if isinstance(control, RangeSliderControlWrapper):
+            if not QTRANGESLIDER_AVAILABLE:
+                logging.warning(
+                    f"RangeSlider {control.name} requires qtrangeslider. "
+                    "Install with: pip install qtrangeslider"
+                )
+                return None
+            return RangeSliderControl(
+                control.name,
+                control,
+                update_func,
+                control.left_param_name,
+                control.right_param_name,
+            )
+
         control_type = control._type
         name = control.name
         # Return None for single-value controls (don't show anything)
@@ -386,3 +419,100 @@ class TickBoxControl(BaseControl):
 
     def reset(self):
         self.control_widget.setChecked(self.ctrl.value)
+
+
+if PYQT_AVAILABLE and QTRANGESLIDER_AVAILABLE:
+    from interactive_pipe.headless.control import RangeSliderControlWrapper
+
+    class RangeSliderControl(BaseControl):
+        """Dual-handle range slider that updates two parameters."""
+
+        def __init__(
+            self,
+            name,
+            ctrl: RangeSliderControlWrapper,
+            update_func,
+            left_param_name: str,
+            right_param_name: str,
+        ):
+            super().__init__(name, ctrl, update_func)
+            self.left_param_name = left_param_name
+            self.right_param_name = right_param_name
+
+        def check_control_type(self):
+            if not isinstance(self.ctrl, RangeSliderControlWrapper):
+                raise TypeError(
+                    f"Expected RangeSliderControlWrapper, got {type(self.ctrl)}"
+                )
+
+        def create(self):
+            slider = QRangeSlider(Qt.Orientation.Horizontal, self)
+            range_slider = self.ctrl.range_slider
+
+            # For float sliders, we need to scale to integers for QRangeSlider
+            # Store conversion functions
+            if range_slider._type == float:
+                scale_factor = 1000.0  # Use 1000 steps for precision
+                self._scale_factor = scale_factor
+                
+                def float_to_int(val):
+                    return int((val - range_slider.value_range[0]) * scale_factor / 
+                              (range_slider.value_range[1] - range_slider.value_range[0]))
+                
+                def int_to_float(val):
+                    return range_slider.value_range[0] + \
+                           (range_slider.value_range[1] - range_slider.value_range[0]) * val / scale_factor
+                
+                self._float_to_int = float_to_int
+                self._int_to_float = int_to_float
+                
+                # Set range as integers
+                slider.setMinimum(0)
+                slider.setMaximum(int(scale_factor))
+                
+                # Set initial values (convert to int)
+                default_left_int = float_to_int(range_slider.default[0])
+                default_right_int = float_to_int(range_slider.default[1])
+                slider.setValue([default_left_int, default_right_int])
+            else:
+                # Integer slider - use values directly
+                slider.setMinimum(range_slider.value_range[0])
+                slider.setMaximum(range_slider.value_range[1])
+                slider.setValue(range_slider.default)
+                self._scale_factor = None
+
+            def on_change(values):
+                # values is a list [left, right]
+                if range_slider._type == float:
+                    # Convert from int back to float
+                    left_val = self._int_to_float(values[0])
+                    right_val = self._int_to_float(values[1])
+                else:
+                    left_val, right_val = values[0], values[1]
+                
+                # Update both parameters via the wrapper
+                self.ctrl.update_both_values(left_val, right_val)
+                # Trigger refresh (the wrapper updates the filter values directly)
+                # We still need to call update_func to trigger GUI refresh
+                # Pass the wrapper name so the GUI knows which control changed
+                if self.update_func:
+                    self.update_func(self.name, (left_val, right_val))
+
+            slider.valueChanged.connect(on_change)
+            self.control_widget = slider
+            return self.control_widget
+
+        def reset(self):
+            range_slider = self.ctrl.range_slider
+            default_values = range_slider.default
+            if range_slider._type == float and hasattr(self, "_float_to_int"):
+                # Convert to int for float sliders
+                default_left_int = self._float_to_int(default_values[0])
+                default_right_int = self._float_to_int(default_values[1])
+                self.control_widget.setValue([default_left_int, default_right_int])
+            else:
+                self.control_widget.setValue(default_values)
+
+else:
+    # Dummy class when qtrangeslider is not available
+    RangeSliderControl = None

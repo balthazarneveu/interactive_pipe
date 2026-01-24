@@ -5,6 +5,7 @@ from interactive_pipe.headless.control import (
     CircularControl,
     TextPrompt,
     TimeControl,
+    RangeSlider,
 )
 from interactive_pipe.data_objects.curves import Curve, SingleCurve
 from interactive_pipe.data_objects.image import Image

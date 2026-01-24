@@ -185,10 +185,22 @@ class MainWindow(InteractivePipeWindow):
 
         def process_inputs_fn(*args) -> list:
             # Only process controls that have widgets (args only contains values for widgets)
+            from interactive_pipe.headless.control import RangeSliderControlWrapper
+            
             for idx in range(len(args)):
                 if idx < len(self.ctrl_keys_with_widgets):
                     ctrl_key = self.ctrl_keys_with_widgets[idx]
-                    self.ctrl[ctrl_key].update(args[idx])
+                    ctrl_obj = self.ctrl[ctrl_key]
+                    # RangeSliderControlWrapper.update() expects tuple/list
+                    if isinstance(ctrl_obj, RangeSliderControlWrapper):
+                        # Ensure args[idx] is a tuple/list
+                        if isinstance(args[idx], (tuple, list)):
+                            ctrl_obj.update(args[idx])
+                        else:
+                            # Fallback: treat as single value (shouldn't happen)
+                            ctrl_obj.update([args[idx], args[idx]])
+                    else:
+                        ctrl_obj.update(args[idx])
             out = self.pipeline.run()
             return out
 
@@ -203,9 +215,16 @@ class MainWindow(InteractivePipeWindow):
                     return out_tuple, html_audio
             return out_tuple
 
-        self.default_values = [
-            self.ctrl[ctrl_key].value for ctrl_key in self.ctrl_keys_with_widgets
-        ]
+        from interactive_pipe.headless.control import RangeSliderControlWrapper
+        
+        self.default_values = []
+        for ctrl_key in self.ctrl_keys_with_widgets:
+            ctrl_obj = self.ctrl[ctrl_key]
+            if isinstance(ctrl_obj, RangeSliderControlWrapper):
+                # Return tuple for range slider
+                self.default_values.append(list(ctrl_obj.range_slider.default))
+            else:
+                self.default_values.append(ctrl_obj.value)
         self.process_inputs_fn = process_inputs_fn
         self.run_fn = run_fn
 
@@ -317,6 +336,8 @@ class MainWindow(InteractivePipeWindow):
                                         elem.render()
                 changing_inputs = []
                 discard_reset_button = False
+                from interactive_pipe.headless.control import RangeSliderControlWrapper
+                
                 for idx in range(len(self.widget_list)):
                     if isinstance(self.widget_list[idx], list):
                         changing_inputs.append(
@@ -332,6 +353,13 @@ class MainWindow(InteractivePipeWindow):
                             list(self.ctrl.keys())[idx]
                         ].filter_to_connect.cache_mem = None
                     else:
+                        ctrl_key = list(self.ctrl.keys())[idx]
+                        ctrl_obj = self.ctrl[ctrl_key]
+                        # For RangeSliderControlWrapper, ensure value_default is a tuple
+                        if isinstance(ctrl_obj, RangeSliderControlWrapper):
+                            # Temporarily override value_default to return tuple for Gradio
+                            original_value_default = ctrl_obj._value_default_tuple
+                            ctrl_obj.value_default = original_value_default
                         changing_inputs.append(self.widget_list[idx])
                 if not discard_reset_button:
                     with gr.Accordion("Reset to default values", open=False):

@@ -58,3 +58,20 @@ full=[
   "pandas",
   "gradio",
 ]
+
+qt6-full=[
+  "PyQt6>=6.5.2",
+  "PyQt6_sip>=13.5.2",
+  "qtrangeslider",
+]
+
+qt5-full=[
+  "PyQt5>=5.15.9",
+  "PyQt5_sip>=12.12.1",
+  "qtrangeslider",
+]
+
+gradio-full=[
+  "gradio",
+  "gradio_rangeslider",
+]
