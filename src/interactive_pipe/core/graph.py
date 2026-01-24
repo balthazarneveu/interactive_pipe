@@ -44,8 +44,8 @@ def get_call_graph(func: Callable, global_context=None) -> dict:
         if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
             function_name = get_name(node.value.func)
             if function_name is None or function_name not in global_context:
-                raise KeyError(
-                    f"Function name '{function_name}' not found in global context"
+                raise NameError(
+                    f"Function '{function_name}' not found in global context. Probably misspelled."
                 )
             input_names = [get_name(arg) for arg in node.value.args]
             results.append(

@@ -84,6 +84,10 @@ class PipelineCore:
 
     def run(self) -> list:
         """Useful for standalone python access without gui or disk write"""
+        if not self.__initialized_inputs:
+            raise RuntimeError(
+                "Pipeline inputs must be initialized before calling run(). Set inputs first."
+            )
         # Set user context before running pipeline
         _set_user_context(self._user_context)
         try:
