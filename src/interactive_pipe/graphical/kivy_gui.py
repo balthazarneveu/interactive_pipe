@@ -1,7 +1,7 @@
-import sys
 import os
 import numpy as np
 from typing import List
+from pathlib import Path
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.graphical.kivy_control import ControlFactory
@@ -10,6 +10,7 @@ from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.headless.control import Control, TimeControl
 import logging
 import time
+import subprocess
 
 # Disable Kivy's argument parser to avoid conflicts with argparse
 # This must be set BEFORE importing any Kivy modules
@@ -29,12 +30,10 @@ try:
     from kivy.uix.image import Image as KivyImage
     from kivy.uix.label import Label
     from kivy.uix.scrollview import ScrollView
-    from kivy.uix.widget import Widget
     from kivy.core.window import Window
     from kivy.graphics.texture import Texture
     from kivy.clock import Clock
     from kivy.uix.popup import Popup
-    from kivy.uix.slider import Slider
 
     # Suppress MTD warnings by filtering logger
     from kivy.logger import Logger
@@ -87,11 +86,7 @@ class InteractivePipeKivy(InteractivePipeGUI):
         self.set_default_key_bindings()
 
         if self.audio:
-            # Placeholder for audio support (not implemented yet)
-            self.pipeline.global_params["__set_audio"] = lambda x: None
-            self.pipeline.global_params["__play"] = lambda: None
-            self.pipeline.global_params["__pause"] = lambda: None
-            self.pipeline.global_params["__stop"] = lambda: None
+            self.audio_player()
 
     def run(self) -> list:
         assert (
@@ -119,6 +114,9 @@ class InteractivePipeKivy(InteractivePipeGUI):
 
     def close(self):
         """close GUI"""
+        # Stop any playing audio before closing
+        if self.audio and hasattr(self, "_audio_process"):
+            self.__stop()
         if hasattr(self, "app"):
             self.app.stop()
 
@@ -172,6 +170,106 @@ class InteractivePipeKivy(InteractivePipeGUI):
             else:
                 Window.fullscreen = "0"
 
+    # ---------------------------- AUDIO FEATURE ----------------------------------------
+
+    def audio_player(self):
+        """Initialize audio player using subprocess (bypasses SDL2 threading issues)"""
+        self._audio_process = None
+        self._audio_file = None
+        self.pipeline.global_params["__sound"] = None
+        self.pipeline.global_params["__set_audio"] = self.__set_audio
+        self.pipeline.global_params["__play"] = self.__play
+        self.pipeline.global_params["__pause"] = self.__pause
+        self.pipeline.global_params["__stop"] = self.__stop
+
+    def handle_audio_error(self, message):
+        """Handle audio playback errors"""
+        logging.warning(f"Audio error: {message}")
+
+    def __set_audio(self, file_path):
+        """Set audio file to play (uses subprocess to avoid SDL2 threading issues)"""
+        self.__stop()
+
+        if file_path is None:
+            return
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+        if not file_path.is_absolute():
+            file_path = Path.cwd() / file_path
+        else:
+            file_path = file_path.resolve()
+        if not file_path.exists():
+            self.handle_audio_error(f"Audio file not found: {file_path}")
+            return
+
+        self._audio_file = file_path
+        logging.debug(f"Audio file set: {file_path}")
+
+    def __play(self):
+        """Play the audio file using subprocess"""
+        if self._audio_file is None:
+            logging.debug("No audio file set to play")
+            return
+
+        # Stop any currently playing audio
+        if self._audio_process is not None:
+            self.__stop()
+
+        file_path = self._audio_file
+        file_ext = file_path.suffix.lower()
+
+        # Try different audio players in order of preference
+        # ffplay is most universal, then paplay (PulseAudio), then aplay (ALSA)
+        players = [
+            ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", str(file_path)],
+            ["paplay", str(file_path)],
+            ["aplay", str(file_path)] if file_ext == ".wav" else None,
+        ]
+
+        for player_cmd in players:
+            if player_cmd is None:
+                continue
+            try:
+                # Check if the player exists
+                which_result = subprocess.run(
+                    ["which", player_cmd[0]], capture_output=True, timeout=1
+                )
+                if which_result.returncode != 0:
+                    continue
+
+                # Start playing in background
+                self._audio_process = subprocess.Popen(
+                    player_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                )
+                logging.debug(f"Playing audio with {player_cmd[0]}: {file_path}")
+                return
+            except FileNotFoundError:
+                continue
+            except Exception as e:
+                logging.debug(f"Failed to play with {player_cmd[0]}: {e}")
+                continue
+
+        self.handle_audio_error(
+            "No audio player found. Please install ffmpeg (ffplay), pulseaudio (paplay), "
+            "or alsa-utils (aplay) to enable audio playback."
+        )
+
+    def __pause(self):
+        """Pause/stop the audio playback"""
+        self.__stop()
+
+    def __stop(self):
+        """Stop the audio playback"""
+        if self._audio_process is not None:
+            try:
+                self._audio_process.terminate()
+                self._audio_process.wait(timeout=0.5)
+            except subprocess.TimeoutExpired:
+                self._audio_process.kill()
+            except Exception:
+                pass
+            self._audio_process = None
+
 
 class KivyApp(App):
     def __init__(
@@ -216,6 +314,19 @@ class KivyApp(App):
         # Trigger initial refresh to display images
         if hasattr(self, "window"):
             Clock.schedule_once(lambda dt: self.window.refresh(), 0.1)
+
+    def on_stop(self):
+        """Called when the app is closing - cleanup audio"""
+        if self.main_gui is not None and hasattr(self.main_gui, "_audio_process"):
+            if self.main_gui._audio_process is not None:
+                try:
+                    self.main_gui._audio_process.terminate()
+                    self.main_gui._audio_process.wait(timeout=0.5)
+                except Exception:
+                    try:
+                        self.main_gui._audio_process.kill()
+                    except Exception:
+                        pass
 
     def on_keyboard(self, window, key, *args):
         # Map Kivy key codes to string representations
@@ -342,7 +453,7 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
                         timer_func, ctrl.update_interval_ms / 1000.0
                     )
                 )
-                plugged_func = self.main_gui.plug_timer_control(
+                self.main_gui.plug_timer_control(
                     ctrl, self.update_parameter, self.main_gui.suspend_resume_timer
                 )
                 Clock.schedule_interval(timer_func, ctrl.update_interval_ms / 1000.0)
@@ -531,7 +642,7 @@ class MainWindow(BoxLayout, InteractivePipeWindow):
             if MPL_SUPPORT and isinstance(image_array, Curve):
                 # Render matplotlib plot to texture
                 fig, ax = plt.subplots(figsize=(6, 4))
-                plt_obj = image_array.create_plot(ax=ax)
+                image_array.create_plot(ax=ax)
                 buf = BytesIO()
                 fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
                 buf.seek(0)
