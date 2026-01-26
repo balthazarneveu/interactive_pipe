@@ -146,6 +146,11 @@ class Table(Data):
             raise TypeError(f"columns must be a list, got {type(columns)}")
         if not all(isinstance(c, str) for c in columns):
             raise TypeError("All column names must be strings")
+        # Validate consistency with existing row width
+        if self.values and len(columns) != len(self.values[0]):
+            raise ValueError(
+                f"Number of columns ({len(columns)}) must match row width ({len(self.values[0])})"
+            )
         self.data["columns"] = columns
 
     @property
@@ -180,13 +185,22 @@ class Table(Data):
             raise ValueError(f"precision must be non-negative, got {precision}")
         self.data["precision"] = precision
 
+    def __len__(self) -> int:
+        """Return the number of rows in the table."""
+        return len(self.values)
+
+    def __iter__(self):
+        """Iterate over rows as dictionaries."""
+        for i in range(len(self.values)):
+            yield dict(zip(self.columns, self.values[i]))
+
     def __getitem__(self, key: Union[int, str, slice]):
         """Access data by row index, column name, or slice."""
         if isinstance(key, int):
-            # Return row
-            if key >= len(self.values):
+            # Return row (support negative indexing)
+            if key < -len(self.values) or key >= len(self.values):
                 raise IndexError(
-                    f"Row index {key} out of range (max: {len(self.values) - 1})"
+                    f"Row index {key} out of range (length: {len(self.values)})"
                 )
             return dict(zip(self.columns, self.values[key]))
         elif isinstance(key, str):
@@ -297,13 +311,14 @@ class Table(Data):
 
         return table
 
-    def update_table(self, table_obj, ax=None):
+    def update_table(self, _table_obj=None, ax=None):
         """Update existing matplotlib table.
 
         Note: matplotlib tables don't update well, so we clear and recreate.
 
         Args:
-            table_obj: Previous table object (ignored, used for API consistency)
+            _table_obj: Previous table object (ignored, kept for API consistency
+                with Curve.update_plot signature)
             ax: matplotlib Axes object
 
         Returns:

@@ -73,36 +73,45 @@ class InteractivePipeGradio(InteractivePipeGUI):
         self.pipeline.reset_cache()
         self.window.refresh_display(out_list)
         out_list_gradio_containers = []
-        for idx in range(len(out_list)):
-            for idy in range(len(out_list[idx])):
-                if self.window.image_canvas[idx][idy] is None:
+        # Iterate over rectangular image_canvas (not jagged out_list)
+        # to ensure we create containers for all grid positions including padding
+        for idx in range(len(self.window.image_canvas)):
+            for idy in range(len(self.window.image_canvas[idx])):
+                canvas_cell = self.window.image_canvas[idx][idy]
+                # Handle None or uninitialized (float from np.empty) padding positions
+                if canvas_cell is None or not isinstance(canvas_cell, dict):
                     out_list_gradio_containers.append(gr.HTML())
                     continue
-                title = self.window.image_canvas[idx][idy].get("title", f"{idx} {idy}")
+                title = canvas_cell.get("title", f"{idx} {idy}")
                 title = title.replace("_", " ")
-                if isinstance(out_list[idx][idy], np.ndarray):
-                    if len(out_list[idx][idy].shape) == 1:
+                # Access out_list safely (it may be jagged/shorter than image_canvas)
+                out_item = out_list[idx][idy] if idy < len(out_list[idx]) else None
+                if out_item is None:
+                    out_list_gradio_containers.append(gr.HTML())
+                    continue
+                if isinstance(out_item, np.ndarray):
+                    if len(out_item.shape) == 1:
                         out_list_gradio_containers.append(gr.Audio(label=title))
-                        self.window.image_canvas[idx][idy]["type"] = "audio"
+                        canvas_cell["type"] = "audio"
                     else:
                         out_list_gradio_containers.append(
                             gr.Image(format="png", type="numpy", label=title)
                         )
-                        self.window.image_canvas[idx][idy]["type"] = "image"
-                elif MPL_SUPPORT and isinstance(out_list[idx][idy], Curve):
-                    # if out_list[idx][idy].title is not None:
-                    #     title = out_list[idx][idy].title
+                        canvas_cell["type"] = "image"
+                elif MPL_SUPPORT and isinstance(out_item, Curve):
+                    # if out_item.title is not None:
+                    #     title = out_item.title
                     out_list_gradio_containers.append(gr.Plot(label=title))
-                    self.window.image_canvas[idx][idy]["type"] = "curve"
-                elif isinstance(out_list[idx][idy], Table):
+                    canvas_cell["type"] = "curve"
+                elif isinstance(out_item, Table):
                     out_list_gradio_containers.append(gr.Dataframe(label=title))
-                    self.window.image_canvas[idx][idy]["type"] = "table"
+                    canvas_cell["type"] = "table"
                 # @TODO: https://github.com/balthazarneveu/interactive_pipe/issues/50 support audio!
-                elif isinstance(out_list[idx][idy], str):
+                elif isinstance(out_item, str):
                     out_list_gradio_containers.append(gr.Textbox(label=title))
                 else:
                     raise NotImplementedError(
-                        f"output type {type(out_list[idx][idy])} not supported"
+                        f"output type {type(out_item)} not supported"
                     )
         if self.window.audio:
             self.window.audio = gr.HTML()
@@ -149,10 +158,12 @@ class MainWindow(InteractivePipeWindow):
 
         def process_outputs_fn(out) -> tuple:
             flat_out = []
-            for idx in range(len(out)):
+            # Iterate over rectangular image_canvas to match container count
+            for idx in range(len(self.image_canvas)):
                 if isinstance(out[idx], list):
-                    for idy in range(len(out[idx])):
-                        if out[idx][idy] is None:
+                    for idy in range(len(self.image_canvas[idx])):
+                        # Handle jagged out list - may not have element at this position
+                        if idy >= len(out[idx]) or out[idx][idy] is None:
                             flat_out.append("")
                         elif MPL_SUPPORT and isinstance(out[idx][idy], Curve):
                             # https://github.com/balthazarneveu/interactive_pipe/issues/54
@@ -166,7 +177,8 @@ class MainWindow(InteractivePipeWindow):
                             table = out[idx][idy]
                             # Convert to format expected by gr.Dataframe
                             # Format: list of lists with first row as headers
-                            table_data = [table.columns] + table.values
+                            # Use _format_values() to apply precision formatting
+                            table_data = [table.columns] + table._format_values()
                             flat_out.append(table_data)
                         elif isinstance(out[idx][idy], np.ndarray):
                             if len(out[idx][idy].shape) == 1:
@@ -240,10 +252,12 @@ class MainWindow(InteractivePipeWindow):
             with gr.Blocks() as io:
                 with gr.Row(variant="compact"):
                     gr.Markdown("### " + self.name.replace("_", " "))
+                output_idx = 0
                 for idy in range(len(self.image_canvas)):
                     with gr.Row():
                         for idx in range(len(self.image_canvas[idy])):
-                            elem = outputs[idy * len(self.image_canvas[idy]) + idx]
+                            elem = outputs[output_idx]
+                            output_idx += 1
                             if elem is not None:
                                 elem.render()
 

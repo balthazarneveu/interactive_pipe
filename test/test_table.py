@@ -159,6 +159,7 @@ def test_table_save_load_pkl(tmp_path):
     assert t2.precision == t.precision
 
 
+@pytest.mark.skipif(PANDAS_AVAILABLE, reason="pandas is installed")
 def test_table_save_csv_without_pandas_raises(tmp_path):
     """Test that saving CSV without pandas raises RuntimeError."""
     t = Table({"A": [1, 2]})
@@ -167,6 +168,7 @@ def test_table_save_csv_without_pandas_raises(tmp_path):
         t.save(path)
 
 
+@pytest.mark.skipif(PANDAS_AVAILABLE, reason="pandas is installed")
 def test_table_load_csv_without_pandas_raises(tmp_path):
     """Test that loading CSV without pandas raises RuntimeError."""
     path = tmp_path / "test.csv"
@@ -176,6 +178,7 @@ def test_table_load_csv_without_pandas_raises(tmp_path):
         Table.from_file(path)
 
 
+@pytest.mark.skipif(PANDAS_AVAILABLE, reason="pandas is installed")
 def test_table_unsupported_file_extension():
     """Test that unsupported file extension gets converted to default (.csv) and raises pandas error."""
     t = Table({"A": [1]})
@@ -209,6 +212,36 @@ def test_table_single_column():
     t = Table({"A": [1, 2, 3]})
     assert t.columns == ["A"]
     assert t.values == [[1], [2], [3]]
+
+
+def test_table_len():
+    """Test len() on Table returns number of rows."""
+    t = Table({"A": [1, 2, 3], "B": [4, 5, 6]})
+    assert len(t) == 3
+
+    t_empty = Table({})
+    assert len(t_empty) == 0
+
+
+def test_table_iter():
+    """Test iterating over Table yields row dicts."""
+    t = Table({"A": [1, 2], "B": [3, 4]})
+    rows = list(t)
+    assert rows == [{"A": 1, "B": 3}, {"A": 2, "B": 4}]
+
+
+def test_table_negative_indexing():
+    """Test negative index access."""
+    t = Table({"A": [1, 2, 3], "B": [4, 5, 6]})
+    assert t[-1] == {"A": 3, "B": 6}
+    assert t[-2] == {"A": 2, "B": 5}
+
+
+def test_table_columns_setter_mismatch_raises():
+    """Test that setting columns with wrong length raises ValueError."""
+    t = Table({"A": [1, 2], "B": [3, 4]})
+    with pytest.raises(ValueError, match="must match row width"):
+        t.columns = ["X", "Y", "Z"]  # 3 columns but rows have 2 values
 
 
 def test_table_format_values():
@@ -307,19 +340,17 @@ def test_table_save_load_csv_with_strings(tmp_path):
     assert len(t2.values) == len(t.values)
 
 
+@pytest.mark.skipif(PANDAS_AVAILABLE, reason="pandas is installed")
 def test_table_as_dataframe_without_pandas_raises():
     """Test that as_dataframe() raises RuntimeError when pandas unavailable."""
-    if PANDAS_AVAILABLE:
-        pytest.skip("pandas is installed, cannot test error case")
     t = Table({"A": [1, 2]})
     with pytest.raises(RuntimeError, match="requires pandas"):
         t.as_dataframe()
 
 
+@pytest.mark.skipif(PANDAS_AVAILABLE, reason="pandas is installed")
 def test_table_dataframe_input_without_pandas_raises():
     """Test that DataFrame input raises error when pandas unavailable."""
-    if PANDAS_AVAILABLE:
-        pytest.skip("pandas is installed, cannot test error case")
 
     # Create a mock DataFrame-like object
     class MockDataFrame:
