@@ -1,7 +1,6 @@
 import numpy as np
 from pathlib import Path
 from typing import Optional, Union, List, Dict, Any
-import logging
 
 from interactive_pipe.data_objects.data import Data
 
@@ -25,10 +24,10 @@ def _require_pandas(feature_name: str):
 
 class Table(Data):
     """Tabular data for display in interactive_pipe.
-    
+
     Works without pandas. Pandas features (DataFrame input, csv export)
     available when pandas is installed.
-    
+
     Attributes:
         .columns - list of column names
         .values - 2D list of values (row-major)
@@ -55,7 +54,7 @@ class Table(Data):
             data_dict = self._normalize_dataframe(data)
         else:
             data_dict = self._normalize_data(data, columns)
-        
+
         internal_data = {
             "columns": data_dict["columns"],
             "values": data_dict["values"],
@@ -65,7 +64,9 @@ class Table(Data):
         super().__init__(internal_data)
 
     def _normalize_data(
-        self, data: Union[Dict[str, List], List[Dict], np.ndarray], columns: Optional[List[str]] = None
+        self,
+        data: Union[Dict[str, List], List[Dict], np.ndarray],
+        columns: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Convert various input formats to internal format."""
         if isinstance(data, dict):
@@ -85,7 +86,7 @@ class Table(Data):
             num_rows = lengths[0]
             values = [[data[col][row] for col in col_names] for row in range(num_rows)]
             return {"columns": col_names, "values": values}
-        
+
         elif isinstance(data, list):
             if not data:
                 return {"columns": [], "values": []}
@@ -105,13 +106,11 @@ class Table(Data):
                     "List input must be a list of dictionaries. "
                     "For 2D arrays, use numpy array with columns parameter."
                 )
-        
+
         elif isinstance(data, np.ndarray):
             # 2D numpy array with columns parameter
             if len(data.shape) != 2:
-                raise ValueError(
-                    f"Numpy array must be 2D, got shape {data.shape}"
-                )
+                raise ValueError(f"Numpy array must be 2D, got shape {data.shape}")
             if columns is None:
                 raise ValueError(
                     "columns parameter is required when using numpy array input"
@@ -122,7 +121,7 @@ class Table(Data):
                 )
             values = data.tolist()
             return {"columns": columns, "values": values}
-        
+
         else:
             raise TypeError(
                 f"Unsupported data type: {type(data)}. "
@@ -208,10 +207,10 @@ class Table(Data):
 
     def as_dataframe(self):
         """Convert Table to pandas DataFrame.
-        
+
         Returns:
             pd.DataFrame: Table data as a pandas DataFrame
-            
+
         Raises:
             RuntimeError: If pandas is not installed
         """
@@ -264,10 +263,10 @@ class Table(Data):
 
     def create_table(self, ax=None):
         """Create matplotlib table, returns table object.
-        
+
         Args:
             ax: matplotlib Axes object (optional, will create if None)
-            
+
         Returns:
             matplotlib Table object
         """
@@ -277,36 +276,36 @@ class Table(Data):
             raise RuntimeError(
                 "Matplotlib is required for table rendering. Install with: pip install matplotlib"
             )
-        
+
         if ax is None:
             fig, ax = plt.subplots()
-        
-        ax.axis('off')
-        
+
+        ax.axis("off")
+
         table = ax.table(
             cellText=self._format_values(),
             colLabels=self.columns,
-            loc='center',
-            cellLoc='center',
+            loc="center",
+            cellLoc="center",
         )
         table.auto_set_font_size(False)
         table.set_fontsize(9)
         table.scale(1, 2)  # Make cells taller for better readability
-        
+
         if self.title:
             ax.set_title(self.title, pad=20)
-        
+
         return table
 
     def update_table(self, table_obj, ax=None):
         """Update existing matplotlib table.
-        
+
         Note: matplotlib tables don't update well, so we clear and recreate.
-        
+
         Args:
             table_obj: Previous table object (ignored, used for API consistency)
             ax: matplotlib Axes object
-            
+
         Returns:
             matplotlib Table object
         """
