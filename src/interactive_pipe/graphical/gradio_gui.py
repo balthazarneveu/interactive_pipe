@@ -231,18 +231,64 @@ class MainWindow(InteractivePipeWindow):
             with gr.Blocks() as io:
                 with gr.Row(variant="compact"):
                     gr.Markdown("### " + self.name.replace("_", " "))
-                for idy in range(len(self.image_canvas)):
-                    with gr.Row():
-                        for idx in range(len(self.image_canvas[idy])):
-                            elem = outputs[idy * len(self.image_canvas[idy]) + idx]
-                            if elem is not None:
-                                elem.render()
 
-                if self.audio:
-                    outputs.append(self.audio)
-                    with gr.Row():
-                        self.audio.render()
+                # Group panels by position
+                panels_by_position = self._group_panels_by_position()
 
+                # Top panels
+                if panels_by_position["top"]:
+                    for panel in panels_by_position["top"]:
+                        self._build_panel_widget(panel)
+
+                # Middle section: left panels | images | right panels
+                has_left = bool(panels_by_position["left"])
+                has_right = bool(panels_by_position["right"])
+
+                if has_left or has_right:
+                    # Use Row layout when we have side panels
+                    with gr.Row():
+                        # Left panels column
+                        if has_left:
+                            with gr.Column(scale=1):
+                                for panel in panels_by_position["left"]:
+                                    self._build_panel_widget(panel)
+
+                        # Images column (main content)
+                        with gr.Column(scale=3):
+                            for idy in range(len(self.image_canvas)):
+                                with gr.Row():
+                                    for idx in range(len(self.image_canvas[idy])):
+                                        elem = outputs[
+                                            idy * len(self.image_canvas[idy]) + idx
+                                        ]
+                                        if elem is not None:
+                                            elem.render()
+
+                            if self.audio:
+                                outputs.append(self.audio)
+                                with gr.Row():
+                                    self.audio.render()
+
+                        # Right panels column
+                        if has_right:
+                            with gr.Column(scale=1):
+                                for panel in panels_by_position["right"]:
+                                    self._build_panel_widget(panel)
+                else:
+                    # No side panels - simple layout (backward compatibility)
+                    for idy in range(len(self.image_canvas)):
+                        with gr.Row():
+                            for idx in range(len(self.image_canvas[idy])):
+                                elem = outputs[idy * len(self.image_canvas[idy]) + idx]
+                                if elem is not None:
+                                    elem.render()
+
+                    if self.audio:
+                        outputs.append(self.audio)
+                        with gr.Row():
+                            self.audio.render()
+
+                # Bottom panels (default) + ungrouped controls
                 # Check if we have panels to render
                 if hasattr(self, "root_panels") and self.root_panels:
                     # Panel-based rendering
@@ -260,8 +306,8 @@ class MainWindow(InteractivePipeWindow):
                                     else:
                                         widget.render()
 
-                    # Then render panel hierarchy
-                    for panel in self.root_panels:
+                    # Then render bottom panel hierarchy
+                    for panel in panels_by_position["bottom"]:
                         self._build_panel_widget(panel)
                 else:
                     # Fall back to original flat rendering when no panels exist
@@ -444,6 +490,27 @@ class MainWindow(InteractivePipeWindow):
             return None
         idx = self.ctrl_keys_with_widgets.index(ctrl.name)
         return self.widget_list[idx]
+
+    def _group_panels_by_position(self) -> dict:
+        """Group root panels by their position attribute.
+
+        Returns:
+            Dictionary with keys "top", "left", "right", "bottom" containing
+            lists of panels for each position. Detached panels are excluded.
+        """
+        result = {"top": [], "left": [], "right": [], "bottom": []}
+        if not hasattr(self, "root_panels"):
+            return result
+        for panel in self.root_panels:
+            # Ignore detached panels (they open in separate windows)
+            if panel.detached:
+                continue
+            pos = (
+                panel.position or "bottom"
+            )  # Default to bottom for backward compatibility
+            if pos in result:
+                result[pos].append(panel)
+        return result
 
     def _build_panel_widget(self, panel: Panel):
         """Recursively build Gradio components for a Panel hierarchy.

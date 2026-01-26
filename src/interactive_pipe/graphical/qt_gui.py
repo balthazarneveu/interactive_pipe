@@ -21,7 +21,6 @@ if not PYQTVERSION:
             QWidget,
             QGroupBox,
             QLabel,
-            QFormLayout,
             QGridLayout,
             QHBoxLayout,
             QVBoxLayout,
@@ -42,7 +41,6 @@ if not PYQTVERSION:
                 QWidget,
                 QGroupBox,
                 QLabel,
-                QFormLayout,
                 QGridLayout,
                 QHBoxLayout,
                 QVBoxLayout,
@@ -66,7 +64,6 @@ if not PYQTVERSION:
             QWidget,
             QGroupBox,
             QLabel,
-            QFormLayout,
             QGridLayout,
             QHBoxLayout,
             QVBoxLayout,
@@ -422,15 +419,25 @@ class MainWindow(QWidget, InteractivePipeWindow):
         self.pipeline.global_params["__window"] = self
         self.setWindowTitle(self.name)
 
-        self.layout_obj = QFormLayout()
-        self.setLayout(self.layout_obj)
-
         # Track detached panel windows
         self.detached_windows = []
 
-        if center:
-            self.image_grid_layout = QGridLayout()
+        # Create main vertical layout (replaces QFormLayout)
+        main_layout = QVBoxLayout()
+        self.setLayout(main_layout)
 
+        # Create containers for panels at different positions
+        self.top_panels_layout = QVBoxLayout()
+        self.left_panels_layout = QVBoxLayout()
+        self.right_panels_layout = QVBoxLayout()
+        self.bottom_panels_layout = QVBoxLayout()
+
+        # Create image grid layout
+        self.image_grid_layout = QGridLayout()
+
+        # Build middle section (horizontal: left panels | images | right panels)
+        middle_layout = QHBoxLayout()
+        if center:
             # Create QHBoxLayout for horizontal centering
             horizontal_centering_layout = QHBoxLayout()
             horizontal_centering_layout.addStretch()  # Add stretch to left side
@@ -443,10 +450,24 @@ class MainWindow(QWidget, InteractivePipeWindow):
             vertical_centering_layout.addLayout(horizontal_centering_layout)
             vertical_centering_layout.addStretch()  # Add stretch to bottom
 
-            self.layout_obj.addRow(vertical_centering_layout)
+            # Add left panels, centered images, right panels to middle layout
+            middle_layout.addLayout(self.left_panels_layout)
+            middle_layout.addLayout(vertical_centering_layout)
+            middle_layout.addLayout(self.right_panels_layout)
         else:
-            self.image_grid_layout = QGridLayout(self)
-            self.layout_obj.addRow(self.image_grid_layout)
+            # No centering - simpler layout
+            middle_layout.addLayout(self.left_panels_layout)
+            middle_layout.addLayout(self.image_grid_layout)
+            middle_layout.addLayout(self.right_panels_layout)
+
+        # Assemble main layout: top panels | middle (left | images | right) | bottom panels
+        main_layout.addLayout(self.top_panels_layout)
+        main_layout.addLayout(middle_layout)
+        main_layout.addLayout(self.bottom_panels_layout)
+
+        # Keep layout_obj for backward compatibility (used by init_sliders for ungrouped controls)
+        # We'll use bottom_panels_layout for ungrouped controls
+        self.layout_obj = self.bottom_panels_layout
 
         self.init_sliders(controls)
         # if self.pipeline._PipelineCore__initialized_inputs:
@@ -670,7 +691,11 @@ class MainWindow(QWidget, InteractivePipeWindow):
         vertical_spacing = (
             1  # Decrease this value to reduce vertical space between sliders
         )
-        self.layout_obj.setSpacing(vertical_spacing)
+        # Set spacing on all panel layouts
+        self.top_panels_layout.setSpacing(vertical_spacing)
+        self.left_panels_layout.setSpacing(vertical_spacing)
+        self.right_panels_layout.setSpacing(vertical_spacing)
+        self.bottom_panels_layout.setSpacing(vertical_spacing)
 
         # Collect all panels and build hierarchy
         root_panels = set()  # Use set to avoid duplicates
@@ -685,12 +710,6 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 root_panel = ctrl.panel.get_root()
                 root_panels.add(root_panel)
 
-        # Render ungrouped controls first
-        for ctrl in ungrouped_controls:
-            row_widget = self._create_control_widget(ctrl, control_factory)
-            if row_widget is not None:
-                self.layout_obj.addRow(row_widget)
-
         # Separate detached and regular panels
         detached_panels = []
         regular_panels = []
@@ -700,12 +719,38 @@ class MainWindow(QWidget, InteractivePipeWindow):
             else:
                 regular_panels.append(panel)
 
-        # Render regular panel hierarchy in main window
+        # Group regular panels by position
+        panels_by_position = {"top": [], "left": [], "right": [], "bottom": []}
         for panel in regular_panels:
-            panel_widget = self._build_panel_widget(panel, control_factory)
-            self.layout_obj.addRow(panel_widget)
+            pos = (
+                panel.position or "bottom"
+            )  # Default to bottom for backward compatibility
+            panels_by_position[pos].append(panel)
 
-        # Create detached windows for detached panels
+        # Render panels to appropriate containers based on position
+        for panel in panels_by_position["top"]:
+            panel_widget = self._build_panel_widget(panel, control_factory)
+            self.top_panels_layout.addWidget(panel_widget)
+
+        for panel in panels_by_position["left"]:
+            panel_widget = self._build_panel_widget(panel, control_factory)
+            self.left_panels_layout.addWidget(panel_widget)
+
+        for panel in panels_by_position["right"]:
+            panel_widget = self._build_panel_widget(panel, control_factory)
+            self.right_panels_layout.addWidget(panel_widget)
+
+        # Render ungrouped controls and bottom panels
+        for ctrl in ungrouped_controls:
+            row_widget = self._create_control_widget(ctrl, control_factory)
+            if row_widget is not None:
+                self.bottom_panels_layout.addWidget(row_widget)
+
+        for panel in panels_by_position["bottom"]:
+            panel_widget = self._build_panel_widget(panel, control_factory)
+            self.bottom_panels_layout.addWidget(panel_widget)
+
+        # Create detached windows for detached panels (position is ignored for detached)
         for panel in detached_panels:
             detached_window = DetachedPanelWindow(panel, self, control_factory)
             self.detached_windows.append(detached_window)

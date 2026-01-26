@@ -19,6 +19,10 @@ class Panel:
         # Detached panel (Qt backend only - opens in separate window)
         tools_panel = Panel("Tools", detached=True, detached_size=(400, 600))
 
+        # Panel with position (left, right, top, or bottom)
+        left_panel = Panel("Tools", position="left")
+        right_panel = Panel("Settings", position="right")
+
         # Nested panels with grid layout
         main_panel = Panel("Main").add_elements([
             [text_panel, color_panel],  # Row 1: side by side
@@ -33,6 +37,7 @@ class Panel:
         collapsed: bool = False,
         detached: bool = False,
         detached_size: Optional[tuple] = None,
+        position: Optional[str] = None,
     ) -> None:
         """Initialize a Panel.
 
@@ -42,12 +47,20 @@ class Panel:
             collapsed: Initial collapsed state (only used if collapsible=True)
             detached: Whether to render panel in a separate window (Qt backend only)
             detached_size: Optional (width, height) tuple for detached window size
+            position: Position relative to images - "left", "right", "top", "bottom", or None (defaults to "bottom")
         """
+        # Validate position
+        valid_positions = {None, "left", "right", "top", "bottom"}
+        if position not in valid_positions:
+            raise ValueError(
+                f"position must be one of {valid_positions}, got {position}"
+            )
         self.name = name
         self.collapsible = collapsible
         self.collapsed = collapsed
         self.detached = detached
         self.detached_size = detached_size
+        self.position = position
         self.elements = []  # List of Panels or list of lists (grid)
         self.parent = None  # Parent panel in hierarchy
         self._controls = []  # Controls assigned to this panel
@@ -105,10 +118,11 @@ class Panel:
         controls_count = len(self._controls)
         elements_count = len(self.elements) if self.elements else 0
         detached_str = f", detached={self.detached}" if self.detached else ""
+        position_str = f", position={self.position}" if self.position else ""
         return (
             f"Panel(name={name_str}, collapsible={self.collapsible}, "
-            f"collapsed={self.collapsed}{detached_str}, controls={controls_count}, "
-            f"elements={elements_count})"
+            f"collapsed={self.collapsed}{detached_str}{position_str}, "
+            f"controls={controls_count}, elements={elements_count})"
         )
 
     def __eq__(self, other) -> bool:
