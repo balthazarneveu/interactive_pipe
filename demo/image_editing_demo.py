@@ -84,6 +84,53 @@ def apply_knobs(
     return result
 
 
+def create_colorful_chart(size=(512, 512)) -> np.ndarray:
+    """Create a pretty colored synthetic chart with gradients and patterns."""
+    h, w = size
+    img = np.zeros((h, w, 3), dtype=np.float32)
+
+    # Create coordinate grids
+    y, x = np.ogrid[:h, :w]
+    center_x, center_y = w // 2, h // 2
+
+    # Create radial distance from center
+    radius = np.sqrt((x - center_x) ** 2 + (y - center_y) ** 2)
+    max_radius = np.sqrt(center_x**2 + center_y**2)
+    normalized_radius = radius / max_radius
+
+    # Create angle for color wheel effect
+    angle = np.arctan2(y - center_y, x - center_x)
+    normalized_angle = (angle + np.pi) / (2 * np.pi)  # [0, 1]
+
+    # Create colorful radial gradient with hue variation
+    # Red channel: varies with angle
+    img[:, :, 0] = 0.5 + 0.5 * np.sin(normalized_angle * 2 * np.pi)
+    # Green channel: varies with angle + offset
+    img[:, :, 1] = 0.5 + 0.5 * np.sin(normalized_angle * 2 * np.pi + 2 * np.pi / 3)
+    # Blue channel: varies with angle + offset
+    img[:, :, 2] = 0.5 + 0.5 * np.sin(normalized_angle * 2 * np.pi + 4 * np.pi / 3)
+
+    # Add radial brightness variation (darker at edges, brighter in center)
+    radial_mask = 1.0 - normalized_radius * 0.3
+    img = img * radial_mask[:, :, np.newaxis]
+
+    # Add some checkerboard pattern overlay for texture
+    checker_size = 32
+    checker = ((x // checker_size) + (y // checker_size)) % 2
+    checker_mask = 0.9 + 0.1 * checker
+    img = img * checker_mask[:, :, np.newaxis]
+
+    # Add some colorful bands
+    band_freq = 8
+    bands = 0.95 + 0.05 * np.sin(y * band_freq * 2 * np.pi / h)
+    img = img * bands[:, :, np.newaxis]
+
+    # Ensure values are in [0, 1]
+    img = np.clip(img, 0.0, 1.0)
+
+    return img
+
+
 def add_text(img: np.ndarray, text: str = "nothing") -> np.ndarray:
     """Add text overlay to the image."""
     if text == "nothing" or not text:
@@ -219,12 +266,13 @@ def add_interactivity():
 
 def launch(backend="qt"):
     add_interactivity()
+    colorful_chart = create_colorful_chart(size=(512, 512))
     interactive_pipeline(
         gui=backend,
         cache=False,
         name="Image Editing",
         size=(10, 10),
-    )(image_editing_pipeline)(np.ones((256, 256, 3)) * 0.5)
+    )(image_editing_pipeline)(colorful_chart)
 
 
 if __name__ == "__main__":
