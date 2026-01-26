@@ -215,6 +215,29 @@ def test_table_single_column():
     assert t.values == [[1], [2], [3]]
 
 
+def test_table_format_values():
+    """Test _format_values() method for display formatting."""
+    t = Table({"A": [1.234, 2.567], "B": [3, 4]}, precision=2)
+    formatted = t._format_values()
+    assert formatted == [["1.23", "3"], ["2.57", "4"]]
+
+
+def test_table_create_table():
+    """Test create_table() method creates matplotlib table."""
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        pytest.skip("matplotlib not available")
+    
+    t = Table({"A": [1, 2], "B": [3, 4]}, title="Test Table")
+    fig, ax = plt.subplots()
+    table_obj = t.create_table(ax=ax)
+    
+    assert table_obj is not None
+    assert len(table_obj.get_celld()) > 0  # Table has cells
+    plt.close(fig)
+
+
 # Pandas-dependent tests
 @pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
 def test_table_from_dataframe():
