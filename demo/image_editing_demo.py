@@ -271,8 +271,9 @@ def launch(backend="qt"):
         gui=backend,
         cache=False,
         name="Image Editing",
-        size=(10, 10),
-    )(image_editing_pipeline)(colorful_chart)
+    )(
+        image_editing_pipeline
+    )(colorful_chart)
 
 
 if __name__ == "__main__":
