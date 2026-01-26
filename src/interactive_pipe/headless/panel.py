@@ -16,6 +16,9 @@ class Panel:
         # Collapsible panel
         color_panel = Panel("Colors", collapsible=True, collapsed=False)
 
+        # Detached panel (Qt backend only - opens in separate window)
+        tools_panel = Panel("Tools", detached=True, detached_size=(400, 600))
+
         # Nested panels with grid layout
         main_panel = Panel("Main").add_elements([
             [text_panel, color_panel],  # Row 1: side by side
@@ -28,6 +31,8 @@ class Panel:
         name: Optional[str] = None,
         collapsible: bool = False,
         collapsed: bool = False,
+        detached: bool = False,
+        detached_size: Optional[tuple] = None,
     ) -> None:
         """Initialize a Panel.
 
@@ -35,10 +40,14 @@ class Panel:
             name: Display name for the panel (shown in group box title)
             collapsible: Whether the panel can be collapsed/expanded
             collapsed: Initial collapsed state (only used if collapsible=True)
+            detached: Whether to render panel in a separate window (Qt backend only)
+            detached_size: Optional (width, height) tuple for detached window size
         """
         self.name = name
         self.collapsible = collapsible
         self.collapsed = collapsed
+        self.detached = detached
+        self.detached_size = detached_size
         self.elements = []  # List of Panels or list of lists (grid)
         self.parent = None  # Parent panel in hierarchy
         self._controls = []  # Controls assigned to this panel
@@ -95,9 +104,10 @@ class Panel:
         name_str = f'"{self.name}"' if self.name else "None"
         controls_count = len(self._controls)
         elements_count = len(self.elements) if self.elements else 0
+        detached_str = f", detached={self.detached}" if self.detached else ""
         return (
             f"Panel(name={name_str}, collapsible={self.collapsible}, "
-            f"collapsed={self.collapsed}, controls={controls_count}, "
+            f"collapsed={self.collapsed}{detached_str}, controls={controls_count}, "
             f"elements={elements_count})"
         )
 

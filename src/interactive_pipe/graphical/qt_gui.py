@@ -166,6 +166,57 @@ class CollapsibleBox(QWidget):
         self.content_area.setLayout(layout)
 
 
+class DetachedPanelWindow(QWidget):
+    """Detached window for rendering a panel separately from the main window."""
+
+    def __init__(
+        self,
+        panel: Panel,
+        main_window: "MainWindow",
+        control_factory: ControlFactory,
+        parent=None,
+    ):
+        """Initialize a detached panel window.
+
+        Args:
+            panel: The Panel to render in this window
+            main_window: Reference to the main window for refresh callbacks
+            control_factory: Factory for creating control widgets
+            parent: Optional parent widget
+        """
+        super().__init__(parent)
+        self.panel = panel
+        self.main_window = main_window
+        self.control_factory = control_factory
+
+        # Set window title from panel name
+        self.setWindowTitle(panel.name or "Detached Panel")
+
+        # Set window size if specified
+        if panel.detached_size is not None:
+            width, height = panel.detached_size
+            self.setMinimumWidth(width)
+            self.setMinimumHeight(height)
+
+        # Create main layout
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(10, 10, 10, 10)
+
+        # Build and add the panel widget
+        panel_widget = main_window._build_panel_widget(panel, control_factory)
+        self.main_layout.addWidget(panel_widget)
+
+        # Show the window
+        self.show()
+
+    def closeEvent(self, event):
+        """Handle window close event."""
+        # Remove from main window's list of detached windows
+        if self in self.main_window.detached_windows:
+            self.main_window.detached_windows.remove(self)
+        event.accept()
+
+
 class InteractivePipeQT(InteractivePipeGUI):
     def init_app(self, **kwargs):
         if not QApplication.instance():
@@ -375,6 +426,9 @@ class MainWindow(QWidget, InteractivePipeWindow):
 
         self.layout_obj = QFormLayout()
         self.setLayout(self.layout_obj)
+
+        # Track detached panel windows
+        self.detached_windows = []
 
         if center:
             self.image_grid_layout = QGridLayout()
@@ -639,10 +693,24 @@ class MainWindow(QWidget, InteractivePipeWindow):
             if row_widget is not None:
                 self.layout_obj.addRow(row_widget)
 
-        # Render panel hierarchy
+        # Separate detached and regular panels
+        detached_panels = []
+        regular_panels = []
         for panel in root_panels:
+            if panel.detached:
+                detached_panels.append(panel)
+            else:
+                regular_panels.append(panel)
+
+        # Render regular panel hierarchy in main window
+        for panel in regular_panels:
             panel_widget = self._build_panel_widget(panel, control_factory)
             self.layout_obj.addRow(panel_widget)
+
+        # Create detached windows for detached panels
+        for panel in detached_panels:
+            detached_window = DetachedPanelWindow(panel, self, control_factory)
+            self.detached_windows.append(detached_window)
 
     def update_label(self, idx):
         # pass
@@ -815,3 +883,11 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 self.widget_list[widget_idx].reset()
             self.update_label(widget_idx)
         self.refresh()
+
+    def closeEvent(self, event):
+        """Handle main window close event - close all detached windows."""
+        # Close all detached panel windows
+        for detached_window in self.detached_windows:
+            detached_window.close()
+        self.detached_windows.clear()
+        event.accept()

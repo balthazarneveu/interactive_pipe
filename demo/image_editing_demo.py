@@ -144,14 +144,20 @@ def image_editing_pipeline(img: np.ndarray):  # pyright: ignore[reportUndefinedV
 
 
 def add_interactivity():
-    lighting_panel = Panel("Lighting", collapsible=False, collapsed=False)
+    lighting_panel = Panel(
+        "Lighting",
+        collapsible=False,
+        collapsed=False,
+        detached=True,
+        detached_size=(200, 200),
+    )
     stretching_panel = Panel("Stretching", collapsible=True, collapsed=True)
     contrast_panel = Panel("Contrast", collapsible=True, collapsed=True)
 
     color_panel = Panel("Color", collapsible=True, collapsed=False)
     lighting_panel.add_elements([[contrast_panel, stretching_panel]])
-    main_panel = Panel("Image Editing", collapsible=True, collapsed=True)
-    main_panel.add_elements([[lighting_panel, color_panel]])
+    # main_panel = Panel("Image Editing", collapsible=True, collapsed=True)
+    # main_panel.add_elements([[lighting_panel, color_panel]])
     interactive(
         black_point=Control(
             0.0,
@@ -206,7 +212,6 @@ def add_interactivity():
     interactive(
         text=TextPrompt(
             "Text",
-            group=main_panel,
             tooltip="Enter text to overlay on the image. Leave empty for no text.",
         ),
     )(add_text)
