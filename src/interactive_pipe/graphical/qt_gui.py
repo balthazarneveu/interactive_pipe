@@ -81,6 +81,7 @@ try:
     from matplotlib.backends.backend_qtagg import FigureCanvas
     from matplotlib.figure import Figure
     from interactive_pipe.data_objects.curves import Curve, SingleCurve
+    from interactive_pipe.data_objects.table import Table
 
     MPL_SUPPORT = True
 except ImportError:
@@ -623,6 +624,27 @@ class MainWindow(QWidget, InteractivePipeWindow):
                     )
                 else:
                     image_array.update_plot(plt_obj, ax=ax)
+                    ax.figure.canvas.draw()
+            elif MPL_SUPPORT and isinstance(image_array, Table):
+                image_label = FigureCanvas(Figure(figsize=(10, 10)))
+                if self.image_canvas[row][col]["ax_placeholder"] is None:
+                    ax_placeholder = image_label.figure.subplots()
+                    self.image_canvas[row][col]["image"] = image_label
+                    self.image_grid_layout.addWidget(
+                        image_label,
+                        2 * row + 1,
+                        col,
+                        alignment=Qt.AlignmentFlag.AlignCenter,
+                    )
+                    self.image_canvas[row][col]["ax_placeholder"] = ax_placeholder
+                ax = self.image_canvas[row][col]["ax_placeholder"]
+                table_obj = self.image_canvas[row][col].get("plot_object", None)
+                if table_obj is None:
+                    self.image_canvas[row][col]["plot_object"] = (
+                        image_array.create_table(ax=ax)
+                    )
+                else:
+                    image_array.update_table(table_obj, ax=ax)
                     ax.figure.canvas.draw()
             elif isinstance(image_array, str):
                 txt_label = self.image_canvas[row][col]["image"]
