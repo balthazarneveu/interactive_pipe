@@ -110,8 +110,7 @@ class CollapsibleBox(QWidget):
         self.toggle_button = QPushButton(title)
         self.toggle_button.setCheckable(True)
         self.toggle_button.setChecked(not collapsed)
-        self.toggle_button.setStyleSheet(
-            """
+        self.toggle_button.setStyleSheet("""
             QPushButton {
                 text-align: left;
                 padding: 8px;
@@ -126,8 +125,7 @@ class CollapsibleBox(QWidget):
             QPushButton:checked {
                 background-color: #d0d0d0;
             }
-        """
-        )
+        """)
         self.toggle_button.clicked.connect(self.toggle)
 
         # Content area (no layout initially - will be set later)
