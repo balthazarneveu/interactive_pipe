@@ -17,6 +17,7 @@ MPL_SUPPORT = False
 GRADIO_INTERFACE_MODE = False
 try:
     from interactive_pipe.data_objects.curves import Curve
+    from interactive_pipe.data_objects.table import Table
     import matplotlib.pyplot as plt
 
     MPL_SUPPORT = True
@@ -94,6 +95,9 @@ class InteractivePipeGradio(InteractivePipeGUI):
                     #     title = out_list[idx][idy].title
                     out_list_gradio_containers.append(gr.Plot(label=title))
                     self.window.image_canvas[idx][idy]["type"] = "curve"
+                elif isinstance(out_list[idx][idy], Table):
+                    out_list_gradio_containers.append(gr.Dataframe(label=title))
+                    self.window.image_canvas[idx][idy]["type"] = "table"
                 # @TODO: https://github.com/balthazarneveu/interactive_pipe/issues/50 support audio!
                 elif isinstance(out_list[idx][idy], str):
                     out_list_gradio_containers.append(gr.Textbox(label=title))
@@ -159,6 +163,12 @@ class MainWindow(InteractivePipeWindow):
                             fig, ax = plt.subplots()
                             Curve._plot_curve(curve.data, ax=ax)
                             flat_out.append(fig)
+                        elif isinstance(out[idx][idy], Table):
+                            table = out[idx][idy]
+                            # Convert to format expected by gr.Dataframe
+                            # Format: list of lists with first row as headers
+                            table_data = [table.columns] + table.values
+                            flat_out.append(table_data)
                         elif isinstance(out[idx][idy], np.ndarray):
                             if len(out[idx][idy].shape) == 1:
                                 logging.debug(f"CONVERTING AUDIO  {idx} {idy}")
