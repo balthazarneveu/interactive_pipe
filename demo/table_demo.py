@@ -40,11 +40,9 @@ def compute_statistics(img, global_params={}):
         "Max": [f"{img[:, :, i].max():.4f}" for i in range(3)],
     }
     table = Table(stats, title="Image Statistics", precision=4)
-    
-    global_params["__output_styles"]["stats"] = {
-        "title": "Channel Statistics"
-    }
-    
+
+    global_params["__output_styles"]["stats"] = {"title": "Channel Statistics"}
+
     return table
 
 
@@ -70,6 +68,5 @@ if __name__ == "__main__":
     interactive_pipeline(
         gui=args.backend,
         cache=False,
-        name="Table Demo",
-        size=(10, 10) if args.backend == "nb" else None,
+        name="Table Demo"
     )(table_pipeline)()

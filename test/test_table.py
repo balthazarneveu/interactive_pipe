@@ -81,10 +81,10 @@ def test_table_properties():
     t = Table({"A": [1, 2]})
     assert t.title is None
     assert t.precision == 2
-    
+
     t.title = "Test Table"
     assert t.title == "Test Table"
-    
+
     t.precision = 4
     assert t.precision == 4
 
@@ -151,7 +151,7 @@ def test_table_save_load_pkl(tmp_path):
     path = tmp_path / "test.pkl"
     t.save(path)
     assert path.is_file()
-    
+
     t2 = Table.from_file(path)
     assert t2.columns == t.columns
     assert t2.values == t.values
@@ -192,11 +192,7 @@ def test_table_float_values():
 
 def test_table_mixed_types():
     """Test Table with mixed data types."""
-    t = Table({
-        "Name": ["Alice", "Bob"],
-        "Age": [25, 30],
-        "Score": [95.5, 87.3]
-    })
+    t = Table({"Name": ["Alice", "Bob"], "Age": [25, 30], "Score": [95.5, 87.3]})
     assert t.columns == ["Name", "Age", "Score"]
     assert t.values == [["Alice", 25, 95.5], ["Bob", 30, 87.3]]
 
@@ -228,11 +224,11 @@ def test_table_create_table():
         import matplotlib.pyplot as plt
     except ImportError:
         pytest.skip("matplotlib not available")
-    
+
     t = Table({"A": [1, 2], "B": [3, 4]}, title="Test Table")
     fig, ax = plt.subplots()
     table_obj = t.create_table(ax=ax)
-    
+
     assert table_obj is not None
     assert len(table_obj.get_celld()) > 0  # Table has cells
     plt.close(fig)
@@ -275,7 +271,7 @@ def test_table_save_load_csv(tmp_path):
     path = tmp_path / "test.csv"
     t.save(path)
     assert path.is_file()
-    
+
     t2 = Table.from_file(path)
     assert t2.columns == t.columns
     assert t2.values == t.values
@@ -288,7 +284,7 @@ def test_table_save_load_csv_with_floats(tmp_path):
     t = Table({"A": [1.5, 2.7], "B": [3.1, 4.9]})
     path = tmp_path / "test.csv"
     t.save(path)
-    
+
     t2 = Table.from_file(path)
     # CSV loads as floats, so we need to compare approximately
     assert t2.columns == t.columns
@@ -304,7 +300,7 @@ def test_table_save_load_csv_with_strings(tmp_path):
     t = Table({"Name": ["Alice", "Bob"], "Age": [25, 30]})
     path = tmp_path / "test.csv"
     t.save(path)
-    
+
     t2 = Table.from_file(path)
     assert t2.columns == t.columns
     # String columns may be preserved or converted, check values match
@@ -324,9 +320,11 @@ def test_table_dataframe_input_without_pandas_raises():
     """Test that DataFrame input raises error when pandas unavailable."""
     if PANDAS_AVAILABLE:
         pytest.skip("pandas is installed, cannot test error case")
+
     # Create a mock DataFrame-like object
     class MockDataFrame:
         pass
+
     mock_df = MockDataFrame()
     with pytest.raises(TypeError, match="Unsupported data type"):
         Table(mock_df)
