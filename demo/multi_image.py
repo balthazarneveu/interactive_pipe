@@ -4,7 +4,7 @@ from typing import List
 import argparse
 from pathlib import Path
 from interactive_pipe.data_objects.image import Image
-from interactive_pipe import interactive, interactive_pipeline
+from interactive_pipe import interactive, interactive_pipeline, Panel
 
 TORCH_AVAILABLE = True
 try:
@@ -53,7 +53,6 @@ def img_selector(img_list: List[Path], index: int = 0, global_params={}) -> np.n
     return img
 
 
-@interactive(half_blur_size=(0, [0, 7]), gpu=(False,) if TORCH_AVAILABLE else None)
 def blur_image(
     img: np.ndarray, half_blur_size=1, gpu=False, global_params={}
 ) -> np.ndarray:
@@ -76,7 +75,6 @@ def blur_image(
     return blurred_image
 
 
-@interactive(threshold=(0.5, [0.0, 1.0]))
 def threshold(img: np.ndarray, threshold: float = 0.5, global_params={}) -> np.ndarray:
     global_params["__output_styles"]["thresholded_image"] = {
         "title": f"{threshold=:.2%}"
@@ -116,13 +114,28 @@ if __name__ == "__main__":
         default="qt",
         help="Backend to use: qt, gradio, mpl, or nb (default: qt)",
     )
+    parser.add_argument(
+        "-p",
+        "--panel",
+        type=str,
+        choices=["left", "right", "top", "bottom"],
+        default="bottom",
+        help="Panel to use: left, right, top, or bottom (default: bottom)",
+    )
     args = parser.parse_args()
+    blur_panel = Panel("Blurring", position=args.panel)
 
     # Decorate image selector - similar to @interactive
-    interactive(index=(0, [0, len(img_list) - 1]))(  # from 0 to the number of images
+    interactive(
+        index=(0, [0, len(img_list) - 1], "image selector", "choice")
+    )(  # from 0 to the number of images
         img_selector
     )
-
+    interactive(
+        half_blur_size=(0, [0, 7], "blur size", blur_panel),
+        gpu=(False, "gpu", blur_panel) if TORCH_AVAILABLE else None,
+    )(blur_image)
+    interactive(threshold=(0.5, [0.0, 1.0], "threshold", blur_panel))(threshold)
     interactive_pipeline(
         gui=args.backend,
         cache=False,
