@@ -27,6 +27,7 @@ if not PYQTVERSION:
             QHBoxLayout,
             QMessageBox,
             QPushButton,
+            QFrame,
         )
         from PyQt6.QtCore import QUrl, Qt, QTimer
         from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
@@ -47,6 +48,7 @@ if not PYQTVERSION:
                 QHBoxLayout,
                 QMessageBox,
                 QPushButton,
+                QFrame,
             )
             from PyQt5.QtCore import QUrl, Qt, QTimer
             from PyQt5.QtGui import QPixmap, QImage
@@ -70,6 +72,7 @@ if not PYQTVERSION:
             QHBoxLayout,
             QMessageBox,
             QPushButton,
+            QFrame,
         )
         from PySide6.QtCore import QUrl, Qt, QTimer  # noqa: F811
         from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer  # noqa: F811
@@ -91,22 +94,41 @@ except ImportError:
     logging.warning("No support for Matplotlib widgets for Qt")
 
 
-class CollapsibleBox(QWidget):
+class CollapsibleBox(QFrame):
     """Modern collapsible panel with smooth animation and arrow indicator."""
 
     def __init__(self, title="", collapsed=False, parent=None):
         super().__init__(parent)
         self.is_collapsed = collapsed
 
+        # QFrame is better for borders and rounded corners
+        # Set frame shape and shadow for proper border rendering
+        self.setFrameShape(QFrame.Shape.Box)
+        self.setFrameShadow(QFrame.Shadow.Plain)
+        self.setLineWidth(1)
+
         # Main layout
         self.main_layout = QVBoxLayout(self)
+        # No margins - border will be on the frame itself
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
+
+        # Apply QGroupBox-like styling with rounded corners
+        # QFrame renders border-radius better than QWidget
+        # Only style the border, don't set background-color to avoid affecting child widgets
+        self.setObjectName("collapsibleBox")
+        self.setStyleSheet("""
+            QFrame#collapsibleBox {
+                border: 1px solid #c0c0c0;
+                border-radius: 5px;
+            }
+        """)
 
         # Toggle button with arrow
         self.toggle_button = QPushButton(title)
         self.toggle_button.setCheckable(True)
         self.toggle_button.setChecked(not collapsed)
+        # Style button to not interfere with parent border visibility
         self.toggle_button.setStyleSheet("""
             QPushButton {
                 text-align: left;
@@ -114,7 +136,9 @@ class CollapsibleBox(QWidget):
                 border: none;
                 background-color: #f0f0f0;
                 font-weight: bold;
-                border-radius: 4px;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+                margin: 0px;
             }
             QPushButton:hover {
                 background-color: #e0e0e0;
@@ -127,6 +151,7 @@ class CollapsibleBox(QWidget):
 
         # Content area (no layout initially - will be set later)
         self.content_area = QWidget()
+        # Don't set stylesheet on content area to avoid affecting slider colors
 
         # Add widgets to main layout
         self.main_layout.addWidget(self.toggle_button)
