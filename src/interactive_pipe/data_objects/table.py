@@ -248,3 +248,69 @@ class Table(Data):
             raise ValueError(
                 f"Unsupported file extension: {path.suffix}. Supported: .pkl, .csv"
             )
+
+    def _format_values(self) -> List[List[str]]:
+        """Format values with precision for display."""
+        formatted = []
+        for row in self.values:
+            formatted_row = []
+            for val in row:
+                if isinstance(val, float):
+                    formatted_row.append(f"{val:.{self.precision}f}")
+                else:
+                    formatted_row.append(str(val))
+            formatted.append(formatted_row)
+        return formatted
+
+    def create_table(self, ax=None):
+        """Create matplotlib table, returns table object.
+        
+        Args:
+            ax: matplotlib Axes object (optional, will create if None)
+            
+        Returns:
+            matplotlib Table object
+        """
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            raise RuntimeError(
+                "Matplotlib is required for table rendering. Install with: pip install matplotlib"
+            )
+        
+        if ax is None:
+            fig, ax = plt.subplots()
+        
+        ax.axis('off')
+        
+        table = ax.table(
+            cellText=self._format_values(),
+            colLabels=self.columns,
+            loc='center',
+            cellLoc='center',
+        )
+        table.auto_set_font_size(False)
+        table.set_fontsize(9)
+        table.scale(1, 2)  # Make cells taller for better readability
+        
+        if self.title:
+            ax.set_title(self.title, pad=20)
+        
+        return table
+
+    def update_table(self, table_obj, ax=None):
+        """Update existing matplotlib table.
+        
+        Note: matplotlib tables don't update well, so we clear and recreate.
+        
+        Args:
+            table_obj: Previous table object (ignored, used for API consistency)
+            ax: matplotlib Axes object
+            
+        Returns:
+            matplotlib Table object
+        """
+        if ax is None:
+            raise ValueError("ax parameter is required for update_table()")
+        ax.clear()
+        return self.create_table(ax=ax)

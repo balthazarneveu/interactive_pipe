@@ -9,6 +9,7 @@ from interactive_pipe.headless.control import (
 from interactive_pipe.headless.panel import Panel
 from interactive_pipe.data_objects.curves import Curve, SingleCurve
 from interactive_pipe.data_objects.image import Image
+from interactive_pipe.data_objects.table import Table
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.helper.filter_decorator import interactive, interact
 

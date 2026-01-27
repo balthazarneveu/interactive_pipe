@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib as mpl
 from typing import Optional
 from interactive_pipe.data_objects.curves import Curve
+from interactive_pipe.data_objects.table import Table
 
 
 class MatplotlibWindow(InteractivePipeWindow):
@@ -75,6 +76,8 @@ class MatplotlibWindow(InteractivePipeWindow):
                     data.set_ydata(img)
             elif isinstance(img, Curve):
                 img.update_plot(data, ax=ax_dict["ax"])
+            elif isinstance(img, Table):
+                ax_dict["data"] = img.update_table(data, ax=ax_dict["ax"])
             elif isinstance(img, str):
                 data.set_text(img)
         else:
@@ -85,11 +88,13 @@ class MatplotlibWindow(InteractivePipeWindow):
                     ax_dict["data"] = Curve([img]).create_plot(ax=ax_dict["ax"])
             elif isinstance(img, Curve):
                 ax_dict["data"] = img.create_plot(ax=ax_dict["ax"])
+            elif isinstance(img, Table):
+                ax_dict["data"] = img.create_table(ax=ax_dict["ax"])
             elif isinstance(img, str):
                 ax_dict["data"] = ax_dict["ax"].text(
                     0.5, 0.5, img, ha="center", va="center", fontsize=10
                 )
-        if not (isinstance(img, Curve) and img.data["title"] is not None):
+        if not (isinstance(img, Curve) and img.data.get("title") is not None) and not isinstance(img, Table):
             self.update_style(ax_dict["ax"], style=current_style)
 
     def refresh(self):
