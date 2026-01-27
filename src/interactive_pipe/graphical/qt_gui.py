@@ -155,8 +155,8 @@ class CollapsibleBox(QWidget):
 
     def set_layout(self, layout):
         """Set the layout for the content area."""
-        # Set margins on the layout
-        layout.setContentsMargins(8, 8, 8, 8)
+        # Set margins on the layout for beautiful, balanced spacing
+        layout.setContentsMargins(12, 12, 12, 12)
         # Set the layout (only called once, no existing layout)
         self.content_area.setLayout(layout)
 
@@ -575,6 +575,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
         elif panel.elements:
             # Vertical layout: flat list
             layout = QVBoxLayout()
+            layout.setSpacing(8)  # Nice spacing between controls
             for element in panel.elements:
                 widget = self._build_element_widget(element, control_factory)
                 if widget is not None:
@@ -582,12 +583,18 @@ class MainWindow(QWidget, InteractivePipeWindow):
         else:
             # No child elements, just a simple vertical layout for controls
             layout = QVBoxLayout()
+            layout.setSpacing(8)  # Nice spacing between controls
 
         # Add controls assigned directly to this panel
         for ctrl in panel._controls:
             widget = self._create_control_widget(ctrl, control_factory)
             if widget is not None:
                 layout.addWidget(widget)
+
+        # Add stretch at the end to push all controls to the top
+        # This creates a beautiful, balanced layout with controls at the top
+        if isinstance(layout, QVBoxLayout):
+            layout.addStretch()
 
         # Create the panel widget (collapsible or regular)
         if panel.collapsible:
@@ -599,6 +606,9 @@ class MainWindow(QWidget, InteractivePipeWindow):
         else:
             # Use regular QGroupBox
             panel_widget = QGroupBox(panel.name or "")
+            # Set nice margins for balanced appearance
+            if isinstance(layout, QVBoxLayout):
+                layout.setContentsMargins(12, 12, 12, 12)
             panel_widget.setLayout(layout)
 
         return panel_widget
@@ -647,27 +657,34 @@ class MainWindow(QWidget, InteractivePipeWindow):
             self.widget_list[slider_name] = slider_instance
 
             slider_layout = QHBoxLayout()
+            slider_layout.setSpacing(8)  # Nice spacing between label, slider, and value
 
             if isinstance(slider_or_layout, QWidget):
-                label_fixed_width = 200
+                # Balanced label width that works well in both panels and bottom area
+                label_fixed_width = 150
                 label = QLabel("", self)
                 label.setMinimumWidth(label_fixed_width)
                 self.name_label[slider_name] = label
                 slider_layout.addWidget(self.name_label[slider_name])
             if isinstance(slider_or_layout, QWidget):
                 # If it's a QWidget, add it directly to the layout
-                slider_layout.addWidget(slider_or_layout)
+                # Set minimum width to prevent slider from shrinking in narrow panels
+                slider_or_layout.setMinimumWidth(150)
+                # Add with stretch factor 1 so slider expands to fill available space
+                slider_layout.addWidget(slider_or_layout, 1)
             elif isinstance(slider_or_layout, QHBoxLayout):
                 slider_or_layout.setContentsMargins(0, 0, 0, 0)
                 # If it's a QHBoxLayout, embed it in a QWidget first
                 container_widget = QWidget()
                 container_widget.setLayout(slider_or_layout)
-                slider_layout.addWidget(container_widget)
+                # Set minimum width to prevent shrinking in narrow panels
+                container_widget.setMinimumWidth(150)
+                slider_layout.addWidget(container_widget, 1)
             else:
                 print(f"Unhandled type for slider: {type(slider_or_layout)}")
                 return None
             if isinstance(slider_or_layout, QWidget):
-                result_fixed_width = 100
+                result_fixed_width = 90
                 label = QLabel("", self)
                 label.setMinimumWidth(result_fixed_width)
                 self.result_label[slider_name] = label
