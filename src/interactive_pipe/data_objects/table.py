@@ -5,6 +5,23 @@ import logging
 
 from interactive_pipe.data_objects.data import Data
 
+# Optional pandas support
+PANDAS_AVAILABLE = False
+try:
+    import pandas as pd
+
+    PANDAS_AVAILABLE = True
+except ImportError:
+    pass
+
+
+def _require_pandas(feature_name: str):
+    """Raise RuntimeError if pandas is not available."""
+    if not PANDAS_AVAILABLE:
+        raise RuntimeError(
+            f"{feature_name} requires pandas. Install with: pip install pandas"
+        )
+
 
 class Table(Data):
     """Tabular data for display in interactive_pipe.
@@ -33,6 +50,9 @@ class Table(Data):
             # Handled by parent class
             super().__init__(data, columns=columns, title=title, precision=precision)
             return
+        elif PANDAS_AVAILABLE and isinstance(data, pd.DataFrame):
+            # Handle pandas DataFrame input
+            data_dict = self._normalize_dataframe(data)
         else:
             data_dict = self._normalize_data(data, columns)
         
@@ -107,7 +127,15 @@ class Table(Data):
             raise TypeError(
                 f"Unsupported data type: {type(data)}. "
                 "Supported: dict of lists, list of dicts, 2D numpy array"
+                + (", pandas DataFrame" if PANDAS_AVAILABLE else "")
             )
+
+    def _normalize_dataframe(self, df: "pd.DataFrame") -> Dict[str, Any]:
+        """Convert pandas DataFrame to internal format."""
+        _require_pandas("DataFrame input")
+        col_names = list(df.columns)
+        values = df.values.tolist()
+        return {"columns": col_names, "values": values}
 
     @property
     def columns(self) -> List[str]:
@@ -178,14 +206,25 @@ class Table(Data):
     def _set_file_extensions(self):
         self.file_extensions = [".csv", ".pkl"]
 
+    def as_dataframe(self):
+        """Convert Table to pandas DataFrame.
+        
+        Returns:
+            pd.DataFrame: Table data as a pandas DataFrame
+            
+        Raises:
+            RuntimeError: If pandas is not installed
+        """
+        _require_pandas("as_dataframe()")
+        return pd.DataFrame(self.values, columns=self.columns)
+
     def _save(self, path: Path, **kwargs):
         if path.suffix == ".pkl":
             Data.save_binary(self.data, path)
         elif path.suffix == ".csv":
-            # CSV requires pandas - will be handled in Commit 2
-            raise RuntimeError(
-                "CSV export requires pandas. Install with: pip install pandas"
-            )
+            _require_pandas("CSV export")
+            df = self.as_dataframe()
+            df.to_csv(path, index=False)
         else:
             raise ValueError(
                 f"Unsupported file extension: {path.suffix}. Supported: .pkl, .csv"
@@ -196,10 +235,15 @@ class Table(Data):
             data = Data.load_binary(path)
             return data
         elif path.suffix == ".csv":
-            # CSV requires pandas - will be handled in Commit 2
-            raise RuntimeError(
-                "CSV import requires pandas. Install with: pip install pandas"
-            )
+            _require_pandas("CSV import")
+            df = pd.read_csv(path)
+            data = {
+                "columns": list(df.columns),
+                "values": df.values.tolist(),
+                "title": kwargs.get("title", None),
+                "precision": kwargs.get("precision", 2),
+            }
+            return data
         else:
             raise ValueError(
                 f"Unsupported file extension: {path.suffix}. Supported: .pkl, .csv"

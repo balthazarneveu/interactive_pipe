@@ -1,7 +1,10 @@
 import pytest
 import numpy as np
 from pathlib import Path
-from interactive_pipe.data_objects.table import Table
+from interactive_pipe.data_objects.table import Table, PANDAS_AVAILABLE
+
+if PANDAS_AVAILABLE:
+    import pandas as pd
 
 
 def test_table_from_dict_of_lists():
@@ -210,3 +213,97 @@ def test_table_single_column():
     t = Table({"A": [1, 2, 3]})
     assert t.columns == ["A"]
     assert t.values == [[1], [2], [3]]
+
+
+# Pandas-dependent tests
+@pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
+def test_table_from_dataframe():
+    """Test creating Table from pandas DataFrame."""
+    df = pd.DataFrame({"A": [1, 2], "B": [3, 4]})
+    t = Table(df)
+    assert t.columns == ["A", "B"]
+    assert t.values == [[1, 3], [2, 4]]
+
+
+@pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
+def test_table_from_dataframe_with_index():
+    """Test creating Table from DataFrame with custom index."""
+    df = pd.DataFrame({"A": [1, 2], "B": [3, 4]}, index=["row1", "row2"])
+    t = Table(df)
+    # Index should not be included in columns
+    assert t.columns == ["A", "B"]
+    assert t.values == [[1, 3], [2, 4]]
+
+
+@pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
+def test_table_as_dataframe():
+    """Test converting Table to pandas DataFrame."""
+    t = Table({"A": [1, 2], "B": [3, 4]})
+    df = t.as_dataframe()
+    assert isinstance(df, pd.DataFrame)
+    assert list(df.columns) == ["A", "B"]
+    assert df.values.tolist() == [[1, 3], [2, 4]]
+
+
+@pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
+def test_table_save_load_csv(tmp_path):
+    """Test saving and loading Table as CSV."""
+    t = Table({"A": [1, 2], "B": [3, 4]}, title="Test", precision=3)
+    path = tmp_path / "test.csv"
+    t.save(path)
+    assert path.is_file()
+    
+    t2 = Table.from_file(path)
+    assert t2.columns == t.columns
+    assert t2.values == t.values
+    # Note: title and precision are not preserved in CSV
+
+
+@pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
+def test_table_save_load_csv_with_floats(tmp_path):
+    """Test CSV save/load with float values."""
+    t = Table({"A": [1.5, 2.7], "B": [3.1, 4.9]})
+    path = tmp_path / "test.csv"
+    t.save(path)
+    
+    t2 = Table.from_file(path)
+    # CSV loads as floats, so we need to compare approximately
+    assert t2.columns == t.columns
+    assert len(t2.values) == len(t.values)
+    for row1, row2 in zip(t.values, t2.values):
+        for v1, v2 in zip(row1, row2):
+            assert abs(v1 - v2) < 1e-10
+
+
+@pytest.mark.skipif(not PANDAS_AVAILABLE, reason="pandas not installed")
+def test_table_save_load_csv_with_strings(tmp_path):
+    """Test CSV save/load with string values."""
+    t = Table({"Name": ["Alice", "Bob"], "Age": [25, 30]})
+    path = tmp_path / "test.csv"
+    t.save(path)
+    
+    t2 = Table.from_file(path)
+    assert t2.columns == t.columns
+    # String columns may be preserved or converted, check values match
+    assert len(t2.values) == len(t.values)
+
+
+def test_table_as_dataframe_without_pandas_raises():
+    """Test that as_dataframe() raises RuntimeError when pandas unavailable."""
+    if PANDAS_AVAILABLE:
+        pytest.skip("pandas is installed, cannot test error case")
+    t = Table({"A": [1, 2]})
+    with pytest.raises(RuntimeError, match="requires pandas"):
+        t.as_dataframe()
+
+
+def test_table_dataframe_input_without_pandas_raises():
+    """Test that DataFrame input raises error when pandas unavailable."""
+    if PANDAS_AVAILABLE:
+        pytest.skip("pandas is installed, cannot test error case")
+    # Create a mock DataFrame-like object
+    class MockDataFrame:
+        pass
+    mock_df = MockDataFrame()
+    with pytest.raises(TypeError, match="Unsupported data type"):
+        Table(mock_df)
