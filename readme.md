@@ -220,12 +220,12 @@ Notes:
 ## :bulb: Some more tips
 
 ```python
-from interactive_pipe import interactive, interactive_pipeline
+from interactive_pipe import interactive, interactive_pipeline, context
 import numpy as np
 
 COLOR_DICT = {"red": [1., 0., 0.],  "green": [0., 1.,0.], "blue": [0., 0., 1.], "gray": [0.5, 0.5, 0.5]}
 @interactive()
-def generate_flat_colored_image(color_choice=["red", "green", "blue", "gray"], context={}):
+def generate_flat_colored_image(color_choice=["red", "green", "blue", "gray"]):
     '''Generate a constant colorful image
     '''
     flat_array =  np.array(COLOR_DICT.get(color_choice)) * np.ones((64, 64, 3))
@@ -238,14 +238,14 @@ def generate_flat_colored_image(color_choice=["red", "green", "blue", "gray"], c
 ----------
 
 :bulb: Can filters communicate together?
-Yes, using the special keyword argument `context={}`. 
-- Check carefully how we stored the image average of the flat image in  context. 
+Yes, using the `context` proxy from `interactive_pipe`. 
+- Check carefully how we stored the image average of the flat image in context. 
 - This value will be available to other filters.
 `special_image_slice` is going to use that value to set the half bottom image to dark in case the average is high.
 
 ```python
 @interactive()
-def special_image_slice(img, context={}):
+def special_image_slice(img):
     if context["avg"] > 0.4:
         out_img[out_img.shape[0]//2:, ...] = 0.
     return out_img
@@ -264,7 +264,7 @@ Note that you can create a filter to switch between several images. In `["pagedo
 
 ```python
 @interactive()
-def black_top_image_slice(img, top_slice_black=(True, "special", "k"), context={}):
+def black_top_image_slice(img, top_slice_black=(True, "special", "k")):
     out_img = img.copy()
     if top_slice_black:
         out_img[:out_img.shape[0]//2, ...] = 0.
@@ -312,26 +312,33 @@ if __name__ == '__main__':
 - Fixed pytest failures for optional dependencies in CI
 - Fixed various edge cases in error handling
 
-**Migration of old context or global_params:**  
-- Use `global_params=SharedContext.injected()` to let code interpreters know that there's no need to pass this parameter.
+**Migration from old `context={}` or `global_params={}` patterns:**  
 
 ```python
-# Before
-def apply_brightness(img:np.ndarray, brightness: float = 0.5, global_params:dict =None):
-    global_params["brightness"] = brightness
+# OLD (deprecated) - using context={} or global_params={}
+from interactive_pipe import interactive
+
+@interactive()
+def apply_brightness(img:np.ndarray, brightness: float = 0.5, global_params={}):
+    global_params["brightness"] = brightness  # Storing shared data
+    global_params["__output_styles"]["output"] = {"title": "Brightened"}  # Setting layout
     return img * brightness
 
-# Progressive migration
-def apply_brightness(img:np.ndarray, brightness: float = 0.5, global_params:dict ==SharedContext.injected()):
-    global_params["brightness"] = brightness
-    return img * brightness
+# NEW (recommended) - using context and layout proxies
+from interactive_pipe import interactive, context, layout
 
-# Recommended version
-from interactive_pipe import context
+@interactive()
 def apply_brightness(img:np.ndarray, brightness: float = 0.5):
-    context.shared_brightness = brightness # shared with all filters
+    context["brightness"] = brightness  # or: context.brightness = brightness
+    layout.style("output", title="Brightened")
     return img * brightness
 ```
+
+The new API provides:
+- `context` - For sharing data between filters (replaces `global_params["key"]`)
+- `layout` - For controlling output display (replaces `global_params["__output_styles"]`)
+- `audio` - For audio playback control
+- `get_context()` - Get the shared context dictionary directly
 
 
 

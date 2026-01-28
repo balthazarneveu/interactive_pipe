@@ -4,7 +4,7 @@ from typing import List
 import argparse
 from pathlib import Path
 from interactive_pipe.data_objects.image import Image
-from interactive_pipe import interactive, interactive_pipeline, Panel
+from interactive_pipe import interactive, interactive_pipeline, Panel, layout
 
 TORCH_AVAILABLE = True
 try:
@@ -44,18 +44,16 @@ def get_paths(img_folder: Path = Path(__file__).parent / "images"):
 
 # Interactive Filters = small legos!
 # --------------------------------------------------------------------------------------------
-def img_selector(img_list: List[Path], index: int = 0, global_params={}) -> np.ndarray:
+def img_selector(img_list: List[Path], index: int = 0) -> np.ndarray:
     """Select an image from the list - sets image title"""
     img = Image.load_image(str(img_list[index]))
     # Please note the "image" key to set the title
     title = f"Image {index+1:d}/{len(img_list)} {img_list[index].stem}"
-    global_params["__output_styles"]["image"] = {"title": title}
+    layout.style("image", title=title)
     return img
 
 
-def blur_image(
-    img: np.ndarray, half_blur_size=1, gpu=False, global_params={}
-) -> np.ndarray:
+def blur_image(img: np.ndarray, half_blur_size=1, gpu=False) -> np.ndarray:
     blur_size = half_blur_size * 2 + 1
     if TORCH_AVAILABLE:
         with torch.no_grad():
@@ -75,10 +73,8 @@ def blur_image(
     return blurred_image
 
 
-def threshold(img: np.ndarray, threshold: float = 0.5, global_params={}) -> np.ndarray:
-    global_params["__output_styles"]["thresholded_image"] = {
-        "title": f"{threshold=:.2%}"
-    }
+def threshold(img: np.ndarray, threshold: float = 0.5) -> np.ndarray:
+    layout.style("thresholded_image", title=f"{threshold=:.2%}")
     return 1.0 * (img > threshold).max(axis=-1)
 
 

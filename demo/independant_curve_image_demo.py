@@ -10,7 +10,7 @@ This demo demonstrates:
 
 import numpy as np
 import argparse
-from interactive_pipe import interactive, interactive_pipeline
+from interactive_pipe import interactive, interactive_pipeline, layout
 from interactive_pipe.data_objects.curves import Curve
 
 
@@ -25,7 +25,6 @@ def generate_curve(
     amplitude: float = 1.0,
     phase: float = 0.0,
     num_points: int = 100,
-    global_params={},
 ) -> Curve:
     """Generate a mathematical curve with adjustable parameters"""
     x = np.linspace(0.0, 4.0 * np.pi, num_points)
@@ -49,9 +48,9 @@ def generate_curve(
         title=f"Oscillations (A={amplitude:.2f}, f={frequency:.2f} Hz)",
     )
 
-    global_params["__output_styles"]["curve"] = {
-        "title": f"Curve: f={frequency:.2f}, A={amplitude:.2f}, φ={phase:.0f}°"
-    }
+    layout.style(
+        "curve", title=f"Curve: f={frequency:.2f}, A={amplitude:.2f}, φ={phase:.0f}°"
+    )
 
     return curve
 
@@ -69,7 +68,6 @@ def generate_image(
     brightness: float = 0.5,
     contrast: float = 1.0,
     rotation: float = 0.0,
-    global_params={},
 ) -> np.ndarray:
     """Generate a pattern image with adjustable parameters"""
     # Create coordinate grids
@@ -107,7 +105,7 @@ def generate_image(
         f"B={brightness:.2f}, C={contrast:.2f}, "
         f"R={rotation:.0f}°"
     )
-    global_params["__output_styles"]["image"] = {"title": title}
+    layout.style("image", title=title)
 
     return img
 

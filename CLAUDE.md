@@ -71,28 +71,37 @@ def my_pipeline(img_list):
         return [img, processed]
 ```
 
-### Pipeline functions cannot have `global_params` in their signature
-These are automatically filled by the framework. Only filter functions (decorated with `@interactive()`) can have `global_params` in their signature, and it will be automatically injected.
+### Use the new context API instead of `global_params={}` or `context={}`
+
+The old `global_params={}` or `context={}` keyword argument pattern is deprecated. Use the new clean API with `context` and `layout` proxies instead.
 
 ```python
-# ✅ CORRECT - filter function can have global_params
+# ✅ CORRECT - using new context and layout API
+from interactive_pipe import interactive, context, layout
+
 @interactive()
-def my_filter(img, param=0.5, global_params={}):
-    global_params["__output_styles"]["my_img"] = {"title": "My Image"}
+def my_filter(img, param=0.5):
+    layout.style("my_img", title="My Image")
+    context["shared_data"] = "value"  # Share data between filters
     return img * param
 
-# ✅ CORRECT - pipeline function does NOT have global_params
+# ✅ CORRECT - pipeline function (no context parameter needed)
 def my_pipeline(img_list):
     img = my_filter(img_list)
     return [img]
 
-# ❌ WRONG - pipeline function should NOT have global_params
-def my_pipeline(img_list, global_params={}):  # This won't work!
-    img = my_filter(img_list)
-    return [img]
+# ❌ WRONG - using deprecated global_params={}
+@interactive()
+def my_filter(img, param=0.5, global_params={}):  # Deprecated!
+    global_params["__output_styles"]["my_img"] = {"title": "My Image"}
+    return img * param
 ```
 
-To access `global_params` from helper functions called within the pipeline, access it via `global_params["__pipeline"].global_params` or pass it through filter functions.
+**Key points:**
+- Import `context` and `layout` from `interactive_pipe`
+- Use `layout.style("output_name", title=...)` instead of `global_params["__output_styles"]`
+- Use `context["key"]` or `context.key` for sharing data between filters
+- No need for `global_params={}` in function signatures anymore
 
 ## Project Structure
 

@@ -1,5 +1,5 @@
 from interactive_pipe import Control
-from interactive_pipe import interactive, interactive_pipeline
+from interactive_pipe import interactive, interactive_pipeline, context, layout
 from interactive_pipe.data_objects.image import Image
 from pathlib import Path
 import cv2
@@ -30,23 +30,23 @@ ICONS = [it[ICON] for key, it in SELECTION_DICT.items()]
 
 
 @interactive(selection=Control("elephant", list(SELECTION_DICT.keys()), icons=ICONS))
-def selection_choice(global_params={}, selection="elephant"):
-    global_params[SELECTION] = selection
+def selection_choice(selection="elephant"):
+    context[SELECTION] = selection
 
 
-def handle_selection(global_params={}):
-    selection = global_params.get(SELECTION, None)
-    first_exec = global_params.get("first_exec", True)
+def handle_selection():
+    selection = context.get(SELECTION, None)
+    first_exec = context.get("first_exec", True)
     if not first_exec:
         caption = SELECTION_DICT[selection][CAPTION]
         print(f"Selected: {selection}")
         print(f"  Caption: {caption}")
     else:
-        global_params["first_exec"] = False
+        context["first_exec"] = False
 
 
-def image_choice(global_params={}):
-    selection = global_params.get(SELECTION, list(SELECTION_DICT.keys())[0])
+def image_choice():
+    selection = context.get(SELECTION, list(SELECTION_DICT.keys())[0])
     img = Image.from_file(SELECTION_DICT[selection][IMAGE]).data
     max_height = 300  # Raspberry pi with a 7" touchscreen
     h, w, _c = img.shape
@@ -54,9 +54,7 @@ def image_choice(global_params={}):
         img = cv2.resize(img, (w * max_height // h, max_height))
         h, w, _c = img.shape
     caption = SELECTION_DICT[selection][CAPTION]
-    global_params["__output_styles"]["img_out"] = {
-        "title": caption
-    }  # discard auto titling
+    layout.style("img_out", title=caption)  # discard auto titling
     return img
 
 
