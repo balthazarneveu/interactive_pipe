@@ -1,12 +1,11 @@
-from interactive_pipe.data_objects.data import Data
-from pathlib import Path
-import logging
 import json
+import logging
+from pathlib import Path
+
+from interactive_pipe.data_objects.data import Data
 
 YAML_SUPPORT = True
-YAML_NOT_DETECTED_MESSAGE = (
-    "yaml is not installed, consider installing it by pip install PyYAML"
-)
+YAML_NOT_DETECTED_MESSAGE = "yaml is not installed, consider installing it by pip install PyYAML"
 try:
     import yaml
     from yaml.loader import SafeLoader
@@ -23,9 +22,7 @@ class Parameters(Data):
 
     def _load(self, path: Path):
         if path.suffix not in self.file_extensions:
-            raise ValueError(
-                f"Unsupported file extension: {path.suffix}, expected one of {self.file_extensions}"
-            )
+            raise ValueError(f"Unsupported file extension: {path.suffix}, expected one of {self.file_extensions}")
         if path.suffix == ".json":
             params = self.load_json(path)
         elif path.suffix == ".yaml":
@@ -36,9 +33,7 @@ class Parameters(Data):
 
     def _save(self, path: Path):
         if path.suffix not in self.file_extensions:
-            raise ValueError(
-                f"Unsupported file extension: {path.suffix}, expected one of {self.file_extensions}"
-            )
+            raise ValueError(f"Unsupported file extension: {path.suffix}, expected one of {self.file_extensions}")
         if path.suffix == ".json":
             self.save_json(self.data, path)
         elif path.suffix == ".yaml":

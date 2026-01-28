@@ -52,9 +52,7 @@ class Panel:
         # Validate position
         valid_positions = {None, "left", "right", "top", "bottom"}
         if position not in valid_positions:
-            raise ValueError(
-                f"position must be one of {valid_positions}, got {position}"
-            )
+            raise ValueError(f"position must be one of {valid_positions}, got {position}")
         self.name = name
         self.collapsible = collapsible
         self.collapsed = collapsed

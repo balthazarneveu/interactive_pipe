@@ -1,58 +1,58 @@
-from pathlib import Path
+import logging
 import sys
-import numpy as np
+from pathlib import Path
 from typing import List, Optional
-from interactive_pipe.headless.pipeline import HeadlessPipeline
-from interactive_pipe.headless.keyboard import KeyboardControl
-from interactive_pipe.headless.panel import Panel
+
+import numpy as np
+
+from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.qt_control import ControlFactory
 from interactive_pipe.graphical.window import InteractivePipeWindow
-from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.headless.control import Control, TimeControl
-import logging
+from interactive_pipe.headless.keyboard import KeyboardControl
+from interactive_pipe.headless.panel import Panel
+from interactive_pipe.headless.pipeline import HeadlessPipeline
 
 PYQTVERSION = None
 MPL_SUPPORT = False
 
 if not PYQTVERSION:
     try:
+        from PyQt6.QtCore import Qt, QTimer, QUrl
+        from PyQt6.QtGui import QImage, QPixmap
+        from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
         from PyQt6.QtWidgets import (  # noqa: F811
             QApplication,
-            QWidget,
-            QGroupBox,
-            QLabel,
+            QFrame,
             QGridLayout,
+            QGroupBox,
             QHBoxLayout,
-            QVBoxLayout,
-            QHBoxLayout,
+            QLabel,
             QMessageBox,
             QPushButton,
-            QFrame,
+            QVBoxLayout,
+            QWidget,
         )
-        from PyQt6.QtCore import QUrl, Qt, QTimer
-        from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
-        from PyQt6.QtGui import QPixmap, QImage
 
         PYQTVERSION = 6
     except ImportError:
         logging.warning("Cannot import PyQt 6")
         try:
+            from PyQt5.QtCore import Qt, QTimer, QUrl
+            from PyQt5.QtGui import QImage, QPixmap
+            from PyQt5.QtMultimedia import QAudioOutput, QMediaContent, QMediaPlayer
             from PyQt5.QtWidgets import (  # noqa: F811
                 QApplication,
-                QWidget,
-                QGroupBox,
-                QLabel,
+                QFrame,
                 QGridLayout,
+                QGroupBox,
                 QHBoxLayout,
-                QVBoxLayout,
-                QHBoxLayout,
+                QLabel,
                 QMessageBox,
                 QPushButton,
-                QFrame,
+                QVBoxLayout,
+                QWidget,
             )
-            from PyQt5.QtCore import QUrl, Qt, QTimer
-            from PyQt5.QtGui import QPixmap, QImage
-            from PyQt5.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaContent
 
             PYQTVERSION = 5
             logging.warning("Using PyQt 5")
@@ -61,22 +61,21 @@ if not PYQTVERSION:
 
 if not PYQTVERSION:
     try:
+        from PySide6.QtCore import Qt, QTimer, QUrl  # noqa: F811
+        from PySide6.QtGui import QImage, QPixmap  # noqa: F811
+        from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer  # noqa: F811
         from PySide6.QtWidgets import (  # noqa: F811
             QApplication,
-            QWidget,
-            QGroupBox,
-            QLabel,
+            QFrame,
             QGridLayout,
+            QGroupBox,
             QHBoxLayout,
-            QVBoxLayout,
-            QHBoxLayout,
+            QLabel,
             QMessageBox,
             QPushButton,
-            QFrame,
+            QVBoxLayout,
+            QWidget,
         )
-        from PySide6.QtCore import QUrl, Qt, QTimer  # noqa: F811
-        from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer  # noqa: F811
-        from PySide6.QtGui import QPixmap, QImage  # noqa: F811
 
         PYQTVERSION = 6
     except ImportError:
@@ -87,6 +86,7 @@ if not PYQTVERSION:
 try:
     from matplotlib.backends.backend_qtagg import FigureCanvas
     from matplotlib.figure import Figure
+
     from interactive_pipe.data_objects.curves import Curve, SingleCurve
     from interactive_pipe.data_objects.table import Table
 
@@ -316,9 +316,7 @@ class InteractivePipeQT(InteractivePipeGUI):
                             f"MATCH & update {filtname} {widget_idx} with"
                             + f"{self.pipeline.parameters[filtname][param_name]}"
                         )
-                        self.window.ctrl[widget_idx].update(
-                            self.pipeline.parameters[filtname][param_name]
-                        )
+                        self.window.ctrl[widget_idx].update(self.pipeline.parameters[filtname][param_name])
                         matched = True
             if not matched:
                 raise ValueError(
@@ -341,11 +339,7 @@ class InteractivePipeQT(InteractivePipeGUI):
             self.window.full_screen()
         else:
             window_size = self.window.size
-            if (
-                window_size is not None
-                and isinstance(window_size, str)
-                and "full" in window_size.lower()
-            ):
+            if window_size is not None and isinstance(window_size, str) and "full" in window_size.lower():
                 # Special case where the window naturally goes to fullscreen since user defined it...
                 # Force to go back to normal
                 self.window.showNormal()
@@ -515,9 +509,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
     def size(self, _size):
         if isinstance(_size, str):
             if "full" not in _size.lower() and "max" not in _size.lower():
-                raise ValueError(
-                    f"size={_size} can only be among (full, fullscreen, maximized, max, maximum)"
-                )
+                raise ValueError(f"size={_size} can only be among (full, fullscreen, maximized, max, maximum)")
         self._size = _size
         self.update_window()
 
@@ -559,9 +551,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
             mapped_str = event.text()
         self.main_gui.on_press(mapped_str, refresh_func=self.refresh)
 
-    def _build_element_widget(
-        self, element, control_factory: ControlFactory
-    ) -> Optional[QWidget]:
+    def _build_element_widget(self, element, control_factory: ControlFactory) -> Optional[QWidget]:
         """Build widget for an element (Panel or Control).
 
         Args:
@@ -577,9 +567,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
             return self._create_control_widget(element, control_factory)
         return None
 
-    def _build_panel_widget(
-        self, panel: Panel, control_factory: ControlFactory
-    ) -> QWidget:
+    def _build_panel_widget(self, panel: Panel, control_factory: ControlFactory) -> QWidget:
         """Recursively build Qt widget for a Panel.
 
         Args:
@@ -625,9 +613,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
         # Create the panel widget (collapsible or regular)
         if panel.collapsible:
             # Use modern CollapsibleBox
-            panel_widget = CollapsibleBox(
-                title=panel.name or "", collapsed=panel.collapsed
-            )
+            panel_widget = CollapsibleBox(title=panel.name or "", collapsed=panel.collapsed)
             panel_widget.set_layout(layout)
         else:
             # Use regular QGroupBox
@@ -639,9 +625,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
 
         return panel_widget
 
-    def _create_control_widget(
-        self, ctrl: Control, control_factory: ControlFactory
-    ) -> Optional[QWidget]:
+    def _create_control_widget(self, ctrl: Control, control_factory: ControlFactory) -> Optional[QWidget]:
         """Helper method to create a single control widget with labels.
         Returns the row container widget or None if control should be skipped."""
         slider_name = ctrl.name
@@ -661,20 +645,16 @@ class MainWindow(QWidget, InteractivePipeWindow):
                     self.timer.start()
 
             self.main_gui.suspend_resume_timer = suspend_resume_timer
-            plugged_func = self.main_gui.plug_timer_control(
-                ctrl, self.update_parameter, suspend_resume_timer
-            )
+            plugged_func = self.main_gui.plug_timer_control(ctrl, self.update_parameter, suspend_resume_timer)
             self.timer.timeout.connect(plugged_func)
             self.timer.start(ctrl.update_interval_ms)
             return None
         elif isinstance(ctrl, Control):
-            slider_instance = control_factory.create_control(
-                ctrl, self.update_parameter
-            )
+            slider_instance = control_factory.create_control(ctrl, self.update_parameter)
             # Skip controls that return None (e.g., single-value controls)
             if slider_instance is None:
                 return None
-            if ctrl._type == str and ctrl.icons is not None:
+            if ctrl._type is str and ctrl.icons is not None:
                 ctrl.filter_to_connect.cache = False
                 ctrl.filter_to_connect.cache_mem = None
                 # Disable cache for dropdown menu with icons!
@@ -731,9 +711,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
         self.name_label = {}
         self.widget_list = {}
         control_factory = ControlFactory()
-        vertical_spacing = (
-            1  # Decrease this value to reduce vertical space between sliders
-        )
+        vertical_spacing = 1  # Decrease this value to reduce vertical space between sliders
         # Set spacing on all panel layouts
         self.top_panels_layout.setSpacing(vertical_spacing)
         self.left_panels_layout.setSpacing(vertical_spacing)
@@ -765,9 +743,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
         # Group regular panels by position
         panels_by_position = {"top": [], "left": [], "right": [], "bottom": []}
         for panel in regular_panels:
-            pos = (
-                panel.position or "bottom"
-            )  # Default to bottom for backward compatibility
+            pos = panel.position or "bottom"  # Default to bottom for backward compatibility
             panels_by_position[pos].append(panel)
 
         # Render panels to appropriate containers based on position
@@ -811,19 +787,19 @@ class MainWindow(QWidget, InteractivePipeWindow):
 
     def update_parameter(self, idx, value):
         """Required implementation for graphical controllers update"""
-        if self.ctrl[idx]._type == str:
+        if self.ctrl[idx]._type is str:
             if self.ctrl[idx].value_range is None:
                 self.ctrl[idx].update(value)
             else:
                 self.ctrl[idx].update(self.ctrl[idx].value_range[value])
-        elif self.ctrl[idx]._type == bool:
+        elif self.ctrl[idx]._type is bool:
             self.ctrl[idx].update(bool(value))
-        elif self.ctrl[idx]._type == float:
+        elif self.ctrl[idx]._type is float:
             if isinstance(self.ctrl[idx], TimeControl):
                 self.ctrl[idx].update(value)
             else:
                 self.ctrl[idx].update(self.ctrl[idx].convert_int_to_value(value))
-        elif self.ctrl[idx]._type == int:
+        elif self.ctrl[idx]._type is int:
             self.ctrl[idx].update(value)
         else:
             raise NotImplementedError("{self.ctrl[idx]._type} not supported")
@@ -848,12 +824,8 @@ class MainWindow(QWidget, InteractivePipeWindow):
             "title": text_label,
             "ax_placeholder": ax_placeholder,
         }
-        self.image_grid_layout.addWidget(
-            text_label, 2 * row, col, alignment=Qt.AlignmentFlag.AlignCenter
-        )
-        self.image_grid_layout.addWidget(
-            image_label, 2 * row + 1, col, alignment=Qt.AlignmentFlag.AlignCenter
-        )
+        self.image_grid_layout.addWidget(text_label, 2 * row, col, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.image_grid_layout.addWidget(image_label, 2 * row + 1, col, alignment=Qt.AlignmentFlag.AlignCenter)
 
     def delete_image_placeholder(self, img_widget_dict):
         for obj_key, img_widget in img_widget_dict.items():
@@ -865,10 +837,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 img_widget.setParent(None)
 
     def update_image(self, image_array_original, row, col):
-        if (
-            isinstance(image_array_original, np.ndarray)
-            and len(image_array_original.shape) == 1
-        ):
+        if isinstance(image_array_original, np.ndarray) and len(image_array_original.shape) == 1:
             logging.warning(
                 "Audio playback not supported with 1D signal"
                 + "\nuse live audio instead while using Qt!"
@@ -887,10 +856,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 # xlabel="Time[s]",
                 ylabel="Amplitude",
             )
-        elif (
-            isinstance(image_array_original, np.ndarray)
-            and len(image_array_original.shape) > 1
-        ):
+        elif isinstance(image_array_original, np.ndarray) and len(image_array_original.shape) > 1:
             if len(image_array_original.shape) == 2:
                 # Consider black & white
                 image_array = image_array_original.copy()
@@ -899,13 +865,9 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 image_array = np.repeat(image_array, c, axis=-1)
             elif len(image_array_original.shape) == 3:
                 if not isinstance(image_array_original, np.ndarray):
-                    raise TypeError(
-                        f"Expected numpy array, got {type(image_array_original)}"
-                    )
+                    raise TypeError(f"Expected numpy array, got {type(image_array_original)}")
                 if image_array_original.shape[-1] != 3:
-                    raise ValueError(
-                        f"Expected 3-channel image, got {image_array_original.shape[-1]} channels"
-                    )
+                    raise ValueError(f"Expected 3-channel image, got {image_array_original.shape[-1]} channels")
                 image_array = image_array_original
             else:
                 raise NotImplementedError(
@@ -913,9 +875,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 )
             h, w, c = image_array.shape
             bytes_per_line = c * w
-            image = QImage(
-                image_array.data, w, h, bytes_per_line, QImage.Format.Format_RGB888
-            )
+            image = QImage(image_array.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
             pixmap = QPixmap.fromImage(image)
             image_label = self.image_canvas[row][col]["image"]
             image_label.setPixmap(pixmap)
@@ -939,9 +899,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 ax = self.image_canvas[row][col]["ax_placeholder"]
                 plt_obj = self.image_canvas[row][col].get("plot_object", None)
                 if plt_obj is None:
-                    self.image_canvas[row][col]["plot_object"] = (
-                        image_array.create_plot(ax=ax)
-                    )
+                    self.image_canvas[row][col]["plot_object"] = image_array.create_plot(ax=ax)
                 else:
                     image_array.update_plot(plt_obj, ax=ax)
                     ax.figure.canvas.draw()
@@ -960,9 +918,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 ax = self.image_canvas[row][col]["ax_placeholder"]
                 table_obj = self.image_canvas[row][col].get("plot_object", None)
                 if table_obj is None:
-                    self.image_canvas[row][col]["plot_object"] = (
-                        image_array.create_table(ax=ax)
-                    )
+                    self.image_canvas[row][col]["plot_object"] = image_array.create_table(ax=ax)
                 else:
                     image_array.update_table(table_obj, ax=ax)
                     ax.figure.canvas.draw()

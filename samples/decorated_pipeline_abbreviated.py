@@ -1,5 +1,6 @@
-from interactive_pipe import interactive_pipeline, interactive
 import numpy as np
+
+from interactive_pipe import interactive, interactive_pipeline
 
 
 @interactive()
@@ -15,11 +16,7 @@ def exposure(img, coeff=(1.0, [0.5, 2.0], "exposure"), bias=(0.0, [-0.2, 0.2])):
 def black_and_white(img, bnw=(True, "black and white")):
     """Averages the 3 color channels (Black & White) if bnw=True"""
     # Special mention for booleans: using a tuple like (True,) allows creating the tick box.
-    return (
-        np.repeat(np.expand_dims(np.average(img, axis=-1), -1), img.shape[-1], axis=-1)
-        if bnw
-        else img
-    )
+    return np.repeat(np.expand_dims(np.average(img, axis=-1), -1), img.shape[-1], axis=-1) if bnw else img
 
 
 @interactive()

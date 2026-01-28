@@ -1,5 +1,5 @@
-from filters_library import switcher
 import numpy as np
+from filters_library import switcher
 
 
 def test_switcher():
@@ -16,10 +16,7 @@ def test_switcher_visually():
         "blue": [0.0, 0.0, 0.8],
         "gray": [0.5, 0.5, 0.5],
     }
-    arg_img = [
-        np.array(color_val) * np.ones((64, 64, 3))
-        for _, color_val in COLOR_DICT.items()
-    ]
+    arg_img = [np.array(color_val) * np.ones((64, 64, 3)) for _, color_val in COLOR_DICT.items()]
     r, g, b, w = arg_img
     interact(r, g, b, w, choice=(0, [0, 3]), amplify=[0.0, 2.0])(switcher)
     # you can still run the original function afterward

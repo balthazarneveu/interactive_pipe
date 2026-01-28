@@ -1,8 +1,9 @@
 """Test compatibility between new context API and legacy global_params."""
 
-import pytest
 import numpy as np
-from interactive_pipe import interactive, context, get_context, layout
+import pytest
+
+from interactive_pipe import context, get_context, interactive, layout
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.pipeline import PipelineCore
 
@@ -205,7 +206,7 @@ def test_shared_context_injected_sentinel():
 
 def test_shared_context_is_injected_sentinel():
     """Test the is_injected_sentinel helper function."""
-    from interactive_pipe.core.context import is_injected_sentinel, SharedContext
+    from interactive_pipe.core.context import SharedContext, is_injected_sentinel
 
     sentinel = SharedContext.injected()
 
@@ -224,9 +225,7 @@ def test_shared_context_explicit_injection_works():
     SC._reset_warning()
 
     @interactive()
-    def filter_with_explicit_injection(
-        img, global_params: SharedContext = SharedContext.injected()
-    ):
+    def filter_with_explicit_injection(img, global_params: SharedContext = SharedContext.injected()):
         # Should work exactly like legacy global_params={}
         if "__output_styles" not in global_params:
             global_params["__output_styles"] = {}
@@ -235,9 +234,7 @@ def test_shared_context_explicit_injection_works():
         return img
 
     img = np.ones((10, 10, 3))
-    filter_obj = FilterCore(
-        apply_fn=filter_with_explicit_injection, inputs=[0], outputs=[0]
-    )
+    filter_obj = FilterCore(apply_fn=filter_with_explicit_injection, inputs=[0], outputs=[0])
 
     pipeline = PipelineCore(
         filters=[filter_obj],
@@ -255,9 +252,7 @@ def test_shared_context_explicit_injection_works():
         pipeline.run()
 
         # Check that deprecation warning was emitted
-        deprecation_warnings = [
-            warning for warning in w if issubclass(warning.category, DeprecationWarning)
-        ]
+        deprecation_warnings = [warning for warning in w if issubclass(warning.category, DeprecationWarning)]
         assert len(deprecation_warnings) >= 1
         assert "deprecated" in str(deprecation_warnings[0].message).lower()
         assert "layout" in str(deprecation_warnings[0].message).lower()
@@ -265,10 +260,7 @@ def test_shared_context_explicit_injection_works():
     # Verify the filter worked correctly
     assert "user_data" in pipeline.global_params
     assert pipeline.global_params["user_data"] == "test_value"
-    assert (
-        pipeline.global_params["__output_styles"]["explicit"]["title"]
-        == "Explicit Injection"
-    )
+    assert pipeline.global_params["__output_styles"]["explicit"]["title"] == "Explicit Injection"
 
 
 def test_shared_context_warning_only_once():
@@ -306,9 +298,7 @@ def test_shared_context_warning_only_once():
         pipeline.run()
 
         # Should only warn once, even though two filters use SharedContext.injected()
-        deprecation_warnings = [
-            warning for warning in w if issubclass(warning.category, DeprecationWarning)
-        ]
+        deprecation_warnings = [warning for warning in w if issubclass(warning.category, DeprecationWarning)]
         assert len(deprecation_warnings) == 1
 
 
@@ -321,9 +311,7 @@ def test_shared_context_keeps_variable_name():
     SC._reset_warning()
 
     @interactive()
-    def filter_with_context_name(
-        img, context: SharedContext = SharedContext.injected()
-    ):
+    def filter_with_context_name(img, context: SharedContext = SharedContext.injected()):
         # Using 'context' as variable name (one of EQUIVALENT_STATE_KEYS)
         context["my_data"] = "test"
         return img
@@ -406,8 +394,7 @@ def test_legacy_empty_dict_shows_warning():
         shared_context_warnings = [
             warning
             for warning in w
-            if issubclass(warning.category, DeprecationWarning)
-            and "deprecated" in str(warning.message).lower()
+            if issubclass(warning.category, DeprecationWarning) and "deprecated" in str(warning.message).lower()
         ]
         assert len(shared_context_warnings) >= 1
 

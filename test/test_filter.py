@@ -50,9 +50,7 @@ def test_pure_filter_using_params():
     # Pay attention when you type your dictionary keys,
     # it should match with the keyword args
     # This is one of the motivation of using AutoFilter
-    filt_forced_params = PureFilter(
-        apply_fn=mad, default_params={"coeff": 2, "bias": 8}
-    )
+    filt_forced_params = PureFilter(apply_fn=mad, default_params={"coeff": 2, "bias": 8})
     res = filt_forced_params.run(input_image)
     assert (res == (2 * input_image + 8)).all()
     assert filt_forced_params.name == "mad"

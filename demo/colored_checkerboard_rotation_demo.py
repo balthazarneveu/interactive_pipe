@@ -8,18 +8,20 @@ This demo demonstrates:
 - Headerless tables for mathematical matrix visualization
 """
 
-import numpy as np
-import cv2
 import argparse
+
+import cv2
+import numpy as np
+
 from interactive_pipe import (
+    CircularControl,
+    Control,
+    Panel,
     interactive,
     interactive_pipeline,
-    Control,
-    CircularControl,
-    Panel,
+    layout,
 )
 from interactive_pipe.data_objects.table import Table
-from interactive_pipe import layout
 
 
 def create_checkerboard(checker_size: int = 64, board_size: int = 512):
@@ -91,9 +93,7 @@ def apply_affine_transform(
     img_uint8 = (np.clip(img, 0, 1) * 255).astype(np.uint8)
 
     # Apply affine transformation
-    transformed = cv2.warpAffine(
-        img_uint8, M, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT
-    )
+    transformed = cv2.warpAffine(img_uint8, M, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
 
     # Convert back to float [0, 1]
     transformed = transformed.astype(np.float32) / 255.0
@@ -281,15 +281,11 @@ def add_interactivity():
 def launch(backend="qt"):
     """Launch the demo with the specified backend."""
     add_interactivity()
-    interactive_pipeline(gui=backend, cache=False, name="Affine & Color Demo")(
-        affine_color_pipeline
-    )()
+    interactive_pipeline(gui=backend, cache=False, name="Affine & Color Demo")(affine_color_pipeline)()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Affine transformation and color rotation matrix demo"
-    )
+    parser = argparse.ArgumentParser(description="Affine transformation and color rotation matrix demo")
     parser.add_argument(
         "-b",
         "--backend",

@@ -21,11 +21,12 @@
 ### 2. Format and Lint Before Committing
 - **Always run before each commit:**
   ```bash
-  ./venv/bin/python -m black .
-  ./venv/bin/python -m flake8
+  ./venv/bin/python -m ruff format .
+  ./venv/bin/python -m ruff check --fix .
   ```
 - Fix any linting errors before committing
-- Black will auto-format; commit those changes with your code
+- Ruff will auto-format and auto-fix many issues; commit those changes with your code
+- Optional: Run `./venv/bin/python -m pyright` for type checking (informational only)
 
 ### 3. Make Small, Focused Commits
 - Each commit should address **one logical change**
@@ -113,10 +114,13 @@ def my_filter(img, param=0.5, global_params={}):  # Deprecated!
 
 ```bash
 # Format code
-./venv/bin/python -m black .
+./venv/bin/python -m ruff format .
 
-# Lint code
-./venv/bin/python -m flake8
+# Lint code (with auto-fix)
+./venv/bin/python -m ruff check --fix .
+
+# Type check (optional, informational)
+./venv/bin/python -m pyright
 
 # Run all tests
 ./venv/bin/python -m pytest test/ -v --tb=short
@@ -125,8 +129,9 @@ def my_filter(img, param=0.5, global_params={}):  # Deprecated!
 ./venv/bin/python -m pytest test/test_core.py -v
 
 # Pre-commit checklist (run all before committing)
-./venv/bin/python -m black .
-./venv/bin/python -m flake8
+./venv/bin/python -m ruff format .
+./venv/bin/python -m ruff check --fix .
+./venv/bin/python -m pyright  # Optional, won't block commit
 ./venv/bin/python -m pytest test/ -v --tb=short
 git add <files>
 git commit -m "message"

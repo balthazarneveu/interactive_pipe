@@ -1,8 +1,8 @@
-from interactive_pipe.headless.pipeline import HeadlessPipeline
-from interactive_pipe.graphical.gui import InteractivePipeGUI
-
 import functools
-from typing import Callable, Union, Optional
+from typing import Callable, Optional, Union
+
+from interactive_pipe.graphical.gui import InteractivePipeGUI
+from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
 
 

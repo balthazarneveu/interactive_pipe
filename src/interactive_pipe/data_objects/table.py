@@ -1,6 +1,7 @@
-import numpy as np
 from pathlib import Path
-from typing import Optional, Union, List, Dict, Any
+from typing import Any, Dict, List, Optional, Union
+
+import numpy as np
 
 from interactive_pipe.data_objects.data import Data
 
@@ -17,9 +18,7 @@ except ImportError:
 def _require_pandas(feature_name: str):
     """Raise RuntimeError if pandas is not available."""
     if not PANDAS_AVAILABLE:
-        raise RuntimeError(
-            f"{feature_name} requires pandas. Install with: pip install pandas"
-        )
+        raise RuntimeError(f"{feature_name} requires pandas. Install with: pip install pandas")
 
 
 class Table(Data):
@@ -82,9 +81,7 @@ class Table(Data):
             # Check all lists have same length
             lengths = [len(v) for v in data.values()]
             if len(set(lengths)) > 1:
-                raise ValueError(
-                    f"All columns must have the same length. Got lengths: {lengths}"
-                )
+                raise ValueError(f"All columns must have the same length. Got lengths: {lengths}")
             # Convert to row-major format
             num_rows = lengths[0]
             values = [[data[col][row] for col in col_names] for row in range(num_rows)]
@@ -106,8 +103,7 @@ class Table(Data):
                 return {"columns": col_names, "values": values}
             else:
                 raise TypeError(
-                    "List input must be a list of dictionaries. "
-                    "For 2D arrays, use numpy array with columns parameter."
+                    "List input must be a list of dictionaries. For 2D arrays, use numpy array with columns parameter."
                 )
 
         elif isinstance(data, np.ndarray):
@@ -118,9 +114,7 @@ class Table(Data):
                 # Create empty column names for headerless table
                 columns = [""] * data.shape[1]
             if len(columns) != data.shape[1]:
-                raise ValueError(
-                    f"Number of columns ({len(columns)}) must match array width ({data.shape[1]})"
-                )
+                raise ValueError(f"Number of columns ({len(columns)}) must match array width ({data.shape[1]})")
             values = data.tolist()
             return {"columns": columns, "values": values}
 
@@ -150,9 +144,7 @@ class Table(Data):
             raise TypeError("All column names must be strings")
         # Validate consistency with existing row width
         if self.values and len(columns) != len(self.values[0]):
-            raise ValueError(
-                f"Number of columns ({len(columns)}) must match row width ({len(self.values[0])})"
-            )
+            raise ValueError(f"Number of columns ({len(columns)}) must match row width ({len(self.values[0])})")
         self.data["columns"] = columns
 
     @property
@@ -201,9 +193,7 @@ class Table(Data):
         if isinstance(key, int):
             # Return row (support negative indexing)
             if key < -len(self.values) or key >= len(self.values):
-                raise IndexError(
-                    f"Row index {key} out of range (length: {len(self.values)})"
-                )
+                raise IndexError(f"Row index {key} out of range (length: {len(self.values)})")
             return dict(zip(self.columns, self.values[key]))
         elif isinstance(key, str):
             # Return column
@@ -241,9 +231,7 @@ class Table(Data):
             df = self.as_dataframe()
             df.to_csv(path, index=False)
         else:
-            raise ValueError(
-                f"Unsupported file extension: {path.suffix}. Supported: .pkl, .csv"
-            )
+            raise ValueError(f"Unsupported file extension: {path.suffix}. Supported: .pkl, .csv")
 
     def _load(self, path: Path, **kwargs) -> Dict[str, Any]:
         if path.suffix == ".pkl":
@@ -260,9 +248,7 @@ class Table(Data):
             }
             return data
         else:
-            raise ValueError(
-                f"Unsupported file extension: {path.suffix}. Supported: .pkl, .csv"
-            )
+            raise ValueError(f"Unsupported file extension: {path.suffix}. Supported: .pkl, .csv")
 
     def _format_values(self) -> List[List[str]]:
         """Format values with precision for display."""
@@ -289,9 +275,7 @@ class Table(Data):
         try:
             import matplotlib.pyplot as plt
         except ImportError:
-            raise RuntimeError(
-                "Matplotlib is required for table rendering. Install with: pip install matplotlib"
-            )
+            raise RuntimeError("Matplotlib is required for table rendering. Install with: pip install matplotlib")
 
         if ax is None:
             fig, ax = plt.subplots()

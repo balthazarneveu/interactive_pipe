@@ -1,46 +1,45 @@
-from functools import partial
-from interactive_pipe.headless.control import Control
 import logging
+from functools import partial
+
+from interactive_pipe.headless.control import Control
 
 PYQTVERSION = None
 PYQT_AVAILABLE = False
 
 if not PYQTVERSION:
     try:
-        from PyQt6.QtWidgets import (  # noqa: F811
-            QWidget,
-            QLabel,
-            QSlider,
-            QHBoxLayout,
-            QLineEdit,
-            QComboBox,
-            QCheckBox,
-            QPushButton,
-            QHBoxLayout,
-            QDial,
-        )
-        from PyQt6.QtCore import Qt, QSize  # noqa: F811
+        from PyQt6.QtCore import QSize, Qt  # noqa: F811
         from PyQt6.QtGui import QIcon  # noqa: F811
+        from PyQt6.QtWidgets import (  # noqa: F811
+            QCheckBox,
+            QComboBox,
+            QDial,
+            QHBoxLayout,
+            QLabel,
+            QLineEdit,
+            QPushButton,
+            QSlider,
+            QWidget,
+        )
 
         PYQTVERSION = 6
         PYQT_AVAILABLE = True
     except ImportError:
         logging.warning("Cannot import PyQt6")
         try:
-            from PyQt5.QtWidgets import (  # noqa: F811
-                QWidget,
-                QLabel,
-                QSlider,
-                QHBoxLayout,
-                QLineEdit,
-                QComboBox,
-                QCheckBox,
-                QPushButton,
-                QHBoxLayout,
-                QDial,
-            )
-            from PyQt5.QtCore import Qt, QSize
+            from PyQt5.QtCore import QSize, Qt
             from PyQt5.QtGui import QIcon
+            from PyQt5.QtWidgets import (  # noqa: F811
+                QCheckBox,
+                QComboBox,
+                QDial,
+                QHBoxLayout,
+                QLabel,
+                QLineEdit,
+                QPushButton,
+                QSlider,
+                QWidget,
+            )
 
             PYQTVERSION = 5
             PYQT_AVAILABLE = True
@@ -48,20 +47,19 @@ if not PYQTVERSION:
             logging.warning("Cannot import PyQt5")
 if not PYQTVERSION:
     try:
-        from PySide6.QtWidgets import (  # noqa: F811
-            QWidget,
-            QLabel,
-            QSlider,
-            QHBoxLayout,
-            QLineEdit,
-            QComboBox,
-            QCheckBox,
-            QPushButton,
-            QHBoxLayout,
-            QDial,
-        )
-        from PySide6.QtCore import Qt, QSize  # noqa: F811
+        from PySide6.QtCore import QSize, Qt  # noqa: F811
         from PySide6.QtGui import QIcon  # noqa: F811
+        from PySide6.QtWidgets import (  # noqa: F811
+            QCheckBox,
+            QComboBox,
+            QDial,
+            QHBoxLayout,
+            QLabel,
+            QLineEdit,
+            QPushButton,
+            QSlider,
+            QWidget,
+        )
 
         PYQTVERSION = 6
         PYQT_AVAILABLE = True
@@ -104,9 +102,7 @@ class BaseControl(QWidget if PYQT_AVAILABLE else object):
         raise NotImplementedError("This method should be overridden by subclass")
 
     def check_control_type(self):
-        raise NotImplementedError(
-            "This method should be overridden by subclass to check the right slider control type"
-        )
+        raise NotImplementedError("This method should be overridden by subclass to check the right slider control type")
 
 
 class ControlFactory:
@@ -115,11 +111,7 @@ class ControlFactory:
         control_type = control._type
         name = control.name
         # Return None for single-value controls (don't show anything)
-        if (
-            control_type == str
-            and control.value_range is not None
-            and len(control.value_range) == 1
-        ):
+        if control_type is str and control.value_range is not None and len(control.value_range) == 1:
             return None
 
         control_class_map = {
@@ -129,16 +121,12 @@ class ControlFactory:
             str: (
                 PromptControl
                 if control.value_range is None
-                else (
-                    DropdownMenuControl if control.icons is None else IconButtonsControl
-                )
+                else (DropdownMenuControl if control.icons is None else IconButtonsControl)
             ),
         }
 
         if control_type not in control_class_map:
-            logging.warning(
-                f"Unsupported control type: {control_type} for control named {name}"
-            )
+            logging.warning(f"Unsupported control type: {control_type} for control named {name}")
             return None
 
         control_class = control_class_map[control_type]
@@ -175,7 +163,7 @@ else:
 
 class IntSliderControl(BaseControl):
     def check_control_type(self):
-        if self.ctrl._type != int:
+        if self.ctrl._type is not int:
             raise TypeError(f"Expected int control type, got {self.ctrl._type}")
 
     def create(self):
@@ -207,21 +195,14 @@ class IntSliderControl(BaseControl):
 
 class FloatSliderControl(BaseControl):
     def check_control_type(self):
-        if self.ctrl._type != float:
+        if self.ctrl._type is not float:
             raise TypeError(f"Expected float control type, got {self.ctrl._type}")
 
     def convert_value_to_int(self, val):
-        return int(
-            (val - self.ctrl.value_range[0])
-            * 1000
-            / (self.ctrl.value_range[1] - self.ctrl.value_range[0])
-        )
+        return int((val - self.ctrl.value_range[0]) * 1000 / (self.ctrl.value_range[1] - self.ctrl.value_range[0]))
 
     def convert_int_to_value(self, val):
-        return (
-            self.ctrl.value_range[0]
-            + (self.ctrl.value_range[1] - self.ctrl.value_range[0]) * val / 1000
-        )
+        return self.ctrl.value_range[0] + (self.ctrl.value_range[1] - self.ctrl.value_range[0]) * val / 1000
 
     def create(self):
         if self.silent:
@@ -263,12 +244,10 @@ class FloatSliderControl(BaseControl):
 
 class IconButtonsControl(BaseControl):
     def check_control_type(self):
-        if self.ctrl._type != str:
+        if self.ctrl._type is not str:
             raise TypeError(f"Expected str control type, got {self.ctrl._type}")
         if not hasattr(self.ctrl, "value_range") or not hasattr(self.ctrl, "icons"):
-            raise ValueError(
-                "Invalid control type or missing value range for icons bar creation."
-            )
+            raise ValueError("Invalid control type or missing value range for icons bar creation.")
 
     def create(self):
         # Check if ctrl has the right type
@@ -301,7 +280,7 @@ class IconButtonsControl(BaseControl):
 
 class DropdownMenuControl(BaseControl):
     def check_control_type(self):
-        if self.ctrl._type != str:
+        if self.ctrl._type is not str:
             raise TypeError(f"Expected str control type, got {self.ctrl._type}")
         if not hasattr(self.ctrl, "value_range"):
             raise ValueError("Invalid control type")
@@ -318,9 +297,7 @@ class DropdownMenuControl(BaseControl):
         self.reset()
 
         # Connect the combo box's value changed signal to some update function if needed
-        self.control_widget.currentIndexChanged.connect(
-            partial(self.update_func, self.name)
-        )
+        self.control_widget.currentIndexChanged.connect(partial(self.update_func, self.name))
         if self.ctrl.tooltip:
             self.control_widget.setToolTip(self.ctrl.tooltip)
         # Add the combo box to the horizontal layout
@@ -339,7 +316,7 @@ class DropdownMenuControl(BaseControl):
 
 class PromptControl(BaseControl):
     def check_control_type(self):
-        if self.ctrl._type != str:
+        if self.ctrl._type is not str:
             raise TypeError(f"Expected str control type, got {self.ctrl._type}")
         if self.ctrl.value_range is not None:
             raise ValueError("value_range must be None for PromptControl")
@@ -377,7 +354,7 @@ class PromptControl(BaseControl):
 
 class TickBoxControl(BaseControl):
     def check_control_type(self):
-        if self.ctrl._type != bool:
+        if self.ctrl._type is not bool:
             raise TypeError(f"Expected bool control type, got {self.ctrl._type}")
 
     def create(self):
@@ -388,9 +365,7 @@ class TickBoxControl(BaseControl):
 
         # Set the default state for the checkbox based on ctrl's default value
         self.reset()
-        self.control_widget.stateChanged.connect(
-            partial(self.update_func, self.ctrl.name)
-        )
+        self.control_widget.stateChanged.connect(partial(self.update_func, self.ctrl.name))
 
         if self.ctrl.tooltip:
             self.control_widget.setToolTip(self.ctrl.tooltip)

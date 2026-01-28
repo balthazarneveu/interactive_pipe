@@ -8,9 +8,11 @@ This demo demonstrates:
 - Multiple sliders controlling the image, which in turn affects the curves
 """
 
-import numpy as np
 import argparse
-from interactive_pipe import interactive, interactive_pipeline, Control, layout
+
+import numpy as np
+
+from interactive_pipe import Control, interactive, interactive_pipeline, layout
 from interactive_pipe.data_objects.curves import Curve
 
 
@@ -59,11 +61,7 @@ def generate_image(
     combined = np.clip(combined, 0.0, 1.0)
     img = np.stack([combined] * 3, axis=2)
 
-    title = (
-        f"Pattern: f={pattern_frequency:.1f}, "
-        f"B={brightness:.2f}, C={contrast:.2f}, "
-        f"R={rotation:.0f}°"
-    )
+    title = f"Pattern: f={pattern_frequency:.1f}, B={brightness:.2f}, C={contrast:.2f}, R={rotation:.0f}°"
     layout.style("image", title=title)
 
     return img
@@ -74,9 +72,7 @@ def generate_image(
         0.5,
         [0.0, 1.0],
     ),  # Float slider for profile line position (0=top, 1=bottom)
-    profile_direction=Control(
-        "horizontal", ["horizontal", "vertical", "diagonal"]
-    ),  # Dropdown for direction
+    profile_direction=Control("horizontal", ["horizontal", "vertical", "diagonal"]),  # Dropdown for direction
 )
 def extract_profile(
     img: np.ndarray,
@@ -105,9 +101,7 @@ def extract_profile(
         # Diagonal line from top-left to bottom-right
         num_points = int(np.sqrt(h**2 + w**2))
         x_indices = np.linspace(0, w - 1, num_points).astype(int)
-        y_indices = (
-            profile_line * h + (1 - profile_line) * (h - 1) * x_indices / (w - 1)
-        ).astype(int)
+        y_indices = (profile_line * h + (1 - profile_line) * (h - 1) * x_indices / (w - 1)).astype(int)
         y_indices = np.clip(y_indices, 0, h - 1)
         profile_values = gray[y_indices, x_indices]
         x_coords = np.linspace(0, np.sqrt(h**2 + w**2), num_points)
@@ -117,11 +111,7 @@ def extract_profile(
         [
             [x_coords, profile_values, "b-", label],
         ],
-        xlabel=(
-            "Position [pixels]"
-            if profile_direction != "diagonal"
-            else "Distance [pixels]"
-        ),
+        xlabel=("Position [pixels]" if profile_direction != "diagonal" else "Distance [pixels]"),
         ylabel="Intensity",
         ylim=[0.0, 1.0],
         grid=True,
@@ -135,9 +125,7 @@ def extract_profile(
 
 @interactive(
     num_bins=(50, [10, 200]),  # Int slider for histogram bins
-    channel=Control(
-        "grayscale", ["grayscale", "red", "green", "blue"]
-    ),  # Dropdown for channel
+    channel=Control("grayscale", ["grayscale", "red", "green", "blue"]),  # Dropdown for channel
 )
 def compute_histogram(
     img: np.ndarray,
@@ -194,9 +182,7 @@ def image_analysis_pipeline():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Image Analysis demo with profile and histogram curves"
-    )
+    parser = argparse.ArgumentParser(description="Image Analysis demo with profile and histogram curves")
     parser.add_argument(
         "-b",
         "--backend",

@@ -1,5 +1,6 @@
-from interactive_pipe.headless.control import Control
 import logging
+
+from interactive_pipe.headless.control import Control
 
 try:
     import gradio as gr
@@ -15,8 +16,7 @@ class BaseControl:
     def __init__(self, name, ctrl: Control, update_func):
         if not GRADIO_AVAILABLE:
             raise ModuleNotFoundError(
-                "gradio is required for Gradio controls. "
-                "Install it with: pip install interactive-pipe[full]"
+                "gradio is required for Gradio controls. Install it with: pip install interactive-pipe[full]"
             )
         super().__init__()
         self.name = name
@@ -28,9 +28,7 @@ class BaseControl:
         raise NotImplementedError("This method should be overridden by subclass")
 
     def check_control_type(self):
-        raise NotImplementedError(
-            "This method should be overridden by subclass to check the right slider control type"
-        )
+        raise NotImplementedError("This method should be overridden by subclass to check the right slider control type")
 
 
 class ControlFactory:
@@ -39,11 +37,7 @@ class ControlFactory:
         control_type = control._type
         name = control.name
         # Return None for single-value controls (don't show anything)
-        if (
-            control_type == str
-            and control.value_range is not None
-            and len(control.value_range) == 1
-        ):
+        if control_type is str and control.value_range is not None and len(control.value_range) == 1:
             return None
 
         control_class_map = {
@@ -53,16 +47,12 @@ class ControlFactory:
             str: (
                 PromptControl
                 if control.value_range is None
-                else (
-                    DropdownMenuControl if control.icons is None else IconButtonsControl
-                )
+                else (DropdownMenuControl if control.icons is None else IconButtonsControl)
             ),
         }
 
         if control_type not in control_class_map:
-            logging.warning(
-                f"Unsupported control type: {control_type} for control named {name}"
-            )
+            logging.warning(f"Unsupported control type: {control_type} for control named {name}")
             return None
 
         control_class = control_class_map[control_type]
@@ -71,7 +61,7 @@ class ControlFactory:
 
 class IntSliderControl(BaseControl):
     def check_control_type(self):
-        if self.ctrl._type != int:
+        if self.ctrl._type is not int:
             raise TypeError(f"Expected int control type, got {self.ctrl._type}")
 
     def create(self) -> "gr.Slider":
@@ -90,7 +80,7 @@ class IntSliderControl(BaseControl):
 
 class FloatSliderControl(BaseControl):
     def check_control_type(self):
-        if self.ctrl._type != float:
+        if self.ctrl._type is not float:
             raise TypeError(f"Expected float control type, got {self.ctrl._type}")
 
     def create(self) -> "gr.Slider":
@@ -109,15 +99,13 @@ class FloatSliderControl(BaseControl):
 
 class TickBoxControl(BaseControl):
     def check_control_type(self):
-        if self.ctrl._type != bool:
+        if self.ctrl._type is not bool:
             raise TypeError(f"Expected bool control type, got {self.ctrl._type}")
 
     def create(self) -> "gr.Checkbox":
         if not GRADIO_AVAILABLE:
             raise ModuleNotFoundError("gradio is required for Gradio controls")
-        self.control_widget = gr.Checkbox(
-            label=self.name, value=self.ctrl.value, info=self.ctrl.tooltip
-        )
+        self.control_widget = gr.Checkbox(label=self.name, value=self.ctrl.value, info=self.ctrl.tooltip)
         return self.control_widget
 
     def reset(self):
@@ -126,7 +114,7 @@ class TickBoxControl(BaseControl):
 
 class DropdownMenuControl(BaseControl):
     def check_control_type(self):
-        if self.ctrl._type != str:
+        if self.ctrl._type is not str:
             raise TypeError(f"Expected str control type, got {self.ctrl._type}")
         if not hasattr(self.ctrl, "value_range"):
             raise ValueError("Invalid control type")
@@ -145,7 +133,7 @@ class DropdownMenuControl(BaseControl):
 
 class PromptControl(BaseControl):
     def check_control_type(self):
-        if self.ctrl._type != str:
+        if self.ctrl._type is not str:
             raise TypeError(f"Expected str control type, got {self.ctrl._type}")
         if self.ctrl.value_range is not None:
             raise ValueError("value_range must be None for PromptControl")
@@ -153,15 +141,13 @@ class PromptControl(BaseControl):
     def create(self) -> "gr.Text":
         if not GRADIO_AVAILABLE:
             raise ModuleNotFoundError("gradio is required for Gradio controls")
-        self.control_widget = gr.Text(
-            label=self.name, value=self.ctrl.value, info=self.ctrl.tooltip
-        )
+        self.control_widget = gr.Text(label=self.name, value=self.ctrl.value, info=self.ctrl.tooltip)
         return self.control_widget
 
 
 class IconButtonsControl(BaseControl):
     def check_control_type(self):
-        if self.ctrl._type != str:
+        if self.ctrl._type is not str:
             raise TypeError(f"Expected str control type, got {self.ctrl._type}")
         if not hasattr(self.ctrl, "value_range"):
             raise ValueError("Invalid control type")

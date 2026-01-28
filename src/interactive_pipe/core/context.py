@@ -9,19 +9,15 @@ Internal implementation uses contextvars to maintain separate framework and user
 """
 
 from contextvars import ContextVar
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
 
 # ============================================================================
 # Internal Context Variables (not exported)
 # ============================================================================
 
-_framework_state: ContextVar[Optional[Dict[str, Any]]] = ContextVar(
-    "_ip_framework_state", default=None
-)
+_framework_state: ContextVar[Optional[Dict[str, Any]]] = ContextVar("_ip_framework_state", default=None)
 
-_user_context: ContextVar[Optional[Dict[str, Any]]] = ContextVar(
-    "_ip_user_context", default=None
-)
+_user_context: ContextVar[Optional[Dict[str, Any]]] = ContextVar("_ip_user_context", default=None)
 
 
 # ============================================================================
@@ -302,10 +298,7 @@ class _ContextProxy:
         try:
             return get_context()[name]
         except KeyError:
-            raise AttributeError(
-                f"Context has no attribute '{name}'. "
-                f"Available keys: {list(get_context().keys())}"
-            )
+            raise AttributeError(f"Context has no attribute '{name}'. Available keys: {list(get_context().keys())}")
 
     def __setattr__(self, name: str, value: Any) -> None:
         """Set item in context using attribute-style access."""

@@ -10,14 +10,16 @@ This demo demonstrates:
 - Backward compatibility (panels without position default to bottom)
 """
 
-import numpy as np
-from pathlib import Path
 import argparse
+from pathlib import Path
+
+import numpy as np
+
 from interactive_pipe import (
-    interactive,
-    interactive_pipeline,
     Panel,
     TextPrompt,
+    interactive,
+    interactive_pipeline,
     layout,
 )
 from interactive_pipe.data_objects.image import Image
@@ -205,9 +207,7 @@ def panel_position_demo_pipeline(img_path: Path):
 if __name__ == "__main__":
     img_path = get_image_path()
 
-    parser = argparse.ArgumentParser(
-        description="Panel positioning demo - panels on left, right, top, and bottom"
-    )
+    parser = argparse.ArgumentParser(description="Panel positioning demo - panels on left, right, top, and bottom")
     parser.add_argument(
         "-b",
         "--backend",

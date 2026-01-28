@@ -1,16 +1,15 @@
-from interactive_pipe.headless.control import Control
 import functools
 import inspect
+import logging
+
+from interactive_pipe.core.filter import FilterCore
+from interactive_pipe.headless.control import Control
+from interactive_pipe.headless.pipeline import HeadlessPipeline
+from interactive_pipe.helper import _private  # import registered_controls_names
+from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
 from interactive_pipe.helper.keyword_args_analyzer import (
     get_controls_from_decorated_function_declaration,
 )
-from interactive_pipe.helper import _private  # import registered_controls_names
-from interactive_pipe.headless.pipeline import HeadlessPipeline
-
-from interactive_pipe.core.filter import FilterCore
-import logging
-
-from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
 
 
 class EnhancedFilterCore(FilterCore):
@@ -101,9 +100,7 @@ def filter_from_function(apply_fn, default_params=None, **kwargs) -> EnhancedFil
     if default_params is None:
         default_params = {}
     controls = get_controls_from_decorated_function_declaration(apply_fn, kwargs)
-    filter_instance = EnhancedFilterCore(
-        apply_fn=apply_fn, default_params=default_params
-    )
+    filter_instance = EnhancedFilterCore(apply_fn=apply_fn, default_params=default_params)
     filter_instance.controls = controls
     return filter_instance
 
@@ -118,9 +115,7 @@ def interactive(**decorator_controls):
     """
 
     def wrapper(func):
-        controls = get_controls_from_decorated_function_declaration(
-            func, decorator_controls
-        )
+        controls = get_controls_from_decorated_function_declaration(func, decorator_controls)
 
         @functools.wraps(func)
         def inner(*args, **kwargs):

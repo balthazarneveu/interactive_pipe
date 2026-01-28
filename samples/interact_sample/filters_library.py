@@ -1,5 +1,6 @@
-from interactive_pipe.data_objects.curves import Curve
 import numpy as np
+
+from interactive_pipe.data_objects.curves import Curve
 
 # from interactive_pipe import interact
 

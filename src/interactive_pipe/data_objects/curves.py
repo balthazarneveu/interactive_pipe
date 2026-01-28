@@ -1,7 +1,8 @@
-import numpy as np
-from pathlib import Path
-from typing import Optional, Union, List, Tuple
 import logging
+from pathlib import Path
+from typing import List, Optional, Tuple, Union
+
+import numpy as np
 
 from interactive_pipe.data_objects.data import Data
 
@@ -26,9 +27,7 @@ try:
     signal_backends.append(SIGNAL_BACKEND_PD)
 except ImportError:
     message = "pandas is not available."
-    message += (
-        "\nto install see: https://pandas.pydata.org/docs/getting_started/install.html"
-    )
+    message += "\nto install see: https://pandas.pydata.org/docs/getting_started/install.html"
     message += "\npip install pandas"
     message += "\nyou won't be able to export curves as .csv spreadsheets"
     logging.warning(message)
@@ -62,9 +61,7 @@ class SingleCurve(Data):
     ):
         if x is not None and y is not None:
             if len(x) != len(y):
-                raise ValueError(
-                    f"x and y lengths must match: x has {len(x)} elements, y has {len(y)} elements"
-                )
+                raise ValueError(f"x and y lengths must match: x has {len(x)} elements, y has {len(y)} elements")
         data = {
             "x": x,
             "y": y,
@@ -163,9 +160,7 @@ class SingleCurve(Data):
         alpha: Optional[float] = None,
     ) -> dict:
         if path.suffix not in [".csv", ".pkl"]:
-            raise ValueError(
-                f"Unsupported file extension: {path.suffix}, expected .csv or .pkl"
-            )
+            raise ValueError(f"Unsupported file extension: {path.suffix}, expected .csv or .pkl")
         self.path = path
         if path.suffix == ".csv":
             df = pd.read_csv(self.path)
@@ -214,9 +209,7 @@ class SingleCurve(Data):
     @staticmethod
     def dataframe_from_data(data):  # -> pd.DataFrame
         if SIGNAL_BACKEND_PD not in signal_backends:
-            raise RuntimeError(
-                "pandas backend is not available. Install pandas to use this feature."
-            )
+            raise RuntimeError("pandas backend is not available. Install pandas to use this feature.")
         df = pd.DataFrame.from_dict(dict(x=data["x"], y=data["y"]))
         return df
 
@@ -284,15 +277,11 @@ class Curve(Data):
         }
         super().__init__(data)
 
-    def __create_curve_from_abbreviation(
-        self, curve: Union[list, tuple, dict, SingleCurve, np.ndarray]
-    ):
+    def __create_curve_from_abbreviation(self, curve: Union[list, tuple, dict, SingleCurve, np.ndarray]):
         current_curve = None
         if isinstance(curve, list) or isinstance(curve, tuple):
             if len(curve) < 2:
-                raise ValueError(
-                    f"curve must have at least 2 elements (x, y), got {len(curve)} elements: {curve}"
-                )
+                raise ValueError(f"curve must have at least 2 elements (x, y), got {len(curve)} elements: {curve}")
             style = None
             if len(curve) >= 3:
                 style = curve[2]
@@ -302,12 +291,8 @@ class Curve(Data):
                         label = curve[3]
                         if label is not None:
                             if not isinstance(label, str):
-                                raise TypeError(
-                                    f"label must be a string, got {type(label)}"
-                                )
-                    current_curve = SingleCurve(
-                        x=curve[0], y=curve[1], style=style, label=label
-                    )
+                                raise TypeError(f"label must be a string, got {type(label)}")
+                    current_curve = SingleCurve(x=curve[0], y=curve[1], style=style, label=label)
                 elif isinstance(style, dict):
                     current_curve = SingleCurve(x=curve[0], y=curve[1], **style)
             else:
@@ -319,9 +304,7 @@ class Curve(Data):
         elif isinstance(curve, np.ndarray):
             current_curve = SingleCurve(x=None, y=curve)
         if current_curve is None:
-            raise ValueError(
-                f"could not create a single curve from abbreviation: {curve}"
-            )
+            raise ValueError(f"could not create a single curve from abbreviation: {curve}")
         return current_curve
 
     # .grid
@@ -395,33 +378,24 @@ class Curve(Data):
     # ---------------------------------------
     def __getitem__(self, key: int) -> SingleCurve:
         if isinstance(key, slice):
-            return [
-                self.data["curves"][idx]
-                for idx in range(*key.indices(len(self.data["curves"])))
-            ]
+            return [self.data["curves"][idx] for idx in range(*key.indices(len(self.data["curves"])))]
         if not isinstance(key, int):
             raise TypeError(f"key must be an integer, got {type(key)}")
         if key >= len(self.data["curves"]):
-            raise IndexError(
-                f"curve index {key} out of range (max: {len(self.data['curves']) - 1})"
-            )
+            raise IndexError(f"curve index {key} out of range (max: {len(self.data['curves']) - 1})")
         return self.data["curves"][key]
 
     def __setitem__(self, key: int, value):
         if isinstance(key, slice):
             for lin_index, idx in enumerate(range(*key.indices(len(value)))):
                 if idx >= len(self.data["curves"]):
-                    raise IndexError(
-                        f"curve index {idx} out of range (max: {len(self.data['curves']) - 1})"
-                    )
+                    raise IndexError(f"curve index {idx} out of range (max: {len(self.data['curves']) - 1})")
                 self.data["curves"][idx] = value[lin_index]
             return
         if not isinstance(key, int):
             raise TypeError(f"key must be an integer, got {type(key)}")
         if key >= len(self.data["curves"]):
-            raise IndexError(
-                f"curve index {key} out of range (max: {len(self.data['curves']) - 1})"
-            )
+            raise IndexError(f"curve index {key} out of range (max: {len(self.data['curves']) - 1})")
         if not isinstance(value, SingleCurve):
             raise TypeError(f"value must be a SingleCurve instance, got {type(value)}")
         self.data["curves"][key] = value
@@ -437,9 +411,7 @@ class Curve(Data):
 
     def _load(self, path: Path) -> dict:
         if path.suffix != ".pkl":
-            raise ValueError(
-                f"Unsupported file extension: {path.suffix}, expected .pkl"
-            )
+            raise ValueError(f"Unsupported file extension: {path.suffix}, expected .pkl")
         self.path = path
         if path.suffix == ".pkl":
             data = Data.load_binary(path)

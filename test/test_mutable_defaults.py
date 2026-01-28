@@ -4,6 +4,7 @@ and don't cause shared state bugs between instances.
 """
 
 import numpy as np
+
 from interactive_pipe.core.filter import FilterCore, PureFilter
 from interactive_pipe.core.pipeline import PipelineCore
 from interactive_pipe.graphical.gui import InteractivePipeGUI

@@ -1,13 +1,14 @@
 """Tests for the clean context API (layout, audio, get_context)."""
 
-import pytest
 import numpy as np
+import pytest
+
 from interactive_pipe import (
-    interactive,
-    get_context,
-    context,
-    layout,
     audio,
+    context,
+    get_context,
+    interactive,
+    layout,
 )
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.pipeline import PipelineCore
@@ -105,9 +106,7 @@ def test_layout_style_sets_title():
         return img * brightness
 
     img = np.ones((10, 10, 3))
-    filter_obj = FilterCore(
-        apply_fn=adjust_brightness, inputs=[0], outputs=["adjusted"]
-    )
+    filter_obj = FilterCore(apply_fn=adjust_brightness, inputs=[0], outputs=["adjusted"])
 
     pipeline = PipelineCore(
         filters=[filter_obj],
@@ -121,10 +120,7 @@ def test_layout_style_sets_title():
     # Check that __output_styles was set correctly
     assert "__output_styles" in pipeline.global_params
     assert "adjusted" in pipeline.global_params["__output_styles"]
-    assert (
-        pipeline.global_params["__output_styles"]["adjusted"]["title"]
-        == "Brightness: 0.50"
-    )
+    assert pipeline.global_params["__output_styles"]["adjusted"]["title"] == "Brightness: 0.50"
 
 
 def test_layout_style_with_extra_style_kwargs():
@@ -300,9 +296,7 @@ def test_new_api_without_global_params_signature():
 
     _private.registered_controls_names = []
 
-    @interactive(
-        gain=(0.5, [0.0, 1.0])
-    )  # Using 'gain' instead of 'brightness' to avoid conflicts
+    @interactive(gain=(0.5, [0.0, 1.0]))  # Using 'gain' instead of 'brightness' to avoid conflicts
     def clean_filter(img, gain=0.5):
         # No global_params in signature - clean!
         layout.style("result", title=f"G={gain:.2f}")
@@ -335,9 +329,7 @@ def test_audio_proxy_delegates_correctly():
     @interactive()
     def test_audio_filter(img, global_params={}):
         # Mock audio callbacks
-        global_params["__set_audio"] = lambda path: audio_operations.append(
-            ("set", path)
-        )
+        global_params["__set_audio"] = lambda path: audio_operations.append(("set", path))
         global_params["__play"] = lambda: audio_operations.append(("play",))
         global_params["__pause"] = lambda: audio_operations.append(("pause",))
         global_params["__stop"] = lambda: audio_operations.append(("stop",))
@@ -418,9 +410,7 @@ def test_layout_aliases():
         return img, img * 0.5
 
     img = np.ones((10, 10, 3))
-    filter_obj = FilterCore(
-        apply_fn=test_filter, inputs=[0], outputs=["output1", "output2"]
-    )
+    filter_obj = FilterCore(apply_fn=test_filter, inputs=[0], outputs=["output1", "output2"])
 
     pipeline = PipelineCore(
         filters=[filter_obj],
@@ -433,9 +423,7 @@ def test_layout_aliases():
     pipeline.run()
 
     # Check that set_style alias works
-    assert pipeline.global_params["__output_styles"]["output1"]["title"] == (
-        "Using set_style alias"
-    )
+    assert pipeline.global_params["__output_styles"]["output1"]["title"] == ("Using set_style alias")
     # Check that set_grid alias works
     assert pipeline.outputs == [["output1", "output2"]]
 
@@ -458,24 +446,16 @@ def test_layout_canvas_aliases():
     img = np.ones((10, 10, 3))
 
     # Test canvas alias
-    filter1 = FilterCore(
-        apply_fn=test_canvas_filter, inputs=[0], outputs=["a", "b", "c", "d"]
-    )
-    pipeline1 = PipelineCore(
-        filters=[filter1], inputs=[0], outputs=[["a"]], cache=False
-    )
+    filter1 = FilterCore(apply_fn=test_canvas_filter, inputs=[0], outputs=["a", "b", "c", "d"])
+    pipeline1 = PipelineCore(filters=[filter1], inputs=[0], outputs=[["a"]], cache=False)
     pipeline1.global_params["__pipeline"] = pipeline1
     pipeline1.inputs = [img]
     pipeline1.run()
     assert pipeline1.outputs == [["a", "b"], ["c", "d"]]
 
     # Test set_canvas alias
-    filter2 = FilterCore(
-        apply_fn=test_set_canvas_filter, inputs=[0], outputs=["x", "y"]
-    )
-    pipeline2 = PipelineCore(
-        filters=[filter2], inputs=[0], outputs=[["x"]], cache=False
-    )
+    filter2 = FilterCore(apply_fn=test_set_canvas_filter, inputs=[0], outputs=["x", "y"])
+    pipeline2 = PipelineCore(filters=[filter2], inputs=[0], outputs=[["x"]], cache=False)
     pipeline2.global_params["__pipeline"] = pipeline2
     pipeline2.inputs = [img]
     pipeline2.run()

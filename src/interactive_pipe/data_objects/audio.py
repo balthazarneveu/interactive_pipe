@@ -1,10 +1,12 @@
-from pathlib import Path
-from interactive_pipe.data_objects.data import Data
-import numpy as np
-from io import BytesIO
 import base64
 import logging
-from typing import Union, Tuple
+from io import BytesIO
+from pathlib import Path
+from typing import Tuple, Union
+
+import numpy as np
+
+from interactive_pipe.data_objects.data import Data
 
 WAVIO_AVAILABLE = False
 WAVIO = "wavio"
@@ -17,9 +19,7 @@ except ImportError:
 __iter_audio_player = 0
 
 
-def audio_to_html(
-    audio: Union[None, str, Path, Tuple[int, np.ndarray]], controls=True
-) -> str:
+def audio_to_html(audio: Union[None, str, Path, Tuple[int, np.ndarray]], controls=True) -> str:
     if audio is None:
         logging.debug("No audio to display")
         return ""
@@ -29,9 +29,7 @@ def audio_to_html(
         if not WAVIO_AVAILABLE:
             raise RuntimeError("wavio is not available")
         if len(audio) != 2:
-            raise ValueError(
-                f"audio tuple should have 2 elements: (rate, data), got {len(audio)}"
-            )
+            raise ValueError(f"audio tuple should have 2 elements: (rate, data), got {len(audio)}")
         if not isinstance(audio[0], int):
             raise TypeError(f"audio[0] should be an integer, got {type(audio[0])}")
         if not isinstance(audio[1], np.ndarray):

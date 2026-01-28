@@ -1,19 +1,20 @@
+import shutil
+
 import numpy as np
 import pytest
-import shutil
 from sample_functions import (
-    mad,
-    split_horizontally,
     blend,
-    get_sample_image,
-    empty_output,
     constant_image_generator,
     empty_in_empty_out,
+    empty_output,
+    get_sample_image,
+    mad,
+    split_horizontally,
 )
 
 from interactive_pipe.core.graph import get_call_graph
-from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.data_objects.image import Image
+from interactive_pipe.headless.pipeline import HeadlessPipeline
 
 input_image = np.array([[1, 2, 3], [4, 5, 6]])
 

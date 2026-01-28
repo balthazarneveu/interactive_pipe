@@ -1,13 +1,13 @@
-from interactive_pipe.helper import _private
-import signal
 import logging
+import signal
+
+from interactive_pipe.helper import _private
 
 
 def get_interactive_pipeline_class(gui="auto"):
     selected_gui = None
     if gui is None or gui == "auto":
         if _private.auto_gui is not None:
-
             selected_gui = _private.auto_gui  # skip selection, used cached one
             logging.debug(f"auto gui already selected {selected_gui}")
         else:

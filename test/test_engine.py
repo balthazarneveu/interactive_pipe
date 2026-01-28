@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
-from interactive_pipe.core.filter import FilterCore
+
 from interactive_pipe.core.engine import PipelineEngine
+from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.pipeline import PipelineCore
 
 input_image = np.array([[1, 2, 3], [4, 5, 6]])
@@ -47,9 +48,7 @@ def test_pipeline_params(cache, global_params_flag):
         default_params={"coeff": 1, "bias": 0},
     )
     filt2 = FilterCore(apply_fn=blend, inputs=[0, 2], outputs=[8])
-    pip = PipelineCore(
-        filters=[filt1, filt2], inputs=[0], cache=cache, global_params={"ratio": 5}
-    )
+    pip = PipelineCore(filters=[filt1, filt2], inputs=[0], cache=cache, global_params={"ratio": 5})
     assert pip.parameters["blend"] == {"blend_coeff": 0.4}
     assert pip.parameters["mad"] == {"coeff": 1, "bias": 0}
     expected_ratio = 5
@@ -66,20 +65,14 @@ def test_pipeline_params(cache, global_params_flag):
     # please keep in mind that using a shared global_params & cache requires you to be very cautious.
     # usually, a change of parameters in one of the first filters triggers an update in the global_params.
     pip.run()
-    assert (
-        pip.global_params["ratio"] == (7 if cache else 8) if global_params_flag else 5
-    )
+    assert pip.global_params["ratio"] == (7 if cache else 8) if global_params_flag else 5
 
 
 @pytest.mark.parametrize("cache", [True, False])
 def test_pipeline_mix(cache):
-    filt1 = FilterCore(
-        apply_fn=mad_gp, name="mad", outputs=[2], default_params={"coeff": 1, "bias": 0}
-    )
+    filt1 = FilterCore(apply_fn=mad_gp, name="mad", outputs=[2], default_params={"coeff": 1, "bias": 0})
     filt2 = Blend(inputs=[0, 2], outputs=[8])
-    pip = PipelineCore(
-        filters=[filt1, filt2], cache=cache, inputs=[0], global_params={"ratio": 5}
-    )
+    pip = PipelineCore(filters=[filt1, filt2], cache=cache, inputs=[0], global_params={"ratio": 5})
     assert pip.parameters["Blend"] == {"blend_coeff": 0.8}
     assert pip.parameters["mad"] == {"coeff": 1, "bias": 0}
     pip.inputs = [input_image]

@@ -1,9 +1,10 @@
-from interactive_pipe import Control
-from interactive_pipe import interactive, interactive_pipeline, context, layout
-from interactive_pipe.data_objects.image import Image
-from pathlib import Path
-import cv2
 import argparse
+from pathlib import Path
+
+import cv2
+
+from interactive_pipe import Control, context, interactive, interactive_pipeline, layout
+from interactive_pipe.data_objects.image import Image
 
 root = Path(__file__).parent
 img_folder = root / "images"

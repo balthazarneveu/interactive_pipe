@@ -1,6 +1,7 @@
-from interactive_pipe.headless.pipeline import HeadlessPipeline
-from interactive_pipe.core.filter import FilterCore
 import numpy as np
+
+from interactive_pipe.core.filter import FilterCore
+from interactive_pipe.headless.pipeline import HeadlessPipeline
 
 # -------------------------------------------------------------------------------------------------
 
@@ -14,11 +15,7 @@ def mad_func(img, coeff=50, bias=0):
 
 
 def black_and_white(img, bnw=False):
-    return (
-        np.repeat(np.expand_dims(np.average(img, axis=-1), -1), img.shape[-1], axis=-1)
-        if bnw
-        else img
-    )
+    return np.repeat(np.expand_dims(np.average(img, axis=-1), -1), img.shape[-1], axis=-1) if bnw else img
 
 
 # -------------------------------------------------------------------------------------------------
@@ -34,9 +31,7 @@ def named_based_routing():
     # Pretty painstaking job to define a pipeline this way.
     # But you're making sure that you know what you're doing
     mad_filter = FilterCore(mad_func, inputs=["my_inp"], outputs=["reexposed"])
-    black_and_white_filter = FilterCore(
-        black_and_white, inputs=["reexposed"], outputs=["bnw"]
-    )
+    black_and_white_filter = FilterCore(black_and_white, inputs=["reexposed"], outputs=["bnw"])
     blend_filter = FilterCore(blend, inputs=["reexposed", "bnw"], outputs=["blended"])
     pipeline_list = [mad_filter, black_and_white_filter, blend_filter]
     pipeline = HeadlessPipeline(

@@ -1,8 +1,9 @@
-from interactive_pipe.headless.control import Control
 import logging
 
+from interactive_pipe.headless.control import Control
+
 try:
-    from ipywidgets import Dropdown, FloatSlider, IntSlider, Checkbox, Layout, Text
+    from ipywidgets import Checkbox, Dropdown, FloatSlider, IntSlider, Layout, Text
 
     IPYWIDGETS_AVAILABLE = True
 except ImportError:
@@ -21,8 +22,7 @@ class BaseControl:
     def __init__(self, name, ctrl: Control):
         if not IPYWIDGETS_AVAILABLE:
             raise ModuleNotFoundError(
-                "ipywidgets is required for notebook controls. "
-                "Install it with: pip install interactive-pipe[notebook]"
+                "ipywidgets is required for notebook controls. Install it with: pip install interactive-pipe[notebook]"
             )
         super().__init__()
         self.name = name
@@ -35,14 +35,12 @@ class BaseControl:
         raise NotImplementedError("This method should be overridden by subclass")
 
     def check_control_type(self):
-        raise NotImplementedError(
-            "This method should be overridden by subclass to check the right slider control type"
-        )
+        raise NotImplementedError("This method should be overridden by subclass to check the right slider control type")
 
 
 class IntSliderNotebookControl(BaseControl):
     def check_control_type(self):
-        if self.ctrl._type != int:
+        if self.ctrl._type is not int:
             raise TypeError(f"Expected int control type, got {self.ctrl._type}")
 
     def create(self):
@@ -61,7 +59,7 @@ class IntSliderNotebookControl(BaseControl):
 
 class FloatSliderNotebookControl(BaseControl):
     def check_control_type(self):
-        if self.ctrl._type != float:
+        if self.ctrl._type is not float:
             raise TypeError(f"Expected float control type, got {self.ctrl._type}")
 
     def create(self):
@@ -80,21 +78,19 @@ class FloatSliderNotebookControl(BaseControl):
 
 class BoolCheckButtonNotebookControl(BaseControl):
     def check_control_type(self):
-        if self.ctrl._type != bool:
+        if self.ctrl._type is not bool:
             raise TypeError(f"Expected bool control type, got {self.ctrl._type}")
 
     def create(self):
         if not IPYWIDGETS_AVAILABLE:
             raise ModuleNotFoundError("ipywidgets is required for notebook controls")
-        checks = Checkbox(
-            self.ctrl.value_default, layout=self.layout, tooltip=self.ctrl.tooltip
-        )
+        checks = Checkbox(self.ctrl.value_default, layout=self.layout, tooltip=self.ctrl.tooltip)
         return checks
 
 
 class DialogNotebookControl(BaseControl):
     def check_control_type(self):
-        if self.ctrl._type != str:
+        if self.ctrl._type is not str:
             raise TypeError(f"Expected str control type, got {self.ctrl._type}")
 
     def create(self):
@@ -112,7 +108,7 @@ class DialogNotebookControl(BaseControl):
 
 class PromptNotebookControl(BaseControl):
     def check_control_type(self):
-        if self.ctrl._type != str:
+        if self.ctrl._type is not str:
             raise TypeError(f"Expected str control type, got {self.ctrl._type}")
         if self.ctrl.value_range is not None:
             raise ValueError("value_range must be None for PromptNotebookControl")
@@ -135,28 +131,18 @@ class ControlFactory:
         control_type = control._type
         name = control.name
         # Return None for single-value controls (don't show anything)
-        if (
-            control_type == str
-            and control.value_range is not None
-            and len(control.value_range) == 1
-        ):
+        if control_type is str and control.value_range is not None and len(control.value_range) == 1:
             return None
 
         control_class_map = {
             bool: BoolCheckButtonNotebookControl,
             int: IntSliderNotebookControl,
             float: FloatSliderNotebookControl,
-            str: (
-                PromptNotebookControl
-                if control.value_range is None
-                else DialogNotebookControl
-            ),
+            str: (PromptNotebookControl if control.value_range is None else DialogNotebookControl),
         }
 
         if control_type not in control_class_map:
-            logging.warning(
-                f"Unsupported control type: {control_type} for control named {name}"
-            )
+            logging.warning(f"Unsupported control type: {control_type} for control named {name}")
             return None
 
         control_class = control_class_map[control_type]

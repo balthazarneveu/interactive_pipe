@@ -1,7 +1,7 @@
-import pytest
 import numpy as np
+import pytest
 
-from interactive_pipe.data_objects.image import Image, IMAGE_BACKENDS
+from interactive_pipe.data_objects.image import IMAGE_BACKENDS, Image
 
 
 @pytest.mark.parametrize("backend_load", IMAGE_BACKENDS)

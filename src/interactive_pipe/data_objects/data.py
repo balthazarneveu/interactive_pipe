@@ -1,7 +1,7 @@
-from pathlib import Path
-from typing import Optional, Any
-from abc import abstractmethod
 import pickle
+from abc import abstractmethod
+from pathlib import Path
+from typing import Any, Optional
 
 
 class Data:
@@ -35,9 +35,7 @@ class Data:
             self._file_extensions = [new_file_extensions]
         else:
             self._file_extensions = new_file_extensions
-        if self._file_extensions is not None and not isinstance(
-            self._file_extensions, list
-        ):
+        if self._file_extensions is not None and not isinstance(self._file_extensions, list):
             raise TypeError("file_extensions must be a list or None")
         if isinstance(self._file_extensions, list):
             for el in self._file_extensions:
@@ -76,9 +74,7 @@ class Data:
         return input(message)
 
     @staticmethod
-    def check_path(
-        path: Optional[Path] = None, load: bool = False, extensions=None
-    ) -> Path:
+    def check_path(path: Optional[Path] = None, load: bool = False, extensions=None) -> Path:
         if path is None:
             path = Data.prompt_file()
         if path is None:
@@ -92,9 +88,7 @@ class Data:
                 raise FileNotFoundError(f"Path does not exist: {path}")
             if extensions is not None:
                 if path.suffix not in extensions:
-                    raise ValueError(
-                        f"File extension {path.suffix} must be among {extensions}"
-                    )
+                    raise ValueError(f"File extension {path.suffix} must be among {extensions}")
             return path
         else:  # saving
             if not path.parent.exists():
@@ -115,9 +109,7 @@ class Data:
         idx = 1
         orig_path = path
         while path.is_file():
-            path = orig_path.with_name(
-                "%s_%d%s" % (orig_path.stem, idx, orig_path.suffix)
-            )
+            path = orig_path.with_name("%s_%d%s" % (orig_path.stem, idx, orig_path.suffix))
             idx += 1
         return path
 

@@ -8,8 +8,10 @@ This demo demonstrates:
 - Side-by-side display of curve and image
 """
 
-import numpy as np
 import argparse
+
+import numpy as np
+
 from interactive_pipe import interactive, interactive_pipeline, layout
 from interactive_pipe.data_objects.curves import Curve
 
@@ -48,9 +50,7 @@ def generate_curve(
         title=f"Oscillations (A={amplitude:.2f}, f={frequency:.2f} Hz)",
     )
 
-    layout.style(
-        "curve", title=f"Curve: f={frequency:.2f}, A={amplitude:.2f}, φ={phase:.0f}°"
-    )
+    layout.style("curve", title=f"Curve: f={frequency:.2f}, A={amplitude:.2f}, φ={phase:.0f}°")
 
     return curve
 
@@ -100,11 +100,7 @@ def generate_image(
     combined = np.clip(combined, 0.0, 1.0)
     img = np.stack([combined] * 3, axis=2)
 
-    title = (
-        f"Pattern: f={pattern_frequency:.1f}, "
-        f"B={brightness:.2f}, C={contrast:.2f}, "
-        f"R={rotation:.0f}°"
-    )
+    title = f"Pattern: f={pattern_frequency:.1f}, B={brightness:.2f}, C={contrast:.2f}, R={rotation:.0f}°"
     layout.style("image", title=title)
 
     return img
@@ -118,9 +114,7 @@ def curve_image_pipeline():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Curve and Image demo with multiple sliders"
-    )
+    parser = argparse.ArgumentParser(description="Curve and Image demo with multiple sliders")
     parser.add_argument(
         "-b",
         "--backend",

@@ -5,6 +5,7 @@ import time
 import traceback
 from copy import deepcopy
 from typing import List
+
 from interactive_pipe.core.filter import FilterCore
 
 
@@ -66,11 +67,11 @@ class FilterError(Exception):
         """Print a compact version of the error to stderr or specified file."""
         if file is None:
             file = sys.stderr
-        print(f"\n{'='*60}", file=file)
+        print(f"\n{'=' * 60}", file=file)
         print("PIPELINE ERROR", file=file)
-        print(f"{'='*60}", file=file)
+        print(f"{'=' * 60}", file=file)
         print(str(self), file=file)
-        print(f"{'='*60}\n", file=file)
+        print(f"{'=' * 60}\n", file=file)
 
 
 # Install a custom exception hook to handle FilterError cleanly
@@ -124,26 +125,18 @@ class PipelineEngine:
             # 0     | X           | False -> no cache, cannot skip so calculate
             # 1     | 0           | True  -> cache with no change, skip the calculation
             # 1     | 1           | False -> cache and result changed, cannot skip so calculate
-            skip_calculation &= (prc.cache_mem is not None) and (
-                not prc.cache_mem.has_changed(prc.values)
-            )
+            skip_calculation &= (prc.cache_mem is not None) and (not prc.cache_mem.has_changed(prc.values))
 
             if skip_calculation and self.cache:
                 logging.debug(f"-->  Load cached outputs from filter {idx}: {prc.name}")
                 out = prc.cache_mem.result
                 previous_calculation = False
             else:
-                logging.debug(
-                    ("... " if previous_calculation else "!!! ")
-                    + f"Calculating {prc.name}"
-                )
+                logging.debug(("... " if previous_calculation else "!!! ") + f"Calculating {prc.name}")
                 try:
                     routing_in = []
                     if prc.inputs:
-                        routing_in = [
-                            result[idi] if idi is not None else None
-                            for idi in prc.inputs
-                        ]
+                        routing_in = [result[idi] if idi is not None else None for idi in prc.inputs]
                     logging.debug(f"in types-> {[type(inp) for inp in routing_in]}")
                     out = prc.run(*routing_in)
                     if out is not None:
@@ -159,9 +152,7 @@ class PipelineEngine:
                     filter_error.print_compact()
                     raise filter_error from None  # 'from None' suppresses the chained traceback
                 previous_calculation = True
-                if (
-                    self.cache and prc.cache_mem is not None
-                ):  # cache result if cache available
+                if self.cache and prc.cache_mem is not None:  # cache result if cache available
                     logging.debug(f"<-- Storing result from {prc.name}")
                     prc.cache_mem.update(out)
             # put prc output at the right position within result vector

@@ -1,7 +1,9 @@
-import pytest
-import numpy as np
 from pathlib import Path
-from interactive_pipe.data_objects.table import Table, PANDAS_AVAILABLE
+
+import numpy as np
+import pytest
+
+from interactive_pipe.data_objects.table import PANDAS_AVAILABLE, Table
 
 if PANDAS_AVAILABLE:
     import pandas as pd

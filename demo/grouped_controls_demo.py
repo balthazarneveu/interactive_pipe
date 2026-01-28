@@ -11,13 +11,15 @@ Features demonstrated:
 - Abbreviated tuple syntax with group parameter
 """
 
-import numpy as np
-from pathlib import Path
 import argparse
+from pathlib import Path
+
+import numpy as np
+
 from interactive_pipe import (
+    TextPrompt,
     interactive,
     interactive_pipeline,
-    TextPrompt,
     layout,
 )
 from interactive_pipe.data_objects.image import Image
@@ -96,9 +98,7 @@ def process_image(
     """Apply various effects with grouped controls"""
 
     if not enable_processing:
-        layout.style(
-            "processed", title="Processing Disabled", subtitle="Toggle to enable"
-        )
+        layout.style("processed", title="Processing Disabled", subtitle="Toggle to enable")
         return img
 
     result = img.copy()
@@ -207,9 +207,7 @@ def grouped_controls_pipeline(img_path: Path):
 if __name__ == "__main__":
     img_path = get_image_path()
 
-    parser = argparse.ArgumentParser(
-        description="Grouped controls demo - organize controls into collapsible groups"
-    )
+    parser = argparse.ArgumentParser(description="Grouped controls demo - organize controls into collapsible groups")
     parser.add_argument(
         "-b",
         "--backend",

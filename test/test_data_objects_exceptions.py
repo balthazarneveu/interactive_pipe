@@ -2,14 +2,16 @@
 Tests for exception handling in data_objects module
 """
 
-import pytest
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+import pytest
+
+from interactive_pipe.data_objects.audio import audio_to_html
+from interactive_pipe.data_objects.curves import Curve, SingleCurve
 from interactive_pipe.data_objects.data import Data
 from interactive_pipe.data_objects.image import Image
-from interactive_pipe.data_objects.curves import SingleCurve, Curve
 from interactive_pipe.data_objects.parameters import Parameters
-from interactive_pipe.data_objects.audio import audio_to_html
 
 
 class ConcreteData(Data):
@@ -43,9 +45,7 @@ class TestDataExceptions:
         with pytest.raises(ValueError, match="must start with"):
             data.file_extensions = ["test"]  # Missing dot
 
-    def test_check_path_raises_filenotfounderror_when_loading_nonexistent(
-        self, tmp_path
-    ):
+    def test_check_path_raises_filenotfounderror_when_loading_nonexistent(self, tmp_path):
         data = ConcreteData(None)
         nonexistent = tmp_path / "nonexistent.test"
         with pytest.raises(FileNotFoundError, match="does not exist"):

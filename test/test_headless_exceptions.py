@@ -2,12 +2,13 @@
 Tests for exception handling in headless module
 """
 
-import pytest
 import numpy as np
+import pytest
+
+from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.headless.control import Control
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
-from interactive_pipe.core.filter import FilterCore
 
 
 class TestControlExceptions:
@@ -80,9 +81,7 @@ class TestControlExceptions:
         Note: This reveals a bug - TypeError is raised first from check_value when value_range=None
         """
         # The TypeError happens first due to check_value bug, but we test the intended behavior
-        with pytest.raises(
-            TypeError, match="(must be a string|'NoneType' object is not subscriptable)"
-        ):
+        with pytest.raises(TypeError, match="(must be a string|'NoneType' object is not subscriptable)"):
             Control(value_default=5.0, value_range=[0.0, 10.0], name=123)
 
     def test_init_raises_typeerror_when_wrong_value_type(self):

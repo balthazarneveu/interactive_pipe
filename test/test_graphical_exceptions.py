@@ -2,30 +2,30 @@
 Tests for exception handling in graphical module
 """
 
-import pytest
 import numpy as np
-from interactive_pipe.headless.control import Control
-from interactive_pipe.headless.pipeline import HeadlessPipeline
+import pytest
+
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.graphical.gui import InteractivePipeGUI
-from interactive_pipe.headless.keyboard import KeyboardControl
-from interactive_pipe.headless.control import TimeControl
 from interactive_pipe.graphical.mpl_control import (
-    IntSliderMatplotlibControl,
-    FloatSliderMatplotlibControl,
     BoolCheckButtonMatplotlibControl,
-    StringRadioButtonMatplotlibControl,
+    FloatSliderMatplotlibControl,
+    IntSliderMatplotlibControl,
     PromptMatplotlibControl,
+    StringRadioButtonMatplotlibControl,
 )
+from interactive_pipe.headless.control import Control, TimeControl
+from interactive_pipe.headless.keyboard import KeyboardControl
+from interactive_pipe.headless.pipeline import HeadlessPipeline
 
 try:
     from interactive_pipe.graphical.nb_control import (
-        IntSliderNotebookControl,
-        FloatSliderNotebookControl,
+        IPYWIDGETS_AVAILABLE,
         BoolCheckButtonNotebookControl,
         DialogNotebookControl,
+        FloatSliderNotebookControl,
+        IntSliderNotebookControl,
         PromptNotebookControl,
-        IPYWIDGETS_AVAILABLE,
     )
 
     NB_CONTROL_AVAILABLE = IPYWIDGETS_AVAILABLE
@@ -34,13 +34,13 @@ except ImportError:
 
 try:
     from interactive_pipe.graphical.qt_control import (
-        IntSliderControl,
-        FloatSliderControl,
-        TickBoxControl,
-        DropdownMenuControl,
-        PromptControl,
-        IconButtonsControl,
         PYQT_AVAILABLE,
+        DropdownMenuControl,
+        FloatSliderControl,
+        IconButtonsControl,
+        IntSliderControl,
+        PromptControl,
+        TickBoxControl,
     )
 
     QT_CONTROL_AVAILABLE = PYQT_AVAILABLE
@@ -49,12 +49,22 @@ except ImportError:
 
 try:
     from interactive_pipe.graphical.gradio_control import (
-        IntSliderControl as GradioIntSliderControl,
-        FloatSliderControl as GradioFloatSliderControl,
-        TickBoxControl as GradioTickBoxControl,
-        DropdownMenuControl as GradioDropdownMenuControl,
-        PromptControl as GradioPromptControl,
         GRADIO_AVAILABLE,
+    )
+    from interactive_pipe.graphical.gradio_control import (
+        DropdownMenuControl as GradioDropdownMenuControl,
+    )
+    from interactive_pipe.graphical.gradio_control import (
+        FloatSliderControl as GradioFloatSliderControl,
+    )
+    from interactive_pipe.graphical.gradio_control import (
+        IntSliderControl as GradioIntSliderControl,
+    )
+    from interactive_pipe.graphical.gradio_control import (
+        PromptControl as GradioPromptControl,
+    )
+    from interactive_pipe.graphical.gradio_control import (
+        TickBoxControl as GradioTickBoxControl,
     )
 
     GRADIO_CONTROL_AVAILABLE = GRADIO_AVAILABLE
@@ -118,23 +128,17 @@ class TestMatplotlibControlExceptions:
     def test_bool_checkbutton_raises_typeerror_when_not_bool(self):
         control = Control(value_default=5.0, value_range=[0.0, 10.0])
         with pytest.raises(TypeError, match="Expected bool control type"):
-            BoolCheckButtonMatplotlibControl(
-                "test", control, lambda name, val: None, None
-            )
+            BoolCheckButtonMatplotlibControl("test", control, lambda name, val: None, None)
 
     def test_string_radio_raises_typeerror_when_not_str(self):
         control = Control(value_default=True)  # Bool, not str
         with pytest.raises(TypeError, match="Expected str control type"):
-            StringRadioButtonMatplotlibControl(
-                "test", control, lambda name, val: None, None
-            )
+            StringRadioButtonMatplotlibControl("test", control, lambda name, val: None, None)
 
     def test_string_radio_raises_valueerror_when_value_range_none(self):
         control = Control(value_default="test", value_range=None)
         with pytest.raises(ValueError, match="must be provided"):
-            StringRadioButtonMatplotlibControl(
-                "test", control, lambda name, val: None, None
-            )
+            StringRadioButtonMatplotlibControl("test", control, lambda name, val: None, None)
 
     def test_prompt_raises_typeerror_when_not_str(self):
         control = Control(value_default=True)  # Bool, not str

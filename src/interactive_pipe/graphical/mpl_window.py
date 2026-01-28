@@ -1,10 +1,12 @@
-import matplotlib.pyplot as plt
-from interactive_pipe.graphical.window import InteractivePipeWindow
-import numpy as np
-import matplotlib as mpl
 from typing import Optional
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+
 from interactive_pipe.data_objects.curves import Curve
 from interactive_pipe.data_objects.table import Table
+from interactive_pipe.graphical.window import InteractivePipeWindow
 
 
 class MatplotlibWindow(InteractivePipeWindow):
@@ -91,12 +93,8 @@ class MatplotlibWindow(InteractivePipeWindow):
             elif isinstance(img, Table):
                 ax_dict["data"] = img.create_table(ax=ax_dict["ax"])
             elif isinstance(img, str):
-                ax_dict["data"] = ax_dict["ax"].text(
-                    0.5, 0.5, img, ha="center", va="center", fontsize=10
-                )
-        if not (
-            isinstance(img, Curve) and img.data.get("title") is not None
-        ) and not isinstance(img, Table):
+                ax_dict["data"] = ax_dict["ax"].text(0.5, 0.5, img, ha="center", va="center", fontsize=10)
+        if not (isinstance(img, Curve) and img.data.get("title") is not None) and not isinstance(img, Table):
             self.update_style(ax_dict["ax"], style=current_style)
 
     def refresh(self):

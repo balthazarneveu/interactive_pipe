@@ -1,12 +1,13 @@
-from interactive_pipe.headless.pipeline import HeadlessPipeline
+import logging
+import time
+from functools import partial
+from typing import Callable, List, Optional
+
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.parameters import Parameters
-from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.control import TimeControl
-import logging
-from typing import Callable, List, Optional
-from functools import partial
-import time
+from interactive_pipe.headless.keyboard import KeyboardControl
+from interactive_pipe.headless.pipeline import HeadlessPipeline
 
 
 class InteractivePipeGUI:
@@ -111,28 +112,19 @@ class InteractivePipeGUI:
                 func()  # a GUI level function like reset parameters or export images
         is_any_event_triggered = False
         for key, event_dict in self.context_key_bindings.items():
-
             event_triggered = key_pressed == key
-            self.pipeline.global_params["__events"][
-                event_dict["param_name"]
-            ] = event_triggered
+            self.pipeline.global_params["__events"][event_dict["param_name"]] = event_triggered
             if event_triggered:
-                logging.info(
-                    f"TRIGGERED A KEY EVENT {key_pressed} - {event_dict['doc']}"
-                )
+                logging.info(f"TRIGGERED A KEY EVENT {key_pressed} - {event_dict['doc']}")
                 is_any_event_triggered = True
         if is_any_event_triggered:
             self.pipeline.reset_cache()
             refresh_func()
         self.reset_context_events()
 
-    def bind_keyboard_slider(
-        self, ctrl: KeyboardControl, key_update_parameter_func: Callable
-    ):
+    def bind_keyboard_slider(self, ctrl: KeyboardControl, key_update_parameter_func: Callable):
         if not isinstance(ctrl, KeyboardControl):
-            raise TypeError(
-                f"ctrl must be a KeyboardControl instance, got {type(ctrl)}"
-            )
+            raise TypeError(f"ctrl must be a KeyboardControl instance, got {type(ctrl)}")
         toggle_only = True
         doc = ""
         slider_name = ctrl.name
@@ -142,7 +134,7 @@ class InteractivePipeGUI:
             if keyboard_key is None:
                 continue
             if toggle_only:
-                if ctrl._type == bool:
+                if ctrl._type is bool:
                     doc = f"toggle {ctrl.name}"
                 else:
                     if ctrl.keyup is None:
@@ -191,9 +183,7 @@ class InteractivePipeGUI:
             delta_time = time.time() - self.start_time
             return update_parameter_func(slider_name, delta_time)
 
-        self.bind_key(
-            ctrl.pause_resume_key, partial(self.play_pause_time, suspend_resume_timer)
-        )
+        self.bind_key(ctrl.pause_resume_key, partial(self.play_pause_time, suspend_resume_timer))
         update_func.__doc__ = doc
         return update_func
 
@@ -223,9 +213,7 @@ class InteractivePipeGUI:
     def save_images(self):
         """save images to disk"""
         pth = Image.check_path(Image.prompt_file(), load=False)
-        self.pipeline.save(
-            pth, data_wrapper_fn=lambda im: Image(im), save_entire_buffer=True
-        )
+        self.pipeline.save(pth, data_wrapper_fn=lambda im: Image(im), save_entire_buffer=True)
 
     def display_graph(self):
         """display execution graph"""
@@ -264,9 +252,7 @@ class InteractivePipeGUI:
                 else:
                     help.append(f"[{key}]    : {func.__doc__}")
         for key_context, event_dict in self.context_key_bindings.items():
-            help.append(
-                f"[{key_context}]    : {event_dict['doc']} (context['__event'][{event_dict['param_name']}])"
-            )
+            help.append(f"[{key_context}]    : {event_dict['doc']} (context['__event'][{event_dict['param_name']}])")
         self.print_message(help)
         return help
 

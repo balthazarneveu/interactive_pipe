@@ -10,9 +10,7 @@ def test_pure_filter():
     def mult(img, context={}, scalar=8, add=5):
         return [[value * scalar + add for value in row] for row in img]
 
-    filt = PureFilter(
-        apply_fn=mult, name="multiplication", default_params={"scalar": 2, "add": 0}
-    )
+    filt = PureFilter(apply_fn=mult, name="multiplication", default_params={"scalar": 2, "add": 0})
     img = [[1, 2, 3], [4, 5, 6]]
     result = filt.run(img)
     assert result == [[2, 4, 6], [8, 10, 12]]

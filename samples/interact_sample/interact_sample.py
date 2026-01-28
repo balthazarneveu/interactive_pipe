@@ -1,5 +1,6 @@
-from interactive_pipe import interact
 from filters_library import generate_sine_wave
+
+from interactive_pipe import interact
 
 if __name__ == "__main__":
     # here's another nice little main you can leave

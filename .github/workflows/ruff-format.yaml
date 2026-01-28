@@ -1,12 +1,12 @@
-name: Lint
+name: Ruff Format
 
 on: [push, pull_request]
 
 jobs:
-  lint:
+  ruff-format:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: psf/black@stable
+      - uses: astral-sh/ruff-action@v3
         with:
-          version: "26.1.0"
+          args: "format --check"

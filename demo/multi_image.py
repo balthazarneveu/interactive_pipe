@@ -1,10 +1,12 @@
-import logging
-import numpy as np
-from typing import List
 import argparse
+import logging
 from pathlib import Path
+from typing import List
+
+import numpy as np
+
+from interactive_pipe import Panel, interactive, interactive_pipeline, layout
 from interactive_pipe.data_objects.image import Image
-from interactive_pipe import interactive, interactive_pipeline, Panel, layout
 
 TORCH_AVAILABLE = True
 try:
@@ -48,7 +50,7 @@ def img_selector(img_list: List[Path], index: int = 0) -> np.ndarray:
     """Select an image from the list - sets image title"""
     img = Image.load_image(str(img_list[index]))
     # Please note the "image" key to set the title
-    title = f"Image {index+1:d}/{len(img_list)} {img_list[index].stem}"
+    title = f"Image {index + 1:d}/{len(img_list)} {img_list[index].stem}"
     layout.style("image", title=title)
     return img
 
@@ -58,9 +60,7 @@ def blur_image(img: np.ndarray, half_blur_size=1, gpu=False) -> np.ndarray:
     if TORCH_AVAILABLE:
         with torch.no_grad():
             img_tensor = np_to_tensor(img)
-            blur_conv = torch.nn.Conv2d(
-                3, 3, blur_size, groups=3, padding=blur_size // 2, bias=False
-            )
+            blur_conv = torch.nn.Conv2d(3, 3, blur_size, groups=3, padding=blur_size // 2, bias=False)
             blur_conv.weight.data.fill_(1.0 / (blur_size**2))
             if gpu:
                 blur_conv = blur_conv.cuda()
@@ -99,9 +99,7 @@ def image_pipeline(img_list: List[Path]):
 
 if __name__ == "__main__":
     img_list = get_paths()
-    parser = argparse.ArgumentParser(
-        description="Multi-image demo with backend selection"
-    )
+    parser = argparse.ArgumentParser(description="Multi-image demo with backend selection")
     parser.add_argument(
         "-b",
         "--backend",
@@ -122,9 +120,7 @@ if __name__ == "__main__":
     blur_panel = Panel("Blurring", position=args.panel)
 
     # Decorate image selector - similar to @interactive
-    interactive(
-        index=(0, [0, len(img_list) - 1], "image selector", "choice")
-    )(  # from 0 to the number of images
+    interactive(index=(0, [0, len(img_list) - 1], "image selector", "choice"))(  # from 0 to the number of images
         img_selector
     )
     interactive(

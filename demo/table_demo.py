@@ -13,11 +13,12 @@ This demo demonstrates:
 - Multiple table types side-by-side
 """
 
-import numpy as np
 import argparse
-from interactive_pipe import interactive, interactive_pipeline
+
+import numpy as np
+
+from interactive_pipe import interactive, interactive_pipeline, layout
 from interactive_pipe.data_objects.table import Table
-from interactive_pipe import layout
 
 # Try to import pandas, but make it optional
 try:
@@ -33,9 +34,7 @@ except ImportError:
     brightness=(0.5, [0.0, 1.0]),  # Float slider for brightness
     image_size=(200, [100, 400]),  # Int slider for image size
 )
-def generate_noisy_image(
-    noise_level: float = 0.1, brightness: float = 0.5, image_size: int = 200
-):
+def generate_noisy_image(noise_level: float = 0.1, brightness: float = 0.5, image_size: int = 200):
     """Generate a test image with adjustable noise and brightness."""
     img = np.ones((image_size, image_size, 3)) * brightness
     img += np.random.randn(*img.shape) * noise_level
@@ -96,9 +95,7 @@ def create_multiplication_table(table_size: int = 10):
     table_data = np.column_stack([np.arange(1, table_size + 1), mult_grid])
     columns = ["×"] + [str(i) for i in range(1, table_size + 1)]
 
-    table = Table(
-        table_data, columns=columns, title="Multiplication Table", precision=0
-    )
+    table = Table(table_data, columns=columns, title="Multiplication Table", precision=0)
     layout.set_style("mult", title="Multiplication Table")
 
     return table
@@ -135,9 +132,7 @@ def create_transformation_matrix(matrix_size: int = 4):
     )
     columns = ["Input X", "Input Y", "Output X", "Output Y", "Scale Change"]
 
-    table = Table(
-        table_data, columns=columns, title="Transformation Matrix Demo", precision=3
-    )
+    table = Table(table_data, columns=columns, title="Transformation Matrix Demo", precision=3)
     layout.set_style("transform", title="Matrix Transformation")
 
     return table
@@ -154,7 +149,7 @@ def create_list_of_dicts_table(num_entries: int = 8):
         records.append(
             {
                 "ID": i + 1,
-                "Name": f"Item_{i+1}",
+                "Name": f"Item_{i + 1}",
                 "Value": np.random.rand() * 100,
                 "Category": np.random.choice(["A", "B", "C"]),
                 "Active": np.random.choice([True, False]),
@@ -179,9 +174,7 @@ def create_pandas_table(num_samples: int = 10, show_aggregated: bool = True):
             "Note": ["Pandas not available"],
             "Install": ["pip install pandas"],
         }
-        table = Table(
-            fallback_data, title="Pandas Example (Not Available)", precision=0
-        )
+        table = Table(fallback_data, title="Pandas Example (Not Available)", precision=0)
         layout.set_style("pandas", title="Pandas DataFrame Example")
         return table
 
@@ -235,9 +228,7 @@ def create_pandas_table(num_samples: int = 10, show_aggregated: bool = True):
         )
         # Combine original data with summary
         combined_df = pd.concat([df, summary_rows], ignore_index=True)
-        table = Table(
-            combined_df, title="Pandas DataFrame with Aggregated Stats", precision=2
-        )
+        table = Table(combined_df, title="Pandas DataFrame with Aggregated Stats", precision=2)
     else:
         table = Table(df, title="Pandas DataFrame Example", precision=2)
 
@@ -273,6 +264,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    interactive_pipeline(gui=args.backend, cache=False, name="Table Demo")(
-        table_pipeline
-    )()
+    interactive_pipeline(gui=args.backend, cache=False, name="Table Demo")(table_pipeline)()

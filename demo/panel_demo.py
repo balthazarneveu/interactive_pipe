@@ -10,14 +10,16 @@ This demo demonstrates:
 - Ungrouped controls
 """
 
-import numpy as np
-from pathlib import Path
 import argparse
+from pathlib import Path
+
+import numpy as np
+
 from interactive_pipe import (
-    interactive,
-    interactive_pipeline,
     Panel,
     TextPrompt,
+    interactive,
+    interactive_pipeline,
     layout,
 )
 from interactive_pipe.data_objects.image import Image
@@ -92,9 +94,7 @@ def process_image(
     """Apply various effects with nested panel organization"""
 
     if not enable_processing:
-        layout.style(
-            "processed", title="Processing Disabled", subtitle="Toggle to enable"
-        )
+        layout.style("processed", title="Processing Disabled", subtitle="Toggle to enable")
         return img
 
     result = img.copy()

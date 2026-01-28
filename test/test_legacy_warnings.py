@@ -1,12 +1,14 @@
 """Test that all legacy parameter injection patterns show deprecation warnings."""
 
-import pytest
-import numpy as np
 import warnings
+
+import numpy as np
+import pytest
+
 from interactive_pipe import interactive
+from interactive_pipe.core.context import SharedContext as SC
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.pipeline import PipelineCore
-from interactive_pipe.core.context import SharedContext as SC
 
 
 def test_global_params_empty_dict_warns():
@@ -20,18 +22,14 @@ def test_global_params_empty_dict_warns():
 
     img = np.ones((10, 10, 3))
     filter_obj = FilterCore(apply_fn=my_filter, inputs=[0], outputs=[0])
-    pipeline = PipelineCore(
-        filters=[filter_obj], inputs=[0], outputs=[[0]], cache=False
-    )
+    pipeline = PipelineCore(filters=[filter_obj], inputs=[0], outputs=[[0]], cache=False)
     pipeline.inputs = [img]
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         pipeline.run()
 
-        deprecation_warnings = [
-            warning for warning in w if issubclass(warning.category, DeprecationWarning)
-        ]
+        deprecation_warnings = [warning for warning in w if issubclass(warning.category, DeprecationWarning)]
         assert len(deprecation_warnings) >= 1
         assert "deprecated" in str(deprecation_warnings[0].message).lower()
 
@@ -46,18 +44,14 @@ def test_global_params_none_warns():
 
     img = np.ones((10, 10, 3))
     filter_obj = FilterCore(apply_fn=my_filter, inputs=[0], outputs=[0])
-    pipeline = PipelineCore(
-        filters=[filter_obj], inputs=[0], outputs=[[0]], cache=False
-    )
+    pipeline = PipelineCore(filters=[filter_obj], inputs=[0], outputs=[[0]], cache=False)
     pipeline.inputs = [img]
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         pipeline.run()
 
-        deprecation_warnings = [
-            warning for warning in w if issubclass(warning.category, DeprecationWarning)
-        ]
+        deprecation_warnings = [warning for warning in w if issubclass(warning.category, DeprecationWarning)]
         assert len(deprecation_warnings) >= 1
 
 
@@ -72,18 +66,14 @@ def test_context_parameter_warns():
 
     img = np.ones((10, 10, 3))
     filter_obj = FilterCore(apply_fn=my_filter, inputs=[0], outputs=[0])
-    pipeline = PipelineCore(
-        filters=[filter_obj], inputs=[0], outputs=[[0]], cache=False
-    )
+    pipeline = PipelineCore(filters=[filter_obj], inputs=[0], outputs=[[0]], cache=False)
     pipeline.inputs = [img]
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         pipeline.run()
 
-        deprecation_warnings = [
-            warning for warning in w if issubclass(warning.category, DeprecationWarning)
-        ]
+        deprecation_warnings = [warning for warning in w if issubclass(warning.category, DeprecationWarning)]
         assert len(deprecation_warnings) >= 1
 
 
@@ -98,18 +88,14 @@ def test_state_parameter_warns():
 
     img = np.ones((10, 10, 3))
     filter_obj = FilterCore(apply_fn=my_filter, inputs=[0], outputs=[0])
-    pipeline = PipelineCore(
-        filters=[filter_obj], inputs=[0], outputs=[[0]], cache=False
-    )
+    pipeline = PipelineCore(filters=[filter_obj], inputs=[0], outputs=[[0]], cache=False)
     pipeline.inputs = [img]
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         pipeline.run()
 
-        deprecation_warnings = [
-            warning for warning in w if issubclass(warning.category, DeprecationWarning)
-        ]
+        deprecation_warnings = [warning for warning in w if issubclass(warning.category, DeprecationWarning)]
         assert len(deprecation_warnings) >= 1
 
 
@@ -127,18 +113,14 @@ def test_shared_context_injected_warns():
 
     img = np.ones((10, 10, 3))
     filter_obj = FilterCore(apply_fn=my_filter, inputs=[0], outputs=[0])
-    pipeline = PipelineCore(
-        filters=[filter_obj], inputs=[0], outputs=[[0]], cache=False
-    )
+    pipeline = PipelineCore(filters=[filter_obj], inputs=[0], outputs=[[0]], cache=False)
     pipeline.inputs = [img]
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         pipeline.run()
 
-        deprecation_warnings = [
-            warning for warning in w if issubclass(warning.category, DeprecationWarning)
-        ]
+        deprecation_warnings = [warning for warning in w if issubclass(warning.category, DeprecationWarning)]
         assert len(deprecation_warnings) >= 1
 
 
@@ -152,18 +134,14 @@ def test_warning_message_content():
 
     img = np.ones((10, 10, 3))
     filter_obj = FilterCore(apply_fn=my_filter, inputs=[0], outputs=[0])
-    pipeline = PipelineCore(
-        filters=[filter_obj], inputs=[0], outputs=[[0]], cache=False
-    )
+    pipeline = PipelineCore(filters=[filter_obj], inputs=[0], outputs=[[0]], cache=False)
     pipeline.inputs = [img]
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         pipeline.run()
 
-        deprecation_warnings = [
-            warning for warning in w if issubclass(warning.category, DeprecationWarning)
-        ]
+        deprecation_warnings = [warning for warning in w if issubclass(warning.category, DeprecationWarning)]
         assert len(deprecation_warnings) >= 1
 
         message = str(deprecation_warnings[0].message)

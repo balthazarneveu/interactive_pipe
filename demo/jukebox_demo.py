@@ -1,15 +1,17 @@
+import argparse
+from pathlib import Path
+
+import cv2
+
 from interactive_pipe import (
     Control,
+    audio,
+    context,
     interactive,
     interactive_pipeline,
-    audio,
     layout,
-    context,
 )
 from interactive_pipe.data_objects.image import Image
-from pathlib import Path
-import cv2
-import argparse
 
 root = Path(__file__).parent
 img_folder = root / "images"
@@ -93,6 +95,4 @@ if __name__ == "__main__":
         help="Backend to use: qt or gradio (default: qt)",
     )
     args = parser.parse_args()
-    interactive_pipeline(gui=args.backend, cache=False, name="music", audio=True)(
-        sample_pipeline
-    )()
+    interactive_pipeline(gui=args.backend, cache=False, name="music", audio=True)(sample_pipeline)()

@@ -12,19 +12,21 @@ This demo demonstrates:
 - Multi-image layouts (1x3, 2x2, 3x1, etc.)
 """
 
-import numpy as np
-from pathlib import Path
 import argparse
+from pathlib import Path
 from typing import List
+
+import numpy as np
+
 from interactive_pipe import (
+    CircularControl,
+    Control,
+    KeyboardControl,
+    TextPrompt,
+    context,
     interactive,
     interactive_pipeline,
-    Control,
-    CircularControl,
-    TextPrompt,
-    KeyboardControl,
     layout,
-    context,
 )
 from interactive_pipe.data_objects.image import Image
 
@@ -54,7 +56,7 @@ def select_image(
     """Select an image from the list"""
     idx = min(image_index, len(img_list) - 1)
     img = Image.load_image(str(img_list[idx]))
-    title = f"Original {idx+1}/{len(img_list)}: {img_list[idx].stem}"
+    title = f"Original {idx + 1}/{len(img_list)}: {img_list[idx].stem}"
 
     layout.style("original", title=title)
     # Attribute-style access
@@ -101,9 +103,7 @@ def set_layout_outputs():
     brightness=(0.0, [-1.0, 1.0]),  # Float slider: -1 (dark) to +1 (bright)
     contrast=(0.0, [-1.0, 1.0]),  # Float slider: -1 (low) to +1 (high)
 )
-def adjust_brightness_contrast(
-    img: np.ndarray, brightness: float = 0.0, contrast: float = 0.0
-) -> np.ndarray:
+def adjust_brightness_contrast(img: np.ndarray, brightness: float = 0.0, contrast: float = 0.0) -> np.ndarray:
     """Adjust brightness and contrast"""
     # Apply brightness: add brightness value directly
     # brightness: -1.0 = very dark, 0.0 = no change, 1.0 = very bright
@@ -129,9 +129,7 @@ def adjust_brightness_contrast(
     blur_amount=CircularControl(3, [1, 15], modulo=True),  # CircularControl (int)
     enable_blur=(False,),  # Bool checkbox
 )
-def apply_blur(
-    img: np.ndarray, blur_amount: int = 3, enable_blur: bool = False
-) -> np.ndarray:
+def apply_blur(img: np.ndarray, blur_amount: int = 3, enable_blur: bool = False) -> np.ndarray:
     """Apply blur effect"""
     if not enable_blur:
         layout.style("blurred", title="Blur: OFF")
@@ -164,9 +162,7 @@ def apply_blur(
     threshold=(0.5, [0.0, 1.0]),  # Float slider
     invert=(False,),  # Bool checkbox
 )
-def apply_threshold(
-    img: np.ndarray, threshold: float = 0.5, invert: bool = False
-) -> np.ndarray:
+def apply_threshold(img: np.ndarray, threshold: float = 0.5, invert: bool = False) -> np.ndarray:
     """Apply threshold effect"""
     # Convert to grayscale
     gray = img.mean(axis=2)
@@ -186,9 +182,7 @@ def apply_threshold(
     rotation=CircularControl(0.0, [0.0, 360.0], modulo=True),  # CircularControl (float)
     scale=(1.0, [0.5, 2.0]),  # Float slider
 )
-def apply_transform(
-    img: np.ndarray, rotation: float = 0.0, scale: float = 1.0
-) -> np.ndarray:
+def apply_transform(img: np.ndarray, rotation: float = 0.0, scale: float = 1.0) -> np.ndarray:
     """Apply rotation and scale (simplified - just shows the concept)"""
     # For demo purposes, we'll just apply scale visually
     # Full rotation would require more complex image processing
@@ -228,14 +222,10 @@ def apply_transform(
 
 
 @interactive(
-    color_mode=Control(
-        "rgb", ["rgb", "grayscale", "sepia", "negative"]
-    ),  # String dropdown
+    color_mode=Control("rgb", ["rgb", "grayscale", "sepia", "negative"]),  # String dropdown
     intensity=(1.0, [0.0, 1.0]),  # Float slider
 )
-def apply_color_effect(
-    img: np.ndarray, color_mode: str = "rgb", intensity: float = 1.0
-) -> np.ndarray:
+def apply_color_effect(img: np.ndarray, color_mode: str = "rgb", intensity: float = 1.0) -> np.ndarray:
     """Apply various color effects"""
     result = img.copy()
 
@@ -243,9 +233,7 @@ def apply_color_effect(
         gray = img.mean(axis=2, keepdims=True)
         result = result * (1 - intensity) + gray * intensity
     elif color_mode == "sepia":
-        sepia_filter = np.array(
-            [[0.393, 0.769, 0.189], [0.349, 0.686, 0.168], [0.272, 0.534, 0.131]]
-        )
+        sepia_filter = np.array([[0.393, 0.769, 0.189], [0.349, 0.686, 0.168], [0.272, 0.534, 0.131]])
         sepia_img = img @ sepia_filter.T
         result = result * (1 - intensity) + sepia_img * intensity
         result = np.clip(result, 0, 1)

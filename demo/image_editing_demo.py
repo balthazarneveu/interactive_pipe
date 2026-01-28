@@ -1,13 +1,15 @@
+import argparse
+
+import cv2
+import numpy as np
+
 from interactive_pipe import (
-    interactive,
-    interactive_pipeline,
+    Control,
     Panel,
     TextPrompt,
-    Control,
+    interactive,
+    interactive_pipeline,
 )
-import numpy as np
-import cv2
-import argparse
 
 
 def apply_knobs(
@@ -52,9 +54,7 @@ def apply_knobs(
         if contrast < 0.5:
             actual_contrast = 0.1 + (contrast / 0.5) * 0.9  # [0, 0.5) -> [0.1, 1.0)
         elif contrast < 1.0:
-            actual_contrast = (
-                1.0 + ((contrast - 0.5) / 0.5) * 1.0
-            )  # [0.5, 1.0) -> [1.0, 2.0)
+            actual_contrast = 1.0 + ((contrast - 0.5) / 0.5) * 1.0  # [0.5, 1.0) -> [1.0, 2.0)
         else:
             actual_contrast = 1.0  # contrast == 1.0 -> no change
         result = (result - 0.5) * actual_contrast + 0.5
@@ -148,9 +148,7 @@ def add_text(img: np.ndarray, text: str = "nothing") -> np.ndarray:
 
     # Get text size to center it
     font = cv2.FONT_HERSHEY_SIMPLEX
-    (text_width, text_height), baseline = cv2.getTextSize(
-        text, font, font_scale, thickness
-    )
+    (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
 
     # Position text at bottom center
     x = (w - text_width) // 2
@@ -271,9 +269,7 @@ def launch(backend="qt"):
         gui=backend,
         cache=False,
         name="Image Editing",
-    )(
-        image_editing_pipeline
-    )(colorful_chart)
+    )(image_editing_pipeline)(colorful_chart)
 
 
 if __name__ == "__main__":

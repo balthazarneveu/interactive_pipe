@@ -1,6 +1,7 @@
+import numpy as np
+
 from interactive_pipe.headless.control import Control
 from interactive_pipe.helper.filter_decorator import interactive
-import numpy as np
 
 
 @interactive(

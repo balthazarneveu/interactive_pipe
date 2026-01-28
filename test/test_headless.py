@@ -1,10 +1,12 @@
 import shutil
-import pytest
+
 import numpy as np
+import pytest
 from sample_functions import get_sample_image
+
 from interactive_pipe.core.filter import FilterCore
-from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.data_objects.image import Image
+from interactive_pipe.headless.pipeline import HeadlessPipeline
 
 
 def mad(img, coeff=1, bias=0.0):
@@ -30,9 +32,7 @@ def test_headless_pipeline(tmp_path_factory):
     input_image = get_sample_image()
     filt1 = FilterCore(apply_fn=mad, name="mad", outputs=[1])
     filt2 = FilterCore(apply_fn=blend, inputs=[0, 1], outputs=[6])
-    pip = HeadlessPipeline(
-        filters=[filt1, filt2], inputs=[0], global_params={"ratio": 5}
-    )
+    pip = HeadlessPipeline(filters=[filt1, filt2], inputs=[0], global_params={"ratio": 5})
     pip.inputs = [input_image]
     out_path = tmp_path_factory.mktemp("data_1")
     assert out_path.exists()
@@ -44,9 +44,7 @@ def test_headless_pipeline_outputs_images(tmp_path_factory):
     input_image = get_sample_image()
     filt1 = FilterCore(apply_fn=mad, name="mad", outputs=[1])
     filt2 = FilterCore(apply_fn=blend_image_out, inputs=[0, 1], outputs=[6])
-    pip = HeadlessPipeline(
-        filters=[filt1, filt2], inputs=[0], global_params={"ratio": 5}
-    )
+    pip = HeadlessPipeline(filters=[filt1, filt2], inputs=[0], global_params={"ratio": 5})
     pip.inputs = [input_image]
     out_path = tmp_path_factory.mktemp("data_2")
     assert out_path.exists()
@@ -69,9 +67,7 @@ def test_headless_pipeline_single_input(routing_indexes):
         BLEND_OUT = "blended"
     filt1 = FilterCore(apply_fn=mad, name="mad", inputs=[IMG_IN], outputs=[MAD_OUT])
     filt2 = FilterCore(apply_fn=blend, inputs=[IMG_IN, MAD_OUT], outputs=[BLEND_OUT])
-    pip = HeadlessPipeline(
-        filters=[filt1, filt2], inputs=[IMG_IN], global_params={"ratio": 5}, cache=True
-    )
+    pip = HeadlessPipeline(filters=[filt1, filt2], inputs=[IMG_IN], global_params={"ratio": 5}, cache=True)
     pip.inputs = input_image
     pip.run()
     assert filt1.cache_mem.state_change.update_needed

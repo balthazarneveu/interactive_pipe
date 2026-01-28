@@ -2,11 +2,12 @@
 Tests for exception handling in core module (filter.py, pipeline.py, graph.py, engine.py)
 """
 
-import pytest
 import numpy as np
+import pytest
+
+from interactive_pipe.core.engine import FilterError
 from interactive_pipe.core.filter import FilterCore, PureFilter
 from interactive_pipe.core.pipeline import PipelineCore
-from interactive_pipe.core.engine import FilterError
 
 
 # Test helper functions
@@ -212,9 +213,7 @@ class TestEngineExceptions:
         def failing_func(x):
             raise ValueError("Original error")
 
-        filter1 = FilterCore(
-            apply_fn=failing_func, name="TestFilter", inputs=[0], outputs=[1]
-        )
+        filter1 = FilterCore(apply_fn=failing_func, name="TestFilter", inputs=[0], outputs=[1])
         pipeline = PipelineCore(filters=[filter1], inputs=[0])
         pipeline.inputs = [np.array([1, 2, 3])]
 

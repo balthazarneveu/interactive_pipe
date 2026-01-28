@@ -1,8 +1,9 @@
-from typing import List, Optional, Dict, Any
-from interactive_pipe.core.filter import FilterCore
-from interactive_pipe.core.engine import PipelineEngine
-from interactive_pipe.core.context import _set_user_context
 import logging
+from typing import Any, Dict, List, Optional
+
+from interactive_pipe.core.context import _set_user_context
+from interactive_pipe.core.engine import PipelineEngine
+from interactive_pipe.core.filter import FilterCore
 
 
 class PipelineCore:
@@ -29,13 +30,9 @@ class PipelineCore:
         safe_input_buffer_deepcopy: bool = True,
     ):
         if not all(isinstance(f, FilterCore) for f in filters):
-            raise ValueError(
-                f"All elements in 'filters' must be instances of 'Filter'. {[type(f) for f in filters]}"
-            )
+            raise ValueError(f"All elements in 'filters' must be instances of 'Filter'. {[type(f) for f in filters]}")
         self.filters = filters
-        self.engine = PipelineEngine(
-            cache, safe_input_buffer_deepcopy=safe_input_buffer_deepcopy
-        )
+        self.engine = PipelineEngine(cache, safe_input_buffer_deepcopy=safe_input_buffer_deepcopy)
         if global_parameters is not None:
             global_params = global_parameters
         elif global_context is not None:
@@ -58,9 +55,7 @@ class PipelineCore:
 
         self.reset_cache()
         if inputs is None:
-            logging.warning(
-                "Setting a pipeline without input -  use inputs=[] to get rid of this warning"
-            )
+            logging.warning("Setting a pipeline without input -  use inputs=[] to get rid of this warning")
             self.inputs_routing = []
         else:
             self.inputs_routing = inputs
@@ -125,12 +120,8 @@ class PipelineCore:
         available_filters_names = [filt.name for filt in self.filters]
         for filter_name in new_parameters.keys():
             if filter_name not in available_filters_names:
-                raise ValueError(
-                    f"filter {filter_name} does not exist {available_filters_names}"
-                )
-            self.filters[available_filters_names.index(filter_name)].values = (
-                new_parameters[filter_name]
-            )
+                raise ValueError(f"filter {filter_name} does not exist {available_filters_names}")
+            self.filters[available_filters_names.index(filter_name)].values = new_parameters[filter_name]
 
     @property
     def inputs(self):
@@ -151,8 +142,7 @@ class PipelineCore:
                 # inputs is a list or a tuple
                 if len(inputs) != len(self.inputs_routing):
                     raise ValueError(
-                        f"Wrong amount of inputs: provided {len(inputs)} "
-                        f"vs expected {len(self.inputs_routing)}"
+                        f"Wrong amount of inputs: provided {len(inputs)} vs expected {len(self.inputs_routing)}"
                     )
                 self.__inputs = {}
                 for idx, input_name in enumerate(self.inputs_routing):
@@ -160,9 +150,7 @@ class PipelineCore:
             else:
                 # single element
                 if len(self.inputs_routing) != 1:
-                    raise ValueError(
-                        f"Single input provided but expected {len(self.inputs_routing)} inputs"
-                    )
+                    raise ValueError(f"Single input provided but expected {len(self.inputs_routing)} inputs")
                 self.__inputs = {self.inputs_routing[0]: inputs}
             if not isinstance(self.__inputs, dict):
                 raise RuntimeError("Internal error: inputs should be a dict")
@@ -172,14 +160,9 @@ class PipelineCore:
         else:
             if not (
                 self.inputs_routing is None
-                or (
-                    isinstance(self.inputs_routing, (tuple, list))
-                    and len(self.inputs_routing) == 0
-                )
+                or (isinstance(self.inputs_routing, (tuple, list)) and len(self.inputs_routing) == 0)
             ):
-                raise ValueError(
-                    "Cannot set inputs to None when inputs_routing is defined"
-                )
+                raise ValueError("Cannot set inputs to None when inputs_routing is defined")
             self.__inputs = None
         self.__initialized_inputs = True
         self.reset_cache()

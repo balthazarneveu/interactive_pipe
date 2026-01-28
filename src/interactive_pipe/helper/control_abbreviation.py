@@ -1,7 +1,8 @@
+import logging
+from typing import Tuple, Union
+
 from interactive_pipe.headless.control import Control
 from interactive_pipe.headless.keyboard import KeyboardControl
-from typing import Union, Tuple
-import logging
 
 
 def analyze_expected_keyboard_argument(
@@ -40,25 +41,15 @@ def analyze_expected_keyboard_argument(
             )
             keyboard_slider_flag = False
         else:
-            keydown = (
-                None if arg[0] is None else KeyboardControl.sanity_check_key(arg[0])
-            )
+            keydown = None if arg[0] is None else KeyboardControl.sanity_check_key(arg[0])
             if len(arg) == 2:
                 if isinstance(arg[1], bool):
                     modulo = arg[1]
                 else:
-                    keyup = (
-                        None
-                        if arg[1] is None
-                        else KeyboardControl.sanity_check_key(arg[1])
-                    )
+                    keyup = None if arg[1] is None else KeyboardControl.sanity_check_key(arg[1])
             elif len(arg) == 3:
-                keyup = (
-                    None if arg[1] is None else KeyboardControl.sanity_check_key(arg[1])
-                )
-                assert isinstance(
-                    arg[2], bool
-                ), f"modulo shall be a boolean, found {arg[2]}"
+                keyup = None if arg[1] is None else KeyboardControl.sanity_check_key(arg[1])
+                assert isinstance(arg[2], bool), f"modulo shall be a boolean, found {arg[2]}"
                 modulo = arg[2]
             else:
                 raise ValueError(
@@ -71,12 +62,7 @@ def analyze_expected_keyboard_argument(
 
 
 def default_value_check(val):
-    if (
-        isinstance(val, bool)
-        or isinstance(val, int)
-        or isinstance(val, float)
-        or isinstance(val, str)
-    ):
+    if isinstance(val, bool) or isinstance(val, int) or isinstance(val, float) or isinstance(val, str):
         return True
     elif isinstance(val, tuple) or isinstance(val, list):
         return False
@@ -84,9 +70,7 @@ def default_value_check(val):
         raise TypeError(f"{type(val)} is not supported")
 
 
-def control_from_tuple(
-    short_params: Tuple, param_name: str = None
-) -> Union[Control, KeyboardControl]:
+def control_from_tuple(short_params: Tuple, param_name: str = None) -> Union[Control, KeyboardControl]:
     """Define a Control or Keyboard control from a short declaration
 
     - Classic mode:
@@ -121,9 +105,7 @@ def control_from_tuple(
 
     if isinstance(short_params, bool):
         return Control(short_params, name=param_name)
-    assert isinstance(short_params, tuple) or isinstance(
-        short_params, list
-    ), f"issue with {param_name}, {short_params}"
+    assert isinstance(short_params, tuple) or isinstance(short_params, list), f"issue with {param_name}, {short_params}"
     value_default = short_params[0]
     first_value_is_default_val = default_value_check(value_default)
     name = None
@@ -153,26 +135,20 @@ def control_from_tuple(
             if group is not None:
                 from interactive_pipe.headless.panel import Panel
 
-                assert isinstance(
-                    group, (str, Panel)
-                ), f"{group} group shall be a string or Panel"
+                assert isinstance(group, (str, Panel)), f"{group} group shall be a string or Panel"
     else:
         if first_value_is_default_val:
             # INT/FLOAT/STR
             start = 1
-            assert (
-                len(short_params) >= 2
-            ), "providing a value range is mandatory like (min, max) or (min, max, step)"
+            assert len(short_params) >= 2, "providing a value range is mandatory like (min, max) or (min, max, step)"
             value_range = short_params[start]
             if value_range is None:
                 pass
             else:
-                assert isinstance(value_range, list) or isinstance(
-                    value_range, tuple
-                ), f"value range should be a tuple or a list, provided {value_range}"
-                if (
-                    isinstance(value_default, float) or isinstance(value_default, int)
-                ) and len(value_range) >= 3:
+                assert isinstance(value_range, list) or isinstance(value_range, tuple), (
+                    f"value range should be a tuple or a list, provided {value_range}"
+                )
+                if (isinstance(value_default, float) or isinstance(value_default, int)) and len(value_range) >= 3:
                     step = value_range[2]
                     value_range = value_range[:2]
         else:
@@ -190,28 +166,22 @@ def control_from_tuple(
                 value_default = special_list[0]
                 value_range = special_list
             elif isinstance(special_list[0], int) or isinstance(special_list[0], float):
-                assert (
-                    len(special_list) >= 2
-                ), "please provide [min, max], [min, max, step], [min, max, None, default]"
-                assert isinstance(special_list[1], int) or isinstance(
-                    special_list[1], float
-                ), f"min={special_list[0]} max={special_list[1]} - max parameter should be numerical too"
+                assert len(special_list) >= 2, "please provide [min, max], [min, max, step], [min, max, None, default]"
+                assert isinstance(special_list[1], int) or isinstance(special_list[1], float), (
+                    f"min={special_list[0]} max={special_list[1]} - max parameter should be numerical too"
+                )
                 value_range = special_list[:2]
 
                 if len(special_list) >= 3:
                     # [-10, 10, 1] -> default val = average(-10, 10), step=1
                     step = special_list[2]
                     if step is not None:
-                        assert isinstance(step, int) or isinstance(
-                            step, float
-                        ), f"{step} has to be numerical"
+                        assert isinstance(step, int) or isinstance(step, float), f"{step} has to be numerical"
                     if len(special_list) == 4:
                         # [-10, 10, 1] -> default val = average(-10, 10), step=1
                         value_default = special_list[3]
                 if value_default is None:
-                    if isinstance(value_range[0], int) and isinstance(
-                        value_range[1], int
-                    ):
+                    if isinstance(value_range[0], int) and isinstance(value_range[1], int):
                         value_default = (value_range[0] + value_range[1]) // 2
                     else:
                         value_default = (value_range[0] + value_range[1]) / 2.0
@@ -235,15 +205,11 @@ def control_from_tuple(
             if group is not None:
                 from interactive_pipe.headless.panel import Panel
 
-                assert isinstance(
-                    group, (str, Panel)
-                ), f"{group} group shall be a string or Panel"
+                assert isinstance(group, (str, Panel)), f"{group} group shall be a string or Panel"
 
     if name is None:
         name = param_name
 
     # Keyboard controls are no longer supported via abbreviations
     # Users should use KeyboardControl(...) directly
-    return Control(
-        value_default, value_range=value_range, name=name, step=step, group=group
-    )
+    return Control(value_default, value_range=value_range, name=name, step=step, group=group)

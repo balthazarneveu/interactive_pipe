@@ -1,5 +1,5 @@
-import pytest
 import numpy as np
+import pytest
 
 from interactive_pipe.data_objects.curves import Curve, SingleCurve
 
@@ -9,9 +9,7 @@ def test_curve_abbreviations():
     absciss_2 = np.linspace(-3.0, -1.5, 60)
     _sig = Curve([np.cos(5.0 * absciss), np.sin(5.0 * absciss), np.tan(5.0 * absciss)])
     _sig = Curve(np.cos(5.0 * absciss))
-    _sig = Curve(
-        {"y": np.log(8.0 * np.abs(absciss_2 / 10.0)), "style": "m-.", "label": "log"}
-    )
+    _sig = Curve({"y": np.log(8.0 * np.abs(absciss_2 / 10.0)), "style": "m-.", "label": "log"})
     with pytest.raises(ValueError):  # wrong sizes
         _sig = Curve(
             [

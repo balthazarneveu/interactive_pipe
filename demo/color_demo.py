@@ -1,6 +1,8 @@
-from interactive_pipe import TextPrompt, interactive, interactive_pipeline
-import numpy as np
 import argparse
+
+import numpy as np
+
+from interactive_pipe import TextPrompt, interactive, interactive_pipeline
 
 # Color definitions (RGB values normalized to 0-1)
 COLOR_DICT = {
@@ -15,9 +17,7 @@ COLOR_OPTIONS = list(COLOR_DICT.keys())
 DEFAULT_COLOR = "red"
 
 
-def generate_colored_image(
-    color: str = DEFAULT_COLOR, custom_title: str = None, global_params: dict = None
-):
+def generate_colored_image(color: str = DEFAULT_COLOR, custom_title: str = None, global_params: dict = None):
     """Generate a solid colored image based on the selected color"""
     rgb = COLOR_DICT[color]
 
@@ -25,18 +25,12 @@ def generate_colored_image(
     height, width = 400, 400
     img = np.ones((height, width, 3), dtype=np.float32)
     img[:, :] = rgb
-    if (
-        custom_title is not None
-        and isinstance(custom_title, str)
-        and len(custom_title) > 0
-    ):
+    if custom_title is not None and isinstance(custom_title, str) and len(custom_title) > 0:
         print(f"Setting custom title: {custom_title}")
         global_params["__output_styles"]["colored_image"] = {"title": custom_title}
     else:
         # Set the title to show the selected color
-        global_params["__output_styles"]["colored_image"] = {
-            "title": f"Selected Color: {color.upper()}"
-        }
+        global_params["__output_styles"]["colored_image"] = {"title": f"Selected Color: {color.upper()}"}
 
     return img
 
@@ -55,9 +49,7 @@ def sample_pipeline():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Color dropdown demo with command-line configuration"
-    )
+    parser = argparse.ArgumentParser(description="Color dropdown demo with command-line configuration")
     parser.add_argument(
         "-c",
         "--color",
@@ -86,6 +78,4 @@ if __name__ == "__main__":
     interactive(
         brightness=(0.0, 1.0),
     )(apply_brightness)
-    interactive_pipeline(gui=args.backend, cache=True, name="color_demo")(
-        sample_pipeline
-    )()
+    interactive_pipeline(gui=args.backend, cache=True, name="color_demo")(sample_pipeline)()

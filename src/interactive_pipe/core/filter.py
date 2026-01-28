@@ -1,10 +1,10 @@
 import logging
 from copy import deepcopy
-from typing import Callable, List, Optional, Union, Tuple, Any
+from typing import Any, Callable, List, Optional, Tuple, Union
 
 from interactive_pipe.core.cache import CachedResults
+from interactive_pipe.core.context import SharedContext, _set_framework_state
 from interactive_pipe.core.signature import analyze_apply_fn_signature
-from interactive_pipe.core.context import _set_framework_state, SharedContext
 
 EQUIVALENT_STATE_KEYS = [
     "global_params",
@@ -28,11 +28,7 @@ class PureFilter:
     ):
         if default_params is None:
             default_params = {}
-        self.name = (
-            name
-            if name
-            else (self.__class__.__name__ if not apply_fn else apply_fn.__name__)
-        )
+        self.name = name if name else (self.__class__.__name__ if not apply_fn else apply_fn.__name__)
         if apply_fn is not None:
             self.apply = apply_fn
         self._global_params = {}
@@ -50,16 +46,12 @@ class PureFilter:
         and the pointer to the shared dictionary shall be shared at an upper level (pipeline)
         """
         if not isinstance(new_global_params, dict):
-            raise TypeError(
-                f"global_params must be a dict, got {type(new_global_params)}"
-            )
+            raise TypeError(f"global_params must be a dict, got {type(new_global_params)}")
         self._global_params = new_global_params
 
     def check_apply_signature(self):
         if not hasattr(self, "__args_names") or not hasattr(self, "__kwargs_names"):
-            self.__args_names, self.__kwargs_names = analyze_apply_fn_signature(
-                self.apply
-            )
+            self.__args_names, self.__kwargs_names = analyze_apply_fn_signature(self.apply)
             self.signature = (self.__args_names, self.__kwargs_names)
 
     def __initialize_default_values(self):
@@ -88,9 +80,7 @@ class PureFilter:
         self.check_apply_signature()
         for key, val in self.values.items():
             if key not in self.__kwargs_names.keys():
-                raise ValueError(
-                    f"{self.name}: {key} not in {self.__kwargs_names.keys()}"
-                )
+                raise ValueError(f"{self.name}: {key} not in {self.__kwargs_names.keys()}")
 
         # Set framework state for context-based API (layout, audio, etc.)
         _set_framework_state(self.global_params)
@@ -102,9 +92,7 @@ class PureFilter:
                     SharedContext._warn_deprecation_once()
 
                     # Inject the context dictionary (legacy API)
-                    out = self.apply(
-                        *imgs, **{**{global_key: self.global_params}, **self.values}
-                    )
+                    out = self.apply(*imgs, **{**{global_key: self.global_params}, **self.values})
                     global_key_found = True
                     break
             if not global_key_found:
@@ -154,14 +142,10 @@ class FilterCore(PureFilter):
     def run(self, *imgs) -> Optional[Tuple[Any]]:
         if imgs:
             if len(imgs) != len(self.inputs):
-                raise ValueError(
-                    f"number of inputs ({len(imgs)}) shall match what's expected ({len(self.inputs)})"
-                )
+                raise ValueError(f"number of inputs ({len(imgs)}) shall match what's expected ({len(self.inputs)})")
         if self.inputs is None:
             if len(imgs) > 0:
-                raise ValueError(
-                    f"Expected no inputs when self.inputs is None, got {len(imgs)}"
-                )
+                raise ValueError(f"Expected no inputs when self.inputs is None, got {len(imgs)}")
             filter_in = ()
         else:
             filter_in = imgs
@@ -177,13 +161,9 @@ class FilterCore(PureFilter):
             return out
 
         else:
-            logging.debug(
-                f"need to return a tuple when you have a single element out {type(out)}"
-            )
+            logging.debug(f"need to return a tuple when you have a single element out {type(out)}")
             if len(self.outputs) != 1:
-                raise ValueError(
-                    f"returning a single element but expected {len(self.outputs)} outputs!"
-                )
+                raise ValueError(f"returning a single element but expected {len(self.outputs)} outputs!")
             return (out,)
 
     def __repr__(self) -> str:

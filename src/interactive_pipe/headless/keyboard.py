@@ -1,7 +1,9 @@
 from __future__ import annotations
-from interactive_pipe.headless.control import Control
-from typing import Union, List, Optional, TYPE_CHECKING
+
+from typing import TYPE_CHECKING, List, Optional, Union
+
 from interactive_pipe.core.filter import FilterCore
+from interactive_pipe.headless.control import Control
 
 if TYPE_CHECKING:
     from interactive_pipe.headless.panel import Panel
@@ -58,16 +60,16 @@ class KeyboardControl(Control):
         self.modulo = modulo
 
     def on_key(self, down=True):
-        if self._type == bool:
+        if self._type is bool:
             new_val = not self.value
             self.value = new_val
             return
-        if self._type == int or self._type == float:
+        if self._type is int or self._type is float:
             current_val = self.value
             sign = -1 if down else +1
             step = self.step
             mini, maxi = self.value_range[0], self.value_range[1]
-        elif self._type == str:
+        elif self._type is str:
             current_val = self.value_range.index(self.value)
             sign = -1 if down else +1
             step = 1
@@ -77,7 +79,7 @@ class KeyboardControl(Control):
             new_val = mini if self.modulo else maxi
         if new_val < mini:
             new_val = maxi if self.modulo else mini
-        if self._type == str:
+        if self._type is str:
             new_val = self.value_range[new_val]
         self.value = new_val
 
@@ -104,7 +106,5 @@ class KeyboardControl(Control):
             raise ValueError("key cannot be empty")
         if len(key) > 1:
             if key not in KeyboardControl.SPECIAL_KEYS_LIST:
-                raise ValueError(
-                    f"key '{key}' is not supported. Use one of {KeyboardControl.SPECIAL_KEYS_LIST}"
-                )
+                raise ValueError(f"key '{key}' is not supported. Use one of {KeyboardControl.SPECIAL_KEYS_LIST}")
         return key

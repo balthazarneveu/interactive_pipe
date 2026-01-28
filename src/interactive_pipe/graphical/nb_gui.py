@@ -1,13 +1,13 @@
-from interactive_pipe.graphical.gui import InteractivePipeGUI
-import matplotlib.pyplot as plt
-from interactive_pipe.headless.control import Control
-from typing import List
-from interactive_pipe.graphical.nb_control import ControlFactory
+from typing import List, Optional, Tuple, Union
 
+import matplotlib.pyplot as plt
 from IPython.display import display
 from ipywidgets import interact
+
+from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.mpl_window import MatplotlibWindow
-from typing import Optional, Tuple, Union
+from interactive_pipe.graphical.nb_control import ControlFactory
+from interactive_pipe.headless.control import Control
 
 
 class InteractivePipeJupyter(InteractivePipeGUI):

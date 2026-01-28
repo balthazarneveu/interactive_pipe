@@ -1,5 +1,6 @@
-from interactive_pipe import Control, interactive_pipeline, interactive
 import numpy as np
+
+from interactive_pipe import Control, interactive, interactive_pipeline
 
 
 @interactive(
@@ -20,11 +21,7 @@ def exposure(img, coeff=1.0, bias=0):
 )
 def black_and_white(img, bnw=True):
     """Averages the 3 color channels (Black & White) if bnw=True"""
-    return (
-        np.repeat(np.expand_dims(np.average(img, axis=-1), -1), img.shape[-1], axis=-1)
-        if bnw
-        else img
-    )
+    return np.repeat(np.expand_dims(np.average(img, axis=-1), -1), img.shape[-1], axis=-1) if bnw else img
 
 
 @interactive(

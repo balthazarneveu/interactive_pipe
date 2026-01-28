@@ -1,10 +1,12 @@
 from __future__ import annotations
-from typing import List, Optional, Union, Callable, TYPE_CHECKING
-from copy import deepcopy
-from abc import abstractmethod
-from interactive_pipe.core.filter import FilterCore
-from pathlib import Path
+
 import logging
+from abc import abstractmethod
+from copy import deepcopy
+from pathlib import Path
+from typing import TYPE_CHECKING, Callable, List, Optional, Union
+
+from interactive_pipe.core.filter import FilterCore
 
 if TYPE_CHECKING:
     from interactive_pipe.headless.panel import Panel
@@ -68,18 +70,12 @@ class Control:
                 self._type = int if isinstance(value_default, int) else float
             else:
                 if not isinstance(value_range, (list, tuple)):
-                    raise TypeError(
-                        f"value_range must be a list or tuple, got {type(value_range)}"
-                    )
+                    raise TypeError(f"value_range must be a list or tuple, got {type(value_range)}")
                 if len(value_range) != 2:
-                    raise ValueError(
-                        f"value_range must have exactly 2 elements, got {len(value_range)}"
-                    )
+                    raise ValueError(f"value_range must have exactly 2 elements, got {len(value_range)}")
                 for choice in value_range:
                     if not isinstance(choice, (float, int)):
-                        raise TypeError(
-                            f"value_range elements must be int or float, got {type(choice)}"
-                        )
+                        raise TypeError(f"value_range elements must be int or float, got {type(choice)}")
                 if (
                     isinstance(value_default, int)
                     and isinstance(value_range[0], int)
@@ -93,9 +89,7 @@ class Control:
                     if self.step is None:
                         self.step = (value_range[1] - value_range[0]) / 100.0
                 if not (value_range[0] <= value_default <= value_range[1]):
-                    raise ValueError(
-                        f"value_default {value_default} must be within value_range {value_range}"
-                    )
+                    raise ValueError(f"value_default {value_default} must be within value_range {value_range}")
         elif isinstance(value_default, str):
             # similar to an enum
             if value_range is None:
@@ -105,23 +99,17 @@ class Control:
                 if not value_range:
                     raise ValueError("value_range cannot be empty for string type")
                 if not isinstance(value_range, (list, tuple)):
-                    raise TypeError(
-                        f"value_range must be a list or tuple, got {type(value_range)}"
-                    )
+                    raise TypeError(f"value_range must be a list or tuple, got {type(value_range)}")
                 for choice in value_range:
                     if not isinstance(choice, str):
-                        raise TypeError(
-                            f"value_range elements must be strings, got {type(choice)}"
-                        )
+                        raise TypeError(f"value_range elements must be strings, got {type(choice)}")
                 if value_default not in value_range:
                     raise ValueError(f"{value_default} must be in {value_range}")
                 self._type = str
                 if self.step is None:
                     step = 1
         else:
-            raise TypeError(
-                f"Wrong value type: {type(value_default)}, expected int/float/bool/str"
-            )
+            raise TypeError(f"Wrong value type: {type(value_default)}, expected int/float/bool/str")
         self.value_range = value_range
 
         # init current value
@@ -143,9 +131,7 @@ class Control:
         Control.counter += 1
         if filter_to_connect is not None:
             if parameter_name_to_connect is None:
-                raise ValueError(
-                    "parameter_name_to_connect is required when filter_to_connect is provided"
-                )
+                raise ValueError("parameter_name_to_connect is required when filter_to_connect is provided")
             self.connect_filter(filter_to_connect, parameter_name_to_connect)
         else:
             self.update_param_func = None
@@ -158,13 +144,13 @@ class Control:
             self.panel._register_control(self)
 
     def check_value(self, value):
-        if isinstance(value, int) and self._type == float:
+        if isinstance(value, int) and self._type is float:
             value = float(value)
         if not isinstance(value, self._type):
             raise TypeError(f"Expected {self._type}, got {type(value)}")
         if isinstance(value, float) or isinstance(value, int) and self.value_range:
             return max(self.value_range[0], min(value, self.value_range[1]))
-        elif self._type == str and self.value_range is not None:
+        elif self._type is str and self.value_range is not None:
             if value not in self.value_range:
                 raise ValueError(f"{value} must be in {self.value_range}")
             return value
@@ -183,9 +169,9 @@ class Control:
                     f"{self.name} | {self.value} - RANGELESS - default = {self.value_default} "
                     f"type: {self._type} - step={self.step}"
                 )
-        elif self._type == bool:
+        elif self._type is bool:
             return f"{self.name} | Bool {self.value} - default {self.value_default}"
-        elif self._type == str:
+        elif self._type is str:
             return (
                 f"{self.name} | {self.value} - choices {self.value_range} default = {self.value_default} "
                 f"type: {self._type} - step={self.step}"
@@ -199,9 +185,7 @@ class Control:
 
     @value.setter
     def value(self, value=None):
-        self._value = deepcopy(
-            self.check_value(value) if value is not None else self.value_default
-        )
+        self._value = deepcopy(self.check_value(value) if value is not None else self.value_default)
 
     def reset(self):
         self.value = None
@@ -218,9 +202,7 @@ class Control:
 
     def connect_filter(self, filter: FilterCore, parameter_name):
         def update_param_func(val):
-            logging.info(
-                f"update filter {filter.name} - param {parameter_name} - value {val}"
-            )
+            logging.info(f"update filter {filter.name} - param {parameter_name} - value {val}")
             filter.values = {parameter_name: val}
 
         self.update_param_func = update_param_func

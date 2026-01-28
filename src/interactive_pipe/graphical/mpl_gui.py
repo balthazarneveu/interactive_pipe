@@ -1,10 +1,12 @@
-from interactive_pipe.graphical.gui import InteractivePipeGUI
-import matplotlib.pyplot as plt
-from interactive_pipe.headless.keyboard import KeyboardControl
-from typing import Optional, Union, Tuple
 import logging
+from typing import Optional, Tuple, Union
+
+import matplotlib.pyplot as plt
+
+from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.mpl_control import ControlFactory
 from interactive_pipe.graphical.mpl_window import MatplotlibWindow
+from interactive_pipe.headless.keyboard import KeyboardControl
 
 
 class InteractivePipeMatplotlib(InteractivePipeGUI):
@@ -47,9 +49,7 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
             except Exception as exc:
                 print(exc)
                 logging.warning("Cannot maximize screen")
-        self.window.fig.canvas.mpl_disconnect(
-            self.window.fig.canvas.manager.key_press_handler_id
-        )
+        self.window.fig.canvas.mpl_disconnect(self.window.fig.canvas.manager.key_press_handler_id)
         self.window.fig.canvas.mpl_connect("key_press_event", self.on_press)
         plt.show()
         return self.pipeline.results
@@ -70,9 +70,7 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
                             f"MATCH & update {filtname} {widget_idx} with"
                             f"{self.pipeline.parameters[filtname][param_name]}"
                         )
-                        self.window.ctrl[widget_idx].update(
-                            self.pipeline.parameters[filtname][param_name]
-                        )
+                        self.window.ctrl[widget_idx].update(self.pipeline.parameters[filtname][param_name])
                         matched = True
             if not matched:
                 raise ValueError(
@@ -132,9 +130,7 @@ class MainWindow(MatplotlibWindow):
             **kwargs,
         )
         self.main_gui = main_gui
-        self.fig, self.ax = plt.subplots(
-            figsize=self.size if isinstance(self.size, tuple) else None, num=self.name
-        )
+        self.fig, self.ax = plt.subplots(figsize=self.size if isinstance(self.size, tuple) else None, num=self.name)
         plt.axis("off")
         self.init_sliders()
 
@@ -183,41 +179,29 @@ class MainWindow(MatplotlibWindow):
                 self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
                 continue
             # Skip single-value controls (don't show anything)
-            if (
-                ctrl._type == str
-                and ctrl.value_range is not None
-                and len(ctrl.value_range) == 1
-            ):
+            if ctrl._type is str and ctrl.value_range is not None and len(ctrl.value_range) == 1:
                 continue
-            if ctrl._type == bool or (
-                ctrl._type == str and ctrl.value_range is not None
-            ):
+            if ctrl._type is bool or (ctrl._type is str and ctrl.value_range is not None):
                 x_start = 0.01
                 width = 0.08
-                number_of_items = 1 if ctrl._type == bool else len(ctrl.value_range)
+                number_of_items = 1 if ctrl._type is bool else len(ctrl.value_range)
                 height = 0.02 * number_of_items
                 y_start = self.next_slider_position - height
                 self.next_slider_position -= self.spacer + height
-            elif (
-                ctrl._type == float
-                or ctrl._type == int
-                or (ctrl._type == str and ctrl.value_range is None)
-            ):
+            elif ctrl._type is float or ctrl._type is int or (ctrl._type is str and ctrl.value_range is None):
                 x_start = 0.25
                 width = 0.65
                 height = 0.02
-                if ctrl._type == str:
+                if ctrl._type is str:
                     height = 0.05
                 y_start = self.next_button_position - height
                 self.next_button_position -= self.spacer + height
             if not dry_run:
                 ax_control = self.fig.add_axes([x_start, y_start, width, height])
-                if ctrl._type == bool:
+                if ctrl._type is bool:
                     ax_control.xaxis.set_visible(True)
                 self.axes_controls.append(ax_control)
-                slider_instance = control_factory.create_control(
-                    ctrl, self.update_parameter, ax_control=ax_control
-                )
+                slider_instance = control_factory.create_control(ctrl, self.update_parameter, ax_control=ax_control)
                 slider = slider_instance.create()
                 # needed to keep the object alive
                 self.sliders_list[slider_name] = slider
@@ -227,7 +211,7 @@ class MainWindow(MatplotlibWindow):
     def update_parameter(self, idx, value):
         """Required implementation for graphical controllers update"""
         self.ctrl[idx].update(value)
-        if self.ctrl[idx]._type == bool or self.ctrl[idx]._type == str:
+        if self.ctrl[idx]._type is bool or self.ctrl[idx]._type is str:
             self.need_redraw = True
         self.refresh()
 

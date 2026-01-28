@@ -2,12 +2,13 @@
 Tests for edge cases, boundary conditions, and None handling
 """
 
-import pytest
 import numpy as np
+import pytest
+
 from interactive_pipe.core.filter import FilterCore, PureFilter
 from interactive_pipe.core.pipeline import PipelineCore
+from interactive_pipe.data_objects.curves import Curve, SingleCurve
 from interactive_pipe.data_objects.data import Data
-from interactive_pipe.data_objects.curves import SingleCurve, Curve
 from interactive_pipe.headless.control import Control
 
 
@@ -25,9 +26,7 @@ class ConcreteData(Data):
 class TestNoneHandling:
     """Test handling of None values"""
 
-    @pytest.mark.skip(
-        reason="outputs=None causes TypeError in FilterCore.run() - bug in current implementation"
-    )
+    @pytest.mark.skip(reason="outputs=None causes TypeError in FilterCore.run() - bug in current implementation")
     def test_filtercore_with_none_inputs_outputs(self):
         """Test FilterCore with inputs=None and outputs=None
         Note: This test reveals a bug - outputs=None is not properly handled in run()
@@ -73,7 +72,7 @@ class TestNoneHandling:
     def test_control_with_none_value_range_string(self):
         """Test Control with value_range=None for string type"""
         control = Control(value_default="test", value_range=None)
-        assert control._type == str
+        assert control._type is str
         assert control.value_range is None
 
     def test_optional_parameters_with_none(self):

@@ -1,8 +1,8 @@
 import pytest
 
 from interactive_pipe.headless.control import (
-    Control,
     CircularControl,
+    Control,
     TextPrompt,
     TimeControl,
 )
@@ -53,9 +53,7 @@ def test_control_tooltip_basic():
     assert ctrl.tooltip == "Boolean control tooltip"
 
     # Test tooltip with string control (dropdown)
-    ctrl = Control(
-        "option1", ["option1", "option2", "option3"], tooltip="Dropdown tooltip"
-    )
+    ctrl = Control("option1", ["option1", "option2", "option3"], tooltip="Dropdown tooltip")
     assert ctrl.tooltip == "Dropdown tooltip"
 
     # Test tooltip with string control (text prompt)

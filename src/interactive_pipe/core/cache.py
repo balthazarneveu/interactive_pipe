@@ -63,9 +63,7 @@ class CachedResults:
         """
         if self.name is not None:
             logging.debug(f"OVERRIDE CACHE RESULTS - {self.name}")
-        self.result = (
-            new_result if not self.safe_buffer_deepcopy else deepcopy(new_result)
-        )
+        self.result = new_result if not self.safe_buffer_deepcopy else deepcopy(new_result)
 
     def __repr__(self) -> str:
         return self.name if self.name is not None else "CachedResults"
@@ -107,6 +105,4 @@ class StateChange:
 
     def __repr__(self) -> str:
         name_str = self.name if self.name is not None else "StateChange"
-        return f"{name_str}: " + (
-            "needs update" if self.update_needed else "no update needed"
-        )
+        return f"{name_str}: " + ("needs update" if self.update_needed else "no update needed")

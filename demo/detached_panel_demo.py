@@ -7,13 +7,15 @@ This demo demonstrates:
 - Mixed panel types
 """
 
-import numpy as np
-from pathlib import Path
 import argparse
+from pathlib import Path
+
+import numpy as np
+
 from interactive_pipe import (
+    Panel,
     interactive,
     interactive_pipeline,
-    Panel,
     layout,
 )
 from interactive_pipe.data_objects.image import Image
@@ -84,9 +86,7 @@ def process_image(
     """Apply various effects"""
 
     if not enable_processing:
-        layout.style(
-            "processed", title="Processing Disabled", subtitle="Toggle to enable"
-        )
+        layout.style("processed", title="Processing Disabled", subtitle="Toggle to enable")
         return img
 
     result = img.copy()
@@ -172,9 +172,7 @@ def detached_panel_demo_pipeline(img_path: Path):
 if __name__ == "__main__":
     img_path = get_image_path()
 
-    parser = argparse.ArgumentParser(
-        description="Detached panel demo - panels open in separate windows"
-    )
+    parser = argparse.ArgumentParser(description="Detached panel demo - panels open in separate windows")
     parser.add_argument(
         "-b",
         "--backend",
@@ -221,6 +219,4 @@ if __name__ == "__main__":
         gui=args.backend,
         cache=False,
         name="Detached Panel Demo",
-    )(
-        detached_panel_demo_pipeline
-    )(img_path)
+    )(detached_panel_demo_pipeline)(img_path)

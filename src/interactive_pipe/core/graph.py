@@ -1,7 +1,8 @@
 import ast
 import inspect
 import logging
-from typing import List, Callable, Optional, Union
+from typing import Callable, List, Optional, Union
+
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.signature import analyze_apply_fn_signature
 
@@ -44,9 +45,7 @@ def get_call_graph(func: Callable, global_context=None) -> dict:
         if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
             function_name = get_name(node.value.func)
             if function_name is None or function_name not in global_context:
-                raise KeyError(
-                    f"Function name '{function_name}' not found in global context"
-                )
+                raise KeyError(f"Function name '{function_name}' not found in global context")
             input_names = [get_name(arg) for arg in node.value.args]
             results.append(
                 {
@@ -87,9 +86,7 @@ def get_call_graph(func: Callable, global_context=None) -> dict:
                     sig = analyze_apply_fn_signature(function_object)
                     function_apply = global_context[function_name]
                 else:
-                    raise TypeError(
-                        f"Not supported {function_name} - should be function or FilterCore"
-                    )
+                    raise TypeError(f"Not supported {function_name} - should be function or FilterCore")
                 results.append(
                     {
                         "function_name": function_name,
@@ -104,9 +101,7 @@ def get_call_graph(func: Callable, global_context=None) -> dict:
     main_function = tree.body[0]
     if not hasattr(main_function, "body") or not hasattr(main_function, "name"):
         raise ValueError("Function AST node is malformed")
-    outputs = [
-        get_name(ret.value) for ret in main_function.body if isinstance(ret, ast.Return)
-    ]
+    outputs = [get_name(ret.value) for ret in main_function.body if isinstance(ret, ast.Return)]
     assert len(outputs) <= 1, "cannot return several times!"
     outputs = flatten_target_names(outputs, mapping_function=None)
     inputs, kwargs = analyze_apply_fn_signature(func)
