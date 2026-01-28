@@ -28,8 +28,11 @@ class Table(Data):
     Works without pandas. Pandas features (DataFrame input, csv export)
     available when pandas is installed.
 
+    Supports headerless tables for displaying raw matrices by setting
+    columns=None when using numpy array input.
+
     Attributes:
-        .columns - list of column names
+        .columns - list of column names (empty strings for headerless)
         .values - 2D list of values (row-major)
         .title - optional title
         .precision - float formatting precision
@@ -108,13 +111,12 @@ class Table(Data):
                 )
 
         elif isinstance(data, np.ndarray):
-            # 2D numpy array with columns parameter
+            # 2D numpy array with optional columns parameter
             if len(data.shape) != 2:
                 raise ValueError(f"Numpy array must be 2D, got shape {data.shape}")
             if columns is None:
-                raise ValueError(
-                    "columns parameter is required when using numpy array input"
-                )
+                # Create empty column names for headerless table
+                columns = [""] * data.shape[1]
             if len(columns) != data.shape[1]:
                 raise ValueError(
                     f"Number of columns ({len(columns)}) must match array width ({data.shape[1]})"
@@ -296,12 +298,24 @@ class Table(Data):
 
         ax.axis("off")
 
-        table = ax.table(
-            cellText=self._format_values(),
-            colLabels=self.columns,
-            loc="center",
-            cellLoc="center",
-        )
+        # Check if this is a headerless table (all columns are empty strings)
+        has_headers = any(col != "" for col in self.columns)
+
+        if has_headers:
+            table = ax.table(
+                cellText=self._format_values(),
+                colLabels=self.columns,
+                loc="center",
+                cellLoc="center",
+            )
+        else:
+            # Headerless table - don't show column labels
+            table = ax.table(
+                cellText=self._format_values(),
+                loc="center",
+                cellLoc="center",
+            )
+
         table.auto_set_font_size(False)
         table.set_fontsize(9)
         table.scale(1, 2)  # Make cells taller for better readability

@@ -179,7 +179,13 @@ class MainWindow(InteractivePipeWindow):
                             # Convert to format expected by gr.Dataframe
                             # Format: list of lists with first row as headers
                             # Use _format_values() to apply precision formatting
-                            table_data = [table.columns] + table._format_values()
+                            # Check if this is a headerless table (all columns are empty)
+                            has_headers = any(col != "" for col in table.columns)
+                            if has_headers:
+                                table_data = [table.columns] + table._format_values()
+                            else:
+                                # Headerless table - just show values
+                                table_data = table._format_values()
                             flat_out.append(table_data)
                         elif isinstance(out[idx][idy], np.ndarray):
                             if len(out[idx][idy].shape) == 1:

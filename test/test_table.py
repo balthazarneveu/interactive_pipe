@@ -29,11 +29,13 @@ def test_table_from_numpy_array():
     assert t.values == [[1, 2], [3, 4]]
 
 
-def test_table_numpy_without_columns_raises():
-    """Test that numpy array without columns raises ValueError."""
+def test_table_numpy_without_columns_creates_headerless():
+    """Test that numpy array without columns creates headerless table."""
     arr = np.array([[1, 2], [3, 4]])
-    with pytest.raises(ValueError, match="columns parameter is required"):
-        Table(arr)
+    t = Table(arr)
+    # Should create empty column names for headerless display
+    assert t.columns == ["", ""]
+    assert t.values == [[1, 2], [3, 4]]
 
 
 def test_table_empty_dict():
@@ -265,6 +267,38 @@ def test_table_create_table():
     assert table_obj is not None
     assert len(table_obj.get_celld()) > 0  # Table has cells
     plt.close(fig)
+
+
+def test_table_headerless_display():
+    """Test that headerless table (numpy without columns) renders without headers."""
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        pytest.skip("matplotlib not available")
+
+    # Create a 3x3 matrix without column headers
+    matrix = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+    t = Table(matrix, title="3x3 Matrix")
+
+    # Verify it has empty column names
+    assert t.columns == ["", "", ""]
+    assert t.values == [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+
+    # Verify it can be rendered
+    fig, ax = plt.subplots()
+    table_obj = t.create_table(ax=ax)
+    assert table_obj is not None
+    plt.close(fig)
+
+
+def test_table_with_explicit_empty_columns():
+    """Test table with explicitly empty column names."""
+    arr = np.array([[1.5, 2.5], [3.5, 4.5]])
+    t = Table(arr, columns=["", ""], precision=1)
+
+    assert t.columns == ["", ""]
+    formatted = t._format_values()
+    assert formatted == [["1.5", "2.5"], ["3.5", "4.5"]]
 
 
 # Pandas-dependent tests
