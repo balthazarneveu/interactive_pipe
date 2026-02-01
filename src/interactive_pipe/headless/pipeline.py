@@ -262,7 +262,7 @@ class HeadlessPipeline(PipelineCore):
                     new_param_dict[filter_name][key] = value
         return new_param_dict
 
-    def __call__(self, *inputs_tuple, inputs=None, parameters=None, **kwargs) -> Any:
+    def __call__(self, *inputs_tuple, inputs=None, parameters=None, context=None, **kwargs) -> Any:
         if parameters is None:
             parameters = {}
         if inputs is not None:
@@ -276,6 +276,16 @@ class HeadlessPipeline(PipelineCore):
             inputs_list = self.inputs
             if inputs_list is not None and len(inputs_list) == 0:
                 self.inputs = None  # type: ignore
+        # Handle context parameter - update user context if provided
+        # Check both named parameter and kwargs
+        context_dict = context
+        if context_dict is None and "context" in kwargs:
+            context_dict = kwargs.pop("context")
+        if context_dict is not None:
+            if isinstance(context_dict, dict):
+                self._user_context.update(context_dict)
+            else:
+                raise TypeError(f"context must be a dict, got {type(context_dict)}")
         self.parameters = parameters
         self.parameters = self.parameters_from_keyword_args(**kwargs)
         return self.run()

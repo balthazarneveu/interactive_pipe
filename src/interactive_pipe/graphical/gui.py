@@ -86,9 +86,19 @@ class InteractivePipeGUI:
         """
         raise NotImplementedError
 
-    def __call__(self, *args, parameters=None, **kwargs) -> list:
+    def __call__(self, *args, parameters=None, context=None, **kwargs) -> list:
         if parameters is None:
             parameters = {}
+        # Handle context parameter - update user context if provided
+        # Check both named parameter and kwargs
+        context_dict = context
+        if context_dict is None and "context" in kwargs:
+            context_dict = kwargs.pop("context")
+        if context_dict is not None:
+            if isinstance(context_dict, dict):
+                self.pipeline._user_context.update(context_dict)
+            else:
+                raise TypeError(f"context must be a dict, got {type(context_dict)}")
         self.pipeline.parameters = parameters
         self.pipeline.parameters = self.pipeline.parameters_from_keyword_args(**kwargs)
         self.pipeline.inputs = list(args)

@@ -51,7 +51,15 @@ class PipelineCore:
             filter.global_params = self.global_params
 
         # Initialize user context (separate from global_params for clean API)
-        self._user_context = {}
+        # If context was passed (and not used as alias for global_params), use it to initialize user context
+        # Otherwise start with empty dict
+        if context is not None and not any(
+            [global_parameters is not None, global_context is not None, global_state is not None, state is not None]
+        ):
+            # context was passed directly, initialize user context with it
+            self._user_context = dict(context) if isinstance(context, dict) else {}
+        else:
+            self._user_context = {}
 
         self.reset_cache()
         if inputs is None:
