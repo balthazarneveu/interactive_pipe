@@ -18,7 +18,6 @@ def interactive_pipeline(
     gui: Union[str, Backend, None] = "auto",
     safe_input_buffer_deepcopy=True,
     cache=False,
-    output_canvas=None,
     context: Optional[dict] = None,
     markdown_description: Optional[str] = None,
     name: Optional[str] = None,
@@ -48,8 +47,6 @@ def interactive_pipeline(
             cache=cache,
             context=context,
         )
-        if output_canvas is not None:
-            headless_pipeline.outputs = output_canvas
         if gui is None or gui == "headless":
             return headless_pipeline
         else:
