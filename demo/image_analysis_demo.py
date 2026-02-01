@@ -198,15 +198,20 @@ if __name__ == "__main__":
         "-b",
         "--backend",
         type=str,
-        choices=["qt", "gradio", "mpl", "nb"],
+        choices=["qt", "gradio", "mpl", "nb", "headless"],
         default="qt",
         help="Backend to use: qt, gradio, mpl, or nb (default: qt)",
     )
     args = parser.parse_args()
 
-    interactive_pipeline(
+    image_analysis_pipeline_interactive = interactive_pipeline(
         gui=args.backend,
         cache=False,
         name="Image Analysis Demo",
         size=(10, 10) if args.backend == "nb" else None,
-    )(image_analysis_pipeline)()
+    )(image_analysis_pipeline)
+    outputs = image_analysis_pipeline_interactive()
+    if args.backend == "headless":
+        image_analysis_pipeline_interactive.graph_representation(path="image_analysis_pipeline")
+        outputs[1].show()
+        outputs[2].show()

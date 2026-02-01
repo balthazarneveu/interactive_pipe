@@ -43,7 +43,7 @@ def interactive_pipeline(
         )
         if output_canvas is not None:
             headless_pipeline.outputs = output_canvas
-        if gui is None:
+        if gui is None or gui == "headless":
             return headless_pipeline
         else:
             InteractivePipeGui = get_interactive_pipeline_class(gui)
@@ -57,6 +57,10 @@ def interactive_pipeline(
         @functools.wraps(pipeline_function)
         def inner(*args: Any, **kwargs: Any) -> Any:
             return gui_pipeline.__call__(*args, **kwargs)
+
+        # Attach the GUI pipeline object to the function so users can access methods like graph_representation
+        setattr(inner, "pipeline", gui_pipeline)
+        setattr(inner, "graph_representation", gui_pipeline.graph_representation)
 
         return inner
 

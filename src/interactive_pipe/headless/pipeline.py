@@ -326,30 +326,26 @@ class HeadlessPipeline(PipelineCore):
         if self.inputs_routing is None:
             raise ValueError("Cannot plot graph: input routing is not provided")
         input_indexes = self.inputs_routing
-        inputs_graph = dot.subgraph(name="cluster_in")  # type: ignore[reportAssignmentType]
-        if inputs_graph is not None:
-            with inputs_graph:
-                inputs_graph.attr(style="dashed", color="gray", label="Inputs")  # type: ignore[reportAttributeAccessIssue]
-                for inp in input_indexes:
-                    inputs_graph.node(f"{inp}", f"🖴 {inp}", shape="rect", color="gray", styleItem="dash")  # type: ignore[reportAttributeAccessIssue]
+        with dot.subgraph(name="cluster_in") as inputs_graph:  # type: ignore[reportAssignmentType]
+            inputs_graph.attr(style="dashed", color="gray", label="Inputs")  # type: ignore[reportAttributeAccessIssue]
+            for inp in input_indexes:
+                inputs_graph.node(f"{inp}", f"🖴 {inp}", shape="rect", color="gray", styleItem="dash")  # type: ignore[reportAttributeAccessIssue]
 
-        filter_graphs = dot.subgraph(name="cluster_filters")  # type: ignore[reportAssignmentType]
-        if filter_graphs is not None:
-            with filter_graphs:
-                # filter_graphs.attr(color="transparent",)
-                filter_graphs.attr(color="gray", style="dashed", label=self.name)  # type: ignore[reportAttributeAccessIssue]
-                for filt in self.filters:
-                    all_params = []
-                    for pa_name, pa_val in filt.values.items():
-                        all_params.append(f"\n✔️ {pa_name}")
-                    filter_graphs.node(filt.name, f"⚙️ {filt.name}" + ("".join(all_params)), shape="rect")  # type: ignore[reportAttributeAccessIssue]
-                for idx, filt in enumerate(self.filters):
-                    if filt.inputs is None:
-                        continue
-                    for out in filt.inputs:
-                        last_filter_found, inp_name = find_previous_key(out, idx, input_indexes)
-                        if last_filter_found is not None:
-                            dot.edge(last_filter_found, filt.name, label=edge_label(inp_name))
+        with dot.subgraph(name="cluster_filters") as filter_graphs:  # type: ignore[reportAssignmentType]
+            # filter_graphs.attr(color="transparent",)
+            filter_graphs.attr(color="gray", style="dashed", label=self.name)  # type: ignore[reportAttributeAccessIssue]
+            for filt in self.filters:
+                all_params = []
+                for pa_name, pa_val in filt.values.items():
+                    all_params.append(f"\n✔️ {pa_name}")
+                filter_graphs.node(filt.name, f"⚙️ {filt.name}" + ("".join(all_params)), shape="rect")  # type: ignore[reportAttributeAccessIssue]
+            for idx, filt in enumerate(self.filters):
+                if filt.inputs is None:
+                    continue
+                for out in filt.inputs:
+                    last_filter_found, inp_name = find_previous_key(out, idx, input_indexes)
+                    if last_filter_found is not None:
+                        dot.edge(last_filter_found, filt.name, label=edge_label(inp_name))
         out_list = []
         if self.outputs is None:
             raise ValueError("Cannot generate graph: outputs not defined")
@@ -361,12 +357,10 @@ class HeadlessPipeline(PipelineCore):
                 if out is None:
                     continue
                 out_list.append(out)
-        out_graph = dot.subgraph(name="cluster_out")  # type: ignore[reportAssignmentType]
-        if out_graph is not None:
-            with out_graph:
-                out_graph.attr(style="dashed", color="gray", label="Outputs")  # type: ignore[reportAttributeAccessIssue]
-                for out in out_list:
-                    out_graph.node(f"out {out}", f"🛢️ {out}", shape="rect", color="gray")  # type: ignore[reportAttributeAccessIssue]
+        with dot.subgraph(name="cluster_out") as out_graph:  # type: ignore[reportAssignmentType]
+            out_graph.attr(style="dashed", color="gray", label="Outputs")  # type: ignore[reportAttributeAccessIssue]
+            for out in out_list:
+                out_graph.node(f"out {out}", f"🛢️ {out}", shape="rect", color="gray")  # type: ignore[reportAttributeAccessIssue]
         for out in out_list:
             last_filter_found, inp_name = find_previous_key(out, len(self.filters), input_indexes)
             if last_filter_found is not None:

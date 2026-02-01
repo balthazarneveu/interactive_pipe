@@ -219,6 +219,10 @@ class InteractivePipeGUI:
         pth = Image.check_path(Path(Image.prompt_file()), load=False)
         self.pipeline.save(pth, data_wrapper_fn=lambda im: Image(im), save_entire_buffer=True)
 
+    def graph_representation(self, path=None, ortho=True, view=False):
+        """Generate graph representation of the pipeline"""
+        return self.pipeline.graph_representation(path=path, ortho=ortho, view=view)
+
     def display_graph(self):
         """display execution graph"""
         try:
