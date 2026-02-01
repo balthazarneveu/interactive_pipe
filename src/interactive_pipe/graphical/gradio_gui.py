@@ -48,7 +48,9 @@ class InteractivePipeGradio(InteractivePipeGUI):
             self.__set_audio(None)
 
     def __set_audio(self, audio_content):
-        self.window.audio_content = audio_content
+        if not hasattr(self.window, "audio_content"):
+            self.window.audio_content = None  # type: ignore[reportAttributeAccessIssue]
+        self.window.audio_content = audio_content  # type: ignore[reportAttributeAccessIssue]
 
     def __play(self):
         pass
@@ -60,7 +62,7 @@ class InteractivePipeGradio(InteractivePipeGUI):
         self.__set_audio(None)
 
     def run(self) -> list:
-        if not self.pipeline._PipelineCore__initialized_inputs:
+        if not self.pipeline._PipelineCore__initialized_inputs:  # type: ignore[reportAttributeAccessIssue]
             raise RuntimeError("Did you forget to initialize the pipeline inputs?")
         # In gradio, the first run is a "dry run", used to get the output types...
         try:
@@ -79,9 +81,13 @@ class InteractivePipeGradio(InteractivePipeGUI):
         out_list_gradio_containers = []
         # Iterate over rectangular image_canvas (not jagged out_list)
         # to ensure we create containers for all grid positions including padding
-        for idx in range(len(self.window.image_canvas)):
-            for idy in range(len(self.window.image_canvas[idx])):
-                canvas_cell = self.window.image_canvas[idx][idy]
+        if self.window.image_canvas is None:
+            raise RuntimeError("image_canvas not initialized")
+        for idx in range(len(self.window.image_canvas)):  # type: ignore[reportArgumentType]
+            if self.window.image_canvas[idx] is None:
+                continue
+            for idy in range(len(self.window.image_canvas[idx])):  # type: ignore[reportOptionalSubscript]
+                canvas_cell = self.window.image_canvas[idx][idy]  # type: ignore[reportOptionalSubscript]
                 # Handle None or uninitialized (float from np.empty) padding positions
                 if canvas_cell is None or not isinstance(canvas_cell, dict):
                     out_list_gradio_containers.append(gr.HTML())
@@ -114,12 +120,18 @@ class InteractivePipeGradio(InteractivePipeGUI):
                 else:
                     raise NotImplementedError(f"output type {type(out_item)} not supported")
         if self.window.audio:
-            self.window.audio = gr.HTML()
-            self.pipeline.global_params["__audio"] = self.window.audio
+            audio_widget = gr.HTML()
+            self.window.audio_widget = audio_widget  # type: ignore[reportAttributeAccessIssue]
+            self.pipeline.global_params["__audio"] = audio_widget
         self.window.instantiate_gradio_interface(out_list_gradio_containers)
         self.window.refresh()
         self.custom_end()
-        return self.pipeline.results
+        results = self.pipeline.results
+        if results is None:
+            return []
+        if isinstance(results, tuple):
+            return list(results)
+        return results  # type: ignore[reportReturnType]
 
     def print_message(self, message_list: List[str]):
         print("\n".join(message_list))
@@ -154,14 +166,24 @@ class MainWindow(InteractivePipeWindow):
         self.share_gradio_app = share_gradio_app
         self.audio = audio
         self.audio_sampling_rate = audio_sampling_rate
+        self.audio_widget = None  # type: ignore[reportAttributeAccessIssue]
         # Define the functions that will be called when the input changes for gradio. => gr.Interface(fn=process_fn)
 
         def process_outputs_fn(out) -> tuple:
             flat_out = []
             # Iterate over rectangular image_canvas to match container count
-            for idx in range(len(self.image_canvas)):
+            if self.image_canvas is None:
+                raise RuntimeError("image_canvas not initialized")
+            if out is None:
+                logging.warning("No output to display")
+                return tuple()
+            for idx in range(len(self.image_canvas)):  # type: ignore[reportArgumentType]
+                if idx >= len(out) or out[idx] is None:
+                    continue
                 if isinstance(out[idx], list):
-                    for idy in range(len(self.image_canvas[idx])):
+                    if self.image_canvas[idx] is None:
+                        continue
+                    for idy in range(len(self.image_canvas[idx])):  # type: ignore[reportOptionalSubscript]
                         # Handle jagged out list - may not have element at this position
                         if idy >= len(out[idx]) or out[idx][idy] is None:
                             flat_out.append("")
@@ -202,9 +224,6 @@ class MainWindow(InteractivePipeWindow):
                     flat_out.append(self.convert_image(out[idx]))
             if len(flat_out) == 1:
                 return flat_out[0]
-            if out is None:
-                logging.warning("No output to display")
-                return
             return tuple(flat_out)
 
         def process_inputs_fn(*args) -> list:
@@ -213,25 +232,32 @@ class MainWindow(InteractivePipeWindow):
                 if idx < len(self.ctrl_keys_with_widgets):
                     ctrl_key = self.ctrl_keys_with_widgets[idx]
                     self.ctrl[ctrl_key].update(args[idx])
-            out = self.pipeline.run()
-            return out
+            if self.pipeline is None:
+                raise RuntimeError("Pipeline is not set")
+            out = self.pipeline.run()  # type: ignore[reportOptionalMemberAccess]
+            if out is None:
+                return []
+            if isinstance(out, tuple):
+                return list(out)
+            return out  # type: ignore[reportReturnType]
 
         def run_fn(*args) -> tuple:
             out = process_inputs_fn(*args)
             out_tuple = process_outputs_fn(out)
             if self.audio:
-                html_audio = audio_to_html(self.audio_content)
+                audio_content = getattr(self, "audio_content", None)
+                html_audio = audio_to_html(audio_content)  # type: ignore[reportOptionalMemberAccess]
                 if isinstance(out_tuple, tuple):
-                    return *out_tuple, html_audio
+                    return (*out_tuple, html_audio)
                 else:
-                    return out_tuple, html_audio
+                    return (out_tuple, html_audio)
             return out_tuple
 
         self.default_values = [self.ctrl[ctrl_key].value for ctrl_key in self.ctrl_keys_with_widgets]
         self.process_inputs_fn = process_inputs_fn
         self.run_fn = run_fn
 
-    def instantiate_gradio_interface(self, outputs: List[gr.Blocks]):
+    def instantiate_gradio_interface(self, outputs: List[gr.components.Component]):  # type: ignore[reportInvalidTypeForm]
         if GRADIO_INTERFACE_MODE:
             # Interface mode, high level wrapper
             # https://www.gradio.app/guides/the-interface-class
@@ -251,14 +277,15 @@ class MainWindow(InteractivePipeWindow):
             # https://www.gradio.app/guides/blocks-and-event-listeners
             with gr.Blocks() as io:
                 with gr.Row(variant="compact"):
-                    gr.Markdown("### " + self.name.replace("_", " "))
+                    name_display = (self.name or "").replace("_", " ")  # type: ignore[reportOptionalMemberAccess]
+                    gr.Markdown("### " + name_display)
 
                 # Group panels by position
                 panels_by_position = self._group_panels_by_position()
 
                 # Top panels
                 if panels_by_position["top"]:
-                    for panel in panels_by_position["top"]:
+                    for panel in panels_by_position["top"]:  # type: ignore[reportGeneralTypeIssues]
                         self._build_panel_widget(panel)
 
                 # Middle section: left panels | images | right panels
@@ -271,41 +298,49 @@ class MainWindow(InteractivePipeWindow):
                         # Left panels column
                         if has_left:
                             with gr.Column(scale=1):
-                                for panel in panels_by_position["left"]:
+                                for panel in panels_by_position["left"]:  # type: ignore[reportGeneralTypeIssues]
                                     self._build_panel_widget(panel)
 
                         # Images column (main content)
                         with gr.Column(scale=3):
-                            for idy in range(len(self.image_canvas)):
-                                with gr.Row():
-                                    for idx in range(len(self.image_canvas[idy])):
-                                        elem = outputs[idy * len(self.image_canvas[idy]) + idx]
-                                        if elem is not None:
-                                            elem.render()
+                            if self.image_canvas is not None:
+                                for idy in range(len(self.image_canvas)):  # type: ignore[reportArgumentType]
+                                    if self.image_canvas[idy] is None:
+                                        continue
+                                    with gr.Row():
+                                        for idx in range(len(self.image_canvas[idy])):  # type: ignore[reportOptionalSubscript]
+                                            elem = outputs[idy * len(self.image_canvas[idy]) + idx]  # type: ignore[reportOptionalSubscript]
+                                            if elem is not None:
+                                                elem.render()  # type: ignore[reportAttributeAccessIssue]
 
                             if self.audio:
-                                outputs.append(self.audio)
-                                with gr.Row():
-                                    self.audio.render()
+                                if hasattr(self, "audio_widget") and isinstance(self.audio_widget, gr.HTML):
+                                    outputs.append(self.audio_widget)
+                                    with gr.Row():
+                                        self.audio_widget.render()  # type: ignore[reportAttributeAccessIssue]
 
                         # Right panels column
                         if has_right:
                             with gr.Column(scale=1):
-                                for panel in panels_by_position["right"]:
+                                for panel in panels_by_position["right"]:  # type: ignore[reportGeneralTypeIssues]
                                     self._build_panel_widget(panel)
                 else:
                     # No side panels - simple layout (backward compatibility)
-                    for idy in range(len(self.image_canvas)):
-                        with gr.Row():
-                            for idx in range(len(self.image_canvas[idy])):
-                                elem = outputs[idy * len(self.image_canvas[idy]) + idx]
-                                if elem is not None:
-                                    elem.render()
+                    if self.image_canvas is not None:
+                        for idy in range(len(self.image_canvas)):  # type: ignore[reportArgumentType]
+                            if self.image_canvas[idy] is None:
+                                continue
+                            with gr.Row():
+                                for idx in range(len(self.image_canvas[idy])):  # type: ignore[reportOptionalSubscript]
+                                    elem = outputs[idy * len(self.image_canvas[idy]) + idx]  # type: ignore[reportOptionalSubscript]
+                                    if elem is not None:
+                                        elem.render()  # type: ignore[reportAttributeAccessIssue]
 
                     if self.audio:
-                        outputs.append(self.audio)
-                        with gr.Row():
-                            self.audio.render()
+                        if hasattr(self, "audio_widget") and isinstance(self.audio_widget, gr.HTML):
+                            outputs.append(self.audio_widget)
+                            with gr.Row():
+                                self.audio_widget.render()  # type: ignore[reportAttributeAccessIssue]
 
                 # Bottom panels (default) + ungrouped controls
                 # Check if we have panels to render
@@ -326,7 +361,7 @@ class MainWindow(InteractivePipeWindow):
                                         widget.render()
 
                     # Then render bottom panel hierarchy
-                    for panel in panels_by_position["bottom"]:
+                    for panel in panels_by_position["bottom"]:  # type: ignore[reportGeneralTypeIssues]
                         self._build_panel_widget(panel)
                 else:
                     # Fall back to original flat rendering when no panels exist
@@ -539,21 +574,22 @@ class MainWindow(InteractivePipeWindow):
             # Determine layout based on elements structure
             if panel.elements and isinstance(panel.elements[0], list):
                 # Grid layout: list of lists
-                for row in panel.elements:
-                    with gr.Row():
-                        for element in row:
-                            if isinstance(element, Panel):
-                                self._build_panel_widget(element)
-                            elif isinstance(element, Control):
-                                widget = self._get_control_widget(element)
-                                if widget is not None:
-                                    if isinstance(widget, list):
-                                        # Handle button groups
-                                        with gr.Row():
-                                            for elem in widget:
-                                                elem.render()
-                                    else:
-                                        widget.render()
+                for row in panel.elements:  # type: ignore[reportGeneralTypeIssues]
+                    if isinstance(row, list):
+                        with gr.Row():
+                            for element in row:
+                                if isinstance(element, Panel):
+                                    self._build_panel_widget(element)
+                                elif isinstance(element, Control):
+                                    widget = self._get_control_widget(element)
+                                    if widget is not None:
+                                        if isinstance(widget, list):
+                                            # Handle button groups
+                                            with gr.Row():
+                                                for elem in widget:
+                                                    elem.render()
+                                        else:
+                                            widget.render()
             elif panel.elements:
                 # Vertical layout: flat list
                 for element in panel.elements:
@@ -601,7 +637,11 @@ class MainWindow(InteractivePipeWindow):
         ax_placeholder = None
         text_label = self.get_current_style(row, col).get("title", "")
         image_label = None
-        self.image_canvas[row][col] = {
+        if self.image_canvas is None:
+            raise RuntimeError("image_canvas not initialized")
+        if self.image_canvas[row] is None:
+            raise RuntimeError(f"image_canvas row {row} not initialized")
+        self.image_canvas[row][col] = {  # type: ignore[reportOptionalSubscript]
             "image": image_label,
             "title": text_label,
             "ax_placeholder": ax_placeholder,

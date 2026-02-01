@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Optional, Union, cast
 
 
 class Panel:
@@ -91,14 +91,16 @@ class Panel:
 
         # Check if grid layout (list of lists)
         if isinstance(self.elements[0], list):
-            # Grid layout
-            for row in self.elements:
+            # Grid layout - cast to List[List[Panel]] for type checker
+            grid_elements = cast(List[List["Panel"]], self.elements)
+            for row in grid_elements:
                 for panel in row:
                     if isinstance(panel, Panel):
                         panel.parent = self
         else:
-            # Flat list
-            for panel in self.elements:
+            # Flat list - cast to List[Panel] for type checker
+            flat_elements = cast(List["Panel"], self.elements)
+            for panel in flat_elements:
                 if isinstance(panel, Panel):
                     panel.parent = self
 

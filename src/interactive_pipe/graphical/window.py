@@ -40,6 +40,8 @@ class InteractivePipeWindow:
         raise NotImplementedError
 
     def get_current_style(self, row, col):
+        if self.pipeline is None:
+            raise RuntimeError("Pipeline is not set")
         img_name = self.pipeline.outputs[row][col]
         current_style = self.pipeline.global_params["__output_styles"].get(img_name, {"title": img_name})
         return current_style
@@ -82,6 +84,10 @@ class InteractivePipeWindow:
                 if image_array is None:
                     continue
                 self.update_image(image_array, row, col)
+
+    def convert_image(self, img):
+        """Convert image to backend-specific format. Must be implemented by subclasses."""
+        raise NotImplementedError("Subclasses must implement convert_image")
 
     def refresh_display(self, _out) -> None:
         out = deepcopy(_out)

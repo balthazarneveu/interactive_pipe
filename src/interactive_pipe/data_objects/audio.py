@@ -2,7 +2,7 @@ import base64
 import logging
 from io import BytesIO
 from pathlib import Path
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 
@@ -51,7 +51,7 @@ def audio_to_html(audio: Union[None, str, Path, Tuple[int, np.ndarray]], control
 
 
 class Audio(Data):
-    def __init__(self, data, sampling_rate: int = None, title="") -> None:
+    def __init__(self, data, sampling_rate: Optional[int] = None, title="") -> None:
         super().__init__(data)
         self.title = title
         self.path = None
@@ -67,6 +67,8 @@ class Audio(Data):
             self.path = self.append_with_stem(path, self.title)
         else:
             self.path = path
+        if self.sampling_rate is None:
+            raise ValueError("sampling_rate must be set before saving audio")
         self.save_audio(self.data, self.path, self.sampling_rate, backend=backend)
 
     def _load(self, path: Path, backend=None, title=None) -> Tuple[int, np.ndarray]:
@@ -77,7 +79,9 @@ class Audio(Data):
         return self.sampling_rate, audio_data
 
     @staticmethod
-    def save_audio(data, path: Path, sampling_rate=None, backend=None):
+    def save_audio(data, path: Path, sampling_rate: Optional[int] = None, backend=None):
+        if sampling_rate is None:
+            raise ValueError("sampling_rate is required for saving audio")
         if backend is None:
             backend = WAVIO
         if backend == WAVIO:
@@ -95,7 +99,7 @@ class Audio(Data):
             raise NotImplementedError(f"Unknown backend: {backend}")
 
     @staticmethod
-    def load_audio(path: Path, backend=None) -> np.ndarray:
+    def load_audio(path: Path, backend=None) -> tuple[int, np.ndarray]:
         if backend is None:
             backend = WAVIO
         if backend == WAVIO:

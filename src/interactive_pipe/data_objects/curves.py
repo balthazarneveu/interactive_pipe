@@ -51,7 +51,7 @@ class SingleCurve(Data):
     def __init__(
         self,
         x: Optional[Union[List[np.ndarray], np.ndarray]] = None,
-        y: Union[List[np.ndarray], np.ndarray] = None,
+        y: Optional[Union[List[np.ndarray], np.ndarray]] = None,
         style: Optional[str] = None,
         label: Optional[str] = None,
         linestyle: Optional[str] = None,
@@ -141,13 +141,13 @@ class SingleCurve(Data):
         if path is None:
             raise ValueError("Save requires a path")
         self.path = path
-        crv = Curve([self], xlabel=xlabel, ylabel=ylabel, title=title, grid=grid)
+        Curve([self], xlabel=xlabel, ylabel=ylabel, title=title, grid=grid)
         if path.suffix == ".csv":
             SingleCurve.save_tabular(self.data, path)
         elif path.suffix == ".pkl":
             Data.save_binary(self.data, path)
         elif path.suffix in [".png", "jpg"]:
-            crv.save_figure(path=path, backend=backend, figsize=figsize)
+            Curve.save_figure(data=self.data, path=path, backend=backend, figsize=figsize)
 
     def _load(
         self,
@@ -256,7 +256,7 @@ class Curve(Data):
             curve_list = [SingleCurve(y=curves)]
             logging.debug("Empty curve")
         elif isinstance(curves, dict):
-            curve_list = [SingleCurve(**curves)]
+            curve_list = [SingleCurve(**curves)]  # type: ignore
             logging.debug("Empty curve")
         elif isinstance(curves, list) or isinstance(curves, tuple):
             if all(isinstance(item, SingleCurve) for item in curves):
@@ -451,7 +451,8 @@ class Curve(Data):
 
     @staticmethod
     def _update_plot(data, plt_obj, ax=None):
-        legend = ax.get_legend()
+        legend = ax.get_legend() if ax is not None else None
+        texts = []
         if legend is not None:
             texts = legend.get_texts()
         linear_index = 0
@@ -521,21 +522,23 @@ class Curve(Data):
             if markersize is not None:
                 plot_kwargs["markersize"] = markersize
 
-            plt_obj.append(ax.plot(*inps, **plot_kwargs))
-        if legend_flag:
-            ax.legend(loc="upper right")
-        if data.get("title", None) is not None:
-            ax.set_title(data["title"])
-        if data.get("xlabel", None) is not None:
-            ax.set_xlabel(data["xlabel"])
-        if data.get("ylabel", None) is not None:
-            ax.set_ylabel(data["ylabel"])
-        if data.get("grid", None) is not None:
-            ax.grid(data["grid"])
-        if data.get("xlim", None) is not None:
-            ax.set_xlim(data["xlim"])
-        if data.get("ylim", None) is not None:
-            ax.set_ylim(data["ylim"])
+            if ax is not None:
+                plt_obj.append(ax.plot(*inps, **plot_kwargs))
+        if ax is not None:
+            if legend_flag:
+                ax.legend(loc="upper right")
+            if data.get("title", None) is not None:
+                ax.set_title(data["title"])
+            if data.get("xlabel", None) is not None:
+                ax.set_xlabel(data["xlabel"])
+            if data.get("ylabel", None) is not None:
+                ax.set_ylabel(data["ylabel"])
+            if data.get("grid", None) is not None:
+                ax.grid(data["grid"])
+            if data.get("xlim", None) is not None:
+                ax.set_xlim(data["xlim"])
+            if data.get("ylim", None) is not None:
+                ax.set_ylim(data["ylim"])
         return plt_obj
 
     def show(self, figsize=None):

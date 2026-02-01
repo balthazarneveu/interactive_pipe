@@ -39,20 +39,32 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
         }
 
     def run(self) -> list:
-        if not self.pipeline._PipelineCore__initialized_inputs:
+        # Access private attribute for checking initialization state
+        if not self.pipeline._PipelineCore__initialized_inputs:  # type: ignore[attr-defined]
             raise RuntimeError("Did you forget to initialize the pipeline inputs?")
         self.window.refresh()
         if isinstance(self.size, str) and "full" in self.size.lower():
             try:
                 mng = plt.get_current_fig_manager()
-                mng.full_screen_toggle()
+                if mng is not None and hasattr(mng, "full_screen_toggle"):
+                    mng.full_screen_toggle()
             except Exception as exc:
                 print(exc)
                 logging.warning("Cannot maximize screen")
-        self.window.fig.canvas.mpl_disconnect(self.window.fig.canvas.manager.key_press_handler_id)
+        if self.window.fig is None:
+            raise RuntimeError("Window figure not initialized")
+        if hasattr(self.window.fig.canvas, "manager") and self.window.fig.canvas.manager is not None:
+            handler_id = getattr(self.window.fig.canvas.manager, "key_press_handler_id", None)
+            if handler_id is not None:
+                self.window.fig.canvas.mpl_disconnect(handler_id)
         self.window.fig.canvas.mpl_connect("key_press_event", self.on_press)
         plt.show()
-        return self.pipeline.results
+        results = self.pipeline.results
+        if results is None:
+            return []
+        if isinstance(results, tuple):
+            return list(results)
+        return results if isinstance(results, list) else []
 
     def load_parameters(self):
         """import parameters dictionary from a yaml/json file on disk"""
@@ -176,7 +188,8 @@ class MainWindow(MatplotlibWindow):
             if not dry_run:
                 self.ctrl[slider_name] = ctrl
             if isinstance(ctrl, KeyboardControl):
-                self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
+                if self.main_gui is not None:
+                    self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
                 continue
             # Skip single-value controls (don't show anything)
             if ctrl._type is str and ctrl.value_range is not None and len(ctrl.value_range) == 1:
@@ -197,14 +210,17 @@ class MainWindow(MatplotlibWindow):
                 y_start = self.next_button_position - height
                 self.next_button_position -= self.spacer + height
             if not dry_run:
-                ax_control = self.fig.add_axes([x_start, y_start, width, height])
+                if self.fig is None:
+                    raise RuntimeError("Figure not initialized")
+                ax_control = self.fig.add_axes((x_start, y_start, width, height))
                 if ctrl._type is bool:
                     ax_control.xaxis.set_visible(True)
                 self.axes_controls.append(ax_control)
                 slider_instance = control_factory.create_control(ctrl, self.update_parameter, ax_control=ax_control)
-                slider = slider_instance.create()
-                # needed to keep the object alive
-                self.sliders_list[slider_name] = slider
+                if slider_instance is not None:
+                    slider = slider_instance.create()
+                    # needed to keep the object alive
+                    self.sliders_list[slider_name] = slider
         self.next_slider_position -= self.footer_space
         self.next_button_position -= self.footer_space
 

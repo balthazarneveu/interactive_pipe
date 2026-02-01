@@ -24,12 +24,25 @@ class BaseControl:
 
 class SliderMatplotlibControl(BaseControl):
     def create(self):
+        if self.ctrl.value_range is None:
+            raise ValueError("value_range must be provided for SliderMatplotlibControl")
+        if self.ax_control is None:
+            raise ValueError("ax_control must be provided for SliderMatplotlibControl")
+        valmin = self.ctrl.value_range[0]
+        valmax = self.ctrl.value_range[1]
+        valinit = self.ctrl.value
+        if not isinstance(valmin, (int, float)):
+            raise TypeError(f"Expected int or float for valmin, got {type(valmin)}")
+        if not isinstance(valmax, (int, float)):
+            raise TypeError(f"Expected int or float for valmax, got {type(valmax)}")
+        if not isinstance(valinit, (int, float)):
+            raise TypeError(f"Expected int or float for valinit, got {type(valinit)}")
         slider = Slider(
             self.ax_control,
             self.name,
-            self.ctrl.value_range[0],
-            self.ctrl.value_range[1],
-            valinit=self.ctrl.value,
+            float(valmin),
+            float(valmax),
+            valinit=float(valinit),
             valstep=1 if self.ctrl._type is int else None,
         )
         slider.on_changed(lambda val: self.update_func(self.name, val))
@@ -54,13 +67,18 @@ class BoolCheckButtonMatplotlibControl(BaseControl):
             raise TypeError(f"Expected bool control type, got {self.ctrl._type}")
 
     def create(self):
-        current_state = [self.ctrl.value]
+        if self.ax_control is None:
+            raise ValueError("ax_control must be provided for BoolCheckButtonMatplotlibControl")
+        value = self.ctrl.value
+        if not isinstance(value, bool):
+            raise TypeError(f"Expected bool for BoolCheckButtonMatplotlibControl, got {type(value)}")
+        current_state = [value]
 
         def on_click(label):
             current_state[0] = not current_state[0]
             self.update_func(self.name, current_state[0])
 
-        checks = CheckButtons(self.ax_control, [self.name], [self.ctrl.value])
+        checks = CheckButtons(self.ax_control, [self.name], [value])
         checks.on_clicked(on_click)
         return checks
 
@@ -73,11 +91,21 @@ class StringRadioButtonMatplotlibControl(BaseControl):
             raise ValueError("value_range must be provided for StringRadioButtonMatplotlibControl")
 
     def create(self):
+        if self.ax_control is None:
+            raise ValueError("ax_control must be provided for StringRadioButtonMatplotlibControl")
         options = self.ctrl.value_range
+        if options is None:
+            raise ValueError("value_range must be provided for StringRadioButtonMatplotlibControl")
+        # Convert options to strings if needed
+        options_str = [str(opt) for opt in options]
+        active_index = None
+        value_str = str(self.ctrl.value)
+        if value_str in options_str:
+            active_index = options_str.index(value_str)
         radio = RadioButtons(
             self.ax_control,
-            options,
-            active=(options.index(self.ctrl.value) if self.ctrl.value in options else None),
+            options_str,
+            active=active_index if active_index is not None else 0,
         )
         radio.on_clicked(lambda val: self.update_func(self.name, val))
 
@@ -92,8 +120,13 @@ class PromptMatplotlibControl(BaseControl):
             raise ValueError("value_range must be None for PromptMatplotlibControl")
 
     def create(self):
+        if self.ax_control is None:
+            raise ValueError("ax_control must be provided for PromptMatplotlibControl")
+        value = self.ctrl.value
+        if not isinstance(value, str):
+            raise TypeError(f"Expected str for PromptMatplotlibControl, got {type(value)}")
         # Create a prompt for text input
-        self.text_box = TextBox(self.ax_control, "Input", initial=self.ctrl.value)
+        self.text_box = TextBox(self.ax_control, "Input", initial=value)
 
         # Function to handle the update when text is entered
         def submit(text):

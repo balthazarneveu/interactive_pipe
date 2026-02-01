@@ -26,7 +26,9 @@ def __create_control_from_keyword_argument(
     else:
         if isinstance(unknown_keyword_arg, list) or isinstance(unknown_keyword_arg, tuple):
             try:
-                chosen_control = control_from_tuple(unknown_keyword_arg, param_name=param_name)
+                # Convert list to tuple for type checking
+                tuple_arg = tuple(unknown_keyword_arg) if isinstance(unknown_keyword_arg, list) else unknown_keyword_arg
+                chosen_control = control_from_tuple(tuple_arg, param_name=param_name)
             except Exception as _exc_1:
                 try:
                     chosen_control = control_from_tuple((unknown_keyword_arg,), param_name=param_name)

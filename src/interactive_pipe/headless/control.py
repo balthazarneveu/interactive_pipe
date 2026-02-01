@@ -87,8 +87,9 @@ class Control:
                 else:
                     self._type = float
                     if self.step is None:
-                        self.step = (value_range[1] - value_range[0]) / 100.0
-                if not (value_range[0] <= value_default <= value_range[1]):
+                        # Type narrowing: we know value_range contains numeric values here
+                        self.step = (value_range[1] - value_range[0]) / 100.0  # type: ignore
+                if not (value_range[0] <= value_default <= value_range[1]):  # type: ignore
                     raise ValueError(f"value_default {value_default} must be within value_range {value_range}")
         elif isinstance(value_default, str):
             # similar to an enum
@@ -146,10 +147,10 @@ class Control:
     def check_value(self, value):
         if isinstance(value, int) and self._type is float:
             value = float(value)
-        if not isinstance(value, self._type):
+        if self._type is not None and not isinstance(value, self._type):
             raise TypeError(f"Expected {self._type}, got {type(value)}")
-        if isinstance(value, float) or isinstance(value, int) and self.value_range:
-            return max(self.value_range[0], min(value, self.value_range[1]))
+        if isinstance(value, (float, int)) and self.value_range is not None:
+            return max(self.value_range[0], min(value, self.value_range[1]))  # type: ignore
         elif self._type is str and self.value_range is not None:
             if value not in self.value_range:
                 raise ValueError(f"{value} must be in {self.value_range}")
@@ -229,7 +230,7 @@ class CircularControl(Control):
     ) -> None:
         super().__init__(
             value_default=value_default,
-            value_range=value_range,
+            value_range=value_range,  # type: ignore
             name=name,
             step=step,
             filter_to_connect=filter_to_connect,

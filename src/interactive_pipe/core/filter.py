@@ -108,11 +108,11 @@ class FilterCore(PureFilter):
 
     def __init__(
         self,
-        apply_fn: Callable = None,
+        apply_fn: Optional[Callable] = None,
         name: Optional[str] = None,
         default_params: Optional[dict] = None,
-        inputs: Optional[List[Union[int, str]]] = _SENTINEL,
-        outputs: Optional[List[Union[int, str]]] = _SENTINEL,
+        inputs: Optional[List[Union[int, str]]] = _SENTINEL,  # type: ignore
+        outputs: Optional[List[Union[int, str]]] = _SENTINEL,  # type: ignore
         cache=True,
     ):
         if default_params is None:
@@ -139,9 +139,9 @@ class FilterCore(PureFilter):
         else:
             self.cache_mem = None
 
-    def run(self, *imgs) -> Optional[Tuple[Any]]:
+    def run(self, *imgs) -> Optional[Tuple[Any, ...]]:
         if imgs:
-            if len(imgs) != len(self.inputs):
+            if self.inputs is not None and len(imgs) != len(self.inputs):
                 raise ValueError(f"number of inputs ({len(imgs)}) shall match what's expected ({len(self.inputs)})")
         if self.inputs is None:
             if len(imgs) > 0:
@@ -152,17 +152,17 @@ class FilterCore(PureFilter):
         out = super().run(*filter_in)
         if out is None:
             return None
-        if isinstance(out, tuple) or isinstance(out, list):
-            if len(out) < len(self.outputs):
+        if isinstance(out, (tuple, list)):
+            if self.outputs is not None and len(out) < len(self.outputs):
                 raise ValueError(
                     f"number of outputs ({len(out)}) shall be at least greater or equal "
                     f"to what's expected by the filter ({len(self.outputs)})"
                 )
-            return out
+            return out  # type: ignore
 
         else:
             logging.debug(f"need to return a tuple when you have a single element out {type(out)}")
-            if len(self.outputs) != 1:
+            if self.outputs is not None and len(self.outputs) != 1:
                 raise ValueError(f"returning a single element but expected {len(self.outputs)} outputs!")
             return (out,)
 
@@ -182,8 +182,9 @@ class FilterCore(PureFilter):
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         control_dict = {}
-        if hasattr(self, "controls"):
-            for ctrl_name, ctrl in self.controls.items():
+        controls = getattr(self, "controls", None)
+        if controls is not None:
+            for ctrl_name, ctrl in controls.items():
                 control_dict[ctrl_name] = ctrl.value
         merged_kwargs = {**kwargs, **control_dict}
         out = self.apply(*args, **merged_kwargs)

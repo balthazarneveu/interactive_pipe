@@ -65,22 +65,28 @@ class KeyboardControl(Control):
             self.value = new_val
             return
         if self._type is int or self._type is float:
+            if self.value_range is None:
+                return
             current_val = self.value
             sign = -1 if down else +1
             step = self.step
-            mini, maxi = self.value_range[0], self.value_range[1]
+            mini, maxi = self.value_range[0], self.value_range[1]  # type: ignore
         elif self._type is str:
-            current_val = self.value_range.index(self.value)
+            if self.value_range is None:
+                return
+            current_val = self.value_range.index(self.value)  # type: ignore
             sign = -1 if down else +1
             step = 1
             mini, maxi = 0, len(self.value_range) - 1
-        new_val = current_val + sign * step
-        if new_val > maxi:
+        else:
+            return
+        new_val = current_val + sign * step  # type: ignore
+        if new_val > maxi:  # type: ignore
             new_val = mini if self.modulo else maxi
-        if new_val < mini:
+        if new_val < mini:  # type: ignore
             new_val = maxi if self.modulo else mini
-        if self._type is str:
-            new_val = self.value_range[new_val]
+        if self._type is str and self.value_range is not None:
+            new_val = self.value_range[int(new_val)]  # type: ignore
         self.value = new_val
 
     def on_key_down(self):

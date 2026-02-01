@@ -21,7 +21,7 @@ class InteractivePipeJupyter(InteractivePipeGUI):
         )
 
     def run(self) -> None:
-        if not self.pipeline._PipelineCore__initialized_inputs:
+        if not self.pipeline._PipelineCore__initialized_inputs:  # type: ignore[reportAttributeAccessIssue]
             raise RuntimeError("Did you forget to initialize the pipeline inputs?")
         interact(self.window._interact_fn, **self.window.sliders_dict)
         return None  # do not return arrays in a jupyter notebook

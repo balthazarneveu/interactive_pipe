@@ -1,5 +1,5 @@
 import logging
-from typing import Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from interactive_pipe.headless.control import Control
 from interactive_pipe.headless.keyboard import KeyboardControl
@@ -70,7 +70,7 @@ def default_value_check(val):
         raise TypeError(f"{type(val)} is not supported")
 
 
-def control_from_tuple(short_params: Tuple, param_name: str = None) -> Union[Control, KeyboardControl]:
+def control_from_tuple(short_params: Tuple, param_name: Optional[str] = None) -> Union[Control, KeyboardControl]:
     """Define a Control or Keyboard control from a short declaration
 
     - Classic mode:
@@ -209,6 +209,11 @@ def control_from_tuple(short_params: Tuple, param_name: str = None) -> Union[Con
 
     if name is None:
         name = param_name
+
+    # Convert value_range tuple to list if needed for type checking
+    if value_range is not None and isinstance(value_range, tuple):
+        value_range_list: Optional[List[Union[int, float, str]]] = list(value_range)
+        value_range = value_range_list
 
     # Keyboard controls are no longer supported via abbreviations
     # Users should use KeyboardControl(...) directly

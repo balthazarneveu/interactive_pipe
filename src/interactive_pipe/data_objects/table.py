@@ -113,7 +113,7 @@ class Table(Data):
             if columns is None:
                 # Create empty column names for headerless table
                 columns = [""] * data.shape[1]
-            if len(columns) != data.shape[1]:
+            if columns is not None and len(columns) != data.shape[1]:
                 raise ValueError(f"Number of columns ({len(columns)}) must match array width ({data.shape[1]})")
             values = data.tolist()
             return {"columns": columns, "values": values}
@@ -221,7 +221,7 @@ class Table(Data):
             RuntimeError: If pandas is not installed
         """
         _require_pandas("as_dataframe()")
-        return pd.DataFrame(self.values, columns=self.columns)
+        return pd.DataFrame(self.values, columns=self.columns)  # type: ignore
 
     def _save(self, path: Path, **kwargs):
         if path.suffix == ".pkl":

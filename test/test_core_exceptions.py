@@ -70,13 +70,13 @@ class TestFilterCoreExceptions:
             filter.run(np.array([1, 2, 3]))  # Only 1 input, expects 2
 
     def test_run_raises_typeerror_when_inputs_none_but_imgs_provided(self):
-        """Test that TypeError is raised when inputs=None but imgs provided
-        Note: This reveals a bug - the None check should come before len() check
+        """Test that ValueError is raised when inputs=None but imgs provided
+        This was previously a bug that raised TypeError from len(None)
+        Now fixed to raise ValueError with clear message
         """
         filter = FilterCore(apply_fn=func_no_params, inputs=None, outputs=[0])
-        # The code checks len(imgs) != len(self.inputs) before checking if self.inputs is None
-        # So TypeError is raised from len(None)
-        with pytest.raises(TypeError, match="object of type 'NoneType' has no len"):
+        # The code now properly checks if self.inputs is None before checking length
+        with pytest.raises(ValueError, match="Expected no inputs when self.inputs is None"):
             filter.run(np.array([1, 2, 3]))
 
     def test_run_raises_valueerror_when_output_count_too_small(self):

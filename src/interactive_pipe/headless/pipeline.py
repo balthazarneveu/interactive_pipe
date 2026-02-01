@@ -1,7 +1,7 @@
 import logging
 import traceback
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, List, Optional
 
 from interactive_pipe.core.filter import FilterCore, analyze_apply_fn_signature
 from interactive_pipe.core.graph import get_call_graph
@@ -21,6 +21,8 @@ class HeadlessPipeline(PipelineCore):
     - graph representation
     """
 
+    controls: List[Control]  # List of controls connected to filters
+
     @staticmethod
     def routing_indexes(inputs_names, all_variables):
         if inputs_names:
@@ -34,7 +36,7 @@ class HeadlessPipeline(PipelineCore):
         return inputs
 
     @classmethod
-    def from_function(cls, pipe: Callable, inputs=None, __routing_by_indexes=False, **kwargs):
+    def from_function(cls, pipe: Callable[..., Any], inputs=None, *, __routing_by_indexes=False, **kwargs):
         if not isinstance(pipe, Callable):
             raise TypeError(f"pipe must be Callable, got {type(pipe)}")
         graph = get_call_graph(pipe)
@@ -141,9 +143,10 @@ class HeadlessPipeline(PipelineCore):
                         data = self.parameters["tuning"][elt][0]
                         index = int(self.parameters["tuning"][elt][1])
                         saved_dict[elt] = export_dict[data][index]
-        Parameters(saved_dict).save(path, override=True if path is None else override)
+        if path is not None:
+            Parameters(saved_dict).save(path, override=override)
 
-    def import_tuning(self, path: Path = None) -> None:
+    def import_tuning(self, path: Optional[Path] = None) -> None:
         """Open a json/yaml tuning file and set parameters"""
         try:
             self.parameters = Parameters.from_file(path).data
@@ -170,8 +173,9 @@ class HeadlessPipeline(PipelineCore):
             # This happens for headless pipelines which have no list of controls
             return
         for ctrl in self.controls:
-            logging.info(f"{ctrl.filter_to_connect.name}, {ctrl.parameter_name_to_connect}, {ctrl.value}")
-            self.parameters = {ctrl.filter_to_connect.name: {ctrl.parameter_name_to_connect: ctrl.value}}
+            if ctrl.filter_to_connect is not None:
+                logging.info(f"{ctrl.filter_to_connect.name}, {ctrl.parameter_name_to_connect}, {ctrl.value}")
+                self.parameters = {ctrl.filter_to_connect.name: {ctrl.parameter_name_to_connect: ctrl.value}}
 
     def __run(self):
         self.update_parameters_from_controls()
@@ -183,10 +187,15 @@ class HeadlessPipeline(PipelineCore):
         if output_indexes:
             if isinstance(output_indexes[0], list):
                 return [
-                    [None if out_index is None else result_full[out_index] for idx, out_index in enumerate(row)]
+                    [
+                        None if out_index is None else result_full[out_index]
+                        for idx, out_index in enumerate(row)
+                        if out_index is not None and out_index in result_full
+                    ]
                     for idy, row in enumerate(output_indexes)
+                    if isinstance(row, (list, tuple))
                 ]
-            return tuple(result_full[idx] for idx in output_indexes)
+            return tuple(result_full[idx] for idx in output_indexes if idx in result_full)
         else:
             return None
 
@@ -196,11 +205,11 @@ class HeadlessPipeline(PipelineCore):
 
     def save(
         self,
-        path: Path = None,
-        data_wrapper_fn: Callable = None,
-        output_indexes: list = None,
+        path: Optional[Path] = None,
+        data_wrapper_fn: Optional[Callable[..., Any]] = None,
+        output_indexes: Optional[list] = None,
         save_entire_buffer=False,
-    ) -> Path:
+    ) -> Optional[Path]:
         """Save images"""
         if output_indexes is None:
             if self.outputs is not None:
@@ -212,6 +221,8 @@ class HeadlessPipeline(PipelineCore):
         result_full = super().run()
         if result_full is None:
             return None
+        if path is None:
+            raise ValueError("path must be provided for saving")
         if not isinstance(path, Path):
             path = Path(path)
         self.export_tuning(path.with_suffix(".yaml"))
@@ -224,11 +235,15 @@ class HeadlessPipeline(PipelineCore):
             if res_current is not None and not (isinstance(res_current, list) and len(res_current) == 0):
                 try:
                     if data_wrapper_fn is not None:
-                        data_wrapper_fn(res_current).save(current_name)
+                        wrapped = data_wrapper_fn(res_current)
+                        if hasattr(wrapped, "save"):
+                            wrapped.save(current_name)  # type: ignore
                     else:
                         if not hasattr(res_current, "save"):
                             raise AttributeError(f"Result object {type(res_current)} has no 'save' method")
-                        res_current.save(current_name)
+                        # Type narrowing: we've checked hasattr, so this should be safe
+                        if hasattr(res_current, "save"):
+                            res_current.save(current_name)  # type: ignore
                 except Exception as exc:
                     logging.warning(f"Cannot save image {current_name}\n{exc}")
                     traceback.print_exc()
@@ -253,13 +268,14 @@ class HeadlessPipeline(PipelineCore):
         if inputs is not None:
             if not isinstance(inputs, dict):
                 raise TypeError(f"inputs must be a dict, got {type(inputs)}")
-            self.inputs = inputs
+            self.inputs = inputs  # type: ignore
             logging.info(f"Dict style inputs {list(inputs.keys())}, {self.inputs}")
         else:
             # @TODO: we could check that the number of inputs matches what's expected here.
-            self.inputs = list(inputs_tuple) if inputs_tuple else None
-            if self.inputs is not None and len(self.inputs) == 0:
-                self.inputs = None
+            self.inputs = list(inputs_tuple) if inputs_tuple else None  # type: ignore
+            inputs_list = self.inputs
+            if inputs_list is not None and len(inputs_list) == 0:
+                self.inputs = None  # type: ignore
         self.parameters = parameters
         self.parameters = self.parameters_from_keyword_args(**kwargs)
         return self.run()
@@ -310,39 +326,47 @@ class HeadlessPipeline(PipelineCore):
         if self.inputs_routing is None:
             raise ValueError("Cannot plot graph: input routing is not provided")
         input_indexes = self.inputs_routing
-        with dot.subgraph(name="cluster_in") as inputs_graph:
-            inputs_graph.attr(style="dashed", color="gray", label="Inputs")
-            for inp in input_indexes:
-                inputs_graph.node(f"{inp}", f"🖴 {inp}", shape="rect", color="gray", styleItem="dash")
+        inputs_graph = dot.subgraph(name="cluster_in")  # type: ignore[reportAssignmentType]
+        if inputs_graph is not None:
+            with inputs_graph:
+                inputs_graph.attr(style="dashed", color="gray", label="Inputs")  # type: ignore[reportAttributeAccessIssue]
+                for inp in input_indexes:
+                    inputs_graph.node(f"{inp}", f"🖴 {inp}", shape="rect", color="gray", styleItem="dash")  # type: ignore[reportAttributeAccessIssue]
 
-        with dot.subgraph(name="cluster_filters") as filter_graphs:
-            # filter_graphs.attr(color="transparent",)
-            filter_graphs.attr(color="gray", style="dashed", label=self.name)
-            for filt in self.filters:
-                all_params = []
-                for pa_name, pa_val in filt.values.items():
-                    all_params.append(f"\n✔️ {pa_name}")
-                filter_graphs.node(filt.name, f"⚙️ {filt.name}" + ("".join(all_params)), shape="rect")
-            for idx, filt in enumerate(self.filters):
-                if filt.inputs is None:
-                    continue
-                for out in filt.inputs:
-                    last_filter_found, inp_name = find_previous_key(out, idx, input_indexes)
-                    if last_filter_found is not None:
-                        dot.edge(last_filter_found, filt.name, label=edge_label(inp_name))
+        filter_graphs = dot.subgraph(name="cluster_filters")  # type: ignore[reportAssignmentType]
+        if filter_graphs is not None:
+            with filter_graphs:
+                # filter_graphs.attr(color="transparent",)
+                filter_graphs.attr(color="gray", style="dashed", label=self.name)  # type: ignore[reportAttributeAccessIssue]
+                for filt in self.filters:
+                    all_params = []
+                    for pa_name, pa_val in filt.values.items():
+                        all_params.append(f"\n✔️ {pa_name}")
+                    filter_graphs.node(filt.name, f"⚙️ {filt.name}" + ("".join(all_params)), shape="rect")  # type: ignore[reportAttributeAccessIssue]
+                for idx, filt in enumerate(self.filters):
+                    if filt.inputs is None:
+                        continue
+                    for out in filt.inputs:
+                        last_filter_found, inp_name = find_previous_key(out, idx, input_indexes)
+                        if last_filter_found is not None:
+                            dot.edge(last_filter_found, filt.name, label=edge_label(inp_name))
         out_list = []
+        if self.outputs is None:
+            raise ValueError("Cannot generate graph: outputs not defined")
         for out_item in self.outputs:
             out_row = out_item
-            if not isinstance(out_item, list) or isinstance(out_item, tuple):
+            if not isinstance(out_item, (list, tuple)):
                 out_row = [out_item]
             for out in out_row:
                 if out is None:
                     continue
                 out_list.append(out)
-        with dot.subgraph(name="cluster_out") as out_graph:
-            out_graph.attr(style="dashed", color="gray", label="Outputs")
-            for out in out_list:
-                out_graph.node(f"out {out}", f"🛢️ {out}", shape="rect", color="gray")
+        out_graph = dot.subgraph(name="cluster_out")  # type: ignore[reportAssignmentType]
+        if out_graph is not None:
+            with out_graph:
+                out_graph.attr(style="dashed", color="gray", label="Outputs")  # type: ignore[reportAttributeAccessIssue]
+                for out in out_list:
+                    out_graph.node(f"out {out}", f"🛢️ {out}", shape="rect", color="gray")  # type: ignore[reportAttributeAccessIssue]
         for out in out_list:
             last_filter_found, inp_name = find_previous_key(out, len(self.filters), input_indexes)
             if last_filter_found is not None:

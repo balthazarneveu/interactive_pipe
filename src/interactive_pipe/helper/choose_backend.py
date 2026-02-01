@@ -12,7 +12,7 @@ def get_interactive_pipeline_class(gui="auto"):
             logging.debug(f"auto gui already selected {selected_gui}")
         else:
             try:
-                __IPYTHON__  # noqa: F821
+                __IPYTHON__  # type: ignore  # noqa: F821
                 selected_gui = "nb"
             except Exception:
                 try:

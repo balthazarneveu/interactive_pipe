@@ -83,14 +83,17 @@ if not PYQT_AVAILABLE:
     logging.warning("PyQt not available. Qt controls will not work.")
 
 
-class BaseControl(QWidget if PYQT_AVAILABLE else object):
+class BaseControl(QWidget if PYQT_AVAILABLE else object):  # type: ignore[reportGeneralTypeIssues]
     def __init__(self, name, ctrl: Control, update_func, silent=False):
         if not PYQT_AVAILABLE:
             raise ModuleNotFoundError(
                 "PyQt is required for Qt controls. "
                 "Install it with: pip install interactive-pipe[qt6] or interactive-pipe[qt5]"
             )
-        super().__init__()
+        if PYQT_AVAILABLE and QWidget is not None:
+            super().__init__()
+        else:
+            object.__init__(self)
         self.name = name
         self.ctrl = ctrl
         self.update_func = update_func
@@ -135,17 +138,17 @@ class ControlFactory:
 
 if PYQT_AVAILABLE:
 
-    class SilentSlider(QSlider):
+    class SilentSlider(QSlider):  # type: ignore[reportGeneralTypeIssues]
         def __init__(
             self,
             *args,
             silent_keys=(
-                Qt.Key.Key_Left,
-                Qt.Key.Key_Right,
-                Qt.Key.Key_Up,
-                Qt.Key.Key_Down,
-                Qt.Key.Key_PageUp,
-                Qt.Key.Key_PageDown,
+                Qt.Key.Key_Left,  # type: ignore[reportOptionalMemberAccess]
+                Qt.Key.Key_Right,  # type: ignore[reportOptionalMemberAccess]
+                Qt.Key.Key_Up,  # type: ignore[reportOptionalMemberAccess]
+                Qt.Key.Key_Down,  # type: ignore[reportOptionalMemberAccess]
+                Qt.Key.Key_PageUp,  # type: ignore[reportOptionalMemberAccess]
+                Qt.Key.Key_PageDown,  # type: ignore[reportOptionalMemberAccess]
             ),
             **kwargs,
         ):
@@ -158,7 +161,7 @@ if PYQT_AVAILABLE:
             super(SilentSlider, self).keyPressEvent(event)
 
 else:
-    SilentSlider = None
+    SilentSlider = None  # type: ignore[reportAssignmentType]
 
 
 class IntSliderControl(BaseControl):
@@ -167,19 +170,34 @@ class IntSliderControl(BaseControl):
             raise TypeError(f"Expected int control type, got {self.ctrl._type}")
 
     def create(self):
+        if self.ctrl.value_range is None:
+            raise ValueError("value_range must be set for IntSliderControl")
         if self.silent:
             slider_class = SilentSlider
-            slider = slider_class(Qt.Orientation.Horizontal, self)
+            if slider_class is None or Qt is None:
+                raise ModuleNotFoundError("PyQt is required for Qt controls")
+            slider = slider_class(Qt.Orientation.Horizontal, self)  # type: ignore[reportOptionalCall,reportOptionalMemberAccess]
         else:
-            if hasattr(self.ctrl, "modulo") and self.ctrl.modulo:
+            if hasattr(self.ctrl, "modulo") and self.ctrl.modulo:  # type: ignore[reportAttributeAccessIssue]
+                if QDial is None:
+                    raise ModuleNotFoundError("PyQt is required for Qt controls")
                 slider_class = QDial
                 slider = slider_class(self)
             else:
+                if QSlider is None or Qt is None:
+                    raise ModuleNotFoundError("PyQt is required for Qt controls")
                 slider_class = QSlider
-                slider = slider_class(Qt.Orientation.Horizontal, self)
+                slider = slider_class(Qt.Orientation.Horizontal, self)  # type: ignore[reportOptionalMemberAccess]
 
-        slider.setRange(self.ctrl.value_range[0], self.ctrl.value_range[1])
-        slider.setValue(self.ctrl.value_default)
+        valmin = self.ctrl.value_range[0]  # type: ignore[reportOptionalSubscript]
+        valmax = self.ctrl.value_range[1]  # type: ignore[reportOptionalSubscript]
+        valdefault = self.ctrl.value_default
+        if not isinstance(valmin, int) or not isinstance(valmax, int):
+            raise TypeError(f"Expected int for IntSliderControl range, got {type(valmin)}, {type(valmax)}")
+        if not isinstance(valdefault, int):
+            raise TypeError(f"Expected int for IntSliderControl default, got {type(valdefault)}")
+        slider.setRange(valmin, valmax)
+        slider.setValue(valdefault)
         slider.setSingleStep(1)
         slider.setPageStep(10)
         # slider.setTickPosition(QSlider.TickPosition.TicksAbove)
@@ -190,7 +208,10 @@ class IntSliderControl(BaseControl):
         return self.control_widget
 
     def reset(self):
-        self.control_widget.setValue(self.ctrl.value)
+        value = self.ctrl.value
+        if not isinstance(value, int):
+            raise TypeError(f"Expected int for IntSliderControl value, got {type(value)}")
+        self.control_widget.setValue(value)
 
 
 class FloatSliderControl(BaseControl):
@@ -199,28 +220,43 @@ class FloatSliderControl(BaseControl):
             raise TypeError(f"Expected float control type, got {self.ctrl._type}")
 
     def convert_value_to_int(self, val):
-        return int((val - self.ctrl.value_range[0]) * 1000 / (self.ctrl.value_range[1] - self.ctrl.value_range[0]))
+        if self.ctrl.value_range is None:
+            raise ValueError("value_range must be set for FloatSliderControl")
+        return int((val - self.ctrl.value_range[0]) * 1000 / (self.ctrl.value_range[1] - self.ctrl.value_range[0]))  # type: ignore[reportOptionalSubscript,reportOperatorIssue]
 
     def convert_int_to_value(self, val):
-        return self.ctrl.value_range[0] + (self.ctrl.value_range[1] - self.ctrl.value_range[0]) * val / 1000
+        if self.ctrl.value_range is None:
+            raise ValueError("value_range must be set for FloatSliderControl")
+        return self.ctrl.value_range[0] + (self.ctrl.value_range[1] - self.ctrl.value_range[0]) * val / 1000  # type: ignore[reportOptionalSubscript,reportOperatorIssue]
 
     def create(self):
+        if self.ctrl.value_range is None:
+            raise ValueError("value_range must be set for FloatSliderControl")
         if self.silent:
             slider_class = SilentSlider
-            slider = slider_class(Qt.Orientation.Horizontal, self)
+            if slider_class is None or Qt is None:
+                raise ModuleNotFoundError("PyQt is required for Qt controls")
+            slider = slider_class(Qt.Orientation.Horizontal, self)  # type: ignore[reportOptionalCall,reportOptionalMemberAccess]
         else:
-            if hasattr(self.ctrl, "modulo") and self.ctrl.modulo:
+            if hasattr(self.ctrl, "modulo") and self.ctrl.modulo:  # type: ignore[reportAttributeAccessIssue]
+                if QDial is None:
+                    raise ModuleNotFoundError("PyQt is required for Qt controls")
                 slider_class = QDial
                 slider = slider_class(self)
             else:
+                if QSlider is None or Qt is None:
+                    raise ModuleNotFoundError("PyQt is required for Qt controls")
                 slider_class = QSlider
-                slider = slider_class(Qt.Orientation.Horizontal, self)
-        self.ctrl.convert_int_to_value = self.convert_int_to_value
+                slider = slider_class(Qt.Orientation.Horizontal, self)  # type: ignore[reportOptionalMemberAccess]
+        self.ctrl.convert_int_to_value = self.convert_int_to_value  # type: ignore[reportAttributeAccessIssue]
         slider.setRange(
-            self.convert_value_to_int(self.ctrl.value_range[0]),
-            self.convert_value_to_int(self.ctrl.value_range[1]),
+            self.convert_value_to_int(self.ctrl.value_range[0]),  # type: ignore[reportOptionalSubscript]
+            self.convert_value_to_int(self.ctrl.value_range[1]),  # type: ignore[reportOptionalSubscript]
         )
-        slider.setValue(self.convert_value_to_int(self.ctrl.value_default))
+        valdefault = self.ctrl.value_default
+        if not isinstance(valdefault, (int, float)):
+            raise TypeError(f"Expected int or float for FloatSliderControl default, got {type(valdefault)}")
+        slider.setValue(self.convert_value_to_int(valdefault))
         slider.setSingleStep(1)
         slider.setPageStep(10)
         # slider.setTickPosition(QSlider.TickPosition.TicksAbove)
@@ -251,15 +287,21 @@ class IconButtonsControl(BaseControl):
 
     def create(self):
         # Check if ctrl has the right type
+        if self.ctrl.value_range is None:
+            raise ValueError("value_range must be set for IconButtonsControl")
+        if self.ctrl.icons is None:
+            raise ValueError("icons must be set for IconButtonsControl")
+        if QHBoxLayout is None or QPushButton is None or QIcon is None or QSize is None:
+            raise ModuleNotFoundError("PyQt is required for Qt controls")
 
         # Create a horizontal layout to hold the icon buttons
         hbox = QHBoxLayout()
         self.control_widgets = []
         # Iterate over the ctrl's value range to create buttons with icons
-        for idx, icon_name in enumerate(self.ctrl.value_range):
+        for idx, icon_name in enumerate(self.ctrl.value_range):  # type: ignore[reportArgumentType]
             btn = QPushButton(self)
             # Assuming you have a folder named 'icons' with images named after the ctrl's value range
-            icon_path = str(self.ctrl.icons[idx])
+            icon_path = str(self.ctrl.icons[idx])  # type: ignore[reportOptionalSubscript]
             btn.setIcon(QIcon(icon_path))
             btn.setIconSize(QSize(64, 64))  # Example size, adjust as needed
             # btn.setCheckable(True)  # Making the button checkable if you want to show which one is currently selected
@@ -286,6 +328,10 @@ class DropdownMenuControl(BaseControl):
             raise ValueError("Invalid control type")
 
     def create(self):
+        if self.ctrl.value_range is None:
+            raise ValueError("value_range must be set for DropdownMenuControl")
+        if QHBoxLayout is None or QComboBox is None or QLabel is None:
+            raise ModuleNotFoundError("PyQt is required for Qt controls")
         # Create a horizontal layout to hold the dropdown menu
         hbox = QHBoxLayout()
 
@@ -293,7 +339,8 @@ class DropdownMenuControl(BaseControl):
         self.control_widget = QComboBox(self)
         # Add items from the ctrl's value range to the combo box
         for item in self.ctrl.value_range:
-            self.control_widget.addItem(item)
+            item_str = str(item) if not isinstance(item, str) else item
+            self.control_widget.addItem(item_str)
         self.reset()
 
         # Connect the combo box's value changed signal to some update function if needed
@@ -308,10 +355,16 @@ class DropdownMenuControl(BaseControl):
         # return self.control_widget
 
     def reset(self):
-        index = self.control_widget.findText(self.ctrl.value)
+        if self.control_widget is None:
+            return
+        value = self.ctrl.value
+        value_str = str(value) if not isinstance(value, str) else value
+        index = self.control_widget.findText(value_str)
         if index >= 0:
             self.control_widget.setCurrentIndex(index)
-        self.control_widget.setCurrentIndex(index)
+        else:
+            # If not found, set to first item or 0
+            self.control_widget.setCurrentIndex(0)
 
 
 class PromptControl(BaseControl):
@@ -322,6 +375,8 @@ class PromptControl(BaseControl):
             raise ValueError("value_range must be None for PromptControl")
 
     def create(self):
+        if QHBoxLayout is None or QLineEdit is None or QLabel is None:
+            raise ModuleNotFoundError("PyQt is required for Qt controls")
         # Create a horizontal layout to hold the text prompt
         hbox = QHBoxLayout()
 
@@ -329,8 +384,10 @@ class PromptControl(BaseControl):
         self.control_widget = QLineEdit(self)
 
         # Set the initial value of the text field if it's provided
-        if self.ctrl.value:
-            self.control_widget.setText(self.ctrl.value)
+        value = self.ctrl.value
+        if value:
+            value_str = str(value) if not isinstance(value, str) else value
+            self.control_widget.setText(value_str)
 
         # Connect the textChanged signal to the update function if needed
         self.control_widget.textChanged.connect(partial(self.update_func, self.name))
@@ -349,7 +406,9 @@ class PromptControl(BaseControl):
 
     def reset(self):
         # Reset the text field to the initial value
-        self.control_widget.setText(self.ctrl.value)
+        value = self.ctrl.value
+        value_str = str(value) if not isinstance(value, str) else value
+        self.control_widget.setText(value_str)
 
 
 class TickBoxControl(BaseControl):
@@ -358,6 +417,8 @@ class TickBoxControl(BaseControl):
             raise TypeError(f"Expected bool control type, got {self.ctrl._type}")
 
     def create(self):
+        if QHBoxLayout is None or QCheckBox is None:
+            raise ModuleNotFoundError("PyQt is required for Qt controls")
         hbox = QHBoxLayout()
 
         # Create the checkbox
@@ -375,4 +436,7 @@ class TickBoxControl(BaseControl):
         return hbox
 
     def reset(self):
-        self.control_widget.setChecked(self.ctrl.value)
+        value = self.ctrl.value
+        if not isinstance(value, bool):
+            raise TypeError(f"Expected bool for TickBoxControl value, got {type(value)}")
+        self.control_widget.setChecked(value)

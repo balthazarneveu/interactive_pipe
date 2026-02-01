@@ -84,7 +84,7 @@ if not PYQTVERSION:
 if not PYQTVERSION:
     logging.warning("Cannot import PyQt or PySide - disable backend")
 try:
-    from matplotlib.backends.backend_qtagg import FigureCanvas
+    from matplotlib.backends.backend_qtagg import FigureCanvas  # type: ignore[reportAttributeAccessIssue]
     from matplotlib.figure import Figure
 
     from interactive_pipe.data_objects.curves import Curve, SingleCurve
@@ -92,10 +92,11 @@ try:
 
     MPL_SUPPORT = True
 except ImportError:
+    FigureCanvas = None  # type: ignore[reportAssignmentType]
     logging.warning("No support for Matplotlib widgets for Qt")
 
 
-class CollapsibleBox(QFrame):
+class CollapsibleBox(QFrame if PYQTVERSION else object):  # type: ignore[reportGeneralTypeIssues]
     """Modern collapsible panel with smooth animation and arrow indicator."""
 
     def __init__(self, title="", collapsed=False, parent=None):
@@ -187,7 +188,7 @@ class CollapsibleBox(QFrame):
         self.content_area.setLayout(layout)
 
 
-class DetachedPanelWindow(QWidget):
+class DetachedPanelWindow(QWidget if PYQTVERSION else object):  # type: ignore[reportGeneralTypeIssues]
     """Detached window for rendering a panel separately from the main window."""
 
     def __init__(
@@ -266,12 +267,18 @@ class InteractivePipeQT(InteractivePipeGUI):
             QTimer.singleShot(100, self.audio_player)
 
     def run(self) -> list:
-        if not self.pipeline._PipelineCore__initialized_inputs:
+        if not self.pipeline._PipelineCore__initialized_inputs:  # type: ignore[reportAttributeAccessIssue]
             raise RuntimeError("Did you forget to initialize the pipeline inputs?")
         self.window.refresh()
-        self.app.exec()
+        if self.app is not None:
+            self.app.exec()
         self.custom_end()
-        return self.pipeline.results
+        results = self.pipeline.results
+        if results is None:
+            return []
+        if isinstance(results, tuple):
+            return list(results)
+        return results  # type: ignore[reportReturnType]
 
     def set_default_key_bindings(self):
         self.key_bindings = {
@@ -291,7 +298,8 @@ class InteractivePipeQT(InteractivePipeGUI):
 
     def close(self):
         """close GUI"""
-        self.app.quit()
+        if self.app is not None:
+            self.app.quit()
 
     def reset_parameters(self):
         """reset sliders to default parameters"""
@@ -354,10 +362,10 @@ class InteractivePipeQT(InteractivePipeGUI):
             self.audio_output = QAudioOutput()
             self.player.setAudioOutput(self.audio_output)
             self.audio_output.setVolume(50)
-            self.player.errorChanged.connect(self.handle_audio_error)
+            self.player.errorChanged.connect(self.handle_audio_error)  # type: ignore[reportAttributeAccessIssue]
         else:
-            self.player.setVolume(50)
-            self.player.error.connect(self.handle_audio_error)
+            self.player.setVolume(50)  # type: ignore[reportAttributeAccessIssue]
+            self.player.error.connect(self.handle_audio_error)  # type: ignore[reportAttributeAccessIssue]
         self.pipeline.global_params["__player"] = self.player
         self.pipeline.global_params["__set_audio"] = self.__set_audio
         self.pipeline.global_params["__play"] = self.__play
@@ -379,10 +387,10 @@ class InteractivePipeQT(InteractivePipeGUI):
             raise FileNotFoundError(f"Audio file does not exist: {file_path}")
         media_url = QUrl.fromLocalFile(str(file_path))
         if PYQTVERSION == 6:
-            self.player.setSource(media_url)
+            self.player.setSource(media_url)  # type: ignore[reportAttributeAccessIssue]
         else:
-            content = QMediaContent(media_url)
-            self.player.setMedia(content)
+            content = QMediaContent(media_url)  # type: ignore[reportAssignmentType]
+            self.player.setMedia(content)  # type: ignore[reportAttributeAccessIssue]
             self.player.play()
         self.player.setPosition(0)
 
@@ -396,7 +404,7 @@ class InteractivePipeQT(InteractivePipeGUI):
         self.player.stop()
 
 
-class MainWindow(QWidget, InteractivePipeWindow):
+class MainWindow(QWidget if PYQTVERSION else object, InteractivePipeWindow):  # type: ignore[reportGeneralTypeIssues]
     key_mapping_dict = {
         Qt.Key.Key_Up: KeyboardControl.KEY_UP,
         Qt.Key.Key_Down: KeyboardControl.KEY_DOWN,
@@ -549,7 +557,8 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 logging.debug(f"matched Qt key{mapped_str}")
         if mapped_str is None:
             mapped_str = event.text()
-        self.main_gui.on_press(mapped_str, refresh_func=self.refresh)
+        if self.main_gui is not None:
+            self.main_gui.on_press(mapped_str, refresh_func=self.refresh)  # type: ignore[reportOptionalMemberAccess]
 
     def _build_element_widget(self, element, control_factory: ControlFactory) -> Optional[QWidget]:
         """Build widget for an element (Panel or Control).
@@ -581,11 +590,12 @@ class MainWindow(QWidget, InteractivePipeWindow):
         if panel.elements and isinstance(panel.elements[0], list):
             # Grid layout: list of lists
             layout = QGridLayout()
-            for row_idx, row in enumerate(panel.elements):
-                for col_idx, element in enumerate(row):
-                    widget = self._build_element_widget(element, control_factory)
-                    if widget is not None:
-                        layout.addWidget(widget, row_idx, col_idx)
+            for row_idx, row in enumerate(panel.elements):  # type: ignore[reportArgumentType]
+                if isinstance(row, list):
+                    for col_idx, element in enumerate(row):
+                        widget = self._build_element_widget(element, control_factory)
+                        if widget is not None:
+                            layout.addWidget(widget, row_idx, col_idx)
         elif panel.elements:
             # Vertical layout: flat list
             layout = QVBoxLayout()
@@ -608,7 +618,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
         # Add stretch at the end to push all controls to the top
         # This creates a beautiful, balanced layout with controls at the top
         if isinstance(layout, QVBoxLayout):
-            layout.addStretch()
+            layout.addStretch()  # type: ignore[reportAttributeAccessIssue]
 
         # Create the panel widget (collapsible or regular)
         if panel.collapsible:
@@ -631,7 +641,8 @@ class MainWindow(QWidget, InteractivePipeWindow):
         slider_name = ctrl.name
 
         if isinstance(ctrl, KeyboardControl):
-            self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
+            if self.main_gui is not None:
+                self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)  # type: ignore[reportOptionalMemberAccess]
             return None
         elif isinstance(ctrl, TimeControl):
             self.timer = QTimer(self)
@@ -644,8 +655,14 @@ class MainWindow(QWidget, InteractivePipeWindow):
                     logging.debug("Resume")
                     self.timer.start()
 
-            self.main_gui.suspend_resume_timer = suspend_resume_timer
-            plugged_func = self.main_gui.plug_timer_control(ctrl, self.update_parameter, suspend_resume_timer)
+            if self.main_gui is not None:
+                self.main_gui.suspend_resume_timer = suspend_resume_timer  # type: ignore[reportOptionalMemberAccess]
+                plugged_func = self.main_gui.plug_timer_control(ctrl, self.update_parameter, suspend_resume_timer)  # type: ignore[reportOptionalMemberAccess]
+            else:
+
+                def plugged_func():
+                    pass
+
             self.timer.timeout.connect(plugged_func)
             self.timer.start(ctrl.update_interval_ms)
             return None
@@ -655,8 +672,9 @@ class MainWindow(QWidget, InteractivePipeWindow):
             if slider_instance is None:
                 return None
             if ctrl._type is str and ctrl.icons is not None:
-                ctrl.filter_to_connect.cache = False
-                ctrl.filter_to_connect.cache_mem = None
+                if ctrl.filter_to_connect is not None:
+                    ctrl.filter_to_connect.cache = False  # type: ignore[reportOptionalMemberAccess]
+                    ctrl.filter_to_connect.cache_mem = None  # type: ignore[reportOptionalMemberAccess]
                 # Disable cache for dropdown menu with icons!
                 # Allows clicking on the same item multiple times
             slider_or_layout = slider_instance.create()
@@ -875,7 +893,9 @@ class MainWindow(QWidget, InteractivePipeWindow):
                 )
             h, w, c = image_array.shape
             bytes_per_line = c * w
-            image = QImage(image_array.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+            # Convert numpy array data to bytes for QImage
+            image_bytes = image_array.tobytes()
+            image = QImage(image_bytes, w, h, bytes_per_line, QImage.Format.Format_RGB888)
             pixmap = QPixmap.fromImage(image)
             image_label = self.image_canvas[row][col]["image"]
             image_label.setPixmap(pixmap)
@@ -884,7 +904,7 @@ class MainWindow(QWidget, InteractivePipeWindow):
             txt_label.setText(image_array_original)
         if not isinstance(image_array_original, np.ndarray):
             image_array = image_array_original
-            if MPL_SUPPORT and isinstance(image_array, Curve):
+            if MPL_SUPPORT and isinstance(image_array, Curve) and FigureCanvas is not None:
                 image_label = FigureCanvas(Figure(figsize=(10, 10)))
                 if self.image_canvas[row][col]["ax_placeholder"] is None:
                     ax_placeholder = image_label.figure.subplots()
@@ -898,12 +918,13 @@ class MainWindow(QWidget, InteractivePipeWindow):
                     self.image_canvas[row][col]["ax_placeholder"] = ax_placeholder
                 ax = self.image_canvas[row][col]["ax_placeholder"]
                 plt_obj = self.image_canvas[row][col].get("plot_object", None)
-                if plt_obj is None:
-                    self.image_canvas[row][col]["plot_object"] = image_array.create_plot(ax=ax)
-                else:
-                    image_array.update_plot(plt_obj, ax=ax)
-                    ax.figure.canvas.draw()
-            elif MPL_SUPPORT and isinstance(image_array, Table):
+                if isinstance(image_array, Curve):
+                    if plt_obj is None:
+                        self.image_canvas[row][col]["plot_object"] = image_array.create_plot(ax=ax)  # type: ignore[reportAttributeAccessIssue]
+                    else:
+                        image_array.update_plot(plt_obj, ax=ax)  # type: ignore[reportAttributeAccessIssue]
+                        ax.figure.canvas.draw()
+            elif MPL_SUPPORT and isinstance(image_array, Table) and FigureCanvas is not None:
                 image_label = FigureCanvas(Figure(figsize=(10, 10)))
                 if self.image_canvas[row][col]["ax_placeholder"] is None:
                     ax_placeholder = image_label.figure.subplots()
@@ -917,10 +938,11 @@ class MainWindow(QWidget, InteractivePipeWindow):
                     self.image_canvas[row][col]["ax_placeholder"] = ax_placeholder
                 ax = self.image_canvas[row][col]["ax_placeholder"]
                 table_obj = self.image_canvas[row][col].get("plot_object", None)
-                if table_obj is None:
-                    self.image_canvas[row][col]["plot_object"] = image_array.create_table(ax=ax)
-                else:
-                    image_array.update_table(table_obj, ax=ax)
+                if isinstance(image_array, Table):
+                    if table_obj is None:
+                        self.image_canvas[row][col]["plot_object"] = image_array.create_table(ax=ax)  # type: ignore[reportAttributeAccessIssue]
+                    else:
+                        image_array.update_table(table_obj, ax=ax)  # type: ignore[reportAttributeAccessIssue]
                     ax.figure.canvas.draw()
             elif isinstance(image_array, str):
                 txt_label = self.image_canvas[row][col]["image"]

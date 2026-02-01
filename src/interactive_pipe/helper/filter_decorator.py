@@ -1,6 +1,7 @@
 import functools
 import inspect
 import logging
+from typing import Dict
 
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.headless.control import Control
@@ -17,6 +18,10 @@ class EnhancedFilterCore(FilterCore):
     so you can graphically test a single filter without instantiating a pipeline.
     Internally used by `@interact` decorator.
     """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.controls: Dict[str, Control] = {}
 
     def get_gui(self, gui="auto", output_routing=None, size=None):
         self.inputs = list(range(len(self.signature[0])))
@@ -42,6 +47,8 @@ class EnhancedFilterCore(FilterCore):
         try:
             self.inputs = args
             out = self.run(*args)
+            if out is None:
+                raise ValueError("Filter run returned None, cannot deduce output routing")
             output_routing = [f"output {idx}" for idx in range(len(out))]
             self.outputs = output_routing
         except Exception as exc:

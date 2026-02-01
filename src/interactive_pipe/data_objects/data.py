@@ -22,7 +22,8 @@ class Data:
         if path is not None and not isinstance(path, Path):
             raise TypeError("path must be a Path object or None")
         data_class = cls(None)
-        data_class.load(path, **kwargs)
+        if path is not None:
+            data_class.load(path, **kwargs)
         return data_class
 
     @property
@@ -57,14 +58,16 @@ class Data:
     def _load(self, path: Path, **kwargs) -> Any:
         pass
 
-    def save(self, path: Path = None, override=True, **kwargs):
+    def save(self, path: Optional[Path] = None, override=True, **kwargs):
+        if path is not None and not (override or path is None):
+            path = self.safe_path_with_suffix(path)
         path = self.check_path(
-            path if (override or path is None) else self.safe_path_with_suffix(path),
+            path,
             extensions=self.file_extensions,
         )
         self._save(path, **kwargs)
 
-    def load(self, path: Path = None, **kwargs):
+    def load(self, path: Optional[Path] = None, **kwargs):
         path = self.check_path(path, load=True, extensions=self.file_extensions)
         self.data = self._load(path, **kwargs)
         return self.data
@@ -76,9 +79,10 @@ class Data:
     @staticmethod
     def check_path(path: Optional[Path] = None, load: bool = False, extensions=None) -> Path:
         if path is None:
-            path = Data.prompt_file()
-        if path is None:
-            raise RuntimeError("path cannot be None after prompt")
+            path_str = Data.prompt_file()
+            if path_str is None:
+                raise RuntimeError("path cannot be None after prompt")
+            path = Path(path_str)
         if isinstance(path, str):
             path = Path(path)
         if not isinstance(path, Path):

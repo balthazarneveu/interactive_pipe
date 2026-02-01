@@ -129,6 +129,8 @@ class PipelineEngine:
 
             if skip_calculation and self.cache:
                 logging.debug(f"-->  Load cached outputs from filter {idx}: {prc.name}")
+                if prc.cache_mem is None:
+                    raise RuntimeError(f"Cache memory is None for filter {prc.name}")
                 out = prc.cache_mem.result
                 previous_calculation = False
             else:

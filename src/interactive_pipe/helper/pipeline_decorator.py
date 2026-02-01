@@ -1,7 +1,6 @@
 import functools
-from typing import Callable, Optional, Union
+from typing import Any, Callable, Optional, Union
 
-from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
 
@@ -24,13 +23,13 @@ def interactive_pipeline(
     markdown_description: Optional[str] = None,
     name: Optional[str] = None,
     **kwargs_gui,
-) -> Union[HeadlessPipeline, InteractivePipeGUI]:
+) -> Callable[[Callable[..., Any]], Union[HeadlessPipeline, Callable[..., Any]]]:
     """@interactive_pipeline
 
     Function decorator to add some controls @interactive_pipeline
     """
 
-    def wrapper(pipeline_function):
+    def wrapper(pipeline_function: Callable[..., Any]) -> Union[HeadlessPipeline, Callable[..., Any]]:
         headless_pipeline = HeadlessPipeline.from_function(
             pipeline_function,
             safe_input_buffer_deepcopy=safe_input_buffer_deepcopy,
@@ -56,7 +55,7 @@ def interactive_pipeline(
             )
 
         @functools.wraps(pipeline_function)
-        def inner(*args, **kwargs):
+        def inner(*args: Any, **kwargs: Any) -> Any:
             return gui_pipeline.__call__(*args, **kwargs)
 
         return inner

@@ -77,7 +77,7 @@ class PipelineCore:
         for filter in self.filters:
             filter.reset_cache()
 
-    def run(self) -> list:
+    def run(self) -> dict:
         """Useful for standalone python access without gui or disk write"""
         # Set user context before running pipeline
         _set_user_context(self._user_context)

@@ -28,7 +28,9 @@ class BaseControl:
         self.name = name
         self.ctrl = ctrl
         self.control_widget = None
-        self.layout = Layout(width="500px")
+        if Layout is None:
+            raise ModuleNotFoundError("ipywidgets is required for notebook controls")
+        self.layout = Layout(width="500px")  # type: ignore[reportOptionalCall]
         self.check_control_type()
 
     def create(self):
@@ -46,10 +48,14 @@ class IntSliderNotebookControl(BaseControl):
     def create(self):
         if not IPYWIDGETS_AVAILABLE:
             raise ModuleNotFoundError("ipywidgets is required for notebook controls")
+        if IntSlider is None:
+            raise ModuleNotFoundError("ipywidgets is required for notebook controls")
+        if self.ctrl.value_range is None:
+            raise ValueError("value_range must be set for IntSliderNotebookControl")
         style = {"description_width": "initial"}
-        return IntSlider(
-            min=self.ctrl.value_range[0],
-            max=self.ctrl.value_range[1],
+        return IntSlider(  # type: ignore[reportOptionalCall]
+            min=self.ctrl.value_range[0],  # type: ignore[reportOptionalSubscript]
+            max=self.ctrl.value_range[1],  # type: ignore[reportOptionalSubscript]
             value=self.ctrl.value_default,
             style=style,
             layout=self.layout,
@@ -65,10 +71,14 @@ class FloatSliderNotebookControl(BaseControl):
     def create(self):
         if not IPYWIDGETS_AVAILABLE:
             raise ModuleNotFoundError("ipywidgets is required for notebook controls")
+        if FloatSlider is None:
+            raise ModuleNotFoundError("ipywidgets is required for notebook controls")
+        if self.ctrl.value_range is None:
+            raise ValueError("value_range must be set for FloatSliderNotebookControl")
         style = {"description_width": "initial"}
-        return FloatSlider(
-            min=self.ctrl.value_range[0],
-            max=self.ctrl.value_range[1],
+        return FloatSlider(  # type: ignore[reportOptionalCall]
+            min=self.ctrl.value_range[0],  # type: ignore[reportOptionalSubscript]
+            max=self.ctrl.value_range[1],  # type: ignore[reportOptionalSubscript]
             value=self.ctrl.value_default,
             style=style,
             layout=self.layout,
@@ -84,7 +94,9 @@ class BoolCheckButtonNotebookControl(BaseControl):
     def create(self):
         if not IPYWIDGETS_AVAILABLE:
             raise ModuleNotFoundError("ipywidgets is required for notebook controls")
-        checks = Checkbox(self.ctrl.value_default, layout=self.layout, tooltip=self.ctrl.tooltip)
+        if Checkbox is None:
+            raise ModuleNotFoundError("ipywidgets is required for notebook controls")
+        checks = Checkbox(self.ctrl.value_default, layout=self.layout, tooltip=self.ctrl.tooltip)  # type: ignore[reportOptionalCall]
         return checks
 
 
@@ -96,8 +108,12 @@ class DialogNotebookControl(BaseControl):
     def create(self):
         if not IPYWIDGETS_AVAILABLE:
             raise ModuleNotFoundError("ipywidgets is required for notebook controls")
+        if Dropdown is None:
+            raise ModuleNotFoundError("ipywidgets is required for notebook controls")
+        if self.ctrl.value_range is None:
+            raise ValueError("value_range must be set for DialogNotebookControl")
         options = self.ctrl.value_range
-        dropdown = Dropdown(
+        dropdown = Dropdown(  # type: ignore[reportOptionalCall]
             options=options,
             description=self.name,
             layout=self.layout,
@@ -116,7 +132,9 @@ class PromptNotebookControl(BaseControl):
     def create(self):
         if not IPYWIDGETS_AVAILABLE:
             raise ModuleNotFoundError("ipywidgets is required for notebook controls")
-        text_box = Text(
+        if Text is None:
+            raise ModuleNotFoundError("ipywidgets is required for notebook controls")
+        text_box = Text(  # type: ignore[reportOptionalCall]
             value=self.ctrl.value,
             description=self.name,
             layout=self.layout,

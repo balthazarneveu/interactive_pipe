@@ -84,6 +84,7 @@ pythonVersion = "3.9"
 typeCheckingMode = "basic"
 include = ["src"]
 exclude = ["**/venv/**", "**/__pycache__/**", "test/**"]
+reportMissingImports = "none"  # Qt libs and other optional dependencies
 reportMissingTypeStubs = false
 reportUnknownMemberType = false
 reportUnknownArgumentType = false

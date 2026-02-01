@@ -1,8 +1,9 @@
 from typing import Optional
 
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
 from interactive_pipe.data_objects.curves import Curve
 from interactive_pipe.data_objects.table import Table
@@ -36,13 +37,18 @@ class MatplotlibWindow(InteractivePipeWindow):
         """
         super().__init__(self, size=size, pipeline=pipeline, name=name)
         self.controls = controls
+        self.fig: Optional[Figure] = None  # Will be set by subclasses like MainWindow
         if style is not None:
-            mpl.style.use(style)
+            plt.style.use(style)
         if rc_params is not None:
             for key, val in rc_params.items():
                 plt.rcParams[key] = val
 
     def add_image_placeholder(self, row, col):
+        if self.fig is None:
+            raise RuntimeError("Figure not initialized. Subclasses must set self.fig")
+        if self.image_canvas is None:
+            raise RuntimeError("Image canvas not initialized")
         nrows, ncols = np.array(self.image_canvas).shape
         ax_img = self.fig.add_subplot(nrows, ncols, row * ncols + col + 1)
         self.image_canvas[row][col] = {"ax": ax_img}
@@ -51,7 +57,7 @@ class MatplotlibWindow(InteractivePipeWindow):
         ax["ax"].remove()
         self.need_redraw = True
 
-    def update_style(self, ax: plt.Axes, style: Optional[dict] = None):
+    def update_style(self, ax: Axes, style: Optional[dict] = None):
         if style is None:
             return
         style = style or {}
@@ -66,6 +72,8 @@ class MatplotlibWindow(InteractivePipeWindow):
             ax.set_ylabel(ylabel)
 
     def update_image(self, image_array, row, col):
+        if self.image_canvas is None:
+            raise RuntimeError("Image canvas not initialized")
         ax_dict = self.image_canvas[row][col]
         img = self.convert_image(image_array)
         current_style = self.get_current_style(row, col)
@@ -87,7 +95,7 @@ class MatplotlibWindow(InteractivePipeWindow):
                 if len(img.shape) > 1:
                     ax_dict["data"] = ax_dict["ax"].imshow(img)
                 elif len(img.shape) == 1:
-                    ax_dict["data"] = Curve([img]).create_plot(ax=ax_dict["ax"])
+                    ax_dict["data"] = Curve([img]).create_plot(ax=ax_dict["ax"])  # type: ignore[reportArgumentType]
             elif isinstance(img, Curve):
                 ax_dict["data"] = img.create_plot(ax=ax_dict["ax"])
             elif isinstance(img, Table):

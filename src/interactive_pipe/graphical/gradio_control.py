@@ -64,13 +64,20 @@ class IntSliderControl(BaseControl):
         if self.ctrl._type is not int:
             raise TypeError(f"Expected int control type, got {self.ctrl._type}")
 
-    def create(self) -> "gr.Slider":
+    def create(self) -> "gr.Slider":  # type: ignore[reportInvalidTypeForm]
         if not GRADIO_AVAILABLE:
             raise ModuleNotFoundError("gradio is required for Gradio controls")
-        self.control_widget = gr.Slider(
-            value=self.ctrl.value_default,
-            minimum=self.ctrl.value_range[0],
-            maximum=self.ctrl.value_range[1],
+        if gr is None:
+            raise ModuleNotFoundError("gradio is required for Gradio controls")
+        if self.ctrl.value_range is None:
+            raise ValueError("value_range must be set for IntSliderControl")
+        value_default = self.ctrl.value_default
+        if not isinstance(value_default, (int, float)):
+            raise TypeError(f"Expected int or float for IntSliderControl, got {type(value_default)}")
+        self.control_widget = gr.Slider(  # type: ignore[reportOptionalMemberAccess]
+            value=float(value_default),
+            minimum=float(self.ctrl.value_range[0]),  # type: ignore[reportOptionalSubscript]
+            maximum=float(self.ctrl.value_range[1]),  # type: ignore[reportOptionalSubscript]
             label=self.name,
             step=1,
             info=self.ctrl.tooltip,
@@ -83,13 +90,20 @@ class FloatSliderControl(BaseControl):
         if self.ctrl._type is not float:
             raise TypeError(f"Expected float control type, got {self.ctrl._type}")
 
-    def create(self) -> "gr.Slider":
+    def create(self) -> "gr.Slider":  # type: ignore[reportInvalidTypeForm]
         if not GRADIO_AVAILABLE:
             raise ModuleNotFoundError("gradio is required for Gradio controls")
-        self.control_widget = gr.Slider(
-            value=self.ctrl.value_default,
-            minimum=self.ctrl.value_range[0],
-            maximum=self.ctrl.value_range[1],
+        if gr is None:
+            raise ModuleNotFoundError("gradio is required for Gradio controls")
+        if self.ctrl.value_range is None:
+            raise ValueError("value_range must be set for FloatSliderControl")
+        value_default = self.ctrl.value_default
+        if not isinstance(value_default, (int, float)):
+            raise TypeError(f"Expected int or float for FloatSliderControl, got {type(value_default)}")
+        self.control_widget = gr.Slider(  # type: ignore[reportOptionalMemberAccess]
+            value=float(value_default),
+            minimum=float(self.ctrl.value_range[0]),  # type: ignore[reportOptionalSubscript]
+            maximum=float(self.ctrl.value_range[1]),  # type: ignore[reportOptionalSubscript]
             label=self.name,
             info=self.ctrl.tooltip,
         )
@@ -102,14 +116,21 @@ class TickBoxControl(BaseControl):
         if self.ctrl._type is not bool:
             raise TypeError(f"Expected bool control type, got {self.ctrl._type}")
 
-    def create(self) -> "gr.Checkbox":
+    def create(self) -> "gr.Checkbox":  # type: ignore[reportInvalidTypeForm]
         if not GRADIO_AVAILABLE:
             raise ModuleNotFoundError("gradio is required for Gradio controls")
-        self.control_widget = gr.Checkbox(label=self.name, value=self.ctrl.value, info=self.ctrl.tooltip)
+        if gr is None:
+            raise ModuleNotFoundError("gradio is required for Gradio controls")
+        value = self.ctrl.value
+        if not isinstance(value, bool):
+            raise TypeError(f"Expected bool for TickBoxControl, got {type(value)}")
+        self.control_widget = gr.Checkbox(  # type: ignore[reportOptionalMemberAccess]
+            label=self.name, value=value, info=self.ctrl.tooltip
+        )
         return self.control_widget
 
     def reset(self):
-        self.control_widget.update(value=self.ctrl.default_value)
+        self.control_widget.update(value=self.ctrl.value_default)  # type: ignore[reportAttributeAccessIssue]
 
 
 class DropdownMenuControl(BaseControl):
@@ -119,10 +140,14 @@ class DropdownMenuControl(BaseControl):
         if not hasattr(self.ctrl, "value_range"):
             raise ValueError("Invalid control type")
 
-    def create(self) -> "gr.Dropdown":
+    def create(self) -> "gr.Dropdown":  # type: ignore[reportInvalidTypeForm]
         if not GRADIO_AVAILABLE:
             raise ModuleNotFoundError("gradio is required for Gradio controls")
-        self.control_widget = gr.Dropdown(
+        if gr is None:
+            raise ModuleNotFoundError("gradio is required for Gradio controls")
+        if self.ctrl.value_range is None:
+            raise ValueError("value_range must be set for DropdownMenuControl")
+        self.control_widget = gr.Dropdown(  # type: ignore[reportOptionalMemberAccess]
             label=self.name,
             choices=self.ctrl.value_range,
             value=self.ctrl.value,
@@ -138,10 +163,17 @@ class PromptControl(BaseControl):
         if self.ctrl.value_range is not None:
             raise ValueError("value_range must be None for PromptControl")
 
-    def create(self) -> "gr.Text":
+    def create(self) -> "gr.Text":  # type: ignore[reportInvalidTypeForm]
         if not GRADIO_AVAILABLE:
             raise ModuleNotFoundError("gradio is required for Gradio controls")
-        self.control_widget = gr.Text(label=self.name, value=self.ctrl.value, info=self.ctrl.tooltip)
+        if gr is None:
+            raise ModuleNotFoundError("gradio is required for Gradio controls")
+        value = self.ctrl.value
+        if not isinstance(value, str):
+            raise TypeError(f"Expected str for PromptControl, got {type(value)}")
+        self.control_widget = gr.Text(  # type: ignore[reportOptionalMemberAccess]
+            label=self.name, value=value, info=self.ctrl.tooltip
+        )
         return self.control_widget
 
 
@@ -152,12 +184,18 @@ class IconButtonsControl(BaseControl):
         if not hasattr(self.ctrl, "value_range"):
             raise ValueError("Invalid control type")
 
-    def create(self) -> "gr.Radio":
+    def create(self) -> "gr.Radio":  # type: ignore[reportInvalidTypeForm]
         if not GRADIO_AVAILABLE:
             raise ModuleNotFoundError("gradio is required for Gradio controls")
+        if gr is None:
+            raise ModuleNotFoundError("gradio is required for Gradio controls")
+        if self.ctrl.icons is None:
+            raise ValueError("icons must be set for IconButtonsControl")
+        if self.ctrl.value_range is None:
+            raise ValueError("value_range must be set for IconButtonsControl")
         self.control_widget = []
-        for idx, icon in enumerate(self.ctrl.icons):
+        for idx, icon in enumerate(self.ctrl.icons):  # type: ignore[reportArgumentType]
             # text = self.ctrl.value_range[idx]
             text = ""
-            self.control_widget.append(gr.Button(text, icon=self.ctrl.icons[idx]))
+            self.control_widget.append(gr.Button(text, icon=self.ctrl.icons[idx]))  # type: ignore[reportOptionalMemberAccess,reportOptionalSubscript]
         return self.control_widget

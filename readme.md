@@ -458,30 +458,44 @@ def bad_processing_block(inp):
 
 #### Code quality checks
 
-Before committing, ensure your code passes the linters and tests. The CI runs these checks automatically:
+Before committing, ensure your code passes the linters, type checker, and tests. The CI runs these checks automatically:
 
 **What CI does:**
-- **Black formatting check** (`.github/workflows/formatting.yaml`): Runs `black --check` to verify code formatting
-- **Flake8 linting** (`.github/workflows/flake8.yaml`): Runs `flake8` to check code quality
+- **Ruff formatting check** (`.github/workflows/ruff-format.yaml`): Runs `ruff format --check` to verify code formatting
+- **Ruff linting** (`.github/workflows/ruff-lint.yaml`): Runs `ruff check` to check code quality (replaces flake8)
+- **Pyright type checking** (`.github/workflows/pyright.yaml`): Runs `pyright` for static type checking (informational, non-blocking)
 - **Pytest tests** (`.github/workflows/pytest.yaml`): Runs `pytest` on Python 3.9, 3.10, and 3.11
 
 **Local commands (match CI):**
 
 ```bash
-# Install linting tools and test dependencies
-pip install black flake8
-pip install -e ".[pytest]"
+# Install development tools and test dependencies
+pip install -e ".[dev,pytest]"
 
-# Check code formatting (Black) - matches CI
-black --check .
+# Format code (Ruff) - matches CI
+ruff format .
 
-# Auto-format code (Black) - run this if check fails
-black .
+# Check formatting (Ruff) - matches CI
+ruff format --check .
 
-# Run linting checks (flake8) - matches CI
-flake8 .
+# Lint code (Ruff) - matches CI (auto-fixes when possible)
+ruff check .
+
+# Auto-fix linting issues (Ruff)
+ruff check --fix .
+
+# Type check (Pyright) - matches CI (informational)
+pyright src/
 
 # Run tests (pytest) - matches CI
 pytest
+
+# Pre-commit checklist (run all before committing)
+ruff format .
+ruff check --fix .
+pyright src/  # Optional, won't block commit
+pytest
 ```
+
+**Note:** Ruff replaces both Black (formatting) and Flake8 (linting) in a single, faster tool. Pyright provides static type checking to catch type errors early.
 

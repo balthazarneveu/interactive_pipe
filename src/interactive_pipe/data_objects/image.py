@@ -104,7 +104,9 @@ class Image(Data):
     @staticmethod
     def load_image_cv2(path: Path, precision=8) -> np.ndarray:
         img = cv2.imread(str(path))
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        if img is None:
+            raise ValueError(f"Could not load image from {path}")
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # type: ignore
         return Image.normalize_dynamic(img, precision=precision)
 
     @staticmethod
@@ -120,8 +122,10 @@ class Image(Data):
             raise ValueError(f"backend must be one of {IMAGE_BACKENDS}, got {backend}")
         if backend == IMAGE_BACKEND_OPENCV:
             return Image.load_image_cv2(path)
-        if backend == IMAGE_BACKEND_PILLOW:
+        elif backend == IMAGE_BACKEND_PILLOW:
             return Image.load_image_PIL(path, precision)
+        else:
+            raise ValueError(f"Unknown backend: {backend}")
 
     def show(self):
         plt.figure()

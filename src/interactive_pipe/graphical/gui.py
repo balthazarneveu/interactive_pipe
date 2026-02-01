@@ -1,6 +1,7 @@
 import logging
 import time
 from functools import partial
+from pathlib import Path
 from typing import Callable, List, Optional
 
 from interactive_pipe.data_objects.image import Image
@@ -43,6 +44,8 @@ class InteractivePipeGUI:
     ) -> None:
         if controls is None:
             controls = []
+        if pipeline is None:
+            raise ValueError("pipeline must be provided")
         self.pipeline = pipeline
         self.custom_end = custom_end
         self.audio = audio
@@ -83,12 +86,12 @@ class InteractivePipeGUI:
         """
         raise NotImplementedError
 
-    def __call__(self, *args, parameters=None, **kwargs) -> None:
+    def __call__(self, *args, parameters=None, **kwargs) -> list:
         if parameters is None:
             parameters = {}
         self.pipeline.parameters = parameters
         self.pipeline.parameters = self.pipeline.parameters_from_keyword_args(**kwargs)
-        self.pipeline.inputs = args
+        self.pipeline.inputs = list(args)
         results = self.run()
         return results
 
@@ -119,7 +122,8 @@ class InteractivePipeGUI:
                 is_any_event_triggered = True
         if is_any_event_triggered:
             self.pipeline.reset_cache()
-            refresh_func()
+            if refresh_func is not None:
+                refresh_func()
         self.reset_context_events()
 
     def bind_keyboard_slider(self, ctrl: KeyboardControl, key_update_parameter_func: Callable):
@@ -203,7 +207,7 @@ class InteractivePipeGUI:
 
     def load_parameters(self):
         """import parameters dictionary from a yaml/json file on disk"""
-        pth = Parameters.check_path(Parameters.prompt_file())
+        pth = Parameters.check_path(Path(Parameters.prompt_file()))
         self.pipeline.import_tuning(pth)
 
     def print_parameters(self):
@@ -212,7 +216,7 @@ class InteractivePipeGUI:
 
     def save_images(self):
         """save images to disk"""
-        pth = Image.check_path(Image.prompt_file(), load=False)
+        pth = Image.check_path(Path(Image.prompt_file()), load=False)
         self.pipeline.save(pth, data_wrapper_fn=lambda im: Image(im), save_entire_buffer=True)
 
     def display_graph(self):
