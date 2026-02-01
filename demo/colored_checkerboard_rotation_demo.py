@@ -204,7 +204,7 @@ def add_interactivity():
     # Create panels for grouping controls
     checkerboard_panel = Panel("Checkerboard", collapsible=True, collapsed=True)
     affine_panel = Panel("Affine Transform", collapsible=True, collapsed=False)
-    color_panel = Panel("Color", collapsible=True, collapsed=False)
+    color_panel = Panel("Color", collapsible=True, collapsed=False, position="right")
 
     # Checkerboard controls
     interactive(

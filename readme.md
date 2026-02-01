@@ -57,13 +57,10 @@ pip install -e ".[full]"
 
 
 ----------------------
-## 📜  Terminology
-
-![interactive_pipe_concept](static/interact-pipe-concept.svg)
 
 ## 📜  Features
 
-**Version 0.8.8**
+**Version 0.8.9**
 - Modular multi-image processing filters
 - Declarative: Easily make graphical user interface without having to learn anything about pyQt or matplotlib
 - Support in jupyter notebooks
@@ -113,11 +110,12 @@ Shortcuts while using the GUI (QT & matplotlib backends)
 | Backend name | `qt`  | `mpl`  | `nb`| `gradio` |
 | Preview | ![qt backend](/doc/images/qt_backend.jpg)   | ![mpl backend](/doc/images/mpl_backend.jpg)    |  ![nb backend](/doc/images/notebook_backend.jpg)  | ![mpl backend](/doc/images/gradio_backend.jpg)| 
 | Plot curves | ✅ | ✅ |   ✅ | ✅|
-| Auto refreshed layout | ✅ | ✅ |   ✅ | ➖ |
+| Change layout | ✅ | ✅ |   ✅ | ➖ |
 | Keyboard shortcuts / fullscreen| ✅ | ✅ |  ➖ | ➖ |
 | Audio support | ✅ | ➖ |  ➖ | ✅ |
 | Image buttons| ✅ | ➖ |  ➖ | ➖ | 
-| Circular slider| ✅ | ➖ |  ➖ | ➖ | 
+| Circular slider| ✅ | ➖ |  ➖ | ➖ |
+| Collapsible Panels | ✅ | ➖ |  ➖ | ✅ |
 
 
 

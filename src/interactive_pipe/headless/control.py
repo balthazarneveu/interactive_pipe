@@ -147,6 +147,9 @@ class Control:
     def check_value(self, value):
         if isinstance(value, int) and self._type is float:
             value = float(value)
+        elif isinstance(value, float) and self._type is int:
+            # Convert float to int (e.g., from matplotlib sliders that return floats)
+            value = int(round(value))
         if self._type is not None and not isinstance(value, self._type):
             raise TypeError(f"Expected {self._type}, got {type(value)}")
         if isinstance(value, (float, int)) and self.value_range is not None:

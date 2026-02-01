@@ -1,7 +1,7 @@
 import logging
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union, cast
 
 import numpy as np
 
@@ -864,13 +864,16 @@ class MainWindow(QWidget if PYQTVERSION else object, InteractivePipeWindow):  # 
             )
             logging.warning("We'll try to display the audio signal as an image instead")
             image_array_original = Curve(
-                [
-                    SingleCurve(
-                        # x=np.linspace(0, image_array_original.shape[0]/44100, image_array_original.shape[0]),
-                        y=image_array_original,
-                        # style="k"
-                    )
-                ],
+                cast(
+                    List[Union[SingleCurve, list, tuple, dict, np.ndarray]],
+                    [
+                        SingleCurve(
+                            # x=np.linspace(0, image_array_original.shape[0]/44100, image_array_original.shape[0]),
+                            y=image_array_original,
+                            # style="k"
+                        )
+                    ],
+                ),
                 # xlabel="Time[s]",
                 ylabel="Amplitude",
             )

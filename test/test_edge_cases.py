@@ -182,6 +182,18 @@ class TestTypeCoercion:
         assert isinstance(control.value, float)
         assert control.value == 7.0
 
+    def test_control_float_to_int_conversion(self):
+        """Test float to int conversion in Control.check_value (e.g., from matplotlib sliders)"""
+        control = Control(value_default=5, value_range=[0, 10])
+        # Setting float value should convert to int
+        control.value = 7.0  # float
+        assert isinstance(control.value, int)
+        assert control.value == 7
+        # Test with non-integer float (should round)
+        control.value = 7.6  # float
+        assert isinstance(control.value, int)
+        assert control.value == 8
+
     def test_data_string_to_path_conversion(self):
         """Test string to Path conversion in Data.check_path"""
         # check_path should convert string to Path

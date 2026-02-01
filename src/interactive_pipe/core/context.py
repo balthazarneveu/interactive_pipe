@@ -9,7 +9,7 @@ Internal implementation uses contextvars to maintain separate framework and user
 """
 
 from contextvars import ContextVar
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 # ============================================================================
 # Internal Context Variables (not exported)
@@ -94,21 +94,25 @@ class _LayoutProxy:
 
         state["__output_styles"][name] = style
 
-    def grid(self, arrangement: List[List[str]]) -> None:
+    def grid(self, arrangement: Union[List[str], List[List[str]]]) -> None:
         """Set the output grid layout.
 
         Args:
-            arrangement: 2D list of output names defining the grid arrangement
+            arrangement: Either a flat list of output names (treated as a single row)
+                        or a 2D list of output names defining the grid arrangement
 
         Example:
+            # Single row (flat list)
+            layout.grid(["img1", "img2", "img3"])
+
+            # Single row (nested list - equivalent to above)
+            layout.grid([["img1", "img2", "img3"]])
+
             # 2x2 grid
             layout.grid([
                 ["original", "processed"],
                 ["histogram", "stats"]
             ])
-
-            # Single row (can also use layout.row())
-            layout.grid([["img1", "img2", "img3"]])
 
         Raises:
             RuntimeError: If called outside of filter execution context.
@@ -116,6 +120,9 @@ class _LayoutProxy:
         state = _get_framework_state()
         pipeline = state.get("__pipeline")
         if pipeline is not None:
+            # Convert flat list to nested list (single row)
+            if arrangement and isinstance(arrangement[0], str):
+                arrangement = [arrangement]  # type: ignore[list-item]
             pipeline.outputs = arrangement
 
     def row(self, outputs: List[str]) -> None:

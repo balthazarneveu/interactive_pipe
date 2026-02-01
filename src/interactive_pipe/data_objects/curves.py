@@ -239,13 +239,20 @@ class Curve(Data):
 
     def __init__(
         self,
-        curves: List[SingleCurve],
+        curves: Union[
+            None,
+            SingleCurve,
+            np.ndarray,
+            dict,
+            List[Union[SingleCurve, list, tuple, dict, np.ndarray]],
+            Tuple[Union[SingleCurve, list, tuple, dict, np.ndarray], ...],
+        ],
         xlabel: Optional[str] = None,
         ylabel: Optional[str] = None,
         title: Optional[str] = None,
         grid: Optional[bool] = None,
-        xlim: Optional[Tuple[int, int]] = None,
-        ylim: Optional[Tuple[int, int]] = None,
+        xlim: Optional[Tuple[Union[int, float], Union[int, float]]] = None,
+        ylim: Optional[Tuple[Union[int, float], Union[int, float]]] = None,
     ) -> None:
         if curves is None:
             curve_list = []
@@ -331,19 +338,19 @@ class Curve(Data):
     # .xlim / .ylim
     # ---------------------------------------
     @property
-    def xlim(self) -> Tuple[int, int]:
+    def xlim(self) -> Optional[Tuple[Union[int, float], Union[int, float]]]:
         return self.data["xlim"]
 
     @xlim.setter
-    def xlim(self, xlim: Tuple[int, int]):
+    def xlim(self, xlim: Optional[Tuple[Union[int, float], Union[int, float]]]):
         self.data["xlim"] = xlim
 
     @property
-    def ylim(self) -> Tuple[int, int]:
+    def ylim(self) -> Optional[Tuple[Union[int, float], Union[int, float]]]:
         return self.data["ylim"]
 
     @ylim.setter
-    def ylim(self, ylim: Tuple[int, int]):
+    def ylim(self, ylim: Optional[Tuple[Union[int, float], Union[int, float]]]):
         self.data["ylim"] = ylim
 
     # .xlabel / .ylabel

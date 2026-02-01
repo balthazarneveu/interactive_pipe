@@ -189,6 +189,38 @@ def test_layout_grid_sets_pipeline_outputs():
     assert pipeline.global_params.get("layout_was_set") is True
 
 
+def test_layout_grid_accepts_flat_list():
+    """Test that layout.grid() accepts a flat list and converts it to a single row."""
+
+    @interactive()
+    def test_filter(img, global_params={}):
+        layout.grid(["img1", "img2", "img3"])
+        global_params["layout_was_set"] = True
+        return img, img * 0.5, img * 0.25
+
+    img = np.ones((10, 10, 3))
+    filter_obj = FilterCore(
+        apply_fn=test_filter,
+        inputs=[0],
+        outputs=["img1", "img2", "img3"],
+    )
+
+    pipeline = PipelineCore(
+        filters=[filter_obj],
+        inputs=[0],
+        outputs=[["img1"]],  # Initial value
+        cache=False,
+    )
+    # Need to set __pipeline so layout.grid can access it
+    pipeline.global_params["__pipeline"] = pipeline
+    pipeline.inputs = [img]
+    pipeline.run()
+
+    # Check that flat list was converted to nested list (single row)
+    assert pipeline.outputs == [["img1", "img2", "img3"]]
+    assert pipeline.global_params.get("layout_was_set") is True
+
+
 def test_layout_row_sets_single_row_layout():
     """Test that layout.row() creates a single-row layout."""
 

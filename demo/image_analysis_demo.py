@@ -113,7 +113,7 @@ def extract_profile(
         ],
         xlabel=("Position [pixels]" if profile_direction != "diagonal" else "Distance [pixels]"),
         ylabel="Intensity",
-        ylim=[0.0, 1.0],
+        ylim=(0.0, 1.0),
         grid=True,
         title=f"Image Profile ({profile_direction})",
     )
@@ -163,7 +163,7 @@ def compute_histogram(
         ],
         xlabel="Pixel Intensity",
         ylabel="Normalized Frequency",
-        ylim=[0.0, 1.0],
+        ylim=(0.0, 1.0),
         grid=True,
         title=f"Image Histogram ({num_bins} bins)",
     )
@@ -173,11 +173,22 @@ def compute_histogram(
     return curve
 
 
+@interactive(
+    layout_mode=Control("horizontal", ["horizontal", "vertical"]),
+)
+def change_layout(layout_mode: str = "horizontal") -> None:
+    if layout_mode == "horizontal":
+        layout.grid(["image", "profile", "histogram"])
+    elif layout_mode == "vertical":
+        layout.grid([["image"], ["profile"], ["histogram"]])
+
+
 def image_analysis_pipeline():
     """Main pipeline function showcasing image with dependent curves"""
     image = generate_image()
     profile = extract_profile(image)
     histogram = compute_histogram(image)
+    change_layout()
     return [image, profile, histogram]
 
 
