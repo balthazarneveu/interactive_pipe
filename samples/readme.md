@@ -65,7 +65,7 @@ if __name__ == '__main__':
     sample_pipeline(input_image)
 
 ```
-:heart: This code shall display you a GUI with three images. The middle one is the result of the blend
+❤️ This code shall display you a GUI with three images. The middle one is the result of the blend
 
 > Note: If you write `def blend(img0, img1, blend_coeff=0.5):`, blend_coeff will simply not be a slider on the GUI no more.
 
@@ -148,7 +148,7 @@ So let's define 3 very simple image processing functions: `exposure`, `black_and
 
 
 
-:eyeglasses: Note that the blend function will process two buffers (interactive pipe is a multi input/output processing framework, not just single image filters)
+👓 Note that the blend function will process two buffers (interactive pipe is a multi input/output processing framework, not just single image filters)
 
 Let's create a first file `image_filters.py` , this is what you should consider as your **library** for the sake of the example here.
 ```python
@@ -198,7 +198,7 @@ if __name__ == '__main__':
 ```
 
 > If we want to change the parameters manually, we'll have to provide each keyword parameter to each function and the code will be much more difficult to read unfortunately
-:warning:  Let's simply not do that, jump to the next section to see how interactive pipe will help you
+⚠️  Let's simply not do that, jump to the next section to see how interactive pipe will help you
 ```python
 # Do not do this! 
 # The code gets ugly 
@@ -256,7 +256,7 @@ print(blended)
 # [[[0.  0.5 0.8]]]
 ```
 
-:fire: Now come some handy features of the `interactive_pipe`. *(you have to remember the ugly `ugly_verbose_pipeline` where all parameters had to be repeated manually.)*
+🔥 Now come some handy features of the `interactive_pipe`. *(you have to remember the ugly `ugly_verbose_pipeline` where all parameters had to be repeated manually.)*
 ```python
 exposed, blended, bnw_image = sample_pipeline(input_image, bnw=True, blend_coeff=0.5)
 print(bnw_image, blended)

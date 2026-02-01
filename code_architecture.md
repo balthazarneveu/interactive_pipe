@@ -1,9 +1,9 @@
 # Code architecture
 The following document allows you to understand how the `interactive_pipe` library is designed if you want to dig in or contribute to it.
 
-:soon: This logo means some feature are coming in the near future.
+🔜 This logo means some feature are coming in the near future.
 
-:warning: Undocumented decorators as there may still be some changes. 
+⚠️ Undocumented decorators as there may still be some changes. 
 
 # High level view
 
@@ -16,11 +16,11 @@ The following document allows you to understand how the `interactive_pipe` libra
 - **headless**: *Adds I/O features & keyboard interations & useful helpers to simplify things*
     - **These classes are supposed to simplify pipeline declaration & allow you to control the pipeline from a terminal (like a server without screen or X11 forwarding).**
     - parameters variation range can be defined with `Controls`
-    - :keyboard: add keyboard controls
-    - :floppy_disk: allow loading/saving images & parameters from/to disk
+    - ⌨️ add keyboard controls
+    - 💾 allow loading/saving images & parameters from/to disk
 
 - **graphical**: *Adds a GUI to headless pipeline*
-    - **:computer: Requires a computer screen or a remote machine  with X11 forwarding.**
+    - **💻 Requires a computer screen or a remote machine  with X11 forwarding.**
     - Supports `qt` (pyqt or pyside), `mpl` (matplotlib), `nb` (jupyter notebooks) backends
 ## Core
 Core of the library to define pure pipeline processings & parameters controls in a class oriented fashion.
@@ -75,7 +75,7 @@ An example using the core: [object_oriented_pipeline_declarations.py](/samples/o
     - Adds a `.cache_mem` instance of `CachedResults` to store the result of previous execution.
     - *Note that cached update check (StateChange) is not actually used inside the run function.* It comes at the pipeline level. For some simple reason: the filter could check if the parameters have been updated... but it's far more difficult to check if the input changed when executing (without recomputing a hash every time which can be burdensome). In a pipeline scenario: the most elegant way is to inform the current filter instance that its inputs have been modified by previous filters... simply if previous filters have updated their results...
 
-Tests: [:test_tube: test_filter.py](/test/test_filter.py)  [:test_tube: test_core.py](/test/test_core.py)
+Tests: [🧪 test_filter.py](/test/test_filter.py)  [🧪 test_core.py](/test/test_core.py)
 
 ### [`cache.py`](/src/interactive_pipe/core/cache.py)
 - `CachedResults`: helper class to store the results of a Filter. 
@@ -87,7 +87,7 @@ Tests: [:test_tube: test_filter.py](/test/test_filter.py)  [:test_tube: test_cor
     - Please note that if you use `safe_buffer_deepcopy=False`, only pointers are copied when updating the cache, no deepcopy is performed here. You should only use safe_buffer_deepcopy=False if you're 100% sure you don't do inplace modifications. To avoid mistake, it's been set to True by default although it will take more RAM.
 - `StateChange`: helper class to check whether or not input parameters have been updated.
 
-Tests: [:test_tube: test_cache.py](/test/test_cache.py) 
+Tests: [🧪 test_cache.py](/test/test_cache.py) 
 
 
 ### [`pipeline.py`](/src/interactive_pipe/core/pipeline.py) & [`engine.py`](src/interactive_pipe/core/engine.py) 
@@ -95,7 +95,7 @@ Tests: [:test_tube: test_cache.py](/test/test_cache.py)
 - [`PipelineCore`](/src/interactive_pipe/core/pipeline.py) :
     - takes care of parameters updates & reset (then to dispatch the updated parameters to each filter)
     - stores the inputs provided to the pipeline & deals with inputs updates.
-- [`PipelineEngine`](src/interactive_pipe/core/engine.py) [:test_tube:](/test/test_engine.py)
+- [`PipelineEngine`](src/interactive_pipe/core/engine.py) [🧪](/test/test_engine.py)
     - applies the defined routing (basically a execution graph)
     - takes care of the cache mechanism.
     - *No support of parallellism / threading, filters are computed sequentially*
@@ -113,7 +113,7 @@ Tests: [:test_tube: test_cache.py](/test/test_cache.py)
 
 
 ### [`control.py`](/src/interactive_pipe/headless/control.py) and [`keyboard.py`](/src/interactive_pipe/headless/keyboard.py)
-- [`Control`](/src/interactive_pipe/headless/control.py)  [:test_tube:](/test/test_controller.py) 
+- [`Control`](/src/interactive_pipe/headless/control.py)  [🧪](/test/test_controller.py) 
     - Defines a parameter by its `.value_default` and it's potential variations (`.value_range`) and (`.step`). 
     - Supported types are:
         - `int` /`float` later materialized as a slider
@@ -126,7 +126,7 @@ Tests: [:test_tube: test_cache.py](/test/test_cache.py)
 
 > Note: A simple terminal should be enough to use it... This is the right class to use if you want to do batch processing for instance.
 
-Tests:  [:test_tube: test_headless.py](/test/test_headless.py)  [:test_tube: test_recorder.py](/test/test_recorder.py) 
+Tests:  [🧪 test_headless.py](/test/test_headless.py)  [🧪 test_recorder.py](/test/test_recorder.py) 
 
 
 ## data_objects
@@ -136,22 +136,22 @@ Tests:  [:test_tube: test_headless.py](/test/test_headless.py)  [:test_tube: tes
 - specifying a set of file extensions.
 - saving files to disk by creating the right folder parents & adding the right extensions if not provided by the user.
 - checking that a file exists before loading.
-- loading files from a prompted path (:soon: from a dialog menu)
+- loading files from a prompted path (🔜 from a dialog menu)
 
 Data class has to be re-implemented everytime.  `._set_file_extensions`, `._save`, `._load` .
 
 ### [`Parameters`](/src/interactive_pipe/data_objects/parameters.py)
 `Parameters` class is used to store/reload dictionaries (usually pipeline parameters) to disk.
 - Supports json & [yaml](https://pypi.org/project/PyYAML/) formats.
-- Tests:  [:test_tube: test_parameters.py](/test/test_parameters.py)
+- Tests:  [🧪 test_parameters.py](/test/test_parameters.py)
 
 ### [`Image`](/src/interactive_pipe/data_objects/image.py)
 `Image` class deals with loading/saving images from disk.
 It uses whatever image is available to save images (among [PIL](https://pypi.org/project/Pillow/) *by default* & [cv2](https://pypi.org/project/opencv-python/))
 - internal data is stored using [numpy arrays](https://pypi.org/project/numpy/) and by default images are normalized in the [0, 1] range and stored as float32 so this can be an assumption throughout the whole pipeline.
-- :soon: This code is expected to be extended to support pytorch tensors, moving data to/from GPU seamlessly when needed (when saving or visualizing to screen, not after each filter to avoid polluting the code...).
+- 🔜 This code is expected to be extended to support pytorch tensors, moving data to/from GPU seamlessly when needed (when saving or visualizing to screen, not after each filter to avoid polluting the code...).
 - it has a `.show()` method, useful inside a jupyter notebook
-- Tests [:test_tube: test_image.py](/test/test_image.py)
+- Tests [🧪 test_image.py](/test/test_image.py)
 
 ### [`Curve`](/src/interactive_pipe/data_objects/curves.py)
 `Curve` class deals with multiple 2D signals.
@@ -160,7 +160,7 @@ It uses whatever image is available to save images (among [PIL](https://pypi.org
 
 It uses matplotlib to display graphs inside an interactive pipe graphical window.
 - it has a `.show()` method, useful inside a jupyter notebook
-- Tests [:test_tube: test_curves.py](/test/test_curves.py)
+- Tests [🧪 test_curves.py](/test/test_curves.py)
 
 
 ## graphical
@@ -173,21 +173,21 @@ It uses matplotlib to display graphs inside an interactive pipe graphical window
 
 | `qt`  | `mpl`  | `nb`  | Feature                                                 |
 |:-----:|:------:|:----: |:------------------------------------------------------- |
-| :ok:  |  :x:   |  :x:  | Audio support                                           |
-| :ok:   | :ok: | :ok:| 2D Signal plot using `Curve` class                                           |
-| :ok:   | :ok: | :ok: | Image Titles                                            |
-| :ok:  |  :x:   |  :x:  | `Controls` string list  with image icons                |
-| :ok:  |  :ok:  |  :x:  |Keyboard shortcuts to reset sliders, save to disk etc... |
-| :ok:  |  :ok:  |  :x:  | `KeyboardControl`                                       |
-| :ok:  |  :x:   |  :x:  | F11 toggle full screen                                  |
-| :ok:  |  :ok:  |  :ok: | `size=(w, h)`                                           |
-| :ok:  |  :ok:  |  :x:  | `size="fullscreen"`                                     |
-| :ok:  |  :x:   |  :x:  | `size="maximized"`                                      |
-| :ok:  |  :ok:  |  :ok: | Refresh UI on canvas change                             |
-| :ok:  |  :ok:  |  :ok: | Float sliders                                           |
-| :ok:  |  :ok:  |  :ok: | `Controls` int / float sliders                          |
-| :ok:  |  :ok:  |  :ok: | `Controls` bool checkbox                                |
-| :ok:  |  :ok:  |  :ok: | `Controls` string list dialog menu / radio buttons      |
+| ✅  |  ❌   |  ❌  | Audio support                                           |
+| ✅   | ✅ | ✅| 2D Signal plot using `Curve` class                                           |
+| ✅   | ✅ | ✅ | Image Titles                                            |
+| ✅  |  ❌   |  ❌  | `Controls` string list  with image icons                |
+| ✅  |  ✅  |  ❌  |Keyboard shortcuts to reset sliders, save to disk etc... |
+| ✅  |  ✅  |  ❌  | `KeyboardControl`                                       |
+| ✅  |  ❌   |  ❌  | F11 toggle full screen                                  |
+| ✅  |  ✅  |  ✅ | `size=(w, h)`                                           |
+| ✅  |  ✅  |  ❌  | `size="fullscreen"`                                     |
+| ✅  |  ❌   |  ❌  | `size="maximized"`                                      |
+| ✅  |  ✅  |  ✅ | Refresh UI on canvas change                             |
+| ✅  |  ✅  |  ✅ | Float sliders                                           |
+| ✅  |  ✅  |  ✅ | `Controls` int / float sliders                          |
+| ✅  |  ✅  |  ✅ | `Controls` bool checkbox                                |
+| ✅  |  ✅  |  ✅ | `Controls` string list dialog menu / radio buttons      |
 
 Note: `InteractivePipeGUI` & `InteractivePipeWindow` have to be defined for each backend.
 
@@ -201,7 +201,7 @@ Note: `InteractivePipeGUI` & `InteractivePipeWindow` have to be defined for each
     `save_parameters`, `load_parameters`, `print_parameters`
     `display_graph`, `help`.
     Docstring of these methods will be used in the "F1" help descriptions
-    - :clipboard: Redefining `print_message` will allow a window popup for instance.
+    - 📋 Redefining `print_message` will allow a window popup for instance.
     
 
 - [`InteractivePipeWindow`](/src/interactive_pipe/graphical/window.py) is the window which displays the results & the sliders.

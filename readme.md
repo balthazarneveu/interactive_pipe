@@ -16,7 +16,7 @@
 - Develop an algorithm while debugging visually with plots, while checking robustness & continuity to parameters change.
 - Magically create a graphical interface to easily demonstrate a concept or simply tune your algorithm.
 
-:heart: **You do not need to learn anything about making a graphical user interface (GUI)** :heart:
+❤️ **You do not need to learn anything about making a graphical user interface (GUI)** ❤️
 
 
 ### Examples
@@ -41,13 +41,13 @@ pip install -e ".[full]"
 ----------------------
 
 ### Who is this for? 
-#### :mortar_board: Scientific education
+#### 🎓 Scientific education
 - Demonstrate concepts by interacting with curves / images.
 - Easy integration in Jupyter Notebooks (popular with Google Collab) 
-#### :gift: DIY hobbyist
+#### 🎁 DIY hobbyist
 - You can also use the declarative nature of interactive pipe to make a graphical interface in a few lines of codes. 
 - For instance, it is possible to code a jukebox for a toddler on a RaspberryPi.
-#### :camera: Engineering *(computer vision, image/signal processing)*
+#### 📷 Engineering *(computer vision, image/signal processing)*
 - While prototyping an algorithm or testing a neural network, you may be interested in making small experiments with visual checks. Instead of making a draft quick & dirty code that you'll never keep, you can use interactive pipe to show your team how your library works. A visual demo is always good, it shows that the algorithm is not buggy if anyone can play with it.
 - Tune your algorithms with a graphical interface and save your parameters for later batch processing.
 - Ready to batch under the hood, the processing engine can be ran without GUI (therefore allowing to use the same code for tuning & batch processing if needed).
@@ -57,11 +57,11 @@ pip install -e ".[full]"
 
 
 ----------------------
-## :scroll:  Terminology
+## 📜  Terminology
 
 ![interactive_pipe_concept](static/interact-pipe-concept.svg)
 
-## :scroll:  Features
+## 📜  Features
 
 **Version 0.8.8**
 - Modular multi-image processing filters
@@ -76,12 +76,12 @@ pip install -e ".[full]"
 - Circular sliders for Qt Backend
 - Text prompt (`free_text=("Hello world!", None),`)
 - TimeControl (possibility to play/pause time using an incrementing timer)
-- :new: **Context API**: Direct access to shared context across filters via `get_context()`, `context`, `layout`, `audio` 
-- :new: MIT License
+- 🆕 **Context API**: Direct access to shared context across filters via `get_context()`, `context`, `layout`, `audio` 
+- 🆕 MIT License
 
 
 
-#### :keyboard:   Keyboard shortcuts
+#### ⌨️   Keyboard shortcuts
 Shortcuts while using the GUI (QT & matplotlib backends)
 
 - `F1` to show the help shortcuts in the terminal
@@ -97,27 +97,27 @@ Shortcuts while using the GUI (QT & matplotlib backends)
 
 # Status
 - supported backends 
-    - :ok: `gui='qt'` pyQt/pySide 
-    - :ok: `gui='mpl'` matplotlib
-    - :ok: `gui='nb'`  ipywidget for jupyter notebooks
-    - :test_tube: `gui='gradio'` gradio wrapping (+use `share_gradio_app=True` to share your app with others)
+    - ✅ `gui='qt'` pyQt/pySide 
+    - ✅ `gui='mpl'` matplotlib
+    - ✅ `gui='nb'`  ipywidget for jupyter notebooks
+    - 🧪 `gui='gradio'` gradio wrapping (+use `share_gradio_app=True` to share your app with others)
 - tested platforms
-    - :ok: Linux (Ubuntu / KDE Neon)
-    - :ok: RapsberryPi
-    - :ok: On google collab (use `gui='nb'`)
+    - ✅ Linux (Ubuntu / KDE Neon)
+    - ✅ RapsberryPi
+    - ✅ On google collab (use `gui='nb'`)
 
 
 
-| :star: | *PyQt / PySide* |  *Matplotlib*   | *Jupyter notebooks including Google collab*   | *Gradio* | 
+| ⭐ | *PyQt / PySide* |  *Matplotlib*   | *Jupyter notebooks including Google collab*   | *Gradio* | 
 |:-----: |:-----:|:------:|:----: |:----: |
 | Backend name | `qt`  | `mpl`  | `nb`| `gradio` |
 | Preview | ![qt backend](/doc/images/qt_backend.jpg)   | ![mpl backend](/doc/images/mpl_backend.jpg)    |  ![nb backend](/doc/images/notebook_backend.jpg)  | ![mpl backend](/doc/images/gradio_backend.jpg)| 
-| Plot curves | :heavy_check_mark: | :heavy_check_mark: |   :heavy_check_mark: | :heavy_check_mark:|
-| Auto refreshed layout | :heavy_check_mark: | :heavy_check_mark: |   :heavy_check_mark: | :heavy_minus_sign: |
-| Keyboard shortcuts / fullscreen| :heavy_check_mark: | :heavy_check_mark: |  :heavy_minus_sign: | :heavy_minus_sign: |
-| Audio support | :heavy_check_mark: | :heavy_minus_sign: |  :heavy_minus_sign: | :heavy_check_mark: |
-| Image buttons| :heavy_check_mark: | :heavy_minus_sign: |  :heavy_minus_sign: | :heavy_minus_sign:| 
-| Circular slider| :heavy_check_mark: | :heavy_minus_sign: |  :heavy_minus_sign: | :heavy_minus_sign:| 
+| Plot curves | ✅ | ✅ |   ✅ | ✅|
+| Auto refreshed layout | ✅ | ✅ |   ✅ | ➖ |
+| Keyboard shortcuts / fullscreen| ✅ | ✅ |  ➖ | ➖ |
+| Audio support | ✅ | ➖ |  ➖ | ✅ |
+| Image buttons| ✅ | ➖ |  ➖ | ➖ | 
+| Circular slider| ✅ | ➖ |  ➖ | ➖ | 
 
 
 
@@ -144,7 +144,7 @@ Shortcuts while using the GUI (QT & matplotlib backends)
 
 
 
-## :rocket: Ultra short code
+## 🚀 Ultra short code
 
 
 *Since ipywidgets in notebooks are supported, the tutorial is also available in a [google collab notebook](https://colab.research.google.com/drive/1PZn8P_5TABVCugT3IcLespvZG-gxnFbO?usp=sharing)*
@@ -207,7 +207,7 @@ if __name__ == '__main__':
     sample_pipeline(input_image)
 
 ```
-:heart: This code shall display you a GUI with three images. The middle one is the result of the blend
+❤️ This code shall display you a GUI with three images. The middle one is the result of the blend
 
 
 
@@ -217,7 +217,7 @@ Notes:
 - If you write `bnw=(True, "black and white", "k")`, the checkbox will disappear and be replaced by a keypress event (press `k` to enable/disable black & white)
 
 -----------
-## :bulb: Some more tips
+## 💡 Some more tips
 
 ```python
 from interactive_pipe import interactive, interactive_pipeline, context
@@ -237,7 +237,7 @@ def generate_flat_colored_image(color_choice=["red", "green", "blue", "gray"]):
 - The `color_choice` list will be turned into a nice dropdown menu. Default value here will be red as this is the first element of the list!
 ----------
 
-:bulb: Can filters communicate together?
+💡 Can filters communicate together?
 Yes, using the `context` proxy from `interactive_pipe`. 
 - Check carefully how we stored the image average of the flat image in context. 
 - This value will be available to other filters.
@@ -357,7 +357,7 @@ The new API provides:
 
 
 ### FAQ
-- :question: What is the recommended way to access shared context?
+- ❓ What is the recommended way to access shared context?
 > **New in v0.8.8**: Use the clean context API for direct access:
 > ```python
 > from interactive_pipe import context, layout, audio, get_context
@@ -371,7 +371,7 @@ The new API provides:
 >     return img
 > ```
 
-- :question: How do I change the layout?  *Can I change the grid layout of images live? (like you compare 2 images side by side and you want to start comparing 4 images in a 2x2 fashion for debugging purpose)*. It is possible with Qt backend. 
+- ❓ How do I change the layout?  *Can I change the grid layout of images live? (like you compare 2 images side by side and you want to start comparing 4 images in a 2x2 fashion for debugging purpose)*. It is possible with Qt backend. 
 
 > Use the `layout` helper to control image arrangement and styling:
 > ```python
@@ -396,16 +396,16 @@ The new API provides:
 >     return result
 > ```
 
-- :question: Do I have to remove `KeyboardSlider` when using gradio or notebook backends?
+- ❓ Do I have to remove `KeyboardSlider` when using gradio or notebook backends?
 > No, don't worry, these will be mapped back to regular sliders!
-- :question: How do I play audio live?
-> :sound: Inside a processing block, write the audio file to disk and use the audio helper:
+- ❓ How do I play audio live?
+> 🔊 Inside a processing block, write the audio file to disk and use the audio helper:
 > ```python
 > from interactive_pipe import audio
 > audio.set_audio(audio_file)  # New clean API (v0.8.8)
 > # or legacy: context["__set_audio"](audio_file)
 > ```
-- :question: Do I have to decorate my processing block using the `@interactive` 
+- ❓ Do I have to decorate my processing block using the `@interactive` 
 > If you use the `@` decoration style, your function won't be useable in a regular manner (wich may be problematic in a serious development environment)
 ```python
 @interactive(angle=(0., [-360., 360.]))
@@ -427,11 +427,11 @@ from core_filter import processing_block
 def add_interactivity():
     interactive(angle=(0., [-360., 360.]))(processing_block)
 ```
-- :question: Can I call the pipeline in a command line/batch fashion?
-> Yes, headless mode is supported. :soon: documentation needed.
+- ❓ Can I call the pipeline in a command line/batch fashion?
+> Yes, headless mode is supported. 🔜 documentation needed.
 
 
-- :question: Can I use inplace operations?
+- ❓ Can I use inplace operations?
 > Better avoid these in general. To avoid making extra copies, computing hashes everywhere and avoid loosing precious computation time, there are no checks that inputs are not modified in place.
 ```python
 # Don't do that!
@@ -439,16 +439,16 @@ def bad_processing_block(inp):
     inp+=1
 ```
 
-- :question: Is there a difference between `global_params` and `context` ?
+- ❓ Is there a difference between `global_params` and `context` ?
 > No, `global_params`, `global_parameters`, `global_state`, `global_context`, `context`, `state` all mean the same thing and are all supported for legacy reasons. `context` is the preferred wording. However, we now recommend using the clean context API (see above).
-> :warning: The old `global_params={}` / `context={}` keyword argument style still works for backwards compatibility but is deprecated.
+> ⚠️ The old `global_params={}` / `context={}` keyword argument style still works for backwards compatibility but is deprecated.
 
 
 
 # Roadmap and todos
-:bug: Want to contribute or interested in adding new features? Enter a new [Github issue](https://github.com/balthazarneveu/interactive_pipe/issues)
+🐛 Want to contribute or interested in adding new features? Enter a new [Github issue](https://github.com/balthazarneveu/interactive_pipe/issues)
 
-:gift: Want to dig into the code? Take a look at [code_architecture.md](/code_architecture.md)
+🎁 Want to dig into the code? Take a look at [code_architecture.md](/code_architecture.md)
 
 
 
