@@ -1,6 +1,7 @@
 import functools
 from typing import Any, Callable, Optional, Union
 
+from interactive_pipe.core.backend import Backend
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
 
@@ -10,7 +11,7 @@ def pipeline(pipeline_function: Callable, **kwargs) -> HeadlessPipeline:
 
 
 def interactive_pipeline(
-    gui="auto",
+    gui: Union[str, Backend, None] = "auto",
     safe_input_buffer_deepcopy=True,
     cache=False,
     output_canvas=None,

@@ -1,10 +1,12 @@
 import logging
 import signal
+from typing import Union
 
+from interactive_pipe.core.backend import Backend
 from interactive_pipe.helper import _private
 
 
-def get_interactive_pipeline_class(gui="auto"):
+def get_interactive_pipeline_class(gui: Union[str, Backend, None] = "auto"):
     selected_gui = None
     if gui is None or gui == "auto":
         if _private.auto_gui is not None:
