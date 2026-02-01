@@ -1,9 +1,13 @@
 import functools
+import warnings
 from typing import Any, Callable, Optional, Union
 
 from interactive_pipe.core.backend import Backend
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
+
+# Deprecated aliases for 'context' parameter
+_CONTEXT_ALIASES = ("global_params", "global_parameters", "global_state", "global_context", "state")
 
 
 def pipeline(pipeline_function: Callable, **kwargs) -> HeadlessPipeline:
@@ -15,12 +19,7 @@ def interactive_pipeline(
     safe_input_buffer_deepcopy=True,
     cache=False,
     output_canvas=None,
-    global_params: Optional[dict] = None,
-    global_parameters: Optional[dict] = None,  # alias for global_params
-    global_state: Optional[dict] = None,  # alias for global_params
-    global_context: Optional[dict] = None,  # alias for global_params
-    context: Optional[dict] = None,  # alias for global_params
-    state: Optional[dict] = None,  # alias for global_params,
+    context: Optional[dict] = None,
     markdown_description: Optional[str] = None,
     name: Optional[str] = None,
     **kwargs_gui,
@@ -29,18 +28,25 @@ def interactive_pipeline(
 
     Function decorator to add some controls @interactive_pipeline
     """
+    # Handle deprecated aliases for context parameter
+    for alias in _CONTEXT_ALIASES:
+        if alias in kwargs_gui:
+            warnings.warn(
+                f"'{alias}' parameter is deprecated, use 'context' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if context is None:
+                context = kwargs_gui.pop(alias)
+            else:
+                kwargs_gui.pop(alias)  # Ignore if context already provided
 
     def wrapper(pipeline_function: Callable[..., Any]) -> Union[HeadlessPipeline, Callable[..., Any]]:
         headless_pipeline = HeadlessPipeline.from_function(
             pipeline_function,
             safe_input_buffer_deepcopy=safe_input_buffer_deepcopy,
             cache=cache,
-            global_params=global_params,
-            global_parameters=global_parameters,  # alias for global_params
-            global_state=global_state,  # alias for global_params
-            global_context=global_context,  # alias for global_params
-            context=context,  # alias for global_params
-            state=state,  # alias for global_params
+            context=context,
         )
         if output_canvas is not None:
             headless_pipeline.outputs = output_canvas

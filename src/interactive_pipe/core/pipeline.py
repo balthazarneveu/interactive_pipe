@@ -1,9 +1,13 @@
 import logging
+import warnings
 from typing import Any, Dict, List, Optional
 
 from interactive_pipe.core.context import _set_user_context
 from interactive_pipe.core.engine import PipelineEngine
 from interactive_pipe.core.filter import FilterCore
+
+# Deprecated aliases for 'context' parameter
+_CONTEXT_ALIASES = ("global_params", "global_parameters", "global_state", "global_context", "state")
 
 
 class PipelineCore:
@@ -20,46 +24,43 @@ class PipelineCore:
         cache=False,
         inputs: Optional[list] = None,
         parameters: Optional[dict] = None,
-        global_params: Optional[dict] = None,
-        global_parameters: Optional[dict] = None,  # alias for global_params
-        global_state: Optional[dict] = None,  # alias for global_params
-        global_context: Optional[dict] = None,  # alias for global_params
-        context: Optional[dict] = None,  # alias for global_params
-        state: Optional[dict] = None,  # alias for global_params
+        context: Optional[dict] = None,
         outputs: Optional[list] = None,
         safe_input_buffer_deepcopy: bool = True,
+        **kwargs,
     ):
         if not all(isinstance(f, FilterCore) for f in filters):
             raise ValueError(f"All elements in 'filters' must be instances of 'Filter'. {[type(f) for f in filters]}")
         self.filters = filters
         self.engine = PipelineEngine(cache, safe_input_buffer_deepcopy=safe_input_buffer_deepcopy)
-        if global_parameters is not None:
-            global_params = global_parameters
-        elif global_context is not None:
-            global_params = global_context
-        elif global_state is not None:
-            global_params = global_state
-        elif state is not None:
-            global_params = state
-        elif context is not None:
-            global_params = context
-        if global_params is None:
-            global_params = {}
-        self.global_params = global_params
+
+        # Handle deprecated aliases for context parameter
+        for alias in _CONTEXT_ALIASES:
+            if alias in kwargs:
+                warnings.warn(
+                    f"'{alias}' parameter is deprecated, use 'context' instead.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                if context is None:
+                    context = kwargs.pop(alias)
+                else:
+                    kwargs.pop(alias)  # Ignore if context already provided
+
+        # Warn about any remaining unknown kwargs
+        if kwargs:
+            unknown = ", ".join(kwargs.keys())
+            raise TypeError(f"PipelineCore.__init__() got unexpected keyword argument(s): {unknown}")
+
+        if context is None:
+            context = {}
+        self.global_params = context
         for filter in self.filters:
             # link each filter to global params
             filter.global_params = self.global_params
 
         # Initialize user context (separate from global_params for clean API)
-        # If context was passed (and not used as alias for global_params), use it to initialize user context
-        # Otherwise start with empty dict
-        if context is not None and not any(
-            [global_parameters is not None, global_context is not None, global_state is not None, state is not None]
-        ):
-            # context was passed directly, initialize user context with it
-            self._user_context = dict(context) if isinstance(context, dict) else {}
-        else:
-            self._user_context = {}
+        self._user_context = dict(context) if isinstance(context, dict) else {}
 
         self.reset_cache()
         if inputs is None:
