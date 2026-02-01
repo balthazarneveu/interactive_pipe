@@ -8,7 +8,7 @@
 Please find some [code samples](/samples)
 
 
-## Ultra short code
+## Quick start
 Let's define 3 image processing very basic filters `exposure`, `black_and_white` & `blend`.
 
 By design:
@@ -16,11 +16,11 @@ By design:
 - keyword arguments are the parameters which can be later turned into interactive widgets.
 - output buffers are simply returned like you'd do in a regular function.
 
-We use the `@interactive()` wrapper which will turn each keyword parameters initialized to a **tuple/list** into a graphical interactive widgets (slider, tick box, dropdown men). 
+We use the `@interactive()` decorator to specify which parameters become interactive widgets. Parameters defined in the decorator as **tuple/list** will become graphical interactive widgets (slider, tick box, dropdown menu). 
 
-The syntax to turn keyword arguments into sliders is pretty simple `(default, [min, max], name)` will turn into a float slider for instance.
+The syntax to turn keyword arguments into sliders is pretty simple: `@interactive(param=(default, [min, max], name))` will create a float slider for instance.
 
-Finally, we need to the glue to combo these filters. This is where the sample_pipeline function comes in.
+Finally, we need the glue to combo these filters. This is where the sample_pipeline function comes in.
 
 By decorating it with `@interactive_pipeline(gui="qt")`, calling this function will magically turn into a GUI powered image processing pipeline.
 
@@ -29,8 +29,11 @@ By decorating it with `@interactive_pipeline(gui="qt")`, calling this function w
 from interactive_pipe import interactive, interactive_pipeline
 import numpy as np
 
-@interactive()
-def exposure(img, coeff = (1., [0.5, 2.], "exposure"), bias=(0., [-0.2, 0.2])):
+@interactive(
+    coeff=(1., [0.5, 2.], "exposure"),
+    bias=(0., [-0.2, 0.2])
+)
+def exposure(img, coeff=1., bias=0.):
     '''Applies a multiplication by coeff & adds a constant bias to the image'''
     # In the GUI, the coeff will be labelled as "exposure". 
     # As the default tuple provided to bias does not end up with a string, 
@@ -38,15 +41,15 @@ def exposure(img, coeff = (1., [0.5, 2.], "exposure"), bias=(0., [-0.2, 0.2])):
     return img*coeff + bias
 
 
-@interactive()
-def black_and_white(img, bnw=(True, "black and white")):
+@interactive(bnw=(True, "black and white"))
+def black_and_white(img, bnw=True):
     '''Averages the 3 color channels (Black & White) if bnw=True
     '''
     # Special mention for booleans: using a tuple like (True,) allows creating the tick box.
     return np.repeat(np.expand_dims(np.average(img, axis=-1), -1), img.shape[-1], axis=-1) if bnw else img
 
-@interactive()
-def blend(img0, img1, blend_coeff=(0.5, [0., 1.])):
+@interactive(blend_coeff=(0.5, [0., 1.]))
+def blend(img0, img1, blend_coeff=0.5):
     '''Blends between two image. 
     - when blend_coeff=0 -> image 0  [slider to the left ] 
     - when blend_coeff=1 -> image 1   [slider to the right] 
@@ -67,7 +70,7 @@ if __name__ == '__main__':
 ```
 ❤️ This code shall display you a GUI with three images. The middle one is the result of the blend
 
-> Note: If you write `def blend(img0, img1, blend_coeff=0.5):`, blend_coeff will simply not be a slider on the GUI no more.
+> Note: If you write `@interactive()` with `def blend(img0, img1, blend_coeff=0.5):`, blend_coeff will simply not be a slider on the GUI.
 
 
 
@@ -77,6 +80,8 @@ You may want to write your program with explicitly stating which parameters are 
 
 We'll decorate each image filter by providing some Controls which will allow creating a graphical interface.
 `@interactive(param_1=Control(...), param_2=Control(...), ...)`
+
+> **Note**: The tuple syntax `param=(default, [min, max], name)` is a convenient shorthand for `param=Control(default, [min, max], name=name)`. Use `Control` objects when you need more advanced features or want to be more explicit.
 
 
 ```python

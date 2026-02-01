@@ -1,3 +1,11 @@
+"""
+This file demonstrates the inline parameter syntax - the most concise way to define
+interactive parameters, but harder to maintain in production code.
+
+For production code, see: samples/decorated_pipeline.py (decorator parameter syntax)
+For syntax comparison, see: doc/inline_syntax.md
+"""
+
 import numpy as np
 
 from interactive_pipe import interactive, interactive_pipeline

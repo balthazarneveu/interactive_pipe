@@ -155,9 +155,9 @@ By design:
 - keyword arguments are the parameters which can be later turned into interactive widgets.
 - output buffers are simply returned like you'd do in a regular function.
 
-We use the `@interactive()` wrapper which will turn each keyword parameters initialized to a **tuple/list** into a graphical interactive widgets (slider, tick box, dropdown men). 
+We use the `@interactive()` decorator to specify which parameters become interactive widgets. Parameters defined in the decorator as **tuple/list** will become graphical interactive widgets (slider, tick box, dropdown menu). 
 
-The syntax to turn keyword arguments into sliders is pretty simple `(default, [min, max], name)` will turn into a float slider for instance.
+The syntax to turn keyword arguments into sliders is pretty simple: `@interactive(param=(default, [min, max], name))` will create a float slider for instance.
 
 Finally, we need to the glue to combo these filters. This is where the sample_pipeline function comes in.
 
@@ -168,8 +168,11 @@ By decorating it with `@interactive_pipeline(gui="qt")`, calling this function w
 from interactive_pipe import interactive, interactive_pipeline
 import numpy as np
 
-@interactive()
-def exposure(img, coeff = (1., [0.5, 2.], "exposure"), bias=(0., [-0.2, 0.2])):
+@interactive(
+    coeff=(1., [0.5, 2.], "exposure"),
+    bias=(0., [-0.2, 0.2])
+)
+def exposure(img, coeff=1., bias=0.):
     '''Applies a multiplication by coeff & adds a constant bias to the image'''
     # In the GUI, the coeff will be labelled as "exposure". 
     # As the default tuple provided to bias does not end up with a string, 
@@ -177,15 +180,15 @@ def exposure(img, coeff = (1., [0.5, 2.], "exposure"), bias=(0., [-0.2, 0.2])):
     return img*coeff + bias
 
 
-@interactive()
-def black_and_white(img, bnw=(True, "black and white")):
+@interactive(bnw=(True, "black and white"))
+def black_and_white(img, bnw=True):
     '''Averages the 3 color channels (Black & White) if bnw=True
     '''
     # Special mention for booleans: using a tuple like (True,) allows creating the tick box.
     return np.repeat(np.expand_dims(np.average(img, axis=-1), -1), img.shape[-1], axis=-1) if bnw else img
 
-@interactive()
-def blend(img0, img1, blend_coeff=(0.5, [0., 1.])):
+@interactive(blend_coeff=(0.5, [0., 1.]))
+def blend(img0, img1, blend_coeff=0.5):
     '''Blends between two image. 
     - when blend_coeff=0 -> image 0  [slider to the left ] 
     - when blend_coeff=1 -> image 1   [slider to the right] 
@@ -210,9 +213,9 @@ if __name__ == '__main__':
 
 
 Notes:
-- If you write `def blend(img0, img1, blend_coeff=0.5):`, blend_coeff will simply not be a slider on the GUI no more.
-- If you write `blend_coeff=[0., 1.]` , blend_coeff will be a slider initalized to 0.5
-- If you write `bnw=(True, "black and white", "k")`, the checkbox will disappear and be replaced by a keypress event (press `k` to enable/disable black & white)
+- If you write `@interactive()` with `def blend(img0, img1, blend_coeff=0.5):`, blend_coeff will simply not be a slider on the GUI.
+- If you write `@interactive(blend_coeff=[0., 1.])` in the decorator, blend_coeff will be a slider initialized to 0.5
+- If you write `@interactive(bnw=(True, "black and white", "k"))`, the checkbox will disappear and be replaced by a keypress event (press `k` to enable/disable black & white)
 
 -----------
 ## 💡 Some more tips
@@ -222,8 +225,8 @@ from interactive_pipe import interactive, interactive_pipeline, context
 import numpy as np
 
 COLOR_DICT = {"red": [1., 0., 0.],  "green": [0., 1.,0.], "blue": [0., 0., 1.], "gray": [0.5, 0.5, 0.5]}
-@interactive()
-def generate_flat_colored_image(color_choice=["red", "green", "blue", "gray"]):
+@interactive(color_choice=["red", "green", "blue", "gray"])
+def generate_flat_colored_image(color_choice="red"):
     '''Generate a constant colorful image
     '''
     flat_array =  np.array(COLOR_DICT.get(color_choice)) * np.ones((64, 64, 3))
@@ -242,8 +245,8 @@ Yes, using the `context` proxy from `interactive_pipe`.
 `special_image_slice` is going to use that value to set the half bottom image to dark in case the average is high.
 
 ```python
-@interactive()
 def special_image_slice(img):
+    out_img = img.copy()
     if context["avg"] > 0.4:
         out_img[out_img.shape[0]//2:, ...] = 0.
     return out_img
@@ -252,8 +255,8 @@ def special_image_slice(img):
 
 
 ```python
-@interactive()
-def switch_image(img1, img2, img3, image_index=(0, [0, 2], None, ["pagedown", "pageup", True])):
+@interactive(image_index=(0, [0, 2], None, ["pagedown", "pageup", True]))
+def switch_image(img1, img2, img3, image_index=0):
     '''Switch between 3 images
     '''
     return [img1, img2, img3][image_index]
@@ -261,8 +264,8 @@ def switch_image(img1, img2, img3, image_index=(0, [0, 2], None, ["pagedown", "p
 Note that you can create a filter to switch between several images. In `["pagedown", "pageup", True]`, True means that the image_index will wrap around. (it will return to 0 as soon as it goes above the maximum value of 2).
 
 ```python
-@interactive()
-def black_top_image_slice(img, top_slice_black=(True, "special", "k")):
+@interactive(top_slice_black=(True, "special", "k"))
+def black_top_image_slice(img, top_slice_black=True):
     out_img = img.copy()
     if top_slice_black:
         out_img[:out_img.shape[0]//2, ...] = 0.
@@ -316,7 +319,7 @@ if __name__ == '__main__':
 # OLD (deprecated) - using context={} or global_params={}
 from interactive_pipe import interactive
 
-@interactive()
+@interactive(brightness=(0.5, [0., 1.]))
 def apply_brightness(img:np.ndarray, brightness: float = 0.5, global_params={}):
     global_params["brightness"] = brightness  # Storing shared data
     global_params["__output_styles"]["output"] = {"title": "Brightened"}  # Setting layout
@@ -325,7 +328,7 @@ def apply_brightness(img:np.ndarray, brightness: float = 0.5, global_params={}):
 # NEW (recommended) - using context and layout proxies
 from interactive_pipe import interactive, context, layout
 
-@interactive()
+@interactive(brightness=(0.5, [0., 1.]))
 def apply_brightness(img:np.ndarray, brightness: float = 0.5):
     context["brightness"] = brightness  # or: context.brightness = brightness
     layout.style("output", title="Brightened")
