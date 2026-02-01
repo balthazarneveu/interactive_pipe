@@ -276,6 +276,25 @@ class TextPrompt(Control):
 
 
 class TimeControl(Control):
+    """
+    Auto-incrementing time control for animations.
+
+    Starts at 0.0 and increments automatically. Press 'p' to pause/resume.
+
+    Note:
+        Only supported on Qt backend. Falls back to a regular slider on other backends
+        (tooltip/group params are only relevant in that fallback case).
+
+    Args:
+        update_interval_ms: Interval between updates in milliseconds (default: 1000).
+        pause_resume_key: Key to pause/resume (default: "p").
+
+    Example:
+        @interactive(time=TimeControl(update_interval_ms=50))
+        def animate(time=0.0):
+            return time
+    """
+
     def __init__(
         self,
         name: Optional[str] = None,

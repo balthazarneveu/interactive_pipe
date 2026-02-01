@@ -147,7 +147,9 @@ class InteractivePipeGUI:
                         doc = f"increase {ctrl.name}"
             else:
                 if down_flag:
-                    doc = f"[{ctrl.keydown}]/[{ctrl.keyup}]: {ctrl.name}"
+                    formatted_keydown = self._format_key_for_help(ctrl.keydown) if ctrl.keydown else ""
+                    formatted_keyup = self._format_key_for_help(ctrl.keyup) if ctrl.keyup else ""
+                    doc = f"[{formatted_keydown}]/[{formatted_keyup}]: {ctrl.name}"
                 else:
                     doc = None
             update_func = partial(key_update_parameter_func, slider_name, down_flag)
@@ -187,7 +189,9 @@ class InteractivePipeGUI:
             delta_time = time.time() - self.start_time
             return update_parameter_func(slider_name, delta_time)
 
-        self.bind_key(ctrl.pause_resume_key, partial(self.play_pause_time, suspend_resume_timer))
+        pause_resume_func = partial(self.play_pause_time, suspend_resume_timer)
+        pause_resume_func.__doc__ = f"pause/resume time control '{slider_name}'"
+        self.bind_key(ctrl.pause_resume_key, pause_resume_func)
         update_func.__doc__ = doc
         return update_func
 
@@ -250,17 +254,38 @@ class InteractivePipeGUI:
                 ]
             )
 
+    def _format_key_for_help(self, key: str) -> str:
+        """Format a key string for display in help text.
+
+        Converts special keys like spacebar to readable names.
+        """
+        if key == " " or key == KeyboardControl.KEY_SPACEBAR:
+            return "SPACEBAR"
+        return key
+
+    def _format_docstring_for_help(self, docstring: str) -> str:
+        """Format a docstring to replace spacebar references with readable text."""
+        # Replace [" "] with [SPACEBAR] in docstrings
+        return docstring.replace('[" "]', "[SPACEBAR]")
+
     def help(self) -> List[str]:
         """print this help in the console"""
         help = []
         for key, func in self.key_bindings.items():
             if func.__doc__ is not None:
                 if func.__doc__.startswith("["):
-                    help.append(f"{func.__doc__}")
+                    formatted_doc = self._format_docstring_for_help(func.__doc__)
+                    help.append(f"{formatted_doc}")
                 else:
-                    help.append(f"[{key}]    : {func.__doc__}")
+                    formatted_key = self._format_key_for_help(key)
+                    formatted_doc = self._format_docstring_for_help(func.__doc__)
+                    help.append(f"[{formatted_key}]    : {formatted_doc}")
         for key_context, event_dict in self.context_key_bindings.items():
-            help.append(f"[{key_context}]    : {event_dict['doc']} (context['__event'][{event_dict['param_name']}])")
+            formatted_key_context = self._format_key_for_help(key_context)
+            formatted_doc = self._format_docstring_for_help(event_dict["doc"])
+            help.append(
+                f"[{formatted_key_context}]    : {formatted_doc} (context['__event'][{event_dict['param_name']}])"
+            )
         self.print_message(help)
         return help
 
