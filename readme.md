@@ -67,7 +67,7 @@ pip install -e ".[full]"
 - Tuning sliders & check buttons  with a GUI
 - Cache intermediate results in RAM for much faster processing
 - `KeyboardControl` : no slider on UI but exactly the same internal mechanism, update on key press.
-- Support Curve plots (2D signals)
+- Support Curve plots (2D signals).
 - Gradio backend (+allows sharing with others). 
 - Audio support in Gradio (live audio or display several players by returning 1D numpy arrays)
 - Circular sliders for Qt Backend
@@ -75,6 +75,8 @@ pip install -e ".[full]"
 - TimeControl (possibility to play/pause time using an incrementing timer)
 - 🆕 **Context API**: Direct access to shared context across filters via `get_context()`, `context`, `layout`, `audio` 
 - 🆕 MIT License
+- 🆕 Panel **Panel System**: group the sliders in defined panels. allows fine control on GUI layout.
+- 🆕 Support Table outputs
 
 
 
@@ -287,6 +289,38 @@ if __name__ == '__main__':
 ----------
 
 ### Release Notes
+
+
+#### Version 0.8.9 (February 2026)
+
+**New Features:**
+- **Panel System**: Control panel layout and organization
+  - Flexible panel positioning (left, right, top, bottom)
+  - Detached control panels for separate windows
+  - Nested panels and subpanels support
+  - Grouped controls within panels
+  - Improved spacing and borders for better visual organization
+  - Full backend support (Qt, Gradio, matplotlib, notebook)
+
+- **Table Data Type**: Display tabular data natively
+  - Core Table functionality without external dependencies
+  - Optional pandas DataFrame support for advanced use cases
+  - Rendering support across all backends (Qt, Gradio, matplotlib)
+  - Headerless tables option
+
+- **TimeControl Enhancements**: Better time-based parameter control
+  - Improved slider help display
+  - Additional demos showcasing time-based animations
+
+**API Improvements:**
+- Context support at pipeline initialization
+- Backend selection via enum (string format still supported)
+- Graph visualization for GUI pipelines (press `G`)
+
+**Deprecations:**
+- Inline syntax deprecated (use decorator syntax instead)
+- `output_canvas` argument removed
+- Context aliases (`global_params`, `states` etc...) deprecated at initialization
 
 #### Version 0.8.8 (January 2026)
 
