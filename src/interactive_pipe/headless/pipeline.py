@@ -23,6 +23,25 @@ class HeadlessPipeline(PipelineCore):
 
     controls: List[Control]  # List of controls connected to filters
 
+    @property
+    def parameters(self):
+        """Get current parameters from all filters"""
+        return super().parameters
+
+    @parameters.setter
+    def parameters(self, new_parameters):
+        """Override to also update control values when parameters are set"""
+        # Call parent setter to update filter values using the descriptor protocol
+        PipelineCore.parameters.__set__(self, new_parameters)
+        # Update control values to match the new parameters
+        if hasattr(self, "controls"):
+            for ctrl in self.controls:
+                if ctrl.filter_to_connect is not None:
+                    filter_name = ctrl.filter_to_connect.name
+                    param_name = ctrl.parameter_name_to_connect
+                    if filter_name in new_parameters and param_name in new_parameters[filter_name]:
+                        ctrl.value = new_parameters[filter_name][param_name]
+
     @staticmethod
     def routing_indexes(inputs_names, all_variables):
         if inputs_names:
@@ -175,7 +194,12 @@ class HeadlessPipeline(PipelineCore):
         for ctrl in self.controls:
             if ctrl.filter_to_connect is not None:
                 logging.info(f"{ctrl.filter_to_connect.name}, {ctrl.parameter_name_to_connect}, {ctrl.value}")
-                self.parameters = {ctrl.filter_to_connect.name: {ctrl.parameter_name_to_connect: ctrl.value}}
+                # Merge control value into existing parameters instead of replacing
+                current_params = self.parameters  # Get current parameters
+                if ctrl.filter_to_connect.name not in current_params:
+                    current_params[ctrl.filter_to_connect.name] = {}
+                current_params[ctrl.filter_to_connect.name][ctrl.parameter_name_to_connect] = ctrl.value
+                self.parameters = current_params  # Set merged parameters
 
     def __run(self):
         self.update_parameters_from_controls()
@@ -263,8 +287,6 @@ class HeadlessPipeline(PipelineCore):
         return new_param_dict
 
     def __call__(self, *inputs_tuple, inputs=None, parameters=None, context=None, **kwargs) -> Any:
-        if parameters is None:
-            parameters = {}
         if inputs is not None:
             if not isinstance(inputs, dict):
                 raise TypeError(f"inputs must be a dict, got {type(inputs)}")
@@ -286,8 +308,19 @@ class HeadlessPipeline(PipelineCore):
                 self._user_context.update(context_dict)
             else:
                 raise TypeError(f"context must be a dict, got {type(context_dict)}")
-        self.parameters = parameters
-        self.parameters = self.parameters_from_keyword_args(**kwargs)
+        # Only update self.parameters if parameters argument is explicitly provided
+        if parameters is not None:
+            self.parameters = parameters
+        # Merge in any keyword arguments as parameters
+        kwargs_params = self.parameters_from_keyword_args(**kwargs)
+        if kwargs_params:
+            # Get current parameters, merge, and re-set to trigger the setter
+            current_params = self.parameters  # Calls getter
+            for filter_name, params in kwargs_params.items():
+                if filter_name not in current_params:
+                    current_params[filter_name] = {}
+                current_params[filter_name].update(params)
+            self.parameters = current_params  # Calls setter to apply to filters
         return self.run()
 
     def graph_representation(self, path=None, ortho=True, view=False):
