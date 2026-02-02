@@ -59,7 +59,7 @@ class MainWindow(MatplotlibWindow):
         self.init_sliders(self.controls)
 
     def create_figure(self):
-        if not hasattr(self, "fig"):
+        if self.fig is None:
             self.fig, self.ax = plt.subplots(figsize=self.size)
             plt.axis("off")
 
