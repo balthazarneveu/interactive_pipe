@@ -124,8 +124,18 @@ class HeadlessPipeline(PipelineCore):
             filters_names.append(filt_name)
         logging.debug(filters_count)
         logging.debug(filters_names)
+
+        # Helper function to convert nested output names to indexes
+        def convert_outputs_to_indexes(output_structure):
+            if isinstance(output_structure, str):
+                return all_variables[output_structure]
+            elif isinstance(output_structure, list):
+                return [convert_outputs_to_indexes(item) for item in output_structure]
+            else:
+                return output_structure
+
         if __routing_by_indexes:
-            outputs = [all_variables[output_name] for output_name in graph["returns"]]
+            outputs = convert_outputs_to_indexes(graph["returns"])
         else:
             outputs = graph["returns"]
         if len(function_inputs) == 0 and inputs is None:

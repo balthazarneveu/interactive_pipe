@@ -1,29 +1,38 @@
 import ast
 import inspect
 import logging
-from typing import Callable, List, Optional, Union
+from typing import Any, Callable, List, Optional, Sequence, Union
 
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.signature import analyze_apply_fn_signature
 
 
-def get_name(node) -> Union[str, List[str], None]:  # type: ignore
-    """Extract name from AST node. Accepts ast.expr nodes."""
+def get_name(node, preserve_structure=False) -> Union[str, Sequence[Any], None]:  # type: ignore
+    """Extract name from AST node. Accepts ast.expr nodes.
+
+    Args:
+        node: AST node to extract name from
+        preserve_structure: If True, preserve nested list/tuple structure; if False, flatten
+    """
     if isinstance(node, ast.Name):
         return node.id
     elif isinstance(node, ast.Attribute):
         return node.attr
     elif isinstance(node, ast.Tuple) or isinstance(node, ast.List):
-        names = [get_name(elt) for elt in node.elts]
-        # Flatten nested lists and filter out None values
-        result = []
-        for name in names:
-            if name is not None:
-                if isinstance(name, list):
-                    result.extend(name)
-                else:
-                    result.append(name)
-        return result if result else None
+        names = [get_name(elt, preserve_structure=preserve_structure) for elt in node.elts]
+        if preserve_structure:
+            # Preserve nested structure - filter out None but keep nesting
+            return [name for name in names if name is not None] or None
+        else:
+            # Flatten nested lists and filter out None values (original behavior)
+            result = []
+            for name in names:
+                if name is not None:
+                    if isinstance(name, list):
+                        result.extend(name)
+                    else:
+                        result.append(name)
+            return result if result else None
     else:
         return None
 
@@ -121,9 +130,27 @@ def get_call_graph(func: Callable, global_context=None) -> dict:
     main_function = tree.body[0]
     if not isinstance(main_function, (ast.FunctionDef, ast.AsyncFunctionDef)):
         raise ValueError("Function AST node is malformed")
-    outputs = [get_name(ret.value) for ret in main_function.body if isinstance(ret, ast.Return)]
-    assert len(outputs) <= 1, "cannot return several times!"
-    outputs = flatten_target_names(outputs, mapping_function=None)
+    # Get return statements and preserve nested structure
+    return_nodes = [ret.value for ret in main_function.body if isinstance(ret, ast.Return)]
+    assert len(return_nodes) <= 1, "cannot return several times!"
+
+    if return_nodes:
+        # Check if the return value is a nested list/tuple structure
+        ret_node = return_nodes[0]
+        if isinstance(ret_node, (ast.List, ast.Tuple)):
+            # Check if any element is itself a list/tuple (indicating 2D structure)
+            has_nested_structure = any(isinstance(elt, (ast.List, ast.Tuple)) for elt in ret_node.elts)
+            if has_nested_structure:
+                # Preserve the nested structure for 2D output layouts
+                outputs = get_name(ret_node, preserve_structure=True)
+            else:
+                # Flatten for simple 1D lists/tuples (original behavior)
+                outputs = flatten_target_names([get_name(ret_node, preserve_structure=False)], mapping_function=None)
+        else:
+            # Single return value or name
+            outputs = flatten_target_names([get_name(ret_node, preserve_structure=False)], mapping_function=None)
+    else:
+        outputs = None
     inputs, kwargs = analyze_apply_fn_signature(func)
     graph = {
         "function_name": main_function.name,
