@@ -94,8 +94,16 @@ class InteractivePipeDPG(InteractivePipeGUI):
         dpg.setup_dearpygui()
         dpg.show_viewport()
 
-        # Initial refresh
+        # Initial refresh (populates controls so their size can be measured)
         self.window.refresh()
+
+        # Apply tight layout after first frame when dimensions are available
+        if hasattr(self.window, "_apply_tight_layout"):
+
+            def _deferred_layout():
+                self.window._apply_tight_layout()
+
+            dpg.set_frame_callback(2, _deferred_layout)
 
         # Custom render loop with keyboard polling
         # This allows us to capture keys even when widgets have focus
@@ -340,29 +348,32 @@ class MainWindow(InteractivePipeWindow):
         # Create texture registry
         dpg.add_texture_registry(tag="texture_registry")
 
-        # Outer vertical: top panels, then main row (controls | display)
+        # Tight layout like Qt: display fills viewport, control panel at bottom.
+        # Display must be sibling to a child_window in horizontal layout for images to render.
         self.content_vertical_tag = "content_vertical"
         dpg.add_group(horizontal=False, parent=self.window_tag, tag=self.content_vertical_tag)
 
-        # Top panels area (above main row)
-        self.top_panels_tag = "top_panels"
-        dpg.add_group(horizontal=False, parent=self.content_vertical_tag, tag=self.top_panels_tag)
-
-        # Main row: left control strip | display section
-        self.main_layout_tag = "main_layout"
-        dpg.add_group(horizontal=True, parent=self.content_vertical_tag, tag=self.main_layout_tag)
-
-        # Left panel for controls (bottom panels + ungrouped controls)
-        self.control_panel_width = 300
-        self.control_panel_tag = "control_panel"
+        # Display region: child_window fills remaining space (viewport - control height)
+        self.display_container_tag = "display_container"
         dpg.add_child_window(
-            width=self.control_panel_width,
-            parent=self.main_layout_tag,
-            tag=self.control_panel_tag,
-            border=True,
+            parent=self.content_vertical_tag,
+            tag=self.display_container_tag,
+            height=-1,
+            border=False,
+            no_scrollbar=True,
         )
 
-        # Right side: display area with optional left/right panel strips around image grid
+        # Top panels area (above main row)
+        self.top_panels_tag = "top_panels"
+        dpg.add_group(horizontal=False, parent=self.display_container_tag, tag=self.top_panels_tag)
+
+        # Display row: 1px anchor | display (anchors layout for image rendering)
+        self.main_layout_tag = "main_layout"
+        dpg.add_group(horizontal=True, parent=self.display_container_tag, tag=self.main_layout_tag)
+
+        dpg.add_child_window(width=1, parent=self.main_layout_tag, tag="display_anchor", border=False)
+
+        # Display area with optional left/right panel strips around image grid
         self.display_panel_tag = "display_panel"
         dpg.add_group(horizontal=False, parent=self.main_layout_tag, tag=self.display_panel_tag)
 
@@ -380,8 +391,43 @@ class MainWindow(InteractivePipeWindow):
         self.right_panels_tag = "right_panels"
         dpg.add_group(horizontal=False, parent=self.display_inner_tag, tag=self.right_panels_tag)
 
+        # Bottom control panel: group sizes to content (no fixed height, no scroll)
+        dpg.add_separator(parent=self.content_vertical_tag)
+        self.control_panel_tag = "control_panel"
+        dpg.add_group(horizontal=False, parent=self.content_vertical_tag, tag=self.control_panel_tag)
+
         # Initialize controls
         self.init_sliders(controls)
+
+        # Tight layout: resize callback sets display height = viewport - control panel
+        self._setup_resize_callback()
+
+    def _apply_tight_layout(self):
+        """Set display container height so layout fits viewport (no scrolling)."""
+        if dpg is None:
+            return
+        try:
+            vp_h = dpg.get_viewport_client_height()
+            # Get control panel height from actual rendered size (group sizes to content)
+            if dpg.does_item_exist(self.control_panel_tag):
+                ctrl_rect = dpg.get_item_rect_size(self.control_panel_tag)
+                ctrl_h = int(ctrl_rect[1]) + 15 if ctrl_rect and len(ctrl_rect) >= 2 else 220  # +15 for separator
+            else:
+                ctrl_h = 220
+            if vp_h > ctrl_h:
+                display_h = vp_h - ctrl_h
+                dpg.configure_item(self.display_container_tag, height=display_h)
+        except Exception:
+            pass
+
+    def _setup_resize_callback(self):
+        """Register viewport resize callback for tight layout."""
+        if dpg is None:
+            return
+        try:
+            dpg.set_viewport_resize_callback(self._apply_tight_layout)
+        except Exception:
+            pass
 
     def init_sliders(self, controls: List[Control]):
         """Initialize control widgets."""
@@ -496,24 +542,34 @@ class MainWindow(InteractivePipeWindow):
             if slider_instance is None:
                 return None
 
-            # Create label
+            # Compact single-line layout: name [----slider----] value (like Qt)
+            # Fixed-width label column so slider starts align
+            row_tag = f"{slider_name}_row"
+            dpg.add_group(horizontal=True, parent=parent, tag=row_tag)
+
+            label_container_tag = f"{slider_name}_label_container"
+            dpg.add_child_window(
+                width=130,
+                height=22,
+                parent=row_tag,
+                tag=label_container_tag,
+                border=False,
+                no_scrollbar=True,
+            )
             label_tag = f"{slider_name}_label"
-            dpg.add_text(f"{ctrl.name}:", parent=parent, tag=label_tag)
+            dpg.add_text(ctrl.name, parent=label_container_tag, tag=label_tag)
             self.name_label[slider_name] = label_tag
 
-            # Create control widget
-            slider_widget = slider_instance.create(parent)
+            slider_widget = slider_instance.create(row_tag)
             self.widget_list[slider_name] = slider_instance
 
-            # Create value display
             result_tag = f"{slider_name}_result"
             val = ctrl.value
             val_to_print = f"{val:.3e}" if isinstance(val, float) else str(val)
-            dpg.add_text(f"{val_to_print}", parent=parent, tag=result_tag)
+            dpg.add_text(f"{val_to_print}", parent=row_tag, tag=result_tag)
             self.result_label[slider_name] = result_tag
 
-            dpg.add_spacer(height=5, parent=parent)
-
+            dpg.add_spacer(height=2, parent=parent)
             return slider_widget
         return None
 
@@ -711,17 +767,20 @@ class MainWindow(InteractivePipeWindow):
                     width=w, height=h, default_value=converted_img, tag=texture_tag, parent="texture_registry"
                 )
 
-                # Recreate image widget with same tag
+                # Recreate image widget with same tag (DPG needs explicit width/height to display)
                 cell_tag = cell_dict["cell_tag"]
-                dpg.add_image(texture_tag, parent=cell_tag, tag=image_tag)
+                dpg.add_image(texture_tag, parent=cell_tag, tag=image_tag, width=w, height=h)
             else:
-                # Same size - just update data
+                # Same size - just update data, ensure image widget has correct dimensions
                 dpg.set_value(texture_tag, converted_img)
+                dpg.configure_item(image_tag, width=w, height=h)
         else:
             # Texture doesn't exist - create it
             dpg.add_dynamic_texture(
                 width=w, height=h, default_value=converted_img, tag=texture_tag, parent="texture_registry"
             )
+            # Configure image widget with dimensions (DPG needs explicit width/height to display)
+            dpg.configure_item(image_tag, width=w, height=h)
 
     def _update_curve(self, curve, row, col):
         """Update curve plot using DPG native plotting."""
