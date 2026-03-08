@@ -60,7 +60,7 @@ pip install -e ".[full]"
 
 ## 📜  Features
 
-**Version 0.8.9**
+**Version 0.8.10**
 - Modular multi-image processing filters
 - Declarative: Easily make graphical user interface without having to learn anything about pyQt or matplotlib
 - Support in jupyter notebooks
@@ -294,6 +294,8 @@ if __name__ == '__main__':
 ### Release Notes
 
 
+#### Version 0.8.10 (March 2026)
+- Bugfix for jupyter notebooks backends.
 #### Version 0.8.9 (February 2026)
 
 **New Features:**
