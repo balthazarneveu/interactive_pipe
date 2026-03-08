@@ -14,6 +14,8 @@ except ImportError:
 from interactive_pipe.headless.control import Control
 
 if DPG_AVAILABLE:
+    import dearpygui.dearpygui as dpg
+
     from interactive_pipe.graphical.dpg_control import (
         ControlFactory,
         DropdownMenuControl,
@@ -23,6 +25,8 @@ if DPG_AVAILABLE:
         TickBoxControl,
     )
     from interactive_pipe.graphical.dpg_gui import MainWindow
+
+from interactive_pipe.headless.panel import Panel
 
 
 @pytest.mark.skipif(not DPG_AVAILABLE, reason="DearPyGui not installed")
@@ -155,6 +159,54 @@ class TestImageConversion:
         # Check clipping worked
         assert converted_array[0, 0, 0] == 0.0  # -0.5 clipped to 0
         assert converted_array[1, 1, 0] == 1.0  # 2.0 clipped to 1
+
+
+@pytest.mark.skip(reason="Requires display - DPG viewport/destroy_context not headless-safe")
+@pytest.mark.skipif(not DPG_AVAILABLE, reason="DearPyGui not installed")
+def test_dpg_panel_layout_builds():
+    """Panel positions and grid layout build without error.
+
+    Run manually with display to verify: create MainWindow with panels at
+    top/left/right/bottom and grid layout; or run demo/image_editing_demo.py -b dpg.
+    """
+    dpg.create_context()
+
+    class MockPipeline:
+        def __init__(self):
+            self.global_params = {}
+
+    pipeline = MockPipeline()
+
+    # Panels at different positions
+    top_panel = Panel("Top", position="top")
+    left_panel = Panel("Left", position="left")
+    right_panel = Panel("Right", position="right")
+    bottom_panel = Panel("Bottom", position="bottom")
+
+    # Grid layout: row of two nested panels
+    sub_a = Panel("SubA")
+    sub_b = Panel("SubB")
+    Panel("Grid").add_elements([[sub_a, sub_b]])
+
+    ctrl_ungrouped = Control(name="ungrouped", value_range=[0, 1], value_default=0.5)
+    ctrl_top = Control(name="top_ctrl", value_range=[0, 1], value_default=0.5, group=top_panel)
+    ctrl_left = Control(name="left_ctrl", value_range=[0, 1], value_default=0.5, group=left_panel)
+    ctrl_right = Control(name="right_ctrl", value_range=[0, 1], value_default=0.5, group=right_panel)
+    ctrl_bottom = Control(name="bottom_ctrl", value_range=[0, 1], value_default=0.5, group=bottom_panel)
+    ctrl_grid = Control(name="grid_ctrl", value_range=[0, 1], value_default=0.5, group=sub_a)
+
+    controls = [ctrl_ungrouped, ctrl_top, ctrl_left, ctrl_right, ctrl_bottom, ctrl_grid]
+    window = MainWindow(
+        controls=controls,
+        name="Panel test",
+        pipeline=pipeline,
+        size=(800, 600),
+    )
+    assert pipeline.global_params["__window"] is window
+    assert hasattr(window, "top_panels_tag")
+    assert hasattr(window, "left_panels_tag")
+    assert hasattr(window, "right_panels_tag")
+    dpg.destroy_context()
 
 
 # Integration test - requires display, marked as manual

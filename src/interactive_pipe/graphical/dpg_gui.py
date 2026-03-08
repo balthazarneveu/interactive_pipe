@@ -278,7 +278,11 @@ class InteractivePipeDPG(InteractivePipeGUI):
 
 
 class MainWindow(InteractivePipeWindow):
-    """Main window class for DPG backend."""
+    """Main window class for DPG backend.
+
+    Supports panel positions: top, left, right, bottom. Detached panels
+    (Panel(detached=True)) are not supported and are skipped.
+    """
 
     # Key mapping from DPG key codes to string keys
     key_mapping_dict = _get_dpg_key_mapping_dict() if (DPG_AVAILABLE and dpg is not None) else {}
@@ -336,11 +340,19 @@ class MainWindow(InteractivePipeWindow):
         # Create texture registry
         dpg.add_texture_registry(tag="texture_registry")
 
-        # Create horizontal layout: controls on left, displays on right
-        self.main_layout_tag = "main_layout"
-        dpg.add_group(horizontal=True, parent=self.window_tag, tag=self.main_layout_tag)
+        # Outer vertical: top panels, then main row (controls | display)
+        self.content_vertical_tag = "content_vertical"
+        dpg.add_group(horizontal=False, parent=self.window_tag, tag=self.content_vertical_tag)
 
-        # Left panel for controls
+        # Top panels area (above main row)
+        self.top_panels_tag = "top_panels"
+        dpg.add_group(horizontal=False, parent=self.content_vertical_tag, tag=self.top_panels_tag)
+
+        # Main row: left control strip | display section
+        self.main_layout_tag = "main_layout"
+        dpg.add_group(horizontal=True, parent=self.content_vertical_tag, tag=self.main_layout_tag)
+
+        # Left panel for controls (bottom panels + ungrouped controls)
         self.control_panel_width = 300
         self.control_panel_tag = "control_panel"
         dpg.add_child_window(
@@ -350,13 +362,23 @@ class MainWindow(InteractivePipeWindow):
             border=True,
         )
 
-        # Right side for images/plots
+        # Right side: display area with optional left/right panel strips around image grid
         self.display_panel_tag = "display_panel"
         dpg.add_group(horizontal=False, parent=self.main_layout_tag, tag=self.display_panel_tag)
 
+        # Inner horizontal: left panels | image grid | right panels
+        self.display_inner_tag = "display_inner"
+        dpg.add_group(horizontal=True, parent=self.display_panel_tag, tag=self.display_inner_tag)
+
+        self.left_panels_tag = "left_panels"
+        dpg.add_group(horizontal=False, parent=self.display_inner_tag, tag=self.left_panels_tag)
+
         # Image grid container (will hold images in grid)
         self.image_grid_tag = "image_grid"
-        dpg.add_group(horizontal=False, parent=self.display_panel_tag, tag=self.image_grid_tag)
+        dpg.add_group(horizontal=False, parent=self.display_inner_tag, tag=self.image_grid_tag)
+
+        self.right_panels_tag = "right_panels"
+        dpg.add_group(horizontal=False, parent=self.display_inner_tag, tag=self.right_panels_tag)
 
         # Initialize controls
         self.init_sliders(controls)
@@ -381,7 +403,7 @@ class MainWindow(InteractivePipeWindow):
                 root_panel = ctrl.panel.get_root()
                 root_panels.add(root_panel)
 
-        # Filter out detached panels for now (not fully implemented)
+        # Detached panels (separate window) are not supported in DPG backend; skip them.
         regular_panels = [p for p in root_panels if not p.detached]
 
         # Group panels by position
@@ -390,13 +412,23 @@ class MainWindow(InteractivePipeWindow):
             pos = panel.position or "bottom"
             panels_by_position[pos].append(panel)
 
-        # Render panels and controls to control panel
-        # For simplicity, all controls go to the left control panel
-        for panel in panels_by_position["bottom"]:  # Bottom panels go to control panel
-            self._build_panel_widget(panel, control_factory, self.control_panel_tag)
+        # Top panels (above main row)
+        for panel in panels_by_position["top"]:
+            self._build_panel_widget(panel, control_factory, self.top_panels_tag)
 
+        # Left panels (left of image grid)
+        for panel in panels_by_position["left"]:
+            self._build_panel_widget(panel, control_factory, self.left_panels_tag)
+
+        # Right panels (right of image grid)
+        for panel in panels_by_position["right"]:
+            self._build_panel_widget(panel, control_factory, self.right_panels_tag)
+
+        # Control panel: ungrouped controls first, then bottom panels (match Gradio order)
         for ctrl in ungrouped_controls:
             self._create_control_widget(ctrl, control_factory, self.control_panel_tag)
+        for panel in panels_by_position["bottom"]:
+            self._build_panel_widget(panel, control_factory, self.control_panel_tag)
 
     def _build_panel_widget(self, panel: Panel, control_factory: ControlFactory, parent):
         """Build DPG widget for a panel."""
@@ -420,13 +452,27 @@ class MainWindow(InteractivePipeWindow):
                 dpg.add_separator(parent=group_tag)
             panel_parent = group_tag
 
-        # Add child panels and controls
+        # Add child panels and controls (support grid: list of lists)
         if panel.elements:
-            for element in panel.elements:
-                if isinstance(element, Panel):
-                    self._build_panel_widget(element, control_factory, panel_parent)
-                elif isinstance(element, Control):
-                    self._create_control_widget(element, control_factory, panel_parent)
+            if isinstance(panel.elements[0], list):
+                # Grid layout: each row is a horizontal group
+                for row_idx, row in enumerate(panel.elements):
+                    if not isinstance(row, list):
+                        continue
+                    row_tag = f"panel_{id(panel)}_row_{row_idx}"
+                    dpg.add_group(horizontal=True, parent=panel_parent, tag=row_tag)
+                    for element in row:
+                        if isinstance(element, Panel):
+                            self._build_panel_widget(element, control_factory, row_tag)
+                        elif isinstance(element, Control):
+                            self._create_control_widget(element, control_factory, row_tag)
+            else:
+                # Flat list: vertical stack
+                for element in panel.elements:
+                    if isinstance(element, Panel):
+                        self._build_panel_widget(element, control_factory, panel_parent)
+                    elif isinstance(element, Control):
+                        self._create_control_widget(element, control_factory, panel_parent)
 
         # Add controls assigned directly to panel
         for ctrl in panel._controls:
