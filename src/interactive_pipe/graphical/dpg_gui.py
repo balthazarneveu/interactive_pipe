@@ -645,6 +645,7 @@ class MainWindow(InteractivePipeWindow):
                 tag=self.left_panels_container_tag,
                 border=True,
                 no_scrollbar=True,
+                always_use_window_padding=False,
             )
             dpg.add_group(
                 horizontal=False,
@@ -687,6 +688,7 @@ class MainWindow(InteractivePipeWindow):
                 tag=self.right_panels_container_tag,
                 border=True,
                 no_scrollbar=True,
+                always_use_window_padding=False,
             )
             dpg.add_group(
                 horizontal=False,
@@ -796,12 +798,13 @@ class MainWindow(InteractivePipeWindow):
 
             label_container_tag = f"{slider_name}_label_container"
             dpg.add_child_window(
-                width=130,
+                width=80,
                 height=22,
                 parent=row_tag,
                 tag=label_container_tag,
                 border=False,
                 no_scrollbar=True,
+                always_use_window_padding=False,
             )
             label_tag = f"{slider_name}_label"
             dpg.add_text(ctrl.name, parent=label_container_tag, tag=label_tag)
