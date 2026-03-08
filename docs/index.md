@@ -9,7 +9,7 @@
 - Develop an algorithm while debugging visually with plots, while checking robustness & continuity to parameters change.
 - Magically create a graphical interface to easily demonstrate a concept or simply tune your algorithm.
 
-:heart: **You do not need to learn anything about making a graphical user interface (GUI)** :heart:
+❤️ **You do not need to learn anything about making a graphical user interface (GUI)** ❤️
 
 ## Examples
 
@@ -21,15 +21,15 @@
 
 ## Who is this for?
 
-### :mortar_board: Scientific education
+### 🎓 Scientific education
 - Demonstrate concepts by interacting with curves / images.
 - Easy integration in Jupyter Notebooks (popular with Google Collab) 
 
-### :gift: DIY hobbyist
+### 🎁 DIY hobbyist
 - You can also use the declarative nature of interactive pipe to make a graphical interface in a few lines of codes. 
 - For instance, it is possible to code a jukebox for a toddler on a RaspberryPi.
 
-### :camera: Engineering *(computer vision, image/signal processing)*
+### 📷 Engineering *(computer vision, image/signal processing)*
 - While prototyping an algorithm or testing a neural network, you may be interested in making small experiments with visual checks. Instead of making a draft quick & dirty code that you'll never keep, you can use interactive pipe to show your team how your library works. A visual demo is always good, it shows that the algorithm is not buggy if anyone can play with it.
 - Tune your algorithms with a graphical interface and save your parameters for later batch processing.
 - Ready to batch under the hood, the processing engine can be ran without GUI (therefore allowing to use the same code for tuning & batch processing if needed).

@@ -74,7 +74,7 @@ if __name__ == '__main__':
     sample_pipeline(input_image)
 ```
 
-:heart: This code shall display you a GUI with three images. The middle one is the result of the blend.
+❤️ This code shall display you a GUI with three images. The middle one is the result of the blend.
 
 ## Parameter Variations
 

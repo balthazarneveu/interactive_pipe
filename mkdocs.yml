@@ -40,12 +40,15 @@ nav:
     - Controls & Widgets: guide/controls.md
     - Backends: guide/backends.md
   - API Reference:
-    - Core: api/core.md
+    - Overview: api/index.md
+    - Decorators: api/decorators.md
+    - Controls: api/controls.md
+    - Panel: api/panel.md
     - Data Objects: api/data_objects.md
-    - Headless: api/headless.md
-    - Graphical: api/graphical.md
-    - Helper: api/helper.md
-  - Architecture: architecture.md
+    - Context API: api/context.md
+  - For Developers:
+    - Architecture: architecture.md
+    - Internal API: api/internals.md
 
 markdown_extensions:
   - pymdownx.highlight

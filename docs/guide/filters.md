@@ -12,7 +12,7 @@ In this first part, we'll define very simple image processing filter functions. 
 
 So let's define 3 very simple image processing functions: `exposure`, `black_and_white` & `blend`.
 
-:eyeglasses: Note that the blend function will process two buffers (interactive pipe is a multi input/output processing framework, not just single image filters)
+👓 Note that the blend function will process two buffers (interactive pipe is a multi input/output processing framework, not just single image filters)
 
 Let's create a first file `image_filters.py`, this is what you should consider as your **library** for the sake of the example here.
 
@@ -96,7 +96,7 @@ exposed, blended, bnw_image = sample_pipeline(input_image)
 print(blended)
 ```
 
-:fire: Now come some handy features of the `interactive_pipe`. You can pass parameters directly to the pipeline:
+🔥 Now come some handy features of the `interactive_pipe`. You can pass parameters directly to the pipeline:
 
 ```python
 exposed, blended, bnw_image = sample_pipeline(input_image, bnw=True, blend_coeff=0.5)
