@@ -1,0 +1,55 @@
+site_name: Interactive Pipe
+site_description: Build interactive image processing pipelines with live parameter tuning
+repo_url: https://github.com/balthazarneveu/interactive_pipe
+repo_name: interactive_pipe
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - search.suggest
+    - content.code.copy
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            show_root_heading: true
+            docstring_style: google
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Quick Start: getting-started/quickstart.md
+    - Tutorials: getting-started/tutorials.md
+  - User Guide:
+    - Filters & Pipelines: guide/filters.md
+    - Controls & Widgets: guide/controls.md
+    - Backends: guide/backends.md
+  - API Reference:
+    - Core: api/core.md
+    - Data Objects: api/data_objects.md
+    - Headless: api/headless.md
+    - Graphical: api/graphical.md
+    - Helper: api/helper.md
+  - Architecture: architecture.md
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - admonition
+  - toc:
+      permalink: true
