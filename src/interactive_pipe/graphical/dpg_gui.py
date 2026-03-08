@@ -892,9 +892,8 @@ class MainWindow(InteractivePipeWindow):
 
         if CURVE_SUPPORT and Curve is not None and isinstance(content, Curve):
             self._update_curve(content, row, col)
-        elif CURVE_SUPPORT and Table is not None and isinstance(content, Table):
-            logging.warning("Table display not fully implemented for DPG backend")
-            self._update_text(str(content), row, col)
+        elif Table is not None and isinstance(content, Table):
+            self._update_table(content, row, col)
         elif isinstance(content, str):
             self._update_text(content, row, col)
 
@@ -1005,6 +1004,58 @@ class MainWindow(InteractivePipeWindow):
                 # Create new series
                 label = single_curve.label if hasattr(single_curve, "label") and single_curve.label else f"Series {idx}"
                 dpg.add_line_series(x_data, y_data, label=label, parent=y_axis_tag, tag=series_tag)
+
+    def _update_table(self, table: Any, row: int, col: int) -> None:
+        """Update table display using DPG native table widget."""
+        assert dpg is not None
+        canvas = self.image_canvas
+        if canvas is None:
+            return
+        cell_dict = canvas[row][col]
+        table_tag = f"table_{row}_{col}"
+        container_tag = f"table_container_{row}_{col}"
+
+        # Remove existing table container if present (recreate on every update for correct shape)
+        if cell_dict.get("type") == "table" and dpg.does_item_exist(container_tag):
+            dpg.delete_item(container_tag)
+
+        # On first show, remove image placeholder
+        if not dpg.does_item_exist(container_tag):
+            if dpg.does_item_exist(cell_dict.get("image")):
+                dpg.delete_item(cell_dict["image"])
+
+        cell_tag = cell_dict["cell_tag"]
+        has_headers = any(c != "" for c in table.columns)
+        formatted = table._format_values()
+
+        # Use fixed width so multiple tables in one row don't steal full width (DPG horizontal layout)
+        with dpg.child_window(
+            parent=cell_tag,
+            tag=container_tag,
+            border=True,
+            width=220,
+            height=400,
+        ):
+            with dpg.table(
+                header_row=has_headers,
+                resizable=True,
+                policy=dpg.mvTable_SizingStretchProp,
+                borders_innerH=True,
+                borders_innerV=True,
+                borders_outerH=True,
+                borders_outerV=True,
+                row_background=True,
+                tag=table_tag,
+            ):
+                for c in table.columns:
+                    dpg.add_table_column(label=c if c else " ")
+                for row_vals in formatted:
+                    with dpg.table_row():
+                        for val in row_vals:
+                            dpg.add_text(str(val))
+
+        cell_dict["table_object"] = container_tag
+        cell_dict["type"] = "table"
 
     def _update_text(self, text, row, col):
         """Update text display."""
