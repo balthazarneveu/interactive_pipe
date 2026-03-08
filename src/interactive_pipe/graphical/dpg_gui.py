@@ -332,7 +332,7 @@ class MainWindow(InteractivePipeWindow):
 
         # Image grid container (will hold images in grid)
         self.image_grid_tag = "image_grid"
-        dpg.add_group(horizontal=True, parent=self.display_panel_tag, tag=self.image_grid_tag)
+        dpg.add_group(horizontal=False, parent=self.display_panel_tag, tag=self.image_grid_tag)
 
         # Initialize controls
         self.init_sliders(controls)
@@ -479,6 +479,32 @@ class MainWindow(InteractivePipeWindow):
             self.ctrl[idx].on_key_up()
         self.refresh()
 
+    def check_image_canvas_changes(self, expected_image_canvas_shape):
+        """Override to properly clean up DPG items when layout changes."""
+        if self.image_canvas is not None:
+            current_canvas_shape = (
+                len(self.image_canvas),
+                max([len(image_row) for image_row in self.image_canvas]),
+            )
+            if current_canvas_shape != expected_image_canvas_shape:
+                # Delete all textures from texture registry first
+                for row_content in self.image_canvas:
+                    for img_widget in row_content:
+                        if img_widget is not None and "texture" in img_widget:
+                            texture_tag = img_widget["texture"]
+                            if dpg.does_item_exist(texture_tag):
+                                dpg.delete_item(texture_tag)
+                            # Also remove alias if it exists
+                            if dpg.does_alias_exist(texture_tag):
+                                dpg.remove_alias(texture_tag)
+
+                # Clear all children of image_grid (rows, cells, images, plots, etc.)
+                if dpg.does_item_exist(self.image_grid_tag):
+                    dpg.delete_item(self.image_grid_tag, children_only=True)
+
+                self.image_canvas = None
+                logging.info(f"DPG: Cleared image grid for layout change: {current_canvas_shape} -> {expected_image_canvas_shape}")
+
     def add_image_placeholder(self, row, col):
         """Add placeholder for image at grid position."""
         # Create texture and image widget
@@ -512,22 +538,21 @@ class MainWindow(InteractivePipeWindow):
             "image": placeholder_tag,
             "title": title_tag,
             "texture": texture_tag,
+            "cell_tag": cell_tag,
             "type": "image",
             "plot_object": None,
             "ax_placeholder": None,
         }
 
     def delete_image_placeholder(self, img_widget_dict):
-        """Delete image placeholder."""
-        if "texture" in img_widget_dict:
-            if dpg.does_item_exist(img_widget_dict["texture"]):
-                dpg.delete_item(img_widget_dict["texture"])
-        if "image" in img_widget_dict:
-            if dpg.does_item_exist(img_widget_dict["image"]):
-                dpg.delete_item(img_widget_dict["image"])
-        if "title" in img_widget_dict:
-            if dpg.does_item_exist(img_widget_dict["title"]):
-                dpg.delete_item(img_widget_dict["title"])
+        """Delete image placeholder and associated items."""
+        # Delete texture (stored in texture registry, not parented to cell)
+        if "texture" in img_widget_dict and dpg.does_item_exist(img_widget_dict["texture"]):
+            dpg.delete_item(img_widget_dict["texture"])
+
+        # Delete cell group (this recursively deletes title, image, plot, text, etc.)
+        if "cell_tag" in img_widget_dict and dpg.does_item_exist(img_widget_dict["cell_tag"]):
+            dpg.delete_item(img_widget_dict["cell_tag"])
 
     def update_image(self, content, row, col):
         """Update image/plot/table at grid position."""
@@ -585,28 +610,23 @@ class MainWindow(InteractivePipeWindow):
 
             if current_width != w or current_height != h:
                 logging.debug(f"DPG texture size changed: {current_width}x{current_height} -> {w}x{h}")
-                # Size changed - need to recreate texture with a new unique tag
-                # Generate new unique texture tag
-                if not hasattr(self, "_texture_counter"):
-                    self._texture_counter = 0
-                self._texture_counter += 1
-                new_texture_tag = f"texture_{row}_{col}_{self._texture_counter}"
-
-                # Create new texture first
-                dpg.add_dynamic_texture(
-                    width=w, height=h, default_value=converted_img, tag=new_texture_tag, parent="texture_registry"
-                )
-
-                # Update image to use new texture
-                dpg.configure_item(image_tag, texture_tag=new_texture_tag)
-
-                # Now delete old texture
+                # Size changed - need to recreate both texture and image widget
+                
+                # Delete old texture and image widget
                 dpg.delete_item(texture_tag)
                 if dpg.does_alias_exist(texture_tag):
                     dpg.remove_alias(texture_tag)
+                if dpg.does_item_exist(image_tag):
+                    dpg.delete_item(image_tag)
 
-                # Update stored texture tag
-                cell_dict["texture"] = new_texture_tag
+                # Create new texture with same tag
+                dpg.add_dynamic_texture(
+                    width=w, height=h, default_value=converted_img, tag=texture_tag, parent="texture_registry"
+                )
+
+                # Recreate image widget with same tag
+                cell_tag = cell_dict["cell_tag"]
+                dpg.add_image(texture_tag, parent=cell_tag, tag=image_tag)
             else:
                 # Same size - just update data
                 dpg.set_value(texture_tag, converted_img)
