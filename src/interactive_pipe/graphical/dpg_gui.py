@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, cast
+from typing import Any, List, Optional, cast
 
 import numpy as np
 
@@ -34,6 +34,32 @@ except ImportError:
     CURVE_SUPPORT = False
 
 
+def _get_dpg_key_mapping_dict():
+    """Return DPG key code mapping; only call when dpg is not None."""
+    assert dpg is not None
+    return {
+        dpg.mvKey_F1: "f1",
+        dpg.mvKey_F2: "f2",
+        dpg.mvKey_F3: "f3",
+        dpg.mvKey_F4: "f4",
+        dpg.mvKey_F5: "f5",
+        dpg.mvKey_F6: "f6",
+        dpg.mvKey_F7: "f7",
+        dpg.mvKey_F8: "f8",
+        dpg.mvKey_F9: "f9",
+        dpg.mvKey_F10: "f10",
+        dpg.mvKey_F11: "f11",
+        dpg.mvKey_F12: "f12",
+        dpg.mvKey_Up: KeyboardControl.KEY_UP,
+        dpg.mvKey_Down: KeyboardControl.KEY_DOWN,
+        dpg.mvKey_Left: KeyboardControl.KEY_LEFT,
+        dpg.mvKey_Right: KeyboardControl.KEY_RIGHT,
+        dpg.mvKey_Prior: KeyboardControl.KEY_PAGEUP,
+        dpg.mvKey_Next: KeyboardControl.KEY_PAGEDOWN,
+        dpg.mvKey_Spacebar: KeyboardControl.KEY_SPACEBAR,
+    }
+
+
 class InteractivePipeDPG(InteractivePipeGUI):
     """Dear PyGui backend for interactive pipelines."""
 
@@ -42,7 +68,7 @@ class InteractivePipeDPG(InteractivePipeGUI):
             raise ModuleNotFoundError(
                 "DearPyGui is required for the DPG backend. Install it with: pip install interactive-pipe[dpg]"
             )
-
+        assert dpg is not None
         dpg.create_context()
 
         self.window = MainWindow(
@@ -107,8 +133,11 @@ class InteractivePipeDPG(InteractivePipeGUI):
             **self.key_bindings,
         }
 
-        # Map key bindings to DPG key codes for polling
+        # Map key bindings to DPG key codes for polling.
+        # Include default shortcuts, a-z (for KeyboardControl e.g. keydown="d" keyup="u"),
+        # and special keys (arrows, pageup/down, space) so all keyboard controls work.
         if dpg is not None:
+            assert dpg is not None
             self._key_code_map = {
                 dpg.mvKey_F1: "f1",
                 dpg.mvKey_F11: "f11",
@@ -120,6 +149,23 @@ class InteractivePipeDPG(InteractivePipeGUI):
                 dpg.mvKey_Q: "q",
                 dpg.mvKey_G: "g",
             }
+            # Letters a-z for KeyboardControl (e.g. keydown="d", keyup="u")
+            for c in "abcdefghijklmnopqrstuvwxyz":
+                dpg_key = getattr(dpg, f"mvKey_{c.upper()}", None)
+                if dpg_key is not None:
+                    self._key_code_map[dpg_key] = c
+            # Special keys used by KeyboardControl (up, down, left, right, pageup, pagedown, space)
+            special = [
+                (dpg.mvKey_Up, KeyboardControl.KEY_UP),
+                (dpg.mvKey_Down, KeyboardControl.KEY_DOWN),
+                (dpg.mvKey_Left, KeyboardControl.KEY_LEFT),
+                (dpg.mvKey_Right, KeyboardControl.KEY_RIGHT),
+                (dpg.mvKey_Prior, KeyboardControl.KEY_PAGEUP),
+                (dpg.mvKey_Next, KeyboardControl.KEY_PAGEDOWN),
+                (dpg.mvKey_Spacebar, KeyboardControl.KEY_SPACEBAR),
+            ]
+            for dpg_key, key_str in special:
+                self._key_code_map[dpg_key] = key_str
         else:
             self._key_code_map = {}
 
@@ -211,54 +257,31 @@ class InteractivePipeDPG(InteractivePipeGUI):
         """Show a modal popup window with the message."""
         if dpg is None:
             return
-
+        assert dpg is not None
+        dpg_ref = dpg
         popup_tag = "help_popup"
 
         # Delete existing popup if present
-        if dpg.does_item_exist(popup_tag):
-            dpg.delete_item(popup_tag)
+        if dpg_ref.does_item_exist(popup_tag):
+            dpg_ref.delete_item(popup_tag)
 
         # Create modal popup window
-        with dpg.window(
+        with dpg_ref.window(
             label="Help",
             modal=True,
             tag=popup_tag,
             no_resize=True,
             autosize=True,
         ):
-            dpg.add_text(message)
-            dpg.add_button(label="Close", callback=lambda: dpg.delete_item(popup_tag))
+            dpg_ref.add_text(message)
+            dpg_ref.add_button(label="Close", callback=lambda: dpg_ref.delete_item(popup_tag))
 
 
 class MainWindow(InteractivePipeWindow):
     """Main window class for DPG backend."""
 
     # Key mapping from DPG key codes to string keys
-    key_mapping_dict = (
-        {
-            dpg.mvKey_F1: "f1",
-            dpg.mvKey_F2: "f2",
-            dpg.mvKey_F3: "f3",
-            dpg.mvKey_F4: "f4",
-            dpg.mvKey_F5: "f5",
-            dpg.mvKey_F6: "f6",
-            dpg.mvKey_F7: "f7",
-            dpg.mvKey_F8: "f8",
-            dpg.mvKey_F9: "f9",
-            dpg.mvKey_F10: "f10",
-            dpg.mvKey_F11: "f11",
-            dpg.mvKey_F12: "f12",
-            dpg.mvKey_Up: KeyboardControl.KEY_UP,
-            dpg.mvKey_Down: KeyboardControl.KEY_DOWN,
-            dpg.mvKey_Left: KeyboardControl.KEY_LEFT,
-            dpg.mvKey_Right: KeyboardControl.KEY_RIGHT,
-            dpg.mvKey_Prior: KeyboardControl.KEY_PAGEUP,
-            dpg.mvKey_Next: KeyboardControl.KEY_PAGEDOWN,
-            dpg.mvKey_Spacebar: KeyboardControl.KEY_SPACEBAR,
-        }
-        if DPG_AVAILABLE and dpg is not None
-        else {}
-    )
+    key_mapping_dict = _get_dpg_key_mapping_dict() if (DPG_AVAILABLE and dpg is not None) else {}
 
     def __init__(
         self,
@@ -276,9 +299,10 @@ class MainWindow(InteractivePipeWindow):
             controls = []
         if not DPG_AVAILABLE or dpg is None:
             raise ModuleNotFoundError("DearPyGui is required for DPG backend")
-
+        assert dpg is not None
         InteractivePipeWindow.__init__(self, name=name, pipeline=pipeline, size=size)
         self.main_gui = main_gui
+        assert self.pipeline is not None
         self.pipeline.global_params["__window"] = self
 
         # Determine viewport size
@@ -376,6 +400,7 @@ class MainWindow(InteractivePipeWindow):
 
     def _build_panel_widget(self, panel: Panel, control_factory: ControlFactory, parent):
         """Build DPG widget for a panel."""
+        assert dpg is not None
         if panel.collapsible:
             # Use collapsing header
             header_tag = f"panel_{panel.name}_header"
@@ -409,6 +434,7 @@ class MainWindow(InteractivePipeWindow):
 
     def _create_control_widget(self, ctrl: Control, control_factory: ControlFactory, parent):
         """Create a single control widget."""
+        assert dpg is not None
         slider_name = ctrl.name
 
         if isinstance(ctrl, KeyboardControl):
@@ -447,6 +473,7 @@ class MainWindow(InteractivePipeWindow):
 
     def update_label(self, idx):
         """Update the label displaying the current value."""
+        assert dpg is not None
         val = self.ctrl[idx].value
         val_to_print = f"{val:.3e}" if isinstance(val, float) else str(val)
         if idx in self.result_label:
@@ -482,13 +509,16 @@ class MainWindow(InteractivePipeWindow):
     def check_image_canvas_changes(self, expected_image_canvas_shape):
         """Override to properly clean up DPG items when layout changes."""
         if self.image_canvas is not None:
+            assert dpg is not None
+            # Shallow copy so type is clearly a list (avoids Pyright "Never" in this block)
+            canvas: List[Any] = list(self.image_canvas)
             current_canvas_shape = (
-                len(self.image_canvas),
-                max([len(image_row) for image_row in self.image_canvas]),
+                len(canvas),
+                max(len(image_row) for image_row in canvas),
             )
             if current_canvas_shape != expected_image_canvas_shape:
-                # Delete all textures from texture registry first
-                for row_content in self.image_canvas:
+                # Delete all textures from texture registry first (iterate over copy)
+                for row_content in canvas:
                     for img_widget in row_content:
                         if img_widget is not None and "texture" in img_widget:
                             texture_tag = img_widget["texture"]
@@ -503,10 +533,16 @@ class MainWindow(InteractivePipeWindow):
                     dpg.delete_item(self.image_grid_tag, children_only=True)
 
                 self.image_canvas = None
-                logging.info(f"DPG: Cleared image grid for layout change: {current_canvas_shape} -> {expected_image_canvas_shape}")
+                logging.info(
+                    "DPG: Cleared image grid for layout change: %s -> %s",
+                    current_canvas_shape,
+                    expected_image_canvas_shape,
+                )
 
     def add_image_placeholder(self, row, col):
         """Add placeholder for image at grid position."""
+        assert dpg is not None
+        assert self.image_canvas is not None
         # Create texture and image widget
         placeholder_tag = f"image_{row}_{col}"
         title_tag = f"title_{row}_{col}"
@@ -546,6 +582,7 @@ class MainWindow(InteractivePipeWindow):
 
     def delete_image_placeholder(self, img_widget_dict):
         """Delete image placeholder and associated items."""
+        assert dpg is not None
         # Delete texture (stored in texture registry, not parented to cell)
         if "texture" in img_widget_dict and dpg.does_item_exist(img_widget_dict["texture"]):
             dpg.delete_item(img_widget_dict["texture"])
@@ -556,6 +593,8 @@ class MainWindow(InteractivePipeWindow):
 
     def update_image(self, content, row, col):
         """Update image/plot/table at grid position."""
+        assert dpg is not None
+        assert self.image_canvas is not None
         cell_dict = self.image_canvas[row][col]
 
         # Update title
@@ -583,9 +622,9 @@ class MainWindow(InteractivePipeWindow):
                 self._update_image_texture(content, row, col)
                 return
 
-        if CURVE_SUPPORT and isinstance(content, Curve):
+        if CURVE_SUPPORT and Curve is not None and isinstance(content, Curve):
             self._update_curve(content, row, col)
-        elif CURVE_SUPPORT and isinstance(content, Table):
+        elif CURVE_SUPPORT and Table is not None and isinstance(content, Table):
             logging.warning("Table display not fully implemented for DPG backend")
             self._update_text(str(content), row, col)
         elif isinstance(content, str):
@@ -593,6 +632,8 @@ class MainWindow(InteractivePipeWindow):
 
     def _update_image_texture(self, img_array, row, col):
         """Update image texture with numpy array."""
+        assert dpg is not None
+        assert self.image_canvas is not None
         cell_dict = self.image_canvas[row][col]
         texture_tag = cell_dict["texture"]
         image_tag = cell_dict["image"]
@@ -611,7 +652,7 @@ class MainWindow(InteractivePipeWindow):
             if current_width != w or current_height != h:
                 logging.debug(f"DPG texture size changed: {current_width}x{current_height} -> {w}x{h}")
                 # Size changed - need to recreate both texture and image widget
-                
+
                 # Delete old texture and image widget
                 dpg.delete_item(texture_tag)
                 if dpg.does_alias_exist(texture_tag):
@@ -638,7 +679,11 @@ class MainWindow(InteractivePipeWindow):
 
     def _update_curve(self, curve, row, col):
         """Update curve plot using DPG native plotting."""
-        cell_dict = self.image_canvas[row][col]
+        assert dpg is not None
+        canvas = self.image_canvas
+        if canvas is None:
+            return
+        cell_dict = canvas[row][col]
 
         # Check if plot already exists
         plot_tag = f"plot_{row}_{col}"
@@ -671,9 +716,16 @@ class MainWindow(InteractivePipeWindow):
         for idx, single_curve in enumerate(curve.curves):
             series_tag = f"series_{row}_{col}_{idx}"
 
-            x_data = single_curve.x if single_curve.x is not None else list(range(len(single_curve.y)))
-            y_data = single_curve.y.tolist() if isinstance(single_curve.y, np.ndarray) else list(single_curve.y)
-            x_data = x_data.tolist() if isinstance(x_data, np.ndarray) else list(x_data)
+            x_raw = single_curve.x if single_curve.x is not None else list(range(len(single_curve.y)))
+            if isinstance(x_raw, np.ndarray):
+                x_data = [float(x) for x in cast(np.ndarray, x_raw).tolist()]
+            else:
+                x_data = [float(x) for x in list(x_raw)]
+            if isinstance(single_curve.y, np.ndarray):
+                y_raw = single_curve.y.tolist()
+            else:
+                y_raw = list(single_curve.y)
+            y_data = [float(y) for y in y_raw]
 
             if dpg.does_item_exist(series_tag):
                 # Update existing series
@@ -685,7 +737,11 @@ class MainWindow(InteractivePipeWindow):
 
     def _update_text(self, text, row, col):
         """Update text display."""
-        cell_dict = self.image_canvas[row][col]
+        assert dpg is not None
+        canvas = self.image_canvas
+        if canvas is None:
+            return
+        cell_dict = canvas[row][col]
         text_tag = f"text_{row}_{col}"
 
         if dpg.does_item_exist(text_tag):

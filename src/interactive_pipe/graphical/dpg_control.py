@@ -90,6 +90,7 @@ class IntSliderControl(BaseControl):
             raise TypeError(f"Expected int control type, got {self.ctrl._type}")
 
     def create(self, parent):
+        assert dpg is not None
         if self.ctrl.value_range is None:
             raise ValueError("value_range must be set for IntSliderControl")
 
@@ -130,6 +131,7 @@ class IntSliderControl(BaseControl):
         return self.control_widget
 
     def reset(self):
+        assert dpg is not None
         value = self.ctrl.value
         if not isinstance(value, int):
             raise TypeError(f"Expected int for IntSliderControl value, got {type(value)}")
@@ -144,6 +146,7 @@ class FloatSliderControl(BaseControl):
             raise TypeError(f"Expected float control type, got {self.ctrl._type}")
 
     def create(self, parent):
+        assert dpg is not None
         if self.ctrl.value_range is None:
             raise ValueError("value_range must be set for FloatSliderControl")
 
@@ -182,6 +185,7 @@ class FloatSliderControl(BaseControl):
         return self.control_widget
 
     def reset(self):
+        assert dpg is not None
         value = self.ctrl.value
         if not isinstance(value, (int, float)):
             raise TypeError(f"Expected float for FloatSliderControl value, got {type(value)}")
@@ -196,6 +200,7 @@ class TickBoxControl(BaseControl):
             raise TypeError(f"Expected bool control type, got {self.ctrl._type}")
 
     def create(self, parent):
+        assert dpg is not None
         valdefault = self.ctrl.value_default
         if not isinstance(valdefault, bool):
             raise TypeError(f"Expected bool for TickBoxControl default, got {type(valdefault)}")
@@ -220,6 +225,7 @@ class TickBoxControl(BaseControl):
         return self.control_widget
 
     def reset(self):
+        assert dpg is not None
         value = self.ctrl.value
         if not isinstance(value, bool):
             raise TypeError(f"Expected bool for TickBoxControl value, got {type(value)}")
@@ -236,6 +242,7 @@ class DropdownMenuControl(BaseControl):
             raise ValueError("Invalid control type")
 
     def create(self, parent):
+        assert dpg is not None
         if self.ctrl.value_range is None:
             raise ValueError("value_range must be set for DropdownMenuControl")
 
@@ -273,6 +280,7 @@ class DropdownMenuControl(BaseControl):
         return self.control_widget
 
     def reset(self):
+        assert dpg is not None
         value = self.ctrl.value
         value_str = str(value) if not isinstance(value, str) else value
         dpg.set_value(self.control_widget, value_str)
@@ -288,6 +296,7 @@ class PromptControl(BaseControl):
             raise ValueError("value_range must be None for PromptControl")
 
     def create(self, parent):
+        assert dpg is not None
         value = self.ctrl.value
         value_str = str(value) if not isinstance(value, str) else value
 
@@ -311,6 +320,7 @@ class PromptControl(BaseControl):
         return self.control_widget
 
     def reset(self):
+        assert dpg is not None
         value = self.ctrl.value
         value_str = str(value) if not isinstance(value, str) else value
         dpg.set_value(self.control_widget, value_str)
@@ -326,6 +336,7 @@ class IconButtonsControl(BaseControl):
             raise ValueError("Invalid control type or missing value range for icons bar creation.")
 
     def create(self, parent):
+        assert dpg is not None
         if self.ctrl.value_range is None:
             raise ValueError("value_range must be set for IconButtonsControl")
         if self.ctrl.icons is None:
