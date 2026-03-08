@@ -295,6 +295,12 @@ class MainWindow(InteractivePipeWindow):
     # Key mapping from DPG key codes to string keys
     key_mapping_dict = _get_dpg_key_mapping_dict() if (DPG_AVAILABLE and dpg is not None) else {}
 
+    # Layout spacing constants
+    IMAGE_SPACING = 4  # horizontal pixels between images in a row
+    ROW_SPACING = 4  # vertical pixels between rows
+    TITLE_HEIGHT = 20  # pixels reserved for the title text above each image
+    SCREEN_MARGIN = 0.92  # fraction of screen used; leaves room for OS taskbar/decorations
+
     def __init__(
         self,
         *args,
@@ -317,18 +323,16 @@ class MainWindow(InteractivePipeWindow):
         assert self.pipeline is not None
         self.pipeline.global_params["__window"] = self
 
-        # Determine viewport size
-        viewport_width = 1200
-        viewport_height = 800
-        if size is not None:
-            if isinstance(size, tuple) and len(size) == 2:
-                viewport_width, viewport_height = size
-            elif isinstance(size, int):
-                viewport_width = size
+        # Start with a small viewport; _apply_tight_layout() will resize it to fit
+        # the native image content after the first pipeline run.
+        viewport_width = 800
+        viewport_height = 600
 
-        # Store for use in init_sliders (correct initial grid sizing)
+        # Store for use in init_sliders (initial image grid sizing before first layout pass)
         self._viewport_width = viewport_width
         self._viewport_height = viewport_height
+        self._scale_factor: float = 1.0
+        self._needs_layout_recompute: bool = False
         self._available_grid_width: Optional[int] = None
         self._available_grid_height: Optional[int] = None
 
@@ -359,7 +363,8 @@ class MainWindow(InteractivePipeWindow):
         self.content_vertical_tag = "content_vertical"
         dpg.add_group(horizontal=False, parent=self.window_tag, tag=self.content_vertical_tag)
 
-        # Display region: child_window fills remaining space (viewport - control height)
+        # Display region: initial height=-1 (fill remaining); _apply_tight_layout() will
+        # set an exact pixel height equal to the scaled image grid height.
         self.display_container_tag = "display_container"
         dpg.add_child_window(
             parent=self.content_vertical_tag,
@@ -401,56 +406,36 @@ class MainWindow(InteractivePipeWindow):
         # Initialize controls (this builds left/right panels and image_grid in correct order)
         self.init_sliders(controls)
 
-        # Tight layout: resize callback sets display height = viewport - control panel
+        # Register (no-op) resize hook – layout is content-driven, see _apply_tight_layout()
         self._setup_resize_callback()
 
-    def _apply_tight_layout(self):
-        """Set display container dimensions so layout fits viewport."""
-        if dpg is None:
-            return
+    @staticmethod
+    def _get_screen_size() -> tuple:
+        """Return (screen_width, screen_height) of the primary monitor.
+
+        Uses tkinter (stdlib) so no extra dependency is needed. Falls back to
+        1920x1080 if the display cannot be queried (e.g. headless environments).
+        """
         try:
-            vp_w = dpg.get_viewport_client_width()
-            vp_h = dpg.get_viewport_client_height()
+            import tkinter as tk
 
-            # Maximum height available: viewport minus control panel
-            if dpg.does_item_exist(self.control_panel_tag):
-                ctrl_rect = dpg.get_item_rect_size(self.control_panel_tag)
-                ctrl_h = int(ctrl_rect[1]) + 15 if ctrl_rect and len(ctrl_rect) >= 2 else 220
-            else:
-                ctrl_h = 220
-            max_display_h = max(100, vp_h - ctrl_h)
-
-            # Image grid width: viewport - side panels (220 each when present) - separators
-            side_w = 220
-            left_w = side_w if dpg.does_item_exist(self.left_panels_container_tag) else 0
-            right_w = side_w if dpg.does_item_exist(self.right_panels_container_tag) else 0
-            sep_w = 8 * 2 if (left_w and right_w) else (8 if (left_w or right_w) else 0)
-            img_w = max(200, vp_w - left_w - right_w - sep_w)
-            dpg.configure_item(self.image_grid_container_tag, width=img_w)
-
-            # Use content-tight height: scale images by width and measure resulting height.
-            # This eliminates the vertical gap when the width constraint is tighter than height.
-            content_h = self._compute_content_height(img_w, max_display_h)
-            display_h = content_h if content_h is not None else max_display_h
-            dpg.configure_item(self.display_container_tag, height=display_h)
-
-            # Store available space for image scaling
-            self._available_grid_width = img_w
-            self._available_grid_height = display_h
-
-            # Rescale existing images to fill new cell dimensions
-            self._rescale_images()
+            root = tk.Tk()
+            root.withdraw()
+            w = root.winfo_screenwidth()
+            h = root.winfo_screenheight()
+            root.destroy()
+            return w, h
         except Exception:
-            pass
+            return 1920, 1080
 
-    def _compute_content_height(self, img_w: int, max_h: int) -> Optional[int]:
-        """Compute the display-container height needed to tightly wrap the image grid.
+    def _compute_native_grid_layout(self) -> Optional[tuple]:
+        """Measure native pixel dimensions of the image grid.
 
-        Scales each image to fill its column width (maintaining aspect ratio), measures
-        the resulting row heights, and sums them up. Caps at *max_h* so images never
-        exceed the available viewport space.
+        Reads each texture's width/height (ignoring 1×1 placeholders) and
+        computes per-column widths and per-row heights.
 
-        Returns None when no image data is available yet (falls back to max_h).
+        Returns (col_widths, row_heights, total_grid_w, total_grid_h) or None
+        when no real image data is available yet.
         """
         if dpg is None or self.image_canvas is None:
             return None
@@ -459,62 +444,136 @@ class MainWindow(InteractivePipeWindow):
         if num_rows == 0:
             return None
         num_cols = max(len(r) for r in canvas)
-        cell_w = max(10, img_w // num_cols)
-        title_h = 20
-        total_h = 0
+        col_widths = [0] * num_cols
+        row_heights = [0] * num_rows
         found_any = False
-        for row_content in canvas:
-            row_img_h = 0
-            for cell_dict in row_content:
+        for r, row_content in enumerate(canvas):
+            for c, cell_dict in enumerate(row_content):
                 if cell_dict is None:
                     continue
-                texture_tag = cell_dict.get("texture")
-                if not texture_tag or not dpg.does_item_exist(texture_tag):
-                    continue
-                cfg = dpg.get_item_configuration(texture_tag)
-                nat_w = cfg.get("width", 0)
-                nat_h = cfg.get("height", 0)
+                nat_w, nat_h = 0, 0
+                cell_type = cell_dict.get("type", "image")
+
+                if cell_type == "image":
+                    texture_tag = cell_dict.get("texture")
+                    if texture_tag and dpg.does_item_exist(texture_tag):
+                        cfg = dpg.get_item_configuration(texture_tag)
+                        w = cfg.get("width", 0)
+                        h = cfg.get("height", 0)
+                        # Skip the 1×1 placeholder created before the first render
+                        if w > 1 and h > 1:
+                            nat_w, nat_h = w, h
+                elif cell_type == "plot":
+                    plot_tag = f"plot_{r}_{c}"
+                    if dpg.does_item_exist(plot_tag):
+                        rect = dpg.get_item_rect_size(plot_tag)
+                        if rect and len(rect) >= 2 and rect[0] > 0 and rect[1] > 0:
+                            nat_w, nat_h = int(rect[0]), int(rect[1])
+                        else:
+                            nat_w, nat_h = 500, 400  # matches dpg.add_plot(width=500, height=400)
+                    else:
+                        nat_w, nat_h = 500, 400
+                elif cell_type == "table":
+                    container_tag = f"table_container_{r}_{c}"
+                    if dpg.does_item_exist(container_tag):
+                        rect = dpg.get_item_rect_size(container_tag)
+                        if rect and len(rect) >= 2 and rect[0] > 0 and rect[1] > 0:
+                            nat_w, nat_h = int(rect[0]), int(rect[1])
+                        else:
+                            nat_w, nat_h = 220, 400  # matches child_window(width=220, height=400)
+                    else:
+                        nat_w, nat_h = 220, 400
+
                 if nat_w > 0 and nat_h > 0:
-                    # Scale to fill column width
-                    disp_h = int(nat_h * cell_w / nat_w)
-                    row_img_h = max(row_img_h, disp_h)
+                    col_widths[c] = max(col_widths[c], nat_w)
+                    row_heights[r] = max(row_heights[r], nat_h)
                     found_any = True
-            total_h += row_img_h + title_h
         if not found_any:
             return None
-        # Cap so content doesn't exceed available viewport height
-        return min(max_h, total_h + 8)
+        total_grid_w = sum(col_widths) + max(0, num_cols - 1) * self.IMAGE_SPACING
+        total_grid_h = sum(row_heights) + num_rows * self.TITLE_HEIGHT + max(0, num_rows - 1) * self.ROW_SPACING
+        return col_widths, row_heights, total_grid_w, total_grid_h
 
-    def _setup_resize_callback(self):
-        """Register viewport resize callback for tight layout."""
+    def _apply_tight_layout(self):
+        """Resize the viewport so it tightly wraps the image content at native size.
+
+        A single uniform scale factor is applied to all images when the native
+        layout exceeds the screen bounds (SCREEN_MARGIN fraction of the display).
+        This guarantees all images share the same scale and avoids asymmetry.
+        Images are never up-scaled beyond their native resolution.
+        """
         if dpg is None:
             return
         try:
-            dpg.set_viewport_resize_callback(self._apply_tight_layout)
-        except Exception:
-            pass
+            result = self._compute_native_grid_layout()
+            if result is None:
+                return
+            _col_widths, _row_heights, grid_w, grid_h = result
+
+            # Side panels and separators
+            side_w = 220
+            left_w = side_w if dpg.does_item_exist(self.left_panels_container_tag) else 0
+            right_w = side_w if dpg.does_item_exist(self.right_panels_container_tag) else 0
+            sep_w = 8 * 2 if (left_w and right_w) else (8 if (left_w or right_w) else 0)
+
+            # Control panel height (measured after first render)
+            if dpg.does_item_exist(self.control_panel_tag):
+                ctrl_rect = dpg.get_item_rect_size(self.control_panel_tag)
+                ctrl_h = int(ctrl_rect[1]) + 15 if ctrl_rect and len(ctrl_rect) >= 2 else 0
+            else:
+                ctrl_h = 0
+            sep_h = 8  # separator line between display area and control panel
+
+            # Total viewport size needed at native resolution
+            # +2 for the 1 px anchor child_window, +4 for DPG inner padding
+            total_w = grid_w + left_w + right_w + sep_w + 6
+            total_h = grid_h + ctrl_h + sep_h + 20  # +20 for DPG window chrome/padding
+
+            # Compute global scale so content fits within SCREEN_MARGIN of the display
+            screen_w, screen_h = self._get_screen_size()
+            max_w = max(200, int(screen_w * self.SCREEN_MARGIN))
+            max_h = max(100, int(screen_h * self.SCREEN_MARGIN))
+            scale = min(1.0, max_w / max(1, total_w), max_h / max(1, total_h))
+            self._scale_factor = scale
+
+            # Resize viewport to fit the scaled content
+            new_vp_w = max(200, int(total_w * scale))
+            new_vp_h = max(100, int(total_h * scale))
+            dpg.set_viewport_width(new_vp_w)
+            dpg.set_viewport_height(new_vp_h)
+
+            # Update image grid container width to scaled grid width
+            scaled_grid_w = max(200, int(grid_w * scale))
+            dpg.configure_item(self.image_grid_container_tag, width=scaled_grid_w)
+
+            # Display container height = scaled grid height (tight, no excess whitespace)
+            scaled_grid_h = max(50, int(grid_h * scale))
+            dpg.configure_item(self.display_container_tag, height=scaled_grid_h)
+
+            # Store for reference (used by _rescale_images)
+            self._available_grid_width = scaled_grid_w
+            self._available_grid_height = scaled_grid_h
+
+            # Apply the new scale to all image widgets
+            self._rescale_images()
+        except Exception as exc:
+            logging.debug("_apply_tight_layout error: %s", exc)
+
+    def _setup_resize_callback(self):
+        """No-op: the viewport is driven by image content, not the other way round.
+
+        Images should not rescale when the user manually drags the window edge.
+        Layout is re-applied whenever image content changes (see refresh()).
+        """
 
     def _compute_display_size(self, img_w: int, img_h: int) -> tuple:
-        """Return (display_w, display_h) for an image scaled to fit its grid cell.
+        """Return (display_w, display_h) by applying the global uniform scale factor.
 
-        Maintains aspect ratio. Falls back to natural size when grid dimensions
-        are not yet known.
+        All images share the same scale so relative proportions are preserved
+        and no per-image distortion occurs.
         """
-        avail_w = self._available_grid_width
-        avail_h = self._available_grid_height
-        if avail_w is None or avail_h is None or self.image_canvas is None:
-            return img_w, img_h
-        canvas: List[Any] = list(self.image_canvas)
-        num_rows = len(canvas)
-        num_cols = max(len(r) for r in canvas) if num_rows > 0 else 1
-        # Reserve ~20px per row for the title text above each image
-        title_h = 20
-        cell_w = max(10, avail_w // num_cols)
-        cell_h = max(10, (avail_h - title_h * num_rows) // num_rows)
-        if img_w > 0 and img_h > 0:
-            scale = min(cell_w / img_w, cell_h / img_h)
-            return max(1, int(img_w * scale)), max(1, int(img_h * scale))
-        return img_w, img_h
+        scale = self._scale_factor
+        return max(1, int(img_w * scale)), max(1, int(img_h * scale))
 
     def _rescale_images(self):
         """Update display dimensions of all image widgets to fill current cell size.
@@ -944,6 +1003,7 @@ class MainWindow(InteractivePipeWindow):
             if current_width != w or current_height != h:
                 logging.debug(f"DPG texture size changed: {current_width}x{current_height} -> {w}x{h}")
                 # Source size changed - recreate both texture and image widget
+                self._needs_layout_recompute = True
 
                 dpg.delete_item(texture_tag)
                 if dpg.does_alias_exist(texture_tag):
@@ -963,7 +1023,8 @@ class MainWindow(InteractivePipeWindow):
                 dpg.set_value(texture_tag, converted_img)
                 dpg.configure_item(image_tag, width=disp_w, height=disp_h)
         else:
-            # Texture doesn't exist - create it and display at cell-filling size
+            # Texture doesn't exist yet (first real image replacing the placeholder)
+            self._needs_layout_recompute = True
             dpg.add_dynamic_texture(
                 width=w, height=h, default_value=converted_img, tag=texture_tag, parent="texture_registry"
             )
@@ -985,6 +1046,7 @@ class MainWindow(InteractivePipeWindow):
         if not dpg.does_item_exist(plot_tag):
             # Create new plot
             cell_tag = f"cell_{row}_{col}"
+            self._needs_layout_recompute = True
 
             # Remove old image if present
             if dpg.does_item_exist(cell_dict["image"]):
@@ -1041,8 +1103,9 @@ class MainWindow(InteractivePipeWindow):
         if cell_dict.get("type") == "table" and dpg.does_item_exist(container_tag):
             dpg.delete_item(container_tag)
 
-        # On first show, remove image placeholder
+        # On first show, remove image placeholder and flag layout recompute
         if not dpg.does_item_exist(container_tag):
+            self._needs_layout_recompute = True
             if dpg.does_item_exist(cell_dict.get("image")):
                 dpg.delete_item(cell_dict["image"])
 
@@ -1137,6 +1200,10 @@ class MainWindow(InteractivePipeWindow):
         if self.pipeline is not None:
             out = self.pipeline.run()
             self.refresh_display(out)
+        # Resize the viewport to tightly wrap the new image content when needed
+        if self._needs_layout_recompute:
+            self._needs_layout_recompute = False
+            self._apply_tight_layout()
 
     def reset_sliders(self):
         """Reset all sliders to default values."""
