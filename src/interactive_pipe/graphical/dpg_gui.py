@@ -289,7 +289,7 @@ class MainWindow(InteractivePipeWindow):
     """Main window class for DPG backend.
 
     Supports panel positions: top, left, right, bottom. Detached panels
-    (Panel(detached=True)) are not supported and are skipped.
+    (Panel(detached=True)) open in separate DPG windows (sibling to the main window).
     """
 
     # Key mapping from DPG key codes to string keys
@@ -563,7 +563,8 @@ class MainWindow(InteractivePipeWindow):
                 root_panel = ctrl.panel.get_root()
                 root_panels.add(root_panel)
 
-        # Detached panels (separate window) are not supported in DPG backend; skip them.
+        # Separate detached panels (own window) from in-main-window panels
+        detached_panels = [p for p in root_panels if p.detached]
         regular_panels = [p for p in root_panels if not p.detached]
 
         # Group panels by position
@@ -641,6 +642,27 @@ class MainWindow(InteractivePipeWindow):
             self._create_control_widget(ctrl, control_factory, self.control_panel_tag)
         for panel in panels_by_position["bottom"]:
             self._build_panel_widget(panel, control_factory, self.control_panel_tag)
+
+        # Detached panels: each in its own DPG window (sibling to main window)
+        if not hasattr(self, "_detached_window_tags"):
+            self._detached_window_tags = []
+        for panel in detached_panels:
+            w, h = (350, 400) if panel.detached_size is None else panel.detached_size
+            win_tag = f"detached_win_{panel.name or 'panel'}_{id(panel)}"
+            # Add as root-level window (sibling to main window) so it can float anywhere in the viewport
+            dpg.empty_container_stack()
+            dpg.add_window(
+                label=panel.name or "Detached Panel",
+                tag=win_tag,
+                width=w,
+                height=h,
+                no_close=True,
+                no_move=False,
+            )
+            content_tag = f"detached_content_{id(panel)}"
+            dpg.add_group(parent=win_tag, tag=content_tag)
+            self._build_panel_widget(panel, control_factory, content_tag)
+            self._detached_window_tags.append(win_tag)
 
     def _build_panel_widget(self, panel: Panel, control_factory: ControlFactory, parent):
         """Build DPG widget for a panel."""
