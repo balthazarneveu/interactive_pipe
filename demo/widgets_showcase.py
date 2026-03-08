@@ -274,7 +274,7 @@ def add_text_overlay(
 
 @interactive(
     noise_amount=KeyboardControl(
-        0.1, [0.0, 0.5], keydown="down", keyup="up", modulo=False
+        0.1, [0.0, 0.5], keydown="pagedown", keyup="pageup", modulo=False, name="Noise Amount"
     ),  # KeyboardControl - default 0.1
     enable_noise=(True,),  # Bool checkbox - enabled by default
 )
@@ -291,7 +291,7 @@ def add_noise(
     noise = np.random.normal(0, noise_amount, img.shape)
     noisy_img = np.clip(img + noise, 0.0, 1.0)
 
-    title = f"Noise: ON (amount: {noise_amount:.3f}, use ↑↓ keys)"
+    title = f"Noise: ON (amount: {noise_amount:.3f}, use PAGEUP/PAGEDOWN keys)"
     layout.style("noisy", title=title)
     return noisy_img
 
@@ -347,9 +347,9 @@ if __name__ == "__main__":
         "-b",
         "--backend",
         type=str,
-        choices=["qt", "gradio", "mpl", "nb"],
+        choices=["qt", "gradio", "mpl", "nb", "dpg"],
         default="qt",
-        help="Backend to use: qt, gradio, mpl, or nb (default: qt)",
+        help="Backend to use: qt, gradio, mpl, nb, or dpg (default: qt)",
     )
     args = parser.parse_args()
     interactive_pipeline(
