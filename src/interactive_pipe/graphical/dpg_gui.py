@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Any, List, Optional, cast
 
 import numpy as np
@@ -105,11 +106,14 @@ class InteractivePipeDPG(InteractivePipeGUI):
 
             dpg.set_frame_callback(2, _deferred_layout)
 
-        # Custom render loop with keyboard polling
+        # Custom render loop with keyboard polling and timer ticking
         # This allows us to capture keys even when widgets have focus
         while dpg.is_dearpygui_running():
             # Poll keyboard shortcuts
             self._poll_keyboard_shortcuts()
+
+            # Tick TimeControl animation timer
+            self._tick_timer()
 
             # Render frame
             dpg.render_dearpygui_frame()
@@ -180,6 +184,17 @@ class InteractivePipeDPG(InteractivePipeGUI):
         # Track processed keys to avoid repeated execution
         self._processed_keys = set()
 
+    def _tick_timer(self):
+        """Advance TimeControl if enough time has elapsed since last tick."""
+        update_func = getattr(self, "_timer_update_func", None)
+        if update_func is None or not getattr(self, "time_playing", False):
+            return
+        now = time.time()
+        interval_s = getattr(self, "_timer_interval_ms", 1000) / 1000.0
+        if (now - getattr(self, "_last_timer_tick", 0)) >= interval_s:
+            self._last_timer_tick = now
+            update_func()
+
     def _poll_keyboard_shortcuts(self):
         """Poll keyboard state for shortcuts (called every frame)."""
         if dpg is None:
@@ -233,6 +248,7 @@ class InteractivePipeDPG(InteractivePipeGUI):
         for widget_idx, ctrl in self.window.ctrl.items():
             if isinstance(ctrl, TimeControl):
                 self.start_time = None  # Reset the timer
+                self._last_timer_tick = time.time()
             ctrl.value = ctrl.value_default
         self.window.reset_sliders()
 
@@ -783,8 +799,19 @@ class MainWindow(InteractivePipeWindow):
                 self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
             return None
         elif isinstance(ctrl, TimeControl):
-            # Time control not fully implemented for DPG yet
-            logging.warning("TimeControl not fully implemented for DPG backend")
+
+            def suspend_resume_timer(suspend: bool):
+                if suspend:
+                    logging.debug("DPG: Suspend timer")
+                else:
+                    logging.debug("DPG: Resume timer")
+
+            if self.main_gui is not None:
+                self.main_gui.suspend_resume_timer = suspend_resume_timer
+                plugged_func = self.main_gui.plug_timer_control(ctrl, self.update_parameter, suspend_resume_timer)
+                self.main_gui._timer_update_func = plugged_func
+                self.main_gui._timer_interval_ms = ctrl.update_interval_ms
+                self.main_gui._last_timer_tick = time.time()
             return None
         elif isinstance(ctrl, Control):
             slider_instance = control_factory.create_control(ctrl, self.update_parameter)
