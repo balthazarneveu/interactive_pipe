@@ -99,7 +99,7 @@ Shortcuts while using the GUI (QT & matplotlib backends)
     - ✅ `gui='qt'` pyQt/pySide 
     - ✅ `gui='mpl'` matplotlib
     - ✅ `gui='nb'`  ipywidget for jupyter notebooks
-    - 🧪 `gui='gradio'` gradio wrapping (+use `share_gradio_app=True` to share your app with others)
+    - ✅ `gui='gradio'` gradio wrapping (+use `share_gradio_app=True` to share your app with others)
 - tested platforms
     - ✅ Linux (Ubuntu / KDE Neon)
     - ✅ RapsberryPi
@@ -118,6 +118,9 @@ Shortcuts while using the GUI (QT & matplotlib backends)
 | Image buttons| ✅ | ➖ |  ➖ | ➖ | 
 | Circular slider| ✅ | ➖ |  ➖ | ➖ |
 | Collapsible Panels | ✅ | ➖ |  ➖ | ✅ |
+| Animations | ✅ | ➖ |  ➖ | ➖ |
+| Panels with sliders | ✅ | ➖ |  ➖ | ✅ |
+| Tables |  ✅ | ✅ |   ✅ | ✅|
 
 
 
