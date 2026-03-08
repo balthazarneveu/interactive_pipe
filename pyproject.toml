@@ -44,6 +44,10 @@ notebook=[
   "ipywidgets>=7.7.1",
 ]
 
+dpg=[
+  "dearpygui>=1.9.0",
+]
+
 pytest=[
   "opencv_python_headless>=4.8.1.78",
   "pytest>=6.2.5"
@@ -57,6 +61,7 @@ full=[
   "ipywidgets>=7.7.1",
   "pandas",
   "gradio",
+  "dearpygui>=1.9.0",
 ]
 
 dev=[

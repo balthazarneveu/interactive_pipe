@@ -56,6 +56,10 @@ def get_interactive_pipeline_class(gui: Union[str, Backend, None] = "auto"):
         from interactive_pipe.graphical.gradio_gui import (
             InteractivePipeGradio as ChosenGui,
         )
+    elif selected_gui == "dpg":
+        from interactive_pipe.graphical.dpg_gui import (
+            InteractivePipeDPG as ChosenGui,
+        )
     else:
         raise NotImplementedError(f"Gui {gui} not available")
     return ChosenGui

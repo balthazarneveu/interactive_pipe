@@ -277,9 +277,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "-b",
         "--backend",
-        choices=["qt", "gradio", "mpl", "notebook"],
+        choices=["qt", "gradio", "mpl", "notebook", "dpg"],
         default="qt",
-        help="GUI backend to use (default: qt)",
+        help="GUI backend to use: qt, gradio, mpl, notebook, or dpg (default: qt)",
     )
     args = parser.parse_args()
     launch(backend=args.backend)

@@ -63,9 +63,9 @@ if __name__ == "__main__":
         "-b",
         "--backend",
         type=str,
-        choices=["qt", "gradio", "mpl", "textual"],
+        choices=["qt", "gradio", "mpl", "textual", "dpg"],
         default="qt",
-        help="Backend to use: qt, gradio, mpl, or textual (default: qt)",
+        help="Backend to use: qt, gradio, mpl, textual, or dpg (default: qt)",
     )
     args = parser.parse_args()
     interactive(
