@@ -326,6 +326,12 @@ class MainWindow(InteractivePipeWindow):
             elif isinstance(size, int):
                 viewport_width = size
 
+        # Store for use in init_sliders (correct initial grid sizing)
+        self._viewport_width = viewport_width
+        self._viewport_height = viewport_height
+        self._available_grid_width: Optional[int] = None
+        self._available_grid_height: Optional[int] = None
+
         # Create viewport
         dpg.create_viewport(title=self.name or "Interactive Pipeline", width=viewport_width, height=viewport_height)
 
@@ -377,48 +383,107 @@ class MainWindow(InteractivePipeWindow):
         self.display_panel_tag = "display_panel"
         dpg.add_group(horizontal=False, parent=self.main_layout_tag, tag=self.display_panel_tag)
 
-        # Inner horizontal: left panels | image grid | right panels
+        # Inner horizontal: left panels | image grid | right panels (built in init_sliders)
         self.display_inner_tag = "display_inner"
-        dpg.add_group(horizontal=True, parent=self.display_panel_tag, tag=self.display_inner_tag)
-
+        dpg.add_group(horizontal=True, parent=self.display_panel_tag, tag=self.display_inner_tag, horizontal_spacing=4)
+        self.left_panels_container_tag = "left_panels_container"
         self.left_panels_tag = "left_panels"
-        dpg.add_group(horizontal=False, parent=self.display_inner_tag, tag=self.left_panels_tag)
-
-        # Image grid container (will hold images in grid)
         self.image_grid_tag = "image_grid"
-        dpg.add_group(horizontal=False, parent=self.display_inner_tag, tag=self.image_grid_tag)
-
+        self.image_grid_container_tag = "image_grid_container"
+        self.right_panels_container_tag = "right_panels_container"
         self.right_panels_tag = "right_panels"
-        dpg.add_group(horizontal=False, parent=self.display_inner_tag, tag=self.right_panels_tag)
 
         # Bottom control panel: group sizes to content (no fixed height, no scroll)
         dpg.add_separator(parent=self.content_vertical_tag)
         self.control_panel_tag = "control_panel"
         dpg.add_group(horizontal=False, parent=self.content_vertical_tag, tag=self.control_panel_tag)
 
-        # Initialize controls
+        # Initialize controls (this builds left/right panels and image_grid in correct order)
         self.init_sliders(controls)
 
         # Tight layout: resize callback sets display height = viewport - control panel
         self._setup_resize_callback()
 
     def _apply_tight_layout(self):
-        """Set display container height so layout fits viewport (no scrolling)."""
+        """Set display container dimensions so layout fits viewport."""
         if dpg is None:
             return
         try:
+            vp_w = dpg.get_viewport_client_width()
             vp_h = dpg.get_viewport_client_height()
-            # Get control panel height from actual rendered size (group sizes to content)
+
+            # Maximum height available: viewport minus control panel
             if dpg.does_item_exist(self.control_panel_tag):
                 ctrl_rect = dpg.get_item_rect_size(self.control_panel_tag)
-                ctrl_h = int(ctrl_rect[1]) + 15 if ctrl_rect and len(ctrl_rect) >= 2 else 220  # +15 for separator
+                ctrl_h = int(ctrl_rect[1]) + 15 if ctrl_rect and len(ctrl_rect) >= 2 else 220
             else:
                 ctrl_h = 220
-            if vp_h > ctrl_h:
-                display_h = vp_h - ctrl_h
-                dpg.configure_item(self.display_container_tag, height=display_h)
+            max_display_h = max(100, vp_h - ctrl_h)
+
+            # Image grid width: viewport - side panels (220 each when present) - separators
+            side_w = 220
+            left_w = side_w if dpg.does_item_exist(self.left_panels_container_tag) else 0
+            right_w = side_w if dpg.does_item_exist(self.right_panels_container_tag) else 0
+            sep_w = 8 * 2 if (left_w and right_w) else (8 if (left_w or right_w) else 0)
+            img_w = max(200, vp_w - left_w - right_w - sep_w)
+            dpg.configure_item(self.image_grid_container_tag, width=img_w)
+
+            # Use content-tight height: scale images by width and measure resulting height.
+            # This eliminates the vertical gap when the width constraint is tighter than height.
+            content_h = self._compute_content_height(img_w, max_display_h)
+            display_h = content_h if content_h is not None else max_display_h
+            dpg.configure_item(self.display_container_tag, height=display_h)
+
+            # Store available space for image scaling
+            self._available_grid_width = img_w
+            self._available_grid_height = display_h
+
+            # Rescale existing images to fill new cell dimensions
+            self._rescale_images()
         except Exception:
             pass
+
+    def _compute_content_height(self, img_w: int, max_h: int) -> Optional[int]:
+        """Compute the display-container height needed to tightly wrap the image grid.
+
+        Scales each image to fill its column width (maintaining aspect ratio), measures
+        the resulting row heights, and sums them up. Caps at *max_h* so images never
+        exceed the available viewport space.
+
+        Returns None when no image data is available yet (falls back to max_h).
+        """
+        if dpg is None or self.image_canvas is None:
+            return None
+        canvas: List[Any] = list(self.image_canvas)
+        num_rows = len(canvas)
+        if num_rows == 0:
+            return None
+        num_cols = max(len(r) for r in canvas)
+        cell_w = max(10, img_w // num_cols)
+        title_h = 20
+        total_h = 0
+        found_any = False
+        for row_content in canvas:
+            row_img_h = 0
+            for cell_dict in row_content:
+                if cell_dict is None:
+                    continue
+                texture_tag = cell_dict.get("texture")
+                if not texture_tag or not dpg.does_item_exist(texture_tag):
+                    continue
+                cfg = dpg.get_item_configuration(texture_tag)
+                nat_w = cfg.get("width", 0)
+                nat_h = cfg.get("height", 0)
+                if nat_w > 0 and nat_h > 0:
+                    # Scale to fill column width
+                    disp_h = int(nat_h * cell_w / nat_w)
+                    row_img_h = max(row_img_h, disp_h)
+                    found_any = True
+            total_h += row_img_h + title_h
+        if not found_any:
+            return None
+        # Cap so content doesn't exceed available viewport height
+        return min(max_h, total_h + 8)
 
     def _setup_resize_callback(self):
         """Register viewport resize callback for tight layout."""
@@ -429,8 +494,57 @@ class MainWindow(InteractivePipeWindow):
         except Exception:
             pass
 
+    def _compute_display_size(self, img_w: int, img_h: int) -> tuple:
+        """Return (display_w, display_h) for an image scaled to fit its grid cell.
+
+        Maintains aspect ratio. Falls back to natural size when grid dimensions
+        are not yet known.
+        """
+        avail_w = self._available_grid_width
+        avail_h = self._available_grid_height
+        if avail_w is None or avail_h is None or self.image_canvas is None:
+            return img_w, img_h
+        canvas: List[Any] = list(self.image_canvas)
+        num_rows = len(canvas)
+        num_cols = max(len(r) for r in canvas) if num_rows > 0 else 1
+        # Reserve ~20px per row for the title text above each image
+        title_h = 20
+        cell_w = max(10, avail_w // num_cols)
+        cell_h = max(10, (avail_h - title_h * num_rows) // num_rows)
+        if img_w > 0 and img_h > 0:
+            scale = min(cell_w / img_w, cell_h / img_h)
+            return max(1, int(img_w * scale)), max(1, int(img_h * scale))
+        return img_w, img_h
+
+    def _rescale_images(self):
+        """Update display dimensions of all image widgets to fill current cell size.
+
+        Called after a viewport resize so images grow/shrink without re-running
+        the full pipeline.
+        """
+        if dpg is None or self.image_canvas is None:
+            return
+        canvas: List[Any] = list(self.image_canvas)
+        for row_content in canvas:
+            for cell_dict in row_content:
+                if cell_dict is None or cell_dict.get("type") != "image":
+                    continue
+                texture_tag = cell_dict.get("texture")
+                image_tag = cell_dict.get("image")
+                if not texture_tag or not image_tag:
+                    continue
+                if not dpg.does_item_exist(texture_tag) or not dpg.does_item_exist(image_tag):
+                    continue
+                cfg = dpg.get_item_configuration(texture_tag)
+                nat_w = cfg.get("width", 0)
+                nat_h = cfg.get("height", 0)
+                if nat_w > 0 and nat_h > 0:
+                    disp_w, disp_h = self._compute_display_size(nat_w, nat_h)
+                    dpg.configure_item(image_tag, width=disp_w, height=disp_h)
+
     def init_sliders(self, controls: List[Control]):
         """Initialize control widgets."""
+        assert dpg is not None
         self.ctrl = {}
         self.widget_list = {}
         self.name_label = {}
@@ -462,11 +576,63 @@ class MainWindow(InteractivePipeWindow):
         for panel in panels_by_position["top"]:
             self._build_panel_widget(panel, control_factory, self.top_panels_tag)
 
-        # Left panels (left of image grid)
+        # Build display_inner: left | image_grid (flex) | right
+        # child_windows with fixed width so DPG allocates space (width=-1 on image takes remainder)
+        if panels_by_position["left"]:
+            dpg.add_child_window(
+                width=220,
+                parent=self.display_inner_tag,
+                tag=self.left_panels_container_tag,
+                border=True,
+                no_scrollbar=True,
+            )
+            dpg.add_group(
+                horizontal=False,
+                parent=self.left_panels_container_tag,
+                tag=self.left_panels_tag,
+            )
         for panel in panels_by_position["left"]:
             self._build_panel_widget(panel, control_factory, self.left_panels_tag)
 
-        # Right panels (right of image grid)
+        if panels_by_position["left"]:
+            dpg.add_separator(parent=self.display_inner_tag)
+
+        # Image grid: compute correct initial width so it fills viewport from the start
+        _side_w = 220
+        _init_left_w = _side_w if panels_by_position["left"] else 0
+        _init_right_w = _side_w if panels_by_position["right"] else 0
+        _init_sep_w = 8 * 2 if (_init_left_w and _init_right_w) else (8 if (_init_left_w or _init_right_w) else 0)
+        _init_img_w = max(200, self._viewport_width - _init_left_w - _init_right_w - _init_sep_w - 1)
+        self._available_grid_width = _init_img_w
+        dpg.add_child_window(
+            width=_init_img_w,
+            parent=self.display_inner_tag,
+            tag=self.image_grid_container_tag,
+            border=False,
+            no_scrollbar=True,
+            always_use_window_padding=False,
+        )
+        dpg.add_group(
+            horizontal=False,
+            parent=self.image_grid_container_tag,
+            tag=self.image_grid_tag,
+        )
+
+        if panels_by_position["right"]:
+            dpg.add_separator(parent=self.display_inner_tag)
+            # child_window with fixed width so DPG allocates space (group alone gets zero after width=-1)
+            dpg.add_child_window(
+                width=220,
+                parent=self.display_inner_tag,
+                tag=self.right_panels_container_tag,
+                border=True,
+                no_scrollbar=True,
+            )
+            dpg.add_group(
+                horizontal=False,
+                parent=self.right_panels_container_tag,
+                tag=self.right_panels_tag,
+            )
         for panel in panels_by_position["right"]:
             self._build_panel_widget(panel, control_factory, self.right_panels_tag)
 
@@ -655,7 +821,7 @@ class MainWindow(InteractivePipeWindow):
         # Find or create row group
         row_tag = f"row_{row}"
         if not dpg.does_item_exist(row_tag):
-            dpg.add_group(horizontal=True, parent=self.image_grid_tag, tag=row_tag)
+            dpg.add_group(horizontal=True, parent=self.image_grid_tag, tag=row_tag, horizontal_spacing=4)
 
         # Create cell group in row
         dpg.add_group(horizontal=False, parent=row_tag, tag=cell_tag)
@@ -744,7 +910,10 @@ class MainWindow(InteractivePipeWindow):
         converted_img = self.convert_image_to_dpg(img_array)
         h, w = img_array.shape[:2]
 
-        # Check if we need to recreate texture (size changed)
+        # Display size: scale image to fill its grid cell (maintains aspect ratio)
+        disp_w, disp_h = self._compute_display_size(w, h)
+
+        # Check if we need to recreate texture (source image size changed)
         if dpg.does_item_exist(texture_tag):
             # Get current texture size
             config = dpg.get_item_configuration(texture_tag)
@@ -753,34 +922,31 @@ class MainWindow(InteractivePipeWindow):
 
             if current_width != w or current_height != h:
                 logging.debug(f"DPG texture size changed: {current_width}x{current_height} -> {w}x{h}")
-                # Size changed - need to recreate both texture and image widget
+                # Source size changed - recreate both texture and image widget
 
-                # Delete old texture and image widget
                 dpg.delete_item(texture_tag)
                 if dpg.does_alias_exist(texture_tag):
                     dpg.remove_alias(texture_tag)
                 if dpg.does_item_exist(image_tag):
                     dpg.delete_item(image_tag)
 
-                # Create new texture with same tag
                 dpg.add_dynamic_texture(
                     width=w, height=h, default_value=converted_img, tag=texture_tag, parent="texture_registry"
                 )
 
-                # Recreate image widget with same tag (DPG needs explicit width/height to display)
+                # Recreate image widget scaled to fill cell
                 cell_tag = cell_dict["cell_tag"]
-                dpg.add_image(texture_tag, parent=cell_tag, tag=image_tag, width=w, height=h)
+                dpg.add_image(texture_tag, parent=cell_tag, tag=image_tag, width=disp_w, height=disp_h)
             else:
-                # Same size - just update data, ensure image widget has correct dimensions
+                # Same source size - update pixel data and display dimensions
                 dpg.set_value(texture_tag, converted_img)
-                dpg.configure_item(image_tag, width=w, height=h)
+                dpg.configure_item(image_tag, width=disp_w, height=disp_h)
         else:
-            # Texture doesn't exist - create it
+            # Texture doesn't exist - create it and display at cell-filling size
             dpg.add_dynamic_texture(
                 width=w, height=h, default_value=converted_img, tag=texture_tag, parent="texture_registry"
             )
-            # Configure image widget with dimensions (DPG needs explicit width/height to display)
-            dpg.configure_item(image_tag, width=w, height=h)
+            dpg.configure_item(image_tag, width=disp_w, height=disp_h)
 
     def _update_curve(self, curve, row, col):
         """Update curve plot using DPG native plotting."""
