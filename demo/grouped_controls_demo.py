@@ -212,9 +212,9 @@ if __name__ == "__main__":
         "-b",
         "--backend",
         type=str,
-        choices=["qt", "gradio", "mpl", "nb"],
+        choices=["qt", "gradio", "mpl", "nb", "dpg"],
         default="qt",
-        help="Backend to use: qt, gradio, mpl, or nb (default: qt)",
+        help="Backend to use: qt, gradio, mpl, nb, or dpg (default: qt)",
     )
     args = parser.parse_args()
 

@@ -8,5 +8,6 @@ class Backend(str, Enum):
     GRADIO = "gradio"
     MPL = "mpl"
     NB = "nb"
+    DPG = "dpg"
     AUTO = "auto"
     HEADLESS = "headless"

@@ -97,9 +97,9 @@ if __name__ == "__main__":
         "-b",
         "--backend",
         type=str,
-        choices=["qt", "gradio"],
+        choices=["qt", "gradio", "dpg"],
         default="qt",
-        help="Backend to use: qt or gradio (default: qt)",
+        help="Backend to use: qt, gradio, or dpg (default: qt)",
     )
     args = parser.parse_args()
     interactive_pipeline(gui=args.backend, cache=False)(pipeline)()
