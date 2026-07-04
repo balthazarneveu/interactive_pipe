@@ -254,10 +254,12 @@ class TestParametersExceptions:
 class TestAudioExceptions:
     """Test exception handling in Audio class"""
 
-    def test_audio_to_html_raises_runtimeerror_when_wavio_unavailable(self):
-        # This would require mocking WAVIO_AVAILABLE=False
-        # For now, we test the RuntimeError path exists
-        pass
+    def test_audio_to_html_raises_runtimeerror_when_wavio_unavailable(self, monkeypatch):
+        import interactive_pipe.data_objects.audio as audio_module
+
+        monkeypatch.setattr(audio_module, "WAVIO_AVAILABLE", False)
+        with pytest.raises(RuntimeError, match="wavio is not available"):
+            audio_to_html((44100, np.array([1, 2, 3], dtype=np.float32)))
 
     def test_audio_to_html_raises_valueerror_when_tuple_length_not_2(self):
         with pytest.raises(ValueError, match="should have 2 elements"):
@@ -286,12 +288,33 @@ class TestAudioExceptions:
         with pytest.raises(ValueError, match="not supported"):
             Audio.save_audio(data, path, sampling_rate=44100)
 
-    @pytest.mark.skipif(True, reason="Requires mocking WAVIO_AVAILABLE=False")
-    def test_save_audio_raises_runtimeerror_when_wavio_unavailable(self):
-        # Would require mocking
-        pass
+    def test_save_audio_raises_typeerror_when_data_not_ndarray(self):
+        from interactive_pipe.data_objects.audio import Audio
 
-    @pytest.mark.skipif(True, reason="Requires mocking WAVIO_AVAILABLE=False")
-    def test_load_audio_raises_runtimeerror_when_wavio_unavailable(self, tmp_path):
-        # Would require mocking
-        pass
+        with pytest.raises(TypeError, match="must be a numpy array"):
+            Audio.save_audio([1, 2, 3], Path("test.wav"), sampling_rate=44100)
+
+    def test_save_audio_raises_runtimeerror_when_wavio_unavailable(self, monkeypatch):
+        import interactive_pipe.data_objects.audio as audio_module
+        from interactive_pipe.data_objects.audio import Audio
+
+        monkeypatch.setattr(audio_module, "WAVIO_AVAILABLE", False)
+        data = np.array([0.1, 0.2], dtype=np.float32)
+        with pytest.raises(RuntimeError, match="wavio is not available"):
+            Audio.save_audio(data, Path("test.wav"), sampling_rate=44100)
+
+    def test_load_audio_raises_runtimeerror_when_wavio_unavailable(self, monkeypatch, tmp_path):
+        import interactive_pipe.data_objects.audio as audio_module
+        from interactive_pipe.data_objects.audio import Audio
+
+        monkeypatch.setattr(audio_module, "WAVIO_AVAILABLE", False)
+        with pytest.raises(RuntimeError, match="wavio is not available"):
+            Audio.load_audio(tmp_path / "test.wav")
+
+    def test_wavio_available_flag_matches_importability(self):
+        import importlib.util
+
+        import interactive_pipe.data_objects.audio as audio_module
+
+        wavio_installed = importlib.util.find_spec("wavio") is not None
+        assert audio_module.WAVIO_AVAILABLE == wavio_installed

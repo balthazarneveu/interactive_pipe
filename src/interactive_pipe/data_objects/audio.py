@@ -11,8 +11,9 @@ from interactive_pipe.data_objects.data import Data
 WAVIO_AVAILABLE = False
 WAVIO = "wavio"
 try:
-    WAVIO_AVAILABLE = True
     import wavio
+
+    WAVIO_AVAILABLE = True
 except ImportError:
     logging.info("Cannot import wavio")
 
@@ -23,17 +24,18 @@ def audio_to_html(audio: Union[None, str, Path, Tuple[int, np.ndarray]], control
     if audio is None:
         logging.debug("No audio to display")
         return ""
-    if isinstance(audio, str) or isinstance(audio, Path):
-        audio_base64 = base64.b64encode(open(str(audio), "rb").read()).decode("utf-8")
+    if isinstance(audio, (str, Path)):
+        with open(str(audio), "rb") as audio_file:
+            audio_base64 = base64.b64encode(audio_file.read()).decode("utf-8")
     elif isinstance(audio, tuple):
-        if not WAVIO_AVAILABLE:
-            raise RuntimeError("wavio is not available")
         if len(audio) != 2:
             raise ValueError(f"audio tuple should have 2 elements: (rate, data), got {len(audio)}")
         if not isinstance(audio[0], int):
             raise TypeError(f"audio[0] should be an integer, got {type(audio[0])}")
         if not isinstance(audio[1], np.ndarray):
             raise TypeError(f"audio[1] should be a numpy array, got {type(audio[1])}")
+        if not WAVIO_AVAILABLE:
+            raise RuntimeError("wavio is not available")
         audio_bytes = BytesIO()
         wavio.write(audio_bytes, audio[1].astype(np.float32), audio[0], sampwidth=4)
         audio_bytes.seek(0)
@@ -85,13 +87,14 @@ class Audio(Data):
         if backend is None:
             backend = WAVIO
         if backend == WAVIO:
-            if isinstance(data, np.ndarray):
-                if data.dtype == np.float32 or data.dtype == np.float64:
-                    data_save = (data * 32767).astype(np.int16)
-                elif data.dtype == np.int16:
-                    data_save = data
-                else:
-                    raise ValueError(f"Data type {data.dtype} not supported")
+            if not isinstance(data, np.ndarray):
+                raise TypeError(f"audio data must be a numpy array, got {type(data)}")
+            if data.dtype == np.float32 or data.dtype == np.float64:
+                data_save = (data * 32767).astype(np.int16)
+            elif data.dtype == np.int16:
+                data_save = data
+            else:
+                raise ValueError(f"Data type {data.dtype} not supported")
             if not WAVIO_AVAILABLE:
                 raise RuntimeError("wavio is not available")
             wavio.write(path, data_save, sampling_rate)
@@ -99,7 +102,7 @@ class Audio(Data):
             raise NotImplementedError(f"Unknown backend: {backend}")
 
     @staticmethod
-    def load_audio(path: Path, backend=None) -> tuple[int, np.ndarray]:
+    def load_audio(path: Path, backend=None) -> Tuple[int, np.ndarray]:
         if backend is None:
             backend = WAVIO
         if backend == WAVIO:
