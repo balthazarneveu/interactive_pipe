@@ -1,4 +1,4 @@
-__version__ = "0.8.10"
+__version__ = "0.9.0"
 # Backend enum for type-safe backend specification
 from interactive_pipe.core.backend import Backend
 
