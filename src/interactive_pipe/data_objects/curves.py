@@ -26,11 +26,7 @@ try:
 
     signal_backends.append(SIGNAL_BACKEND_PD)
 except ImportError:
-    message = "pandas is not available."
-    message += "\nto install see: https://pandas.pydata.org/docs/getting_started/install.html"
-    message += "\npip install pandas"
-    message += "\nyou won't be able to export curves as .csv spreadsheets"
-    logging.warning(message)
+    logging.info("pandas is not available: curves cannot be exported as .csv spreadsheets (pip install pandas)")
 
 
 class SingleCurve(Data):

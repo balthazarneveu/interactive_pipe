@@ -1,5 +1,5 @@
+import logging
 import pickle
-from abc import abstractmethod
 from pathlib import Path
 from typing import Any, Optional
 
@@ -45,21 +45,20 @@ class Data:
                 if not el.startswith("."):
                     raise ValueError(f"file extension must start with '.', got {el}")
 
-    @abstractmethod
     def _set_file_extensions(self):
+        """Override in subclasses to declare supported file extensions"""
         self.file_extensions = None
-        pass
 
-    @abstractmethod
     def _save(self, path: Path, **kwargs):
+        """Override in subclasses"""
         pass
 
-    @abstractmethod
     def _load(self, path: Path, **kwargs) -> Any:
+        """Override in subclasses"""
         pass
 
     def save(self, path: Optional[Path] = None, override=True, **kwargs):
-        if path is not None and not (override or path is None):
+        if path is not None and not override:
             path = self.safe_path_with_suffix(path)
         path = self.check_path(
             path,
@@ -100,12 +99,12 @@ class Data:
             if extensions is not None:
                 if path.suffix not in extensions:
                     path = path.with_suffix(extensions[0])
-                    print("path modified to default extension!", path)
+                    logging.warning(f"path modified to default extension! {path}")
             return path
 
     @staticmethod
     def safe_path_with_suffix(path: Path) -> Path:
-        # Protect against overwritting an existing file
+        # Protect against overwriting an existing file
         if path is None:
             raise ValueError("path cannot be None")
         if isinstance(path, str):
@@ -113,7 +112,7 @@ class Data:
         idx = 1
         orig_path = path
         while path.is_file():
-            path = orig_path.with_name("%s_%d%s" % (orig_path.stem, idx, orig_path.suffix))
+            path = orig_path.with_name(f"{orig_path.stem}_{idx}{orig_path.suffix}")
             idx += 1
         return path
 
@@ -130,6 +129,11 @@ class Data:
 
     @staticmethod
     def load_binary(path: Path):
+        """Load pickled data from disk.
+
+        Warning: pickle can execute arbitrary code during deserialization.
+        Only load .pkl files you created yourself or fully trust.
+        """
         with open(path, "rb") as handle:
             data = pickle.load(handle)
         return data

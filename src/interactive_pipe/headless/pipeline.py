@@ -162,7 +162,7 @@ class HeadlessPipeline(PipelineCore):
                 saved_dict["path"] = self.parameters["path"]
             if "tuning" in self.parameters:
                 for elt in self.parameters["tuning"]:
-                    if type(self.parameters["tuning"][elt]) is dict:
+                    if isinstance(self.parameters["tuning"][elt], dict):
                         saved_dict[elt] = {}
                         for e in self.parameters["tuning"][elt]:
                             data = self.parameters["tuning"][elt][e][0]

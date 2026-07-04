@@ -37,7 +37,7 @@ from interactive_pipe.helper.pipeline_decorator import interactive_pipeline
 block = interactive
 pipeline = interactive_pipeline
 
-# You can usef the following naming convention:
+# You can use the following naming convention:
 # import interactive_pipe as ip
 # @ip.block(...)
 # @ip.pipeline(...)
