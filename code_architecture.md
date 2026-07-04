@@ -68,7 +68,7 @@ An example using the core: [object_oriented_pipeline_declarations.py](/samples/o
 - `PureFilter`: The most minimalistic filter object used to execute the user defined `apply_fn`. Keyword arguments of `apply_fn` are provided through parameters stored as the data member `.values`.
     - Allows to `.run` the `apply_fn` based on the `.values` dictionary. 
     - To update parameters, you need to update `.values` which will merge the new parameters with the previous parameters.
-    - Uses a special keryword arg `global_params` to carry over context information between different filters.
+    - Exposes a `.global_params` dictionary (shared at the pipeline level) acting as the framework state backing the `context` / `layout` / `audio` proxies, which is how filters share context information. (The historic `global_params=` magic keyword argument was removed in 0.9.0.)
     - [`analyze_apply_fn_signature`](/src/interactive_pipe/core/signature.py) allows to analyze the `.apply_fn` to check if provided keyword parameters match what's written in the function. The [inspect](https://docs.python.org/3/library/inspect.html) library is used to check the function's signature.
 - `FilterCore(PureFilter)`
     - Adds the routing definition (requires `.inputs` & `.outputs`). In a pipeline, this allows to tell how to inter-connect several filters together.

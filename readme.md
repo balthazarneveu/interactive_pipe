@@ -294,6 +294,20 @@ if __name__ == '__main__':
 ### Release Notes
 
 
+#### Version 0.9.0 (July 2026)
+
+**Breaking changes:**
+- Removed implicit dict injection: declaring `global_params` / `global_parameters` / `global_state` / `global_context` / `context` / `state` as a filter keyword argument now raises `TypeError` at filter construction. Use the `context`, `layout` and `audio` proxies instead (see migration guide below).
+- Removed pipeline-init aliases (`global_params=`, `state=`, ...): pass `context={...}`.
+- Removed `SharedContext` / `SharedContext.injected()`.
+- Removed layout aliases `layout.set_style` / `set_grid` / `canvas` / `set_canvas` (use `layout.style` / `layout.grid`) and the write-only `Control.group` attribute (use `Control.panel`).
+- Requires Python >= 3.9.
+
+**Improvements & bug fixes:**
+- `import interactive_pipe` no longer fails when neither OpenCV nor Pillow is installed (the error is raised on first image save/load) and no longer overrides `sys.excepthook` as an import side effect.
+- Fixed the wavio availability flag, an unbound variable in audio saving, the dropped step default for string controls, and the filter-signature cache that never cached.
+- Runtime validation uses proper `TypeError`/`ValueError` exceptions instead of asserts; library diagnostics go through `logging` instead of `print`.
+
 #### Version 0.8.10 (March 2026)
 - Bugfix for jupyter notebooks backends.
 #### Version 0.8.9 (February 2026)
@@ -355,7 +369,7 @@ if __name__ == '__main__':
 **Migration from old `context={}` or `global_params={}` patterns:**  
 
 ```python
-# OLD (deprecated) - using context={} or global_params={}
+# OLD (removed in 0.9.0 - now raises TypeError at filter construction)
 from interactive_pipe import interactive
 
 @interactive(brightness=(0.5, [0., 1.]))
@@ -406,7 +420,7 @@ The new API provides:
 > def my_filter(img):
 >     context["shared_key"] = "shared_value"  # Direct dict-like access
 >     context.brightness = 0.5
->     layout.set_title("output_image", "My Image")  # Layout helpers
+>     layout.style("output_image", title="My Image")  # Layout helpers
 >
 >     return img
 > ```
@@ -417,12 +431,12 @@ The new API provides:
 > ```python
 > from interactive_pipe import layout
 > 
-> def change_layout(layout: str="side_by_side"):
->     # Arrange outputs in a 2x2 grid
->       if layout == "side_by_side":
->            layout.grid([["input", "result"]])
->       if layout == "grid2x2":
->           layout.grid([["input", "processed"], ["histogram_graph", "result"]])
+> def change_layout(layout_mode: str="side_by_side"):
+>     if layout_mode == "side_by_side":
+>         layout.grid([["input", "result"]])
+>     if layout_mode == "grid2x2":
+>         # Arrange outputs in a 2x2 grid
+>         layout.grid([["input", "processed"], ["histogram_graph", "result"]])
 >     # Style individual outputs
 >     layout.style("result", title="Final Result")
 >     # Note that the string "input", "processed", "histogram_graph", "result"
@@ -442,8 +456,7 @@ The new API provides:
 > 🔊 Inside a processing block, write the audio file to disk and use the audio helper:
 > ```python
 > from interactive_pipe import audio
-> audio.set_audio(audio_file)  # New clean API (v0.8.8)
-> # or legacy: context["__set_audio"](audio_file)
+> audio.set(audio_file)
 > ```
 - ❓ Do I have to decorate my processing block using the `@interactive` 
 > If you use the `@` decoration style, your function won't be useable in a regular manner (wich may be problematic in a serious development environment)
@@ -479,9 +492,9 @@ def bad_processing_block(inp):
     inp+=1
 ```
 
-- ❓ Is there a difference between `global_params` and `context` ?
-> No, `global_params`, `global_parameters`, `global_state`, `global_context`, `context`, `state` all mean the same thing and are all supported for legacy reasons. `context` is the preferred wording. However, we now recommend using the clean context API (see above).
-> ⚠️ The old `global_params={}` / `context={}` keyword argument style still works for backwards compatibility but is deprecated.
+- ❓ What happened to `global_params`?
+> The legacy names (`global_params`, `global_parameters`, `global_state`, `global_context`, `state`) were removed in 0.9.0. Declaring one of them as a filter keyword argument, or passing one as a pipeline-init argument, raises a `TypeError` with a migration hint.
+> Use the clean context API instead: the `context` proxy inside filters, and `context={...}` at pipeline initialization.
 
 
 

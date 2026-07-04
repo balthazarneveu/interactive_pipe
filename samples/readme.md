@@ -292,7 +292,7 @@ Let's simply decorate some more functions in `sample_pipeline.py`
 
 import numpy as np
 from image_filters import exposure, black_and_white, blend
-from interactive_piper import interactive, interactive_pipeline, Control
+from interactive_pipe import interactive, interactive_pipeline, Control
 
 # Let's make each of the three library filters interactive.
 # Please note that image_filters.py was kept the same since the begining and does not depend on interactive_pipe
