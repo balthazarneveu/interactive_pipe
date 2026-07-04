@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "interactive_pipe"
-version = "0.8.10"
+version = "0.9.0"
 authors = [
   { name="Balthazar Neveu", email="balthazarneveu@gmail.com" },
 ]
@@ -18,7 +18,7 @@ dependencies = [
 
 description = "Library to create flexible interactive image processing pipelines and automatically add a graphical user interface without knowing anything about GUI coding!"
 readme = "readme.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
