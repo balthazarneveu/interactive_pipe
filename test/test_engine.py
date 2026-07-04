@@ -13,14 +13,17 @@ def mad(img, coeff=2, bias=-3):
     return [mad_res]
 
 
-def mad_gp(img, global_params={}, coeff=2, bias=-3):
-    assert "ratio" in global_params.keys(), "shall be set by an earlier filter"
-    mad_res = img * coeff + bias
-    global_params["ratio"] += 1  # JUST FOR PYTEST PURPOSE
-    # WARNING, you shall never update global_params in this way (when using the cache)
-    # Only if your parameters or your inputs changed, you can update global_params...
-    # But twice the same input & parameters shall not modify the global_params.
-    return [mad_res]
+class MadGp(FilterCore):
+    """Filter mutating the shared pipeline state through self.global_params"""
+
+    def apply(self, img, coeff=2, bias=-3):
+        assert "ratio" in self.global_params.keys(), "shall be set at pipeline init"
+        mad_res = img * coeff + bias
+        self.global_params["ratio"] += 1  # JUST FOR PYTEST PURPOSE
+        # WARNING, you shall never update the shared state this way (when using the cache)
+        # Only if your parameters or your inputs changed, you can update it...
+        # But twice the same input & parameters shall not modify the shared state.
+        return [mad_res]
 
 
 def blend(img1, img2, blend_coeff=0.4):
@@ -41,14 +44,12 @@ class Blend(FilterCore):
 @pytest.mark.parametrize("cache", [True, False])
 @pytest.mark.parametrize("global_params_flag", [True, False])
 def test_pipeline_params(cache, global_params_flag):
-    filt1 = FilterCore(
-        apply_fn=mad_gp if global_params_flag else mad,
-        name="mad",
-        outputs=[2],
-        default_params={"coeff": 1, "bias": 0},
-    )
+    if global_params_flag:
+        filt1 = MadGp(name="mad", outputs=[2], default_params={"coeff": 1, "bias": 0})
+    else:
+        filt1 = FilterCore(apply_fn=mad, name="mad", outputs=[2], default_params={"coeff": 1, "bias": 0})
     filt2 = FilterCore(apply_fn=blend, inputs=[0, 2], outputs=[8])
-    pip = PipelineCore(filters=[filt1, filt2], inputs=[0], cache=cache, global_params={"ratio": 5})
+    pip = PipelineCore(filters=[filt1, filt2], inputs=[0], cache=cache, context={"ratio": 5})
     assert pip.parameters["blend"] == {"blend_coeff": 0.4}
     assert pip.parameters["mad"] == {"coeff": 1, "bias": 0}
     expected_ratio = 5
@@ -70,9 +71,9 @@ def test_pipeline_params(cache, global_params_flag):
 
 @pytest.mark.parametrize("cache", [True, False])
 def test_pipeline_mix(cache):
-    filt1 = FilterCore(apply_fn=mad_gp, name="mad", outputs=[2], default_params={"coeff": 1, "bias": 0})
+    filt1 = MadGp(name="mad", outputs=[2], default_params={"coeff": 1, "bias": 0})
     filt2 = Blend(inputs=[0, 2], outputs=[8])
-    pip = PipelineCore(filters=[filt1, filt2], cache=cache, inputs=[0], global_params={"ratio": 5})
+    pip = PipelineCore(filters=[filt1, filt2], cache=cache, inputs=[0], context={"ratio": 5})
     assert pip.parameters["Blend"] == {"blend_coeff": 0.8}
     assert pip.parameters["mad"] == {"coeff": 1, "bias": 0}
     pip.inputs = [input_image]

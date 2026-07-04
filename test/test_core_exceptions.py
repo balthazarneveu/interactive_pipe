@@ -15,10 +15,6 @@ def simple_func(x, param=1):
     return x * param
 
 
-def func_with_global(img, global_params={}, param=1):
-    return img * param
-
-
 def func_no_params():
     return 1
 

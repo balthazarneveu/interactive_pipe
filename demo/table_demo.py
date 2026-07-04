@@ -54,7 +54,7 @@ def compute_statistics(img):
     }
     table = Table(stats, title="Image Statistics", precision=4)
 
-    layout.set_style("stats", title="Channel Statistics")
+    layout.style("stats", title="Channel Statistics")
 
     return table
 
@@ -75,7 +75,7 @@ def create_coordinate_grid(grid_size: int = 5):
     columns = ["X", "Y", "Distance", "Angle (deg)"]
 
     table = Table(grid_data, columns=columns, title="Coordinate Grid", precision=2)
-    layout.set_style("grid", title="Coordinate Grid Table")
+    layout.style("grid", title="Coordinate Grid Table")
 
     return table
 
@@ -96,7 +96,7 @@ def create_multiplication_table(table_size: int = 10):
     columns = ["×"] + [str(i) for i in range(1, table_size + 1)]
 
     table = Table(table_data, columns=columns, title="Multiplication Table", precision=0)
-    layout.set_style("mult", title="Multiplication Table")
+    layout.style("mult", title="Multiplication Table")
 
     return table
 
@@ -133,7 +133,7 @@ def create_transformation_matrix(matrix_size: int = 4):
     columns = ["Input X", "Input Y", "Output X", "Output Y", "Scale Change"]
 
     table = Table(table_data, columns=columns, title="Transformation Matrix Demo", precision=3)
-    layout.set_style("transform", title="Matrix Transformation")
+    layout.style("transform", title="Matrix Transformation")
 
     return table
 
@@ -157,7 +157,7 @@ def create_list_of_dicts_table(num_entries: int = 8):
         )
 
     table = Table(records, title="List of Dictionaries Example", precision=2)
-    layout.set_style("records", title="Data Records")
+    layout.style("records", title="Data Records")
 
     return table
 
@@ -175,7 +175,7 @@ def create_pandas_table(num_samples: int = 10, show_aggregated: bool = True):
             "Install": ["pip install pandas"],
         }
         table = Table(fallback_data, title="Pandas Example (Not Available)", precision=0)
-        layout.set_style("pandas", title="Pandas DataFrame Example")
+        layout.style("pandas", title="Pandas DataFrame Example")
         return table
 
     # Create sample data with pandas
@@ -232,7 +232,7 @@ def create_pandas_table(num_samples: int = 10, show_aggregated: bool = True):
     else:
         table = Table(df, title="Pandas DataFrame Example", precision=2)
 
-    layout.set_style("pandas", title="Pandas DataFrame Table")
+    layout.style("pandas", title="Pandas DataFrame Table")
 
     return table
 
