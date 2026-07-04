@@ -110,3 +110,15 @@ def test_control_tooltip_multiline():
     multiline_tooltip = "Line 1\nLine 2\nLine 3"
     ctrl = Control(5, [0, 10], tooltip=multiline_tooltip)
     assert ctrl.tooltip == multiline_tooltip
+
+
+def test_string_control_step_defaults_to_one():
+    """Regression: the step default for string controls was assigned to a
+    dead local variable instead of self.step"""
+    ctrl = Control("b", ["a", "b", "c"])
+    assert ctrl.step == 1
+
+
+def test_string_control_explicit_step_preserved():
+    ctrl = Control("b", ["a", "b", "c"], step=2)
+    assert ctrl.step == 2

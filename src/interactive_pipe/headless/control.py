@@ -108,7 +108,7 @@ class Control:
                     raise ValueError(f"{value_default} must be in {value_range}")
                 self._type = str
                 if self.step is None:
-                    step = 1
+                    self.step = 1
         else:
             raise TypeError(f"Wrong value type: {type(value_default)}, expected int/float/bool/str")
         self.value_range = value_range
