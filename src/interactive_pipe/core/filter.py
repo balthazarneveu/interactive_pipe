@@ -50,17 +50,17 @@ class PureFilter:
         self._global_params = new_global_params
 
     def check_apply_signature(self):
-        if not hasattr(self, "__args_names") or not hasattr(self, "__kwargs_names"):
-            self.__args_names, self.__kwargs_names = analyze_apply_fn_signature(self.apply)
-            self.signature = (self.__args_names, self.__kwargs_names)
+        if not hasattr(self, "_args_names") or not hasattr(self, "_kwargs_names"):
+            self._args_names, self._kwargs_names = analyze_apply_fn_signature(self.apply)
+            self.signature = (self._args_names, self._kwargs_names)
 
     def __initialize_default_values(self):
         if hasattr(self, "_values"):
             raise RuntimeError("_values attribute already exists")
         self.check_apply_signature()
-        self._values = self.__kwargs_names
+        self._values = dict(self._kwargs_names)
         for global_key in EQUIVALENT_STATE_KEYS:
-            if global_key in self.__kwargs_names.keys():
+            if global_key in self._kwargs_names.keys():
                 self._values.pop(global_key)
 
     @property
@@ -79,15 +79,15 @@ class PureFilter:
             raise TypeError(f"self.values must be a dict, got {type(self.values)}")
         self.check_apply_signature()
         for key, val in self.values.items():
-            if key not in self.__kwargs_names.keys():
-                raise ValueError(f"{self.name}: {key} not in {self.__kwargs_names.keys()}")
+            if key not in self._kwargs_names.keys():
+                raise ValueError(f"{self.name}: {key} not in {self._kwargs_names.keys()}")
 
         # Set framework state for context-based API (layout, audio, etc.)
         _set_framework_state(self.global_params)
         try:
             global_key_found = False
             for global_key in EQUIVALENT_STATE_KEYS:
-                if global_key in self.__kwargs_names.keys():
+                if global_key in self._kwargs_names.keys():
                     # Warn about deprecated parameter injection (any magic parameter name)
                     SharedContext._warn_deprecation_once()
 
