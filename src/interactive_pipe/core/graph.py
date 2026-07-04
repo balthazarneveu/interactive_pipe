@@ -132,7 +132,8 @@ def get_call_graph(func: Callable, global_context=None) -> dict:
         raise ValueError("Function AST node is malformed")
     # Get return statements and preserve nested structure
     return_nodes = [ret.value for ret in main_function.body if isinstance(ret, ast.Return)]
-    assert len(return_nodes) <= 1, "cannot return several times!"
+    if len(return_nodes) > 1:
+        raise ValueError("pipeline function cannot contain more than one return statement")
 
     if return_nodes:
         # Check if the return value is a nested list/tuple structure

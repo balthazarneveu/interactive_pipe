@@ -24,11 +24,11 @@ CHOICES = ["dog", "cat", "elephant", "rabbit"]
         # Test that tuples with too many elements fail
         (
             (False, NAME, "group1", "extra"),
-            AssertionError,
+            ValueError,
         ),  # Too many elements for boolean
         (
             (10, [-15, 18], "name", "group", "extra"),
-            AssertionError,
+            ValueError,
         ),  # Too many elements for numeric
     ],
 )
@@ -68,10 +68,10 @@ def test_ultra_abbreviation_control(inp_tuple):
 @pytest.mark.parametrize(
     "inp_tuple_and_error_type",
     [
-        ((True, [-2, 2]), AssertionError),  # Wrong: bool with range
+        ((True, [-2, 2]), TypeError),  # Wrong: bool with range
         (
             (True, [True, False], "flag"),
-            AssertionError,
+            TypeError,
         ),  # Wrong: list as name
         (("dolphin", CHOICES), ValueError),  # Value not in choices
         ((-10, [-5, 8], None), ValueError),  # Default outside range
