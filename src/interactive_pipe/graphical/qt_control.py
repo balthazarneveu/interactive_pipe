@@ -158,7 +158,7 @@ if PYQT_AVAILABLE:
         def keyPressEvent(self, event):
             if event.key() in self.silent_keys:
                 return
-            super(SilentSlider, self).keyPressEvent(event)
+            super().keyPressEvent(event)
 
 else:
     SilentSlider = None  # type: ignore[reportAssignmentType]

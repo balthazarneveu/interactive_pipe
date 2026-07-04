@@ -24,7 +24,6 @@ class KeyboardControl(Control):
     SPECIAL_KEYS_LIST = [
         KEY_UP,
         KEY_DOWN,
-        KEY_PAGEDOWN,
         KEY_LEFT,
         KEY_RIGHT,
         KEY_PAGEUP,

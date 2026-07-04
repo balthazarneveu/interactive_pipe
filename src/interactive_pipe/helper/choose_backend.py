@@ -23,7 +23,7 @@ def get_interactive_pipeline_class(gui: Union[str, Backend, None] = "auto"):
                     )
 
                     selected_gui = "qt"
-                except Exception as qt_import_execption:
+                except Exception as qt_import_exception:
                     try:
                         import matplotlib.pyplot as plt  # noqa: F401
 
@@ -31,7 +31,7 @@ def get_interactive_pipeline_class(gui: Union[str, Backend, None] = "auto"):
                     except Exception as mpl_import_exception:
                         raise NameError(
                             "Error in auto backend choice:\n"
-                            + f"Could not import Qt: {qt_import_execption}\n"
+                            + f"Could not import Qt: {qt_import_exception}\n"
                             + f"Could not import Matplotlib {mpl_import_exception}"
                         )
             _private.auto_gui = selected_gui

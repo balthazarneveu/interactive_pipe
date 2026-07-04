@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from abc import abstractmethod
 from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, List, Optional, Union
@@ -194,7 +193,6 @@ class Control:
     def reset(self):
         self.value = None
 
-    @abstractmethod
     def update(self, new_value):
         # Plug button
         self.value = new_value

@@ -320,9 +320,9 @@ class InteractivePipeQT(InteractivePipeGUI):
             for filtname, params in self.pipeline.parameters.items():
                 for param_name in params.keys():
                     if param_name == widget.parameter_name_to_connect:
-                        print(
-                            f"MATCH & update {filtname} {widget_idx} with"
-                            + f"{self.pipeline.parameters[filtname][param_name]}"
+                        logging.debug(
+                            f"MATCH & update {filtname} {widget_idx} with "
+                            f"{self.pipeline.parameters[filtname][param_name]}"
                         )
                         self.window.ctrl[widget_idx].update(self.pipeline.parameters[filtname][param_name])
                         matched = True
@@ -330,7 +330,6 @@ class InteractivePipeQT(InteractivePipeGUI):
                 raise ValueError(
                     f"could not match widget {widget_idx} with parameter to connect {widget.parameter_name_to_connect}"
                 )
-        print("------------")
         self.window.reset_sliders()
 
     def print_message(self, message_list: List[str]):
@@ -373,7 +372,7 @@ class InteractivePipeQT(InteractivePipeGUI):
         self.pipeline.global_params["__stop"] = self.__stop
 
     def handle_audio_error(self):
-        print("Error: " + self.player.errorString())
+        logging.error(f"Audio player error: {self.player.errorString()}")
 
     def __set_audio(self, file_path):
         self.__stop()
@@ -705,7 +704,7 @@ class MainWindow(QWidget if PYQTVERSION else object, InteractivePipeWindow):  # 
                 container_widget.setMinimumWidth(150)
                 slider_layout.addWidget(container_widget, 1)
             else:
-                print(f"Unhandled type for slider: {type(slider_or_layout)}")
+                logging.warning(f"Unhandled type for slider: {type(slider_or_layout)}")
                 return None
             if isinstance(slider_or_layout, QWidget):
                 result_fixed_width = 90

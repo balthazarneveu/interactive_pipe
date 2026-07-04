@@ -120,7 +120,7 @@ class PipelineCore:
         filter1.values = new_parameters["filter1"]
         filter2.values = new_parameters["filter2"]
 
-        scan all new_parameters, check if the key describe the name of an avaiable filter,
+        scan all new_parameters, check if the key describe the name of an available filter,
         then update that given filter parameters.
 
         assume filter2 needed a second parameter `param2_2` which was defined when instantiating the filter...

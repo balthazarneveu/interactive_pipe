@@ -49,8 +49,7 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
                 if mng is not None and hasattr(mng, "full_screen_toggle"):
                     mng.full_screen_toggle()
             except Exception as exc:
-                print(exc)
-                logging.warning("Cannot maximize screen")
+                logging.warning(f"Cannot maximize screen: {exc}")
         if self.window.fig is None:
             raise RuntimeError("Window figure not initialized")
         if hasattr(self.window.fig.canvas, "manager") and self.window.fig.canvas.manager is not None:
@@ -72,14 +71,13 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
         self.window.need_redraw = True
         # @TODO: issue #18 - https://github.com/balthazarneveu/interactive_pipe/issues/18
         # Requires mapping the parameters back into each Control objects
-        print("------------")
         for widget_idx, widget in self.window.ctrl.items():
             matched = False
             for filtname, params in self.pipeline.parameters.items():
                 for param_name in params.keys():
                     if param_name == widget.parameter_name_to_connect:
-                        print(
-                            f"MATCH & update {filtname} {widget_idx} with"
+                        logging.debug(
+                            f"MATCH & update {filtname} {widget_idx} with "
                             f"{self.pipeline.parameters[filtname][param_name]}"
                         )
                         self.window.ctrl[widget_idx].update(self.pipeline.parameters[filtname][param_name])
@@ -88,7 +86,6 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
                 raise ValueError(
                     f"could not match widget {widget_idx} with parameter to connect {widget.parameter_name_to_connect}"
                 )
-        print("------------")
         self.window.reset_sliders()
 
     def reset_parameters(self):
