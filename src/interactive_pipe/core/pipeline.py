@@ -1,13 +1,9 @@
 import logging
-import warnings
 from typing import Any, Dict, List, Optional
 
-from interactive_pipe.core.context import _set_user_context
+from interactive_pipe.core.context import REMOVED_CONTEXT_ALIASES, _set_user_context
 from interactive_pipe.core.engine import PipelineEngine
 from interactive_pipe.core.filter import FilterCore
-
-# Deprecated aliases for 'context' parameter
-_CONTEXT_ALIASES = ("global_params", "global_parameters", "global_state", "global_context", "state")
 
 
 class PipelineCore:
@@ -34,18 +30,12 @@ class PipelineCore:
         self.filters = filters
         self.engine = PipelineEngine(cache, safe_input_buffer_deepcopy=safe_input_buffer_deepcopy)
 
-        # Handle deprecated aliases for context parameter
-        for alias in _CONTEXT_ALIASES:
+        # Reject removed aliases of the 'context' parameter with a clear message
+        for alias in REMOVED_CONTEXT_ALIASES:
             if alias in kwargs:
-                warnings.warn(
-                    f"'{alias}' parameter is deprecated, use 'context' instead.",
-                    DeprecationWarning,
-                    stacklevel=2,
+                raise TypeError(
+                    f"'{alias}' argument was removed in interactive_pipe 0.9.0; pass context={{...}} instead."
                 )
-                if context is None:
-                    context = kwargs.pop(alias)
-                else:
-                    kwargs.pop(alias)  # Ignore if context already provided
 
         # Warn about any remaining unknown kwargs
         if kwargs:

@@ -4,7 +4,6 @@ from interactive_pipe.core.backend import Backend
 
 # Clean context API - no more global_params pollution!
 from interactive_pipe.core.context import (
-    SharedContext,  # For legacy code migration with explicit injection - deprecated
     audio,
     context,  # Direct dict-like access
     get_context,
