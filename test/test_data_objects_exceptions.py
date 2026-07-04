@@ -108,6 +108,28 @@ class TestImageExceptions:
         with pytest.raises(ValueError, match="backend must be one of"):
             Image.load_image(path, backend="invalid_backend")
 
+    def test_save_image_raises_runtimeerror_when_backend_not_installed(self, monkeypatch, tmp_path):
+        import interactive_pipe.data_objects.image as image_module
+
+        monkeypatch.setattr(image_module, "image_backends", ["pillow"])
+        data = np.random.rand(10, 10, 3)
+        with pytest.raises(RuntimeError, match="not installed"):
+            Image.save_image(data, tmp_path / "test.png", backend="opencv")
+
+    def test_save_image_raises_runtimeerror_when_no_backend_available(self, monkeypatch, tmp_path):
+        import interactive_pipe.data_objects.image as image_module
+
+        monkeypatch.setattr(image_module, "image_backends", [])
+        data = np.random.rand(10, 10, 3)
+        with pytest.raises(RuntimeError, match="No image backend available"):
+            Image.save_image(data, tmp_path / "test.png")
+
+    def test_default_backend_falls_back_to_available_one(self, monkeypatch):
+        import interactive_pipe.data_objects.image as image_module
+
+        monkeypatch.setattr(image_module, "image_backends", ["opencv"])
+        assert image_module._resolve_image_backend(None) == "opencv"
+
 
 class TestCurvesExceptions:
     """Test exception handling in Curves classes"""

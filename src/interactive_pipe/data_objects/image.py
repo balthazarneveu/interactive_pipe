@@ -25,7 +25,21 @@ try:
 except ImportError:
     logging.info("PIL is not available")
 if len(image_backends) == 0:
-    raise RuntimeError("No image backends available. Please install either cv2 or PIL")
+    logging.info("No image backend available. Install opencv-python or Pillow to save/load images")
+
+
+def _resolve_image_backend(backend):
+    """Pick a default backend when none is given and check availability."""
+    if len(image_backends) == 0:
+        raise RuntimeError("No image backend available. Please install either opencv-python or Pillow")
+    if backend is None:
+        return IMAGE_BACKEND_PILLOW if IMAGE_BACKEND_PILLOW in image_backends else image_backends[0]
+    if backend not in IMAGE_BACKENDS:
+        raise ValueError(f"backend must be one of {IMAGE_BACKENDS}, got {backend}")
+    if backend not in image_backends:
+        raise RuntimeError(f"image backend '{backend}' is not installed (available: {image_backends})")
+    return backend
+
 
 try:
     import matplotlib.pyplot as plt
@@ -59,10 +73,7 @@ class Image(Data):
 
     @staticmethod
     def save_image(data, path: Path, precision=8, backend=None):
-        if backend is None:
-            backend = IMAGE_BACKEND_PILLOW
-        if backend not in IMAGE_BACKENDS:
-            raise ValueError(f"backend must be one of {IMAGE_BACKENDS}, got {backend}")
+        backend = _resolve_image_backend(backend)
         if backend == IMAGE_BACKEND_OPENCV:
             Image.save_image_cv2(data, path, precision)
         if backend == IMAGE_BACKEND_PILLOW:
@@ -116,16 +127,10 @@ class Image(Data):
 
     @staticmethod
     def load_image(path: Path, precision=8, backend=None) -> np.ndarray:
-        if backend is None:
-            backend = IMAGE_BACKEND_PILLOW
-        if backend not in IMAGE_BACKENDS:
-            raise ValueError(f"backend must be one of {IMAGE_BACKENDS}, got {backend}")
+        backend = _resolve_image_backend(backend)
         if backend == IMAGE_BACKEND_OPENCV:
             return Image.load_image_cv2(path)
-        elif backend == IMAGE_BACKEND_PILLOW:
-            return Image.load_image_PIL(path, precision)
-        else:
-            raise ValueError(f"Unknown backend: {backend}")
+        return Image.load_image_PIL(path, precision)
 
     def show(self):
         plt.figure()
