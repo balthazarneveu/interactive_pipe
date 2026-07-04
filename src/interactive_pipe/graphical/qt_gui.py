@@ -492,10 +492,6 @@ class MainWindow(QWidget if PYQTVERSION else object, InteractivePipeWindow):  # 
         main_layout.addLayout(middle_layout)
         main_layout.addLayout(self.bottom_panels_layout)
 
-        # Keep layout_obj for backward compatibility (used by init_sliders for ungrouped controls)
-        # We'll use bottom_panels_layout for ungrouped controls
-        self.layout_obj = self.bottom_panels_layout
-
         self.init_sliders(controls)
         # if self.pipeline._PipelineCore__initialized_inputs:
         #     # cannot refresh the pipeline if no input has been provided! ... not ok for inputless pipeline though!

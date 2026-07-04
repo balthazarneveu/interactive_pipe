@@ -57,8 +57,6 @@ class Control:
         else:
             self.panel = group
 
-        # Keep group attribute for backward compatibility (references panel)
-        self.group = self.panel
         if isinstance(value_default, bool):
             self._type = bool
             self.step = 1

@@ -5,7 +5,7 @@ class Panel:
     """Panel for organizing controls into groups with optional nesting and grid layouts.
 
     Panels can contain:
-    - Controls (assigned via control.group=panel)
+    - Controls (assigned via Control(..., group=panel) or Control(..., group="name"))
     - Other Panels (nested hierarchy)
     - Grid layouts (via list of lists)
 
