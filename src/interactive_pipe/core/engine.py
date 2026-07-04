@@ -17,6 +17,7 @@ class FilterError(Exception):
     """
 
     def __init__(self, filter_name: str, original_error: Exception, tb=None):
+        _install_excepthook()
         self.filter_name = filter_name
         self.original_error = original_error
         self.tb = tb
@@ -74,8 +75,20 @@ class FilterError(Exception):
         print(f"{'=' * 60}\n", file=file)
 
 
-# Install a custom exception hook to handle FilterError cleanly
-_original_excepthook = sys.excepthook
+def _install_excepthook():
+    """Install a hook displaying uncaught FilterError compactly.
+
+    Installed lazily on first FilterError creation (idempotent) so that
+    merely importing the library never mutates process-wide state.
+    """
+    if getattr(sys, "excepthook", None) is _filter_error_excepthook:
+        return
+    global _original_excepthook
+    _original_excepthook = sys.excepthook
+    sys.excepthook = _filter_error_excepthook
+
+
+_original_excepthook = sys.__excepthook__
 
 
 def _filter_error_excepthook(exc_type, exc_value, exc_tb):
@@ -87,9 +100,6 @@ def _filter_error_excepthook(exc_type, exc_value, exc_tb):
             _original_excepthook(exc_type, exc_value, exc_tb)
     else:
         _original_excepthook(exc_type, exc_value, exc_tb)
-
-
-sys.excepthook = _filter_error_excepthook
 
 
 class PipelineEngine:
