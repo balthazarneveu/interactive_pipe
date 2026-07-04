@@ -98,7 +98,7 @@ class HeadlessPipeline(PipelineCore):
             else:
                 inputs_filt = filt_dict["args"]
                 outputs_filt = filt_dict["returns"]
-            logging.debug("----------------->", filt_name, inputs_filt, outputs_filt)
+            logging.debug(f"-----------------> {filt_name} {inputs_filt} {outputs_filt}")
             if isinstance(filt_dict["function_object"], FilterCore):
                 filter = filt_dict["function_object"]
                 filter.inputs = inputs_filt
@@ -184,13 +184,10 @@ class HeadlessPipeline(PipelineCore):
             traceback.print_exc()
 
     def __repr__(self):
-        """Print tuning parameters"""
-        for filt in self.filters:
-            print(filt)
-        ret = "\n{\n"
+        """Describe filters routing and tuning parameters"""
+        ret = "\n".join(repr(filt) for filt in self.filters)
+        ret += "\n{\n"
         for sl in self.filters:
-            # ret += "\"%s\"" % sl.name + \
-            #     ":[" + ",".join(map(lambda x: "%f" % x, sl.values)) + "],\n"
             ret += f"{sl.name} : {sl.values},\n"
         ret = ret[:-2] + "\n"  # remove comma for yaml
         ret += "}"
@@ -282,7 +279,7 @@ class HeadlessPipeline(PipelineCore):
                     logging.warning(f"Cannot save image {current_name}\n{exc}")
                     traceback.print_exc()
             # @ TODO: handle proper output suffixes namings
-            logging.info("saved image %s" % current_name)
+            logging.info(f"saved image {current_name}")
         return path
 
     def parameters_from_keyword_args(self, **kwargs) -> dict:
@@ -309,15 +306,11 @@ class HeadlessPipeline(PipelineCore):
             if inputs_list is not None and len(inputs_list) == 0:
                 self.inputs = None  # type: ignore
         # Handle context parameter - update user context if provided
-        # Check both named parameter and kwargs
-        context_dict = context
-        if context_dict is None and "context" in kwargs:
-            context_dict = kwargs.pop("context")
-        if context_dict is not None:
-            if isinstance(context_dict, dict):
-                self._user_context.update(context_dict)
+        if context is not None:
+            if isinstance(context, dict):
+                self._user_context.update(context)
             else:
-                raise TypeError(f"context must be a dict, got {type(context_dict)}")
+                raise TypeError(f"context must be a dict, got {type(context)}")
         # Only update self.parameters if parameters argument is explicitly provided
         if parameters is not None:
             self.parameters = parameters
@@ -347,7 +340,7 @@ class HeadlessPipeline(PipelineCore):
                     continue
                 for inp in filt_prev.outputs:
                     if debug:
-                        print(f"{searched_out}, {filt_prev.name} {inp}")
+                        logging.debug(f"{searched_out}, {filt_prev.name} {inp}")
                     if searched_out == inp:
                         last_filter_found = filt_prev.name
                         inp_name = f"{inp}"
@@ -358,10 +351,6 @@ class HeadlessPipeline(PipelineCore):
 
         try:
             import graphviz
-        except ImportError as exc:
-            logging.warning("cannot generate pipeline graph, need to install graphviz")
-            logging.warning(exc)
-            return None
         except Exception as exc:
             logging.warning("cannot generate pipeline graph, need to install graphviz")
             logging.warning(exc)
