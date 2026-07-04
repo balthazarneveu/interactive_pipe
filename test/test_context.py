@@ -289,38 +289,6 @@ def test_context_shared_between_filters():
     assert pipeline._user_context["count"] == 42
 
 
-def test_legacy_global_params_still_works():
-    """Test that the legacy global_params signature still works."""
-
-    @interactive()
-    def legacy_filter(img, global_params={}):
-        # Initialize __output_styles if not present (normally done by GUI)
-        if "__output_styles" not in global_params:
-            global_params["__output_styles"] = {}
-        # Legacy approach should still work
-        global_params["__output_styles"]["output"] = {"title": "Legacy"}
-        # But new API should also work
-        ctx = get_context()
-        ctx["legacy_test"] = True
-        return img
-
-    img = np.ones((10, 10, 3))
-    filter_obj = FilterCore(apply_fn=legacy_filter, inputs=[0], outputs=["output"])
-
-    pipeline = PipelineCore(
-        filters=[filter_obj],
-        inputs=[0],
-        outputs=[["output"]],
-        cache=False,
-    )
-    pipeline.inputs = [img]
-    pipeline.run()
-
-    # Both legacy and new API should work
-    assert pipeline.global_params["__output_styles"]["output"]["title"] == "Legacy"
-    assert pipeline._user_context["legacy_test"] is True
-
-
 def test_new_api_without_global_params_signature():
     """Test that new API works without global_params in function signature."""
     # Need to clear registered_controls_names to avoid conflicts

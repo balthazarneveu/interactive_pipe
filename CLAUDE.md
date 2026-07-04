@@ -72,9 +72,9 @@ def my_pipeline(img_list):
         return [img, processed]
 ```
 
-### Use the new context API instead of `global_params={}` or `context={}`
+### Use the context API — `global_params={}` / `context={}` kwargs were REMOVED in 0.9.0
 
-The old `global_params={}` or `context={}` keyword argument pattern is deprecated. Use the new clean API with `context` and `layout` proxies instead.
+The old `global_params={}` or `context={}` keyword argument pattern was removed in 0.9.0: declaring one of these magic names (`global_params`, `global_parameters`, `global_state`, `global_context`, `context`, `state`) in a filter signature now raises `TypeError` at filter construction. Use the clean API with `context` and `layout` proxies instead.
 
 ```python
 # ✅ CORRECT - using new context and layout API
@@ -91,9 +91,9 @@ def my_pipeline(img_list):
     img = my_filter(img_list)
     return [img]
 
-# ❌ WRONG - using deprecated global_params={}
+# ❌ WRONG - removed global_params={} pattern (raises TypeError since 0.9.0)
 @interactive()
-def my_filter(img, param=0.5, global_params={}):  # Deprecated!
+def my_filter(img, param=0.5, global_params={}):  # TypeError at construction!
     global_params["__output_styles"]["my_img"] = {"title": "My Image"}
     return img * param
 ```

@@ -1,13 +1,10 @@
 import functools
-import warnings
 from typing import Any, Callable, Optional, Union
 
 from interactive_pipe.core.backend import Backend
+from interactive_pipe.core.context import REMOVED_CONTEXT_ALIASES
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
-
-# Deprecated aliases for 'context' parameter
-_CONTEXT_ALIASES = ("global_params", "global_parameters", "global_state", "global_context", "state")
 
 
 def pipeline(pipeline_function: Callable, **kwargs) -> HeadlessPipeline:
@@ -27,18 +24,13 @@ def interactive_pipeline(
 
     Function decorator to add some controls @interactive_pipeline
     """
-    # Handle deprecated aliases for context parameter
-    for alias in _CONTEXT_ALIASES:
+    # Reject removed aliases of the 'context' parameter with a clear message
+    for alias in REMOVED_CONTEXT_ALIASES:
         if alias in kwargs_gui:
-            warnings.warn(
-                f"'{alias}' parameter is deprecated, use 'context' instead.",
-                DeprecationWarning,
-                stacklevel=2,
+            raise TypeError(
+                f"@interactive_pipeline: '{alias}' argument was removed in interactive_pipe 0.9.0; "
+                "pass context={...} instead."
             )
-            if context is None:
-                context = kwargs_gui.pop(alias)
-            else:
-                kwargs_gui.pop(alias)  # Ignore if context already provided
 
     def wrapper(pipeline_function: Callable[..., Any]) -> Union[HeadlessPipeline, Callable[..., Any]]:
         headless_pipeline = HeadlessPipeline.from_function(

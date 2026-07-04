@@ -3,17 +3,8 @@ from copy import deepcopy
 from typing import Any, Callable, List, Optional, Tuple, Union
 
 from interactive_pipe.core.cache import CachedResults
-from interactive_pipe.core.context import SharedContext, _set_framework_state
+from interactive_pipe.core.context import REMOVED_CONTEXT_KWARGS, _set_framework_state
 from interactive_pipe.core.signature import analyze_apply_fn_signature
-
-EQUIVALENT_STATE_KEYS = [
-    "global_params",
-    "global_parameters",
-    "global_state",
-    "global_context",
-    "context",
-    "state",
-]
 
 # Sentinel object to distinguish between "not provided" and "explicitly None"
 _SENTINEL = object()
@@ -58,10 +49,16 @@ class PureFilter:
         if hasattr(self, "_values"):
             raise RuntimeError("_values attribute already exists")
         self.check_apply_signature()
+        for magic_key in REMOVED_CONTEXT_KWARGS:
+            if magic_key in self._kwargs_names.keys():
+                raise TypeError(
+                    f"Filter '{self.name}' declares keyword argument '{magic_key}': implicit context "
+                    "injection (global_params) was removed in interactive_pipe 0.9.0. Remove this "
+                    "parameter and use the proxies instead - from interactive_pipe import context, "
+                    "layout, audio - e.g. context['key'] for shared state, layout.style()/layout.grid() "
+                    "for display. If you meant an ordinary parameter, rename it."
+                )
         self._values = dict(self._kwargs_names)
-        for global_key in EQUIVALENT_STATE_KEYS:
-            if global_key in self._kwargs_names.keys():
-                self._values.pop(global_key)
 
     @property
     def values(self):
@@ -85,19 +82,7 @@ class PureFilter:
         # Set framework state for context-based API (layout, audio, etc.)
         _set_framework_state(self.global_params)
         try:
-            global_key_found = False
-            for global_key in EQUIVALENT_STATE_KEYS:
-                if global_key in self._kwargs_names.keys():
-                    # Warn about deprecated parameter injection (any magic parameter name)
-                    SharedContext._warn_deprecation_once()
-
-                    # Inject the context dictionary (legacy API)
-                    out = self.apply(*imgs, **{**{global_key: self.global_params}, **self.values})
-                    global_key_found = True
-                    break
-            if not global_key_found:
-                out = self.apply(*imgs, **self.values)
-            return out
+            return self.apply(*imgs, **self.values)
         finally:
             # Clear framework state after execution
             _set_framework_state(None)
