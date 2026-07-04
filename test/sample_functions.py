@@ -30,9 +30,8 @@ def constant_image_generator(fake_param=0.5):
     return fake_param * np.ones((10, 10, 3))
 
 
-def empty_in_empty_out(global_params={}, param_to_set=0.5):
+def empty_in_empty_out(param_to_set=0.5):
     assert param_to_set >= 0 and param_to_set <= 1
-    global_params["shared_param"] = param_to_set
 
 
 def get_sample_image():

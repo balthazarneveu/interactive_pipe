@@ -45,7 +45,7 @@ def test_get_context_returns_user_dict():
     """Test that get_context() returns the user context dictionary."""
 
     @interactive()
-    def test_filter(img, global_params={}):
+    def test_filter(img):
         ctx = get_context()
         ctx["test_key"] = "test_value"
         ctx["number"] = 42
@@ -76,7 +76,7 @@ def test_get_context_no_internal_keys_visible():
     """Test that get_context() does not expose internal __keys."""
 
     @interactive()
-    def test_filter(img, global_params={}):
+    def test_filter(img):
         ctx = get_context()
         # User context should not have __pipeline, __output_styles, etc.
         assert "__pipeline" not in ctx
@@ -101,7 +101,7 @@ def test_layout_style_sets_title():
     """Test that layout.style() correctly sets output title."""
 
     @interactive(brightness=(0.5, [0.0, 1.0]))
-    def adjust_brightness(img, brightness=0.5, global_params={}):
+    def adjust_brightness(img, brightness=0.5):
         layout.style("adjusted", title=f"Brightness: {brightness:.2f}")
         return img * brightness
 
@@ -127,7 +127,7 @@ def test_layout_style_with_extra_style_kwargs():
     """Test that layout.style() supports additional style kwargs."""
 
     @interactive()
-    def test_filter(img, global_params={}):
+    def test_filter(img):
         layout.style(
             "output",
             title="Test",
@@ -160,10 +160,10 @@ def test_layout_grid_sets_pipeline_outputs():
     """Test that layout.grid() correctly sets pipeline.outputs."""
 
     @interactive()
-    def test_filter(img, global_params={}):
+    def test_filter(img):
         layout.grid([["img1", "img2"], ["img3", "img4"]])
-        # Store result in global_params to verify it was set
-        global_params["layout_was_set"] = True
+        # Store a marker in the user context to verify the filter ran
+        context["layout_was_set"] = True
         return img, img * 0.5, img * 0.25, img * 0.1
 
     img = np.ones((10, 10, 3))
@@ -186,16 +186,16 @@ def test_layout_grid_sets_pipeline_outputs():
 
     # Check that pipeline.outputs was updated
     assert pipeline.outputs == [["img1", "img2"], ["img3", "img4"]]
-    assert pipeline.global_params.get("layout_was_set") is True
+    assert pipeline._user_context.get("layout_was_set") is True
 
 
 def test_layout_grid_accepts_flat_list():
     """Test that layout.grid() accepts a flat list and converts it to a single row."""
 
     @interactive()
-    def test_filter(img, global_params={}):
+    def test_filter(img):
         layout.grid(["img1", "img2", "img3"])
-        global_params["layout_was_set"] = True
+        context["layout_was_set"] = True
         return img, img * 0.5, img * 0.25
 
     img = np.ones((10, 10, 3))
@@ -218,14 +218,14 @@ def test_layout_grid_accepts_flat_list():
 
     # Check that flat list was converted to nested list (single row)
     assert pipeline.outputs == [["img1", "img2", "img3"]]
-    assert pipeline.global_params.get("layout_was_set") is True
+    assert pipeline._user_context.get("layout_was_set") is True
 
 
 def test_layout_row_sets_single_row_layout():
     """Test that layout.row() creates a single-row layout."""
 
     @interactive()
-    def test_filter(img, global_params={}):
+    def test_filter(img):
         layout.row(["img1", "img2", "img3"])
         return img, img * 0.5, img * 0.25
 
@@ -255,14 +255,14 @@ def test_context_shared_between_filters():
     """Test that get_context() allows sharing data between filters."""
 
     @interactive()
-    def filter_a(img, global_params={}):
+    def filter_a(img):
         ctx = get_context()
         ctx["from_a"] = "data from filter A"
         ctx["count"] = 42
         return img
 
     @interactive()
-    def filter_b(img, global_params={}):
+    def filter_b(img):
         ctx = get_context()
         # Should be able to read data from filter A
         assert ctx.get("from_a") == "data from filter A"
@@ -359,13 +359,7 @@ def test_audio_proxy_delegates_correctly():
     audio_operations = []
 
     @interactive()
-    def test_audio_filter(img, global_params={}):
-        # Mock audio callbacks
-        global_params["__set_audio"] = lambda path: audio_operations.append(("set", path))
-        global_params["__play"] = lambda: audio_operations.append(("play",))
-        global_params["__pause"] = lambda: audio_operations.append(("pause",))
-        global_params["__stop"] = lambda: audio_operations.append(("stop",))
-
+    def test_audio_filter(img):
         # Use audio API
         audio.set("test.mp3")
         audio.play()
@@ -383,6 +377,11 @@ def test_audio_proxy_delegates_correctly():
         outputs=[[0]],
         cache=False,
     )
+    # Mock the audio callbacks normally registered by the GUI backend
+    pipeline.global_params["__set_audio"] = lambda path: audio_operations.append(("set", path))
+    pipeline.global_params["__play"] = lambda: audio_operations.append(("play",))
+    pipeline.global_params["__pause"] = lambda: audio_operations.append(("pause",))
+    pipeline.global_params["__stop"] = lambda: audio_operations.append(("stop",))
     pipeline.inputs = [img]
     pipeline.run()
 
@@ -397,7 +396,7 @@ def test_context_isolation_between_pipeline_runs():
     """Test that user context is isolated between different pipeline runs."""
 
     @interactive()
-    def counter_filter(img, global_params={}):
+    def counter_filter(img):
         ctx = get_context()
         count = ctx.get("count", 0)
         ctx["count"] = count + 1
@@ -434,7 +433,7 @@ def test_layout_aliases():
     """Test that layout aliases work (set_style, set_grid, canvas, set_canvas)."""
 
     @interactive()
-    def test_filter(img, global_params={}):
+    def test_filter(img):
         # Test set_style alias
         layout.set_style("output1", title="Using set_style alias")
         # Test set_grid alias
@@ -464,13 +463,13 @@ def test_layout_canvas_aliases():
     """Test that layout.canvas and layout.set_canvas aliases work."""
 
     @interactive()
-    def test_canvas_filter(img, global_params={}):
+    def test_canvas_filter(img):
         # Test canvas alias
         layout.canvas([["a", "b"], ["c", "d"]])
         return img, img * 0.5, img * 0.25, img * 0.1
 
     @interactive()
-    def test_set_canvas_filter(img, global_params={}):
+    def test_set_canvas_filter(img):
         # Test set_canvas alias
         layout.set_canvas([["x", "y"]])
         return img, img * 2
@@ -498,7 +497,7 @@ def test_context_proxy_direct_access():
     """Test that context proxy allows direct dict-like access."""
 
     @interactive()
-    def test_filter(img, global_params={}):
+    def test_filter(img):
         # Direct access without calling get_context()
         context["key1"] = "value1"
         context["key2"] = 42
@@ -528,13 +527,13 @@ def test_context_proxy_equivalent_to_get_context():
     """Test that context proxy and get_context() access the same data."""
 
     @interactive()
-    def filter_a(img, global_params={}):
+    def filter_a(img):
         # Use context proxy
         context["from_proxy"] = "proxy_data"
         return img
 
     @interactive()
-    def filter_b(img, global_params={}):
+    def filter_b(img):
         # Use get_context()
         ctx = get_context()
         ctx["from_get_context"] = "get_context_data"
@@ -543,7 +542,7 @@ def test_context_proxy_equivalent_to_get_context():
         return img
 
     @interactive()
-    def filter_c(img, global_params={}):
+    def filter_c(img):
         # Both should see all data
         ctx = get_context()
         assert ctx["from_proxy"] == "proxy_data"
@@ -571,7 +570,7 @@ def test_context_proxy_attribute_access():
     """Test that context proxy supports attribute-style access."""
 
     @interactive()
-    def test_filter(img, global_params={}):
+    def test_filter(img):
         # Attribute-style write
         context.my_data = "attribute_value"
         context.count = 42
@@ -614,7 +613,7 @@ def test_context_proxy_attribute_error():
     """Test that accessing non-existent attribute raises AttributeError."""
 
     @interactive()
-    def test_filter(img, global_params={}):
+    def test_filter(img):
         context.existing_key = "value"
         try:
             # Should raise AttributeError for non-existent key

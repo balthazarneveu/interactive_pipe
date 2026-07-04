@@ -58,22 +58,22 @@ def test_pure_filter_using_params():
 
 
 # -----------------------------------------------------
-# functional way of defining a filter - use context
+# functional way of defining a filter - use the layout proxy
 # -----------------------------------------------------
 
 
-def mad_with_context(img, global_params={}, coeff=1, bias=-6):
-    mad_res = (img * coeff + bias) / global_params["ratio"]
-    global_params["mean"] = mad_res.mean()  # update shared global context
+def mad_with_styling(img, coeff=1, bias=-6):
+    from interactive_pipe import layout
+
+    mad_res = img * coeff + bias
+    layout.style("mad", title=f"mean={mad_res.mean():.2f}")
     return [mad_res]
 
 
-def test_pure_filter_global_params():
-    # Default parameters are used. This is similar to executing the mad function
-    context = {"ratio": 100}
-    filt = PureFilter(apply_fn=mad_with_context, default_params={"coeff": 2, "bias": 8})
-    filt.global_params = context
+def test_pure_filter_framework_state():
+    """run() exposes filt.global_params as the framework state backing the layout proxy"""
+    filt = PureFilter(apply_fn=mad_with_styling, default_params={"coeff": 2, "bias": 8})
     res = filt.run(input_image)
-    expected_output = (2 * input_image + 8) / 100
+    expected_output = 2 * input_image + 8
     assert (res == expected_output).all()
-    assert context["mean"] == expected_output.mean()
+    assert filt.global_params["__output_styles"]["mad"]["title"] == f"mean={expected_output.mean():.2f}"

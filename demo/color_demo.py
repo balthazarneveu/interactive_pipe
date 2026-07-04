@@ -2,7 +2,7 @@ import argparse
 
 import numpy as np
 
-from interactive_pipe import TextPrompt, interactive, interactive_pipeline
+from interactive_pipe import TextPrompt, interactive, interactive_pipeline, layout
 
 # Color definitions (RGB values normalized to 0-1)
 COLOR_DICT = {
@@ -17,7 +17,7 @@ COLOR_OPTIONS = list(COLOR_DICT.keys())
 DEFAULT_COLOR = "red"
 
 
-def generate_colored_image(color: str = DEFAULT_COLOR, custom_title: str = None, global_params: dict = None):
+def generate_colored_image(color: str = DEFAULT_COLOR, custom_title: str = None):
     """Generate a solid colored image based on the selected color"""
     rgb = COLOR_DICT[color]
 
@@ -26,11 +26,10 @@ def generate_colored_image(color: str = DEFAULT_COLOR, custom_title: str = None,
     img = np.ones((height, width, 3), dtype=np.float32)
     img[:, :] = rgb
     if custom_title is not None and isinstance(custom_title, str) and len(custom_title) > 0:
-        print(f"Setting custom title: {custom_title}")
-        global_params["__output_styles"]["colored_image"] = {"title": custom_title}
+        layout.style("colored_image", title=custom_title)
     else:
         # Set the title to show the selected color
-        global_params["__output_styles"]["colored_image"] = {"title": f"Selected Color: {color.upper()}"}
+        layout.style("colored_image", title=f"Selected Color: {color.upper()}")
 
     return img
 
