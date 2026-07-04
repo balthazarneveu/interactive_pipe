@@ -429,68 +429,10 @@ def test_context_isolation_between_pipeline_runs():
     assert pipeline2._user_context["count"] == 1
 
 
-def test_layout_aliases():
-    """Test that layout aliases work (set_style, set_grid, canvas, set_canvas)."""
-
-    @interactive()
-    def test_filter(img):
-        # Test set_style alias
-        layout.set_style("output1", title="Using set_style alias")
-        # Test set_grid alias
-        layout.set_grid([["output1", "output2"]])
-        return img, img * 0.5
-
-    img = np.ones((10, 10, 3))
-    filter_obj = FilterCore(apply_fn=test_filter, inputs=[0], outputs=["output1", "output2"])
-
-    pipeline = PipelineCore(
-        filters=[filter_obj],
-        inputs=[0],
-        outputs=[["output1"]],
-        cache=False,
-    )
-    pipeline.global_params["__pipeline"] = pipeline
-    pipeline.inputs = [img]
-    pipeline.run()
-
-    # Check that set_style alias works
-    assert pipeline.global_params["__output_styles"]["output1"]["title"] == ("Using set_style alias")
-    # Check that set_grid alias works
-    assert pipeline.outputs == [["output1", "output2"]]
-
-
-def test_layout_canvas_aliases():
-    """Test that layout.canvas and layout.set_canvas aliases work."""
-
-    @interactive()
-    def test_canvas_filter(img):
-        # Test canvas alias
-        layout.canvas([["a", "b"], ["c", "d"]])
-        return img, img * 0.5, img * 0.25, img * 0.1
-
-    @interactive()
-    def test_set_canvas_filter(img):
-        # Test set_canvas alias
-        layout.set_canvas([["x", "y"]])
-        return img, img * 2
-
-    img = np.ones((10, 10, 3))
-
-    # Test canvas alias
-    filter1 = FilterCore(apply_fn=test_canvas_filter, inputs=[0], outputs=["a", "b", "c", "d"])
-    pipeline1 = PipelineCore(filters=[filter1], inputs=[0], outputs=[["a"]], cache=False)
-    pipeline1.global_params["__pipeline"] = pipeline1
-    pipeline1.inputs = [img]
-    pipeline1.run()
-    assert pipeline1.outputs == [["a", "b"], ["c", "d"]]
-
-    # Test set_canvas alias
-    filter2 = FilterCore(apply_fn=test_set_canvas_filter, inputs=[0], outputs=["x", "y"])
-    pipeline2 = PipelineCore(filters=[filter2], inputs=[0], outputs=[["x"]], cache=False)
-    pipeline2.global_params["__pipeline"] = pipeline2
-    pipeline2.inputs = [img]
-    pipeline2.run()
-    assert pipeline2.outputs == [["x", "y"]]
+def test_layout_aliases_removed():
+    """The set_style/set_grid/canvas/set_canvas aliases were removed in 0.9.0."""
+    for removed_alias in ("set_style", "set_grid", "canvas", "set_canvas"):
+        assert not hasattr(layout, removed_alias), f"layout.{removed_alias} should have been removed"
 
 
 def test_context_proxy_direct_access():

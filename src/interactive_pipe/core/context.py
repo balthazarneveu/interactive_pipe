@@ -63,8 +63,8 @@ class _LayoutProxy:
     and grid arrangements without polluting function signatures.
 
     Available methods:
-        - style() / set_style(): Set display properties (title, colormap, etc.)
-        - grid() / set_grid() / canvas() / set_canvas(): Set the output grid layout
+        - style(): Set display properties (title, colormap, etc.)
+        - grid(): Set the output grid layout
         - row(): Convenience for single-row layout
     """
 
@@ -140,12 +140,6 @@ class _LayoutProxy:
             RuntimeError: If called outside of filter execution context.
         """
         self.grid([outputs])
-
-    # Aliases for backwards compatibility and alternative naming preferences
-    set_style = style  # Alias: layout.set_style() is equivalent to layout.style()
-    set_grid = grid  # Alias: layout.set_grid() is equivalent to layout.grid()
-    canvas = grid  # Alias: layout.canvas() is equivalent to layout.grid()
-    set_canvas = grid  # Alias: layout.set_canvas() is equivalent to layout.grid()
 
 
 # ============================================================================
