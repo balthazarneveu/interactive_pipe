@@ -1,7 +1,6 @@
 """Per-output-type gradio builders and converters.
 
-Extracted from gradio_gui.py (tech-debt item 1). The output-type switch
-lives here exactly once, in two symmetric halves:
+The output-type switch lives here exactly once, in two symmetric halves:
 - build_output_container: dry-run detection -> which gradio component hosts
   each pipeline output (plus the canvas cell "type" tag).
 - convert_output_value: per-refresh conversion of a pipeline output into the

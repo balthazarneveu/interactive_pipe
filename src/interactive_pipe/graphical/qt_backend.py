@@ -126,9 +126,9 @@ else:
             except ImportError:
                 raise ModuleNotFoundError("No PyQt")
 
-    # NOTE: unreachable today - the PyQt5 except-branch above raises before this
-    # block can run, so a PySide6-only machine never reaches it (tech-debt
-    # backlog, behavior decision pending). Moved verbatim from qt_gui.py.
+    # NOTE: unreachable - the PyQt5 except-branch above raises before this
+    # block can run, so a PySide6-only machine never reaches it (see
+    # doc/tech_debt.md, behavior decision pending).
     if not PYQTVERSION:
         try:
             from PySide6.QtCore import Qt, QTimer, QUrl  # noqa: F811

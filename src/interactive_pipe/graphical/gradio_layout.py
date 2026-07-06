@@ -1,9 +1,8 @@
 """Blocks-mode layout rendering for the gradio GUI backend.
 
-Extracted from MainWindow.instantiate_gradio_interface (tech-debt item 1).
 Every function takes the window and renders inside the caller's gr.Blocks
 context; all mutable state (ctrl, widget_list, sliders_layout defaults)
-stays on the window exactly as when this code was inline.
+lives on the window.
 """
 
 import math
@@ -146,7 +145,7 @@ def render_flat_sliders(window: "MainWindow") -> None:
 
     Supports the compact/vertical/collapsible/smart layouts and the
     sliders_per_row_layout splitting. Mutates the window's layout defaults
-    (sliders_layout/sliders_per_row_layout), as the inline code did.
+    (sliders_layout/sliders_per_row_layout).
     """
     if window.sliders_layout is None:
         window.sliders_layout = "collapsible"
@@ -219,8 +218,7 @@ def collect_changing_inputs(window: "MainWindow") -> tuple:
     """Assemble the event-binding inputs list.
 
     Button groups become gr.State placeholders and disable their filter's
-    cache (side effect kept from the inline code). Returns
-    (changing_inputs, discard_reset_button).
+    cache. Returns (changing_inputs, discard_reset_button).
     """
     changing_inputs = []
     discard_reset_button = False

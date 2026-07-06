@@ -47,7 +47,7 @@ from interactive_pipe.graphical.qt_image import (
 )
 from interactive_pipe.graphical.qt_panels import QtPanelBuilder
 
-# Re-exported for backward compatibility (they lived in this module until 0.9.x)
+# Re-exported: interactive_pipe.graphical.qt_gui.CollapsibleBox etc. are public paths
 from interactive_pipe.graphical.qt_widgets import CollapsibleBox, DetachedPanelWindow  # noqa: F401
 from interactive_pipe.graphical.window import InteractivePipeWindow
 from interactive_pipe.headless.control import Control, TimeControl

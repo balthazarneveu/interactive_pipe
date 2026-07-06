@@ -1,8 +1,7 @@
 """Qt media-player wrapper for the audio feature of the Qt GUI backend.
 
-Extracted from qt_gui.py (tech-debt item 1). Wraps QMediaPlayer with the
-PYQTVERSION-conditional setup and exposes the four callbacks the context
-audio proxy needs (set_audio/play/pause/stop).
+Wraps QMediaPlayer with the PYQTVERSION-conditional setup and exposes the
+four callbacks the context audio proxy needs (set_audio/play/pause/stop).
 """
 
 import logging

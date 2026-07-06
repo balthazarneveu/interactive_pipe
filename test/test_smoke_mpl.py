@@ -1,9 +1,8 @@
 """Matplotlib GUI smoke tests (Agg backend, no window shown).
 
-Cheap insurance for the shared gui.py/window.py base classes edited by the
-framework-state refactor: builds the mpl backend, refreshes once and checks
-the layout.style title lands on the axes. Never call gui.run() here (it
-calls plt.show and blocks).
+Cheap coverage for the shared gui.py/window.py base classes: builds the mpl
+backend, refreshes once and checks the layout.style title lands on the
+axes. Never call gui.run() here (it calls plt.show and blocks).
 """
 
 import matplotlib

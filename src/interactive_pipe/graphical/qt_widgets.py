@@ -1,8 +1,7 @@
 """Reusable Qt widgets for the Qt GUI backend.
 
-Extracted from qt_gui.py (tech-debt item 1). Import direction stays one-way:
-qt_gui imports this module, never the reverse (MainWindow is referenced only
-as a type annotation).
+Import direction is one-way: qt_gui imports this module, never the reverse
+(MainWindow is referenced only as a type annotation).
 """
 
 from typing import TYPE_CHECKING

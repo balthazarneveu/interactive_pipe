@@ -82,9 +82,7 @@ class InteractivePipeGradio(InteractivePipeGUI):
         # Reset global parameters... in case they were modified by the first run
         self.pipeline._reset_global_params()
         # framework_state is deliberately NOT rolled back: the dry run's
-        # layout.style titles and layout.grid arrangement are its purpose
-        # (the legacy shallow copy shared those inner dicts for the same
-        # effect).
+        # layout.style titles and layout.grid arrangement are its purpose.
         self.pipeline.reset_cache()
         self.window.refresh_display(out_list)
         out_list_gradio_containers = []
