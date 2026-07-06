@@ -34,9 +34,9 @@ def generate_colored_image(color: str = DEFAULT_COLOR, custom_title: str = None)
     return img
 
 
-def apply_brightness(img: np.ndarray, brightness: float = 1.0):
+def apply_brightness(img: np.ndarray, brightness: int = 50):
     """Apply brightness to the image"""
-    img = img * brightness
+    img = img * (brightness / 100.0)
     return img
 
 
@@ -73,7 +73,5 @@ if __name__ == "__main__":
             "Sample",
         ),
     )(generate_colored_image)
-    interactive(
-        brightness=(0.0, 1.0),
-    )(apply_brightness)
+    interactive(brightness=(0, 100, 10, 50))(apply_brightness)
     interactive_pipeline(gui=args.backend, cache=True, name="color_demo")(sample_pipeline)()

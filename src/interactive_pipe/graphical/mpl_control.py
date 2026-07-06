@@ -43,7 +43,7 @@ class SliderMatplotlibControl(BaseControl):
             float(valmin),
             float(valmax),
             valinit=float(valinit),
-            valstep=1 if self.ctrl._type is int else None,
+            valstep=self.ctrl.step,
         )
         slider.on_changed(lambda val: self.update_func(self.name, val))
         return slider
