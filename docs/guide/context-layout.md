@@ -1,6 +1,6 @@
 # Context, layout & events
 
-Filters communicate with each other and with the display through four proxies importable from `interactive_pipe`: `context`, `layout`, `audio` and `events`.
+Filters communicate with each other and with the display through proxies importable from `interactive_pipe`: `context`, `layout` and `events` (a fourth proxy, `audio`, has [its own page](audio.md)).
 
 !!! note "`global_params` was removed in 0.9.0"
     The pre-0.9.0 pattern of declaring `global_params={}` (or `context`, `state`, ...) in a filter signature now raises `TypeError` at filter construction. The proxies below replace it entirely — see the [changelog](../changelog.md) for the migration guide.
@@ -49,19 +49,6 @@ def pipeline(input):
 ```
 
 Live layout switching (e.g. going from a side-by-side comparison to a 2x2 grid) is supported on the Qt backend.
-
-## `audio` — play sound
-
-```python
-from interactive_pipe import audio
-
-audio.set(audio_file)   # inside a filter: register a file to play
-audio.play()
-audio.pause()
-audio.stop()
-```
-
-Audio is supported on the Qt and Gradio backends; with Gradio you can also return 1D numpy arrays to display audio players.
 
 ## `events` — key-bound one-shot flags
 
