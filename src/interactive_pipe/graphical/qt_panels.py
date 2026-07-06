@@ -112,15 +112,16 @@ class QtPanelBuilder:
                 window.main_gui.bind_keyboard_slider(ctrl, window.key_update_parameter)  # type: ignore[reportOptionalMemberAccess]
             return None
         elif isinstance(ctrl, TimeControl):
-            window.timer = QTimer(window)
+            timer = QTimer(window)
+            window.timer = timer
 
             def suspend_resume_timer(suspend: bool):
                 if suspend:
                     logging.debug("Suspend")
-                    window.timer.stop()
+                    timer.stop()
                 else:
                     logging.debug("Resume")
-                    window.timer.start()
+                    timer.start()
 
             if window.main_gui is not None:
                 window.main_gui.suspend_resume_timer = suspend_resume_timer  # type: ignore[reportOptionalMemberAccess]
@@ -130,8 +131,8 @@ class QtPanelBuilder:
                 def plugged_func():
                     pass
 
-            window.timer.timeout.connect(plugged_func)
-            window.timer.start(ctrl.update_interval_ms)
+            timer.timeout.connect(plugged_func)
+            timer.start(ctrl.update_interval_ms)
             return None
         elif isinstance(ctrl, Control):
             slider_instance = self.control_factory.create_control(ctrl, window.update_parameter)
