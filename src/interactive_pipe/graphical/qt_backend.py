@@ -1,9 +1,9 @@
 """Qt binding detection shared by all Qt-based GUI modules.
 
-Runs the PyQt6 -> PyQt5 (-> PySide6) import cascade exactly once and
+Runs the PyQt6 -> PyQt5 -> PySide6 import cascade exactly once and
 re-exports every Qt symbol plus the optional matplotlib-qtagg widgets.
 IMPORTANT: this module must keep raising ModuleNotFoundError("No PyQt") at
-import time when no Qt binding is installed - helper/choose_backend.py
+import time when no Qt binding at all is installed - helper/choose_backend.py
 catches that error to fall back to the matplotlib backend, and the smoke
 tests rely on it via pytest.importorskip.
 
@@ -124,11 +124,8 @@ else:
                 PYQTVERSION = 5
                 logging.warning("Using PyQt 5")
             except ImportError:
-                raise ModuleNotFoundError("No PyQt")
+                logging.warning("Cannot import PyQt 5")
 
-    # NOTE: unreachable - the PyQt5 except-branch above raises before this
-    # block can run, so a PySide6-only machine never reaches it (see
-    # doc/tech_debt.md, behavior decision pending).
     if not PYQTVERSION:
         try:
             from PySide6.QtCore import Qt, QTimer, QUrl  # noqa: F811
@@ -152,7 +149,8 @@ else:
             logging.warning("Cannot import PySide 6")
 
     if not PYQTVERSION:
-        logging.warning("Cannot import PyQt or PySide - disable backend")
+        # choose_backend.py catches this to fall back to the matplotlib backend
+        raise ModuleNotFoundError("No PyQt")
     try:
         from matplotlib.backends.backend_qtagg import FigureCanvas  # type: ignore[reportAttributeAccessIssue]
         from matplotlib.figure import Figure
@@ -169,6 +167,6 @@ else:
         Table = None
         logging.warning("No support for Matplotlib widgets for Qt")
 
-    # Conditional base classes for widgets ("QWidget if PYQTVERSION else object")
-    QtWidgetBase = QWidget if PYQTVERSION else object
-    QtFrameBase = QFrame if PYQTVERSION else object
+    # Base classes for widgets; a binding is guaranteed at this point
+    QtWidgetBase = QWidget
+    QtFrameBase = QFrame
