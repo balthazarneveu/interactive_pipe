@@ -59,11 +59,10 @@ class InteractivePipeGUI:
         if self.pipeline.outputs:
             if not isinstance(self.pipeline.outputs[0], list):
                 self.pipeline.outputs = [self.pipeline.outputs]
-        self.pipeline.global_params["__output_styles"] = {}
-        self.pipeline.global_params["__app"] = self
-        self.pipeline.global_params["__pipeline"] = self.pipeline
-        if "__events" not in self.pipeline.global_params.keys():
-            self.pipeline.global_params["__events"] = {}
+        # Framework state (output styles, events, audio, pipeline backref)
+        # lives on pipeline.framework_state - the pipeline sets it up at
+        # construction; the GUI only resets the display styles here.
+        self.pipeline.framework_state.output_styles.clear()
         self.key_bindings = {}
         self.context_key_bindings = {}
         self.init_app(**kwargs)
@@ -109,11 +108,11 @@ class InteractivePipeGUI:
     def bind_key_to_context(self, key: str, context_param_name: str, doc: str):
         self.context_key_bindings[key] = {"param_name": context_param_name, "doc": doc}
         # Not triggered!
-        self.pipeline.global_params["__events"][context_param_name] = False
+        self.pipeline.framework_state.events[context_param_name] = False
 
     def reset_context_events(self):
-        for evkey in self.pipeline.global_params["__events"].keys():
-            self.pipeline.global_params["__events"][evkey] = False
+        for evkey in self.pipeline.framework_state.events.keys():
+            self.pipeline.framework_state.events[evkey] = False
 
     def on_press(self, key_pressed, refresh_func=None):
         for key, func in self.key_bindings.items():
@@ -122,7 +121,7 @@ class InteractivePipeGUI:
         is_any_event_triggered = False
         for key, event_dict in self.context_key_bindings.items():
             event_triggered = key_pressed == key
-            self.pipeline.global_params["__events"][event_dict["param_name"]] = event_triggered
+            self.pipeline.framework_state.events[event_dict["param_name"]] = event_triggered
             if event_triggered:
                 logging.info(f"TRIGGERED A KEY EVENT {key_pressed} - {event_dict['doc']}")
                 is_any_event_triggered = True
@@ -291,9 +290,9 @@ class InteractivePipeGUI:
         for key_context, event_dict in self.context_key_bindings.items():
             formatted_key_context = self._format_key_for_help(key_context)
             formatted_doc = self._format_docstring_for_help(event_dict["doc"])
-            help.append(
-                f"[{formatted_key_context}]    : {formatted_doc} (context['__event'][{event_dict['param_name']}])"
-            )
+            # NOTE: events currently have no filter-facing reader (tech debt) -
+            # they live in pipeline.framework_state.events
+            help.append(f"[{formatted_key_context}]    : {formatted_doc} (event '{event_dict['param_name']}')")
         self.print_message(help)
         return help
 

@@ -117,10 +117,9 @@ def test_layout_style_sets_title():
     pipeline.inputs = [img]
     pipeline.run()
 
-    # Check that __output_styles was set correctly
-    assert "__output_styles" in pipeline.global_params
-    assert "adjusted" in pipeline.global_params["__output_styles"]
-    assert pipeline.global_params["__output_styles"]["adjusted"]["title"] == "Brightness: 0.50"
+    # Check that the framework state styles were set correctly
+    assert "adjusted" in pipeline.framework_state.output_styles
+    assert pipeline.framework_state.output_styles["adjusted"]["title"] == "Brightness: 0.50"
 
 
 def test_layout_style_with_extra_style_kwargs():
@@ -149,7 +148,7 @@ def test_layout_style_with_extra_style_kwargs():
     pipeline.inputs = [img]
     pipeline.run()
 
-    style = pipeline.global_params["__output_styles"]["output"]
+    style = pipeline.framework_state.output_styles["output"]
     assert style["title"] == "Test"
     assert style["colormap"] == "viridis"
     assert style["vmin"] == 0
@@ -179,8 +178,7 @@ def test_layout_grid_sets_pipeline_outputs():
         outputs=[["img1"]],  # Initial value
         cache=False,
     )
-    # Need to set __pipeline so layout.grid can access it
-    pipeline.global_params["__pipeline"] = pipeline
+    # framework_state.pipeline is set automatically at pipeline construction
     pipeline.inputs = [img]
     pipeline.run()
 
@@ -211,8 +209,7 @@ def test_layout_grid_accepts_flat_list():
         outputs=[["img1"]],  # Initial value
         cache=False,
     )
-    # Need to set __pipeline so layout.grid can access it
-    pipeline.global_params["__pipeline"] = pipeline
+    # framework_state.pipeline is set automatically at pipeline construction
     pipeline.inputs = [img]
     pipeline.run()
 
@@ -242,8 +239,7 @@ def test_layout_row_sets_single_row_layout():
         outputs=[["img1"]],
         cache=False,
     )
-    # Need to set __pipeline so layout.row can access it
-    pipeline.global_params["__pipeline"] = pipeline
+    # framework_state.pipeline is set automatically at pipeline construction
     pipeline.inputs = [img]
     pipeline.run()
 
@@ -317,7 +313,7 @@ def test_new_api_without_global_params_signature():
     pipeline.run()
 
     # Check that everything works without global_params signature
-    assert pipeline.global_params["__output_styles"]["result"]["title"] == "G=0.50"
+    assert pipeline.framework_state.output_styles["result"]["title"] == "G=0.50"
     assert pipeline._user_context["gain_used"] == 0.5
 
 
@@ -346,10 +342,10 @@ def test_audio_proxy_delegates_correctly():
         cache=False,
     )
     # Mock the audio callbacks normally registered by the GUI backend
-    pipeline.global_params["__set_audio"] = lambda path: audio_operations.append(("set", path))
-    pipeline.global_params["__play"] = lambda: audio_operations.append(("play",))
-    pipeline.global_params["__pause"] = lambda: audio_operations.append(("pause",))
-    pipeline.global_params["__stop"] = lambda: audio_operations.append(("stop",))
+    pipeline.framework_state.audio.set_audio = lambda path: audio_operations.append(("set", path))
+    pipeline.framework_state.audio.play = lambda: audio_operations.append(("play",))
+    pipeline.framework_state.audio.pause = lambda: audio_operations.append(("pause",))
+    pipeline.framework_state.audio.stop = lambda: audio_operations.append(("stop",))
     pipeline.inputs = [img]
     pipeline.run()
 

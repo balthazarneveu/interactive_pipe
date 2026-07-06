@@ -4,6 +4,7 @@ from typing import Any, Callable, List, Optional, Tuple, Union
 
 from interactive_pipe.core.cache import CachedResults
 from interactive_pipe.core.context import REMOVED_CONTEXT_KWARGS, _set_framework_state
+from interactive_pipe.core.framework_state import FrameworkState
 from interactive_pipe.core.signature import analyze_apply_fn_signature
 
 # Sentinel object to distinguish between "not provided" and "explicitly None"
@@ -23,6 +24,9 @@ class PureFilter:
         if apply_fn is not None:
             self.apply = apply_fn
         self._global_params = {}
+        # Standalone filters own a default state; a pipeline replaces it with
+        # its shared one when the filter is attached.
+        self.framework_state = FrameworkState()
         self.__initialize_default_values()  # initialize default values from .apply method
         self.values = deepcopy(default_params)
 
@@ -80,7 +84,7 @@ class PureFilter:
                 raise ValueError(f"{self.name}: {key} not in {self._kwargs_names.keys()}")
 
         # Set framework state for context-based API (layout, audio, etc.)
-        _set_framework_state(self.global_params)
+        _set_framework_state(self.framework_state)
         try:
             return self.apply(*imgs, **self.values)
         finally:

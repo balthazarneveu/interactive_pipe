@@ -43,12 +43,12 @@ class InteractivePipeGradio(InteractivePipeGUI):
             audio=self.audio,
             **kwargs,
         )
-        self.pipeline.global_params["__pipeline"] = self.pipeline
         if self.audio:
-            self.pipeline.global_params["__set_audio"] = self.__set_audio
-            self.pipeline.global_params["__play"] = self.__play
-            self.pipeline.global_params["__stop"] = self.__stop
-            self.pipeline.global_params["__pause"] = self.__pause
+            audio_bindings = self.pipeline.framework_state.audio
+            audio_bindings.set_audio = self.__set_audio
+            audio_bindings.play = self.__play
+            audio_bindings.stop = self.__stop
+            audio_bindings.pause = self.__pause
             self.__set_audio(None)
 
     def __set_audio(self, audio_content):
@@ -81,6 +81,10 @@ class InteractivePipeGradio(InteractivePipeGUI):
         self.pipeline.global_params = global_params_first_run
         # Reset global parameters... in case they were modified by the first run
         self.pipeline._reset_global_params()
+        # framework_state is deliberately NOT rolled back: the dry run's
+        # layout.style titles and layout.grid arrangement are its purpose
+        # (the legacy shallow copy shared those inner dicts for the same
+        # effect).
         self.pipeline.reset_cache()
         self.window.refresh_display(out_list)
         out_list_gradio_containers = []
@@ -111,7 +115,6 @@ class InteractivePipeGradio(InteractivePipeGUI):
         if self.window.audio:
             audio_widget = gr.HTML()
             self.window.audio_widget = audio_widget  # type: ignore[reportAttributeAccessIssue]
-            self.pipeline.global_params["__audio"] = audio_widget
         self.window.instantiate_gradio_interface(out_list_gradio_containers)
         self.window.refresh()
         self.custom_end()

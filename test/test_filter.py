@@ -71,9 +71,10 @@ def mad_with_styling(img, coeff=1, bias=-6):
 
 
 def test_pure_filter_framework_state():
-    """run() exposes filt.global_params as the framework state backing the layout proxy"""
+    """run() exposes filt.framework_state as the state backing the layout proxy,
+    even for a standalone filter with no pipeline"""
     filt = PureFilter(apply_fn=mad_with_styling, default_params={"coeff": 2, "bias": 8})
     res = filt.run(input_image)
     expected_output = 2 * input_image + 8
     assert (res == expected_output).all()
-    assert filt.global_params["__output_styles"]["mad"]["title"] == f"mean={expected_output.mean():.2f}"
+    assert filt.framework_state.output_styles["mad"]["title"] == f"mean={expected_output.mean():.2f}"

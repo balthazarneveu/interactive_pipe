@@ -58,7 +58,7 @@ def signal_to_curve(signal_1d: np.ndarray) -> "Curve":
     logging.warning(
         "Audio playback not supported with 1D signal"
         + "\nuse live audio instead while using Qt!"
-        + "\nuse instead: context['__set_audio'](audio_track)"
+        + "\nuse instead: from interactive_pipe import audio; audio.set(audio_track)"
         + "\nSee example here: https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/jukebox.py"
     )
     logging.warning("We'll try to display the audio signal as an image instead")

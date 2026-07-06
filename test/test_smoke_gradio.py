@@ -205,7 +205,6 @@ def test_audio_mode_adds_html_widget_and_extra_output():
     gui, _ = build_and_run(gradio_signal_pipeline, audio=True)
     window = gui.window
     assert isinstance(window.audio_widget, gr.HTML)
-    assert "__audio" in gui.pipeline.global_params  # pinned; removed by FrameworkState refactor
     converted = window.run_fn(*window.default_values)
     assert isinstance(converted, tuple)
     assert isinstance(converted[-1], str)  # trailing audio HTML payload
