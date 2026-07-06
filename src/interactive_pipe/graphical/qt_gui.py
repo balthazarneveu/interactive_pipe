@@ -1,11 +1,11 @@
 import logging
 import sys
-from pathlib import Path
 from typing import List, Optional, Union, cast
 
 import numpy as np
 
 from interactive_pipe.graphical.gui import InteractivePipeGUI
+from interactive_pipe.graphical.qt_audio import QtAudioPlayer
 
 # Qt binding detection lives in qt_backend (raises ModuleNotFoundError
 # without a Qt binding, which choose_backend relies on).
@@ -166,51 +166,12 @@ class InteractivePipeQT(InteractivePipeGUI):
     # ---------------------------- AUDIO FEATURE ----------------------------------------
 
     def audio_player(self):
-        self.player = QMediaPlayer()
-        if PYQTVERSION == 6:
-            self.audio_output = QAudioOutput()
-            self.player.setAudioOutput(self.audio_output)
-            self.audio_output.setVolume(50)
-            self.player.errorChanged.connect(self.handle_audio_error)  # type: ignore[reportAttributeAccessIssue]
-        else:
-            self.player.setVolume(50)  # type: ignore[reportAttributeAccessIssue]
-            self.player.error.connect(self.handle_audio_error)  # type: ignore[reportAttributeAccessIssue]
-        self.pipeline.global_params["__player"] = self.player
-        self.pipeline.global_params["__set_audio"] = self.__set_audio
-        self.pipeline.global_params["__play"] = self.__play
-        self.pipeline.global_params["__pause"] = self.__pause
-        self.pipeline.global_params["__stop"] = self.__stop
-
-    def handle_audio_error(self):
-        logging.error(f"Audio player error: {self.player.errorString()}")
-
-    def __set_audio(self, file_path):
-        self.__stop()
-        if isinstance(file_path, str):
-            file_path = Path(file_path)
-        if not file_path.is_absolute():
-            file_path = Path.cwd() / file_path
-        else:
-            file_path = file_path.resolve()
-        if not file_path.exists():
-            raise FileNotFoundError(f"Audio file does not exist: {file_path}")
-        media_url = QUrl.fromLocalFile(str(file_path))
-        if PYQTVERSION == 6:
-            self.player.setSource(media_url)  # type: ignore[reportAttributeAccessIssue]
-        else:
-            content = QMediaContent(media_url)  # type: ignore[reportAssignmentType]
-            self.player.setMedia(content)  # type: ignore[reportAttributeAccessIssue]
-            self.player.play()
-        self.player.setPosition(0)
-
-    def __play(self):
-        self.player.play()
-
-    def __pause(self):
-        self.player.pause()
-
-    def __stop(self):
-        self.player.stop()
+        self.player = QtAudioPlayer()
+        self.pipeline.global_params["__player"] = self.player.media_player
+        self.pipeline.global_params["__set_audio"] = self.player.set_audio
+        self.pipeline.global_params["__play"] = self.player.play
+        self.pipeline.global_params["__pause"] = self.player.pause
+        self.pipeline.global_params["__stop"] = self.player.stop
 
 
 class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGeneralTypeIssues]
