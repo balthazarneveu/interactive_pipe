@@ -6,6 +6,38 @@ from typing import List, Optional, Union, cast
 import numpy as np
 
 from interactive_pipe.graphical.gui import InteractivePipeGUI
+
+# Qt binding detection lives in qt_backend (raises ModuleNotFoundError
+# without a Qt binding, which choose_backend relies on).
+from interactive_pipe.graphical.qt_backend import (  # noqa: F401
+    MPL_SUPPORT,
+    PYQTVERSION,
+    Curve,
+    Figure,
+    FigureCanvas,
+    QApplication,
+    QAudioOutput,
+    QFrame,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QImage,
+    QLabel,
+    QMediaContent,
+    QMediaPlayer,
+    QMessageBox,
+    QPixmap,
+    QPushButton,
+    Qt,
+    QtFrameBase,
+    QTimer,
+    QtWidgetBase,
+    QUrl,
+    QVBoxLayout,
+    QWidget,
+    SingleCurve,
+    Table,
+)
 from interactive_pipe.graphical.qt_control import ControlFactory
 from interactive_pipe.graphical.window import InteractivePipeWindow
 from interactive_pipe.headless.control import Control, TimeControl
@@ -13,90 +45,8 @@ from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.panel import Panel
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 
-PYQTVERSION = None
-MPL_SUPPORT = False
 
-if not PYQTVERSION:
-    try:
-        from PyQt6.QtCore import Qt, QTimer, QUrl
-        from PyQt6.QtGui import QImage, QPixmap
-        from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
-        from PyQt6.QtWidgets import (  # noqa: F811
-            QApplication,
-            QFrame,
-            QGridLayout,
-            QGroupBox,
-            QHBoxLayout,
-            QLabel,
-            QMessageBox,
-            QPushButton,
-            QVBoxLayout,
-            QWidget,
-        )
-
-        PYQTVERSION = 6
-    except ImportError:
-        logging.warning("Cannot import PyQt 6")
-        try:
-            from PyQt5.QtCore import Qt, QTimer, QUrl
-            from PyQt5.QtGui import QImage, QPixmap
-            from PyQt5.QtMultimedia import QAudioOutput, QMediaContent, QMediaPlayer
-            from PyQt5.QtWidgets import (  # noqa: F811
-                QApplication,
-                QFrame,
-                QGridLayout,
-                QGroupBox,
-                QHBoxLayout,
-                QLabel,
-                QMessageBox,
-                QPushButton,
-                QVBoxLayout,
-                QWidget,
-            )
-
-            PYQTVERSION = 5
-            logging.warning("Using PyQt 5")
-        except ImportError:
-            raise ModuleNotFoundError("No PyQt")
-
-if not PYQTVERSION:
-    try:
-        from PySide6.QtCore import Qt, QTimer, QUrl  # noqa: F811
-        from PySide6.QtGui import QImage, QPixmap  # noqa: F811
-        from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer  # noqa: F811
-        from PySide6.QtWidgets import (  # noqa: F811
-            QApplication,
-            QFrame,
-            QGridLayout,
-            QGroupBox,
-            QHBoxLayout,
-            QLabel,
-            QMessageBox,
-            QPushButton,
-            QVBoxLayout,
-            QWidget,
-        )
-
-        PYQTVERSION = 6
-    except ImportError:
-        logging.warning("Cannot import PySide 6")
-
-if not PYQTVERSION:
-    logging.warning("Cannot import PyQt or PySide - disable backend")
-try:
-    from matplotlib.backends.backend_qtagg import FigureCanvas  # type: ignore[reportAttributeAccessIssue]
-    from matplotlib.figure import Figure
-
-    from interactive_pipe.data_objects.curves import Curve, SingleCurve
-    from interactive_pipe.data_objects.table import Table
-
-    MPL_SUPPORT = True
-except ImportError:
-    FigureCanvas = None  # type: ignore[reportAssignmentType]
-    logging.warning("No support for Matplotlib widgets for Qt")
-
-
-class CollapsibleBox(QFrame if PYQTVERSION else object):  # type: ignore[reportGeneralTypeIssues]
+class CollapsibleBox(QtFrameBase):  # type: ignore[reportGeneralTypeIssues]
     """Modern collapsible panel with smooth animation and arrow indicator."""
 
     def __init__(self, title="", collapsed=False, parent=None):
@@ -188,7 +138,7 @@ class CollapsibleBox(QFrame if PYQTVERSION else object):  # type: ignore[reportG
         self.content_area.setLayout(layout)
 
 
-class DetachedPanelWindow(QWidget if PYQTVERSION else object):  # type: ignore[reportGeneralTypeIssues]
+class DetachedPanelWindow(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
     """Detached window for rendering a panel separately from the main window."""
 
     def __init__(
@@ -403,7 +353,7 @@ class InteractivePipeQT(InteractivePipeGUI):
         self.player.stop()
 
 
-class MainWindow(QWidget if PYQTVERSION else object, InteractivePipeWindow):  # type: ignore[reportGeneralTypeIssues]
+class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGeneralTypeIssues]
     key_mapping_dict = {
         Qt.Key.Key_Up: KeyboardControl.KEY_UP,
         Qt.Key.Key_Down: KeyboardControl.KEY_DOWN,
