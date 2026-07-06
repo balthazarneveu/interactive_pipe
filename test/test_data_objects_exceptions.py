@@ -83,6 +83,17 @@ class TestDataExceptions:
         with pytest.raises(ValueError, match="requires .pkl extension"):
             Data.save_binary({"data": 1}, file_path)
 
+    def test_load_binary_refuses_by_default(self, tmp_path):
+        file_path = tmp_path / "test.pkl"
+        Data.save_binary({"data": 1}, file_path)
+        with pytest.raises(ValueError, match="Refusing to unpickle"):
+            Data.load_binary(file_path)
+
+    def test_load_binary_round_trip_with_opt_in(self, tmp_path):
+        file_path = tmp_path / "test.pkl"
+        Data.save_binary({"data": 1}, file_path)
+        assert Data.load_binary(file_path, allow_pickle=True) == {"data": 1}
+
     def test_from_file_raises_typeerror_when_path_not_path_or_str(self):
         with pytest.raises(TypeError, match="must be a Path object"):
             ConcreteData.from_file(path=123)

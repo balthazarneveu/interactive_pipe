@@ -127,12 +127,18 @@ class Data:
             pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     @staticmethod
-    def load_binary(path: Path):
+    def load_binary(path: Path, *, allow_pickle: bool = False):
         """Load pickled data from disk.
 
         Warning: pickle can execute arbitrary code during deserialization.
-        Only load .pkl files you created yourself or fully trust.
+        Only load .pkl files you created yourself or fully trust, and opt in
+        explicitly with allow_pickle=True.
         """
+        if not allow_pickle:
+            raise ValueError(
+                f"Refusing to unpickle {path}: pickle can execute arbitrary code. "
+                "Pass allow_pickle=True only for files you created yourself or fully trust."
+            )
         with open(path, "rb") as handle:
             data = pickle.load(handle)
         return data

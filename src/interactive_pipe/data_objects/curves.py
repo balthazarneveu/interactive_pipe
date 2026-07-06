@@ -171,7 +171,8 @@ class SingleCurve(Data):
                 "alpha": alpha,
             }
         elif path.suffix == ".pkl":
-            data = Data.load_binary(path)
+            # App-controlled round-trip of files written by save_binary
+            data = Data.load_binary(path, allow_pickle=True)
             if style is not None:
                 data["style"] = style
             if label is not None:
@@ -417,7 +418,8 @@ class Curve(Data):
             raise ValueError(f"Unsupported file extension: {path.suffix}, expected .pkl")
         self.path = path
         if path.suffix == ".pkl":
-            data = Data.load_binary(path)
+            # App-controlled round-trip of files written by save_binary
+            data = Data.load_binary(path, allow_pickle=True)
         return data
 
     def _save(self, path: Path, backend=None, figsize=None):
