@@ -55,23 +55,22 @@ if __name__ == "__main__":
         type=str,
         nargs="+",
         choices=COLOR_OPTIONS,
-        default=["red"],
+        default=["red", "blue", "green"],
         help=f"Default color to select (choices: {', '.join(COLOR_OPTIONS)})",
     )
     parser.add_argument(
         "-b",
         "--backend",
         type=str,
-        choices=["qt", "gradio", "mpl", "textual"],
+        choices=["qt", "gradio", "mpl"],
         default="qt",
-        help="Backend to use: qt, gradio, mpl, or textual (default: qt)",
+        help="Backend to use: qt, gradio, or mpl (default: qt)",
     )
     args = parser.parse_args()
     interactive(
-        # color=(args.color[0], args.color),
-        color=("green",),
+        color=(args.color[0], args.color),
         custom_title=TextPrompt(
-            "Toto",
+            "Sample",
         ),
     )(generate_colored_image)
     interactive(
