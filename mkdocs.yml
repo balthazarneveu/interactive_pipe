@@ -89,7 +89,9 @@ nav:
   - Guide:
       - Decorators: guide/decorators.md
       - Controls: guide/controls.md
-      - Curves, tables & audio: guide/outputs.md
+      - Curve plots: guide/curves.md
+      - Tables: guide/tables.md
+      - Audio: guide/audio.md
       - Keyboard: guide/keyboard.md
       - Context, layout & events: guide/context-layout.md
       - Panels: guide/panels.md
