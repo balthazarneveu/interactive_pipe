@@ -1,5 +1,4 @@
 import logging
-import math
 from copy import copy
 from typing import List, Optional
 
@@ -8,6 +7,17 @@ import numpy as np
 
 from interactive_pipe.data_objects.audio import audio_to_html
 from interactive_pipe.graphical.gradio_control import ControlFactory
+from interactive_pipe.graphical.gradio_layout import (
+    bind_events,
+    build_panel_widget,
+    collect_changing_inputs,
+    get_control_widget,
+    group_panels_by_position,
+    render_bottom_controls,
+    render_flat_sliders,
+    render_image_grid,
+    render_reset_and_description,
+)
 from interactive_pipe.graphical.gradio_outputs import (  # noqa: F401
     MPL_SUPPORT,  # re-exported for backward compatibility
     build_output_container,
@@ -216,6 +226,12 @@ class MainWindow(InteractivePipeWindow):
         return out_tuple
 
     def instantiate_gradio_interface(self, outputs: List[gr.components.Component]):  # type: ignore[reportInvalidTypeForm]
+        """Build the interface then launch it (kept as build + launch wrapper)."""
+        self.build_interface(outputs)
+        self.launch()
+
+    def build_interface(self, outputs: List[gr.components.Component]):  # type: ignore[reportInvalidTypeForm]
+        """Construct self.io without launching (tests can build headlessly)."""
         if GRADIO_INTERFACE_MODE:
             # Interface mode, high level wrapper
             # https://www.gradio.app/guides/the-interface-class
@@ -230,213 +246,59 @@ class MainWindow(InteractivePipeWindow):
                 show_progress="minimal",
                 clear_btn=None,
             )
-        else:
-            # Gradio Blocks mode
-            # https://www.gradio.app/guides/blocks-and-event-listeners
-            with gr.Blocks() as io:
-                with gr.Row(variant="compact"):
-                    name_display = (self.name or "").replace("_", " ")  # type: ignore[reportOptionalMemberAccess]
-                    gr.Markdown("### " + name_display)
+            return
+        # Gradio Blocks mode
+        # https://www.gradio.app/guides/blocks-and-event-listeners
+        with gr.Blocks() as io:
+            with gr.Row(variant="compact"):
+                name_display = (self.name or "").replace("_", " ")  # type: ignore[reportOptionalMemberAccess]
+                gr.Markdown("### " + name_display)
 
-                # Group panels by position
-                panels_by_position = self._group_panels_by_position()
+            # Group panels by position
+            panels_by_position = self._group_panels_by_position()
 
-                # Top panels
-                if panels_by_position["top"]:
-                    for panel in panels_by_position["top"]:  # type: ignore[reportGeneralTypeIssues]
-                        self._build_panel_widget(panel)
+            # Top panels
+            for panel in panels_by_position["top"]:  # type: ignore[reportGeneralTypeIssues]
+                self._build_panel_widget(panel)
 
-                # Middle section: left panels | images | right panels
-                has_left = bool(panels_by_position["left"])
-                has_right = bool(panels_by_position["right"])
+            # Middle section: left panels | images | right panels
+            has_left = bool(panels_by_position["left"])
+            has_right = bool(panels_by_position["right"])
 
-                if has_left or has_right:
-                    # Use Row layout when we have side panels
-                    with gr.Row():
-                        # Left panels column
-                        if has_left:
-                            with gr.Column(scale=1):
-                                for panel in panels_by_position["left"]:  # type: ignore[reportGeneralTypeIssues]
-                                    self._build_panel_widget(panel)
+            if has_left or has_right:
+                # Use Row layout when we have side panels
+                with gr.Row():
+                    if has_left:
+                        with gr.Column(scale=1):
+                            for panel in panels_by_position["left"]:  # type: ignore[reportGeneralTypeIssues]
+                                self._build_panel_widget(panel)
 
-                        # Images column (main content)
-                        with gr.Column(scale=3):
-                            if self.image_canvas is not None:
-                                for idy in range(len(self.image_canvas)):  # type: ignore[reportArgumentType]
-                                    if self.image_canvas[idy] is None:
-                                        continue
-                                    with gr.Row():
-                                        for idx in range(len(self.image_canvas[idy])):  # type: ignore[reportOptionalSubscript]
-                                            elem = outputs[idy * len(self.image_canvas[idy]) + idx]  # type: ignore[reportOptionalSubscript]
-                                            if elem is not None:
-                                                elem.render()  # type: ignore[reportAttributeAccessIssue]
+                    # Images column (main content)
+                    with gr.Column(scale=3):
+                        render_image_grid(self, outputs)
 
-                            if self.audio:
-                                if hasattr(self, "audio_widget") and isinstance(self.audio_widget, gr.HTML):
-                                    outputs.append(self.audio_widget)
-                                    with gr.Row():
-                                        self.audio_widget.render()  # type: ignore[reportAttributeAccessIssue]
+                    if has_right:
+                        with gr.Column(scale=1):
+                            for panel in panels_by_position["right"]:  # type: ignore[reportGeneralTypeIssues]
+                                self._build_panel_widget(panel)
+            else:
+                # No side panels - simple layout (backward compatibility)
+                render_image_grid(self, outputs)
 
-                        # Right panels column
-                        if has_right:
-                            with gr.Column(scale=1):
-                                for panel in panels_by_position["right"]:  # type: ignore[reportGeneralTypeIssues]
-                                    self._build_panel_widget(panel)
-                else:
-                    # No side panels - simple layout (backward compatibility)
-                    if self.image_canvas is not None:
-                        for idy in range(len(self.image_canvas)):  # type: ignore[reportArgumentType]
-                            if self.image_canvas[idy] is None:
-                                continue
-                            with gr.Row():
-                                for idx in range(len(self.image_canvas[idy])):  # type: ignore[reportOptionalSubscript]
-                                    elem = outputs[idy * len(self.image_canvas[idy]) + idx]  # type: ignore[reportOptionalSubscript]
-                                    if elem is not None:
-                                        elem.render()  # type: ignore[reportAttributeAccessIssue]
+            # Bottom panels (default) + ungrouped controls
+            if hasattr(self, "root_panels") and self.root_panels:
+                render_bottom_controls(self, panels_by_position)
+            else:
+                # Fall back to original flat rendering when no panels exist
+                render_flat_sliders(self)
 
-                    if self.audio:
-                        if hasattr(self, "audio_widget") and isinstance(self.audio_widget, gr.HTML):
-                            outputs.append(self.audio_widget)
-                            with gr.Row():
-                                self.audio_widget.render()  # type: ignore[reportAttributeAccessIssue]
+            changing_inputs, discard_reset_button = collect_changing_inputs(self)
+            render_reset_and_description(self, changing_inputs, discard_reset_button)
+            bind_events(self, io, changing_inputs, outputs)
 
-                # Bottom panels (default) + ungrouped controls
-                # Check if we have panels to render
-                if hasattr(self, "root_panels") and self.root_panels:
-                    # Panel-based rendering
-                    # First render ungrouped controls
-                    if self.ungrouped_controls:
-                        with gr.Column():
-                            for ctrl in self.ungrouped_controls:
-                                widget = self._get_control_widget(ctrl)
-                                if widget is not None:
-                                    if isinstance(widget, list):
-                                        # Handle button groups
-                                        with gr.Row():
-                                            for elem in widget:
-                                                elem.render()
-                                    else:
-                                        widget.render()
+        self.io = io
 
-                    # Then render bottom panel hierarchy
-                    for panel in panels_by_position["bottom"]:  # type: ignore[reportGeneralTypeIssues]
-                        self._build_panel_widget(panel)
-                else:
-                    # Fall back to original flat rendering when no panels exist
-                    if self.sliders_layout is None:
-                        self.sliders_layout = "collapsible"
-                    if self.sliders_per_row_layout is None:
-                        self.sliders_per_row_layout = 1
-                    if self.sliders_layout not in [
-                        "compact",
-                        "vertical",
-                        "collapsible",
-                        "smart",
-                    ]:
-                        raise ValueError(
-                            f"sliders_layout must be one of "
-                            f"['compact', 'vertical', 'collapsible', 'smart'], "
-                            f"got {self.sliders_layout}"
-                        )
-                    ctrl_dict_by_type = {"all": list(range(len(self.ctrl)))}
-                    categories = ["all"]
-                    if self.sliders_layout == "compact":
-                        selected_mode = gr.Row()
-                    elif self.sliders_layout == "vertical":
-                        # Use Column to stack elements vertically
-                        selected_mode = gr.Column()
-                    elif self.sliders_layout == "collapsible":
-                        selected_mode = gr.Accordion("Parameters", open=True)
-                    elif self.sliders_layout == "smart":
-                        # Group sliders by type
-                        ctrl_dict_by_type = {}
-                        for ctrl_index, ctrl_key in enumerate(self.ctrl.keys()):
-                            ctrl_type = self.ctrl[ctrl_key]._type
-                            ctrl_type = str(ctrl_type).split("<class '")[1].replace("'>", "")
-                            if ctrl_type == "int":
-                                ctrl_type = "float"
-                            if ctrl_type not in ctrl_dict_by_type:
-                                ctrl_dict_by_type[ctrl_type] = []
-                            ctrl_dict_by_type[ctrl_type].append(ctrl_index)
-                        categories = ["str", "bool", "float"]
-                        selected_mode = gr.Column()
-                    else:
-                        raise NotImplementedError(f"Sliders layout {self.sliders_layout} not supported")
-                    for ctrl_type in categories:
-                        ctrl_indices = ctrl_dict_by_type.get(ctrl_type, [])
-                        if len(ctrl_indices) == 0:
-                            continue
-                        if self.sliders_per_row_layout == 1:
-                            with selected_mode:
-                                for idx in range(len(self.widget_list)):
-                                    if isinstance(self.widget_list[idx], list):
-                                        with gr.Row():
-                                            for elem in self.widget_list[idx]:
-                                                elem.render()
-                                    else:
-                                        elem = self.widget_list[idx]
-                                        elem.render()
-                        else:
-                            with selected_mode:
-                                for split_num in range(math.ceil(len(ctrl_indices) / self.sliders_per_row_layout)):
-                                    with gr.Row():
-                                        start = split_num * self.sliders_per_row_layout
-                                        end = min(
-                                            (split_num + 1) * self.sliders_per_row_layout,
-                                            len(ctrl_indices),
-                                        )
-                                        for idx in ctrl_indices[start:end]:
-                                            elem = self.widget_list[idx]
-                                            elem.render()
-                changing_inputs = []
-                discard_reset_button = False
-                for idx in range(len(self.widget_list)):
-                    if isinstance(self.widget_list[idx], list):
-                        changing_inputs.append(gr.State(self.ctrl[list(self.ctrl.keys())[idx]].value_default))
-                        discard_reset_button = True  # Do not show reset button if there are lists of buttons
-                        self.ctrl[list(self.ctrl.keys())[idx]].filter_to_connect.cache = False
-                        self.ctrl[list(self.ctrl.keys())[idx]].filter_to_connect.cache_mem = None
-                    else:
-                        changing_inputs.append(self.widget_list[idx])
-                if not discard_reset_button:
-                    with gr.Accordion("Reset to default values", open=False):
-                        gr.Examples(
-                            [self.default_values],
-                            inputs=changing_inputs,
-                            label="Presets",
-                        )
-                if self.markdown_description is not None:
-                    title = "Description"
-                    try:
-                        if self.markdown_description.startswith("#"):
-                            title = self.markdown_description.split("\n")[0][1:]
-                    except AttributeError:
-                        # markdown_description is not a str: keep default title
-                        pass
-                    with gr.Accordion(title, open=False):
-                        gr.Markdown(self.markdown_description)
-                io.load(fn=self.run_fn, inputs=changing_inputs, outputs=outputs)
-                for idx in range(len(self.widget_list)):
-                    if isinstance(self.widget_list[idx], list):
-                        for idy, elem in enumerate(self.widget_list[idx]):
-                            changing_inputs_copy = changing_inputs.copy()
-                            ctrl_key = self.ctrl_keys_with_widgets[idx]
-                            changing_inputs_copy[idx] = gr.State(self.ctrl[ctrl_key].value_range[idy])
-                            elem.click(
-                                fn=self.run_fn,
-                                inputs=changing_inputs_copy,
-                                outputs=outputs,
-                                show_progress="minimal",
-                            )
-                    else:
-                        self.widget_list[idx].change(
-                            fn=self.run_fn,
-                            inputs=changing_inputs,
-                            outputs=outputs,
-                            show_progress="minimal",
-                        )
-
-            self.io = io
+    def launch(self):
         self.io.launch(share=self.share_gradio_app)
 
     def init_sliders(self, controls: List[Control]):
@@ -479,103 +341,16 @@ class MainWindow(InteractivePipeWindow):
                 self.ctrl[ctrl.name] = ctrl
 
     def _get_control_widget(self, ctrl: Control):
-        """Get the widget for a given control from widget_list."""
-        if ctrl.name not in self.ctrl_keys_with_widgets:
-            return None
-        idx = self.ctrl_keys_with_widgets.index(ctrl.name)
-        return self.widget_list[idx]
+        """Get the widget for a given control. Delegates to gradio_layout."""
+        return get_control_widget(self, ctrl)
 
     def _group_panels_by_position(self) -> dict:
-        """Group root panels by their position attribute.
-
-        Returns:
-            Dictionary with keys "top", "left", "right", "bottom" containing
-            lists of panels for each position. Detached panels are excluded.
-        """
-        result = {"top": [], "left": [], "right": [], "bottom": []}
-        if not hasattr(self, "root_panels"):
-            return result
-        for panel in self.root_panels:
-            # Ignore detached panels (they open in separate windows)
-            if panel.detached:
-                continue
-            pos = panel.position or "bottom"  # Default to bottom for backward compatibility
-            if pos in result:
-                result[pos].append(panel)
-        return result
+        """Group root panels by position. Delegates to gradio_layout."""
+        return group_panels_by_position(self)
 
     def _build_panel_widget(self, panel: Panel):
-        """Recursively build Gradio components for a Panel hierarchy.
-
-        Args:
-            panel: The Panel to build
-
-        Returns:
-            None (renders widgets in place using Gradio context managers)
-        """
-        # Determine if we need a container based on collapsible state
-        if panel.collapsible:
-            # Use Accordion for collapsible panels
-            container = gr.Accordion(label=panel.name or "Group", open=not panel.collapsed)
-        elif panel.name:
-            # Use Column with a visible label/title for non-collapsible named panels
-            # We'll use a Column and add the panel name as markdown
-            container = gr.Column()
-        else:
-            # No name and not collapsible - just use a Column
-            container = gr.Column()
-
-        with container:
-            # Add panel title for non-collapsible named panels (not using Accordion)
-            if not panel.collapsible and panel.name:
-                gr.Markdown(f"**{panel.name}**")
-
-            # Determine layout based on elements structure
-            if panel.elements and isinstance(panel.elements[0], list):
-                # Grid layout: list of lists
-                for row in panel.elements:  # type: ignore[reportGeneralTypeIssues]
-                    if isinstance(row, list):
-                        with gr.Row():
-                            for element in row:
-                                if isinstance(element, Panel):
-                                    self._build_panel_widget(element)
-                                elif isinstance(element, Control):
-                                    widget = self._get_control_widget(element)
-                                    if widget is not None:
-                                        if isinstance(widget, list):
-                                            # Handle button groups
-                                            with gr.Row():
-                                                for elem in widget:
-                                                    elem.render()
-                                        else:
-                                            widget.render()
-            elif panel.elements:
-                # Vertical layout: flat list
-                for element in panel.elements:
-                    if isinstance(element, Panel):
-                        self._build_panel_widget(element)
-                    elif isinstance(element, Control):
-                        widget = self._get_control_widget(element)
-                        if widget is not None:
-                            if isinstance(widget, list):
-                                # Handle button groups
-                                with gr.Row():
-                                    for elem in widget:
-                                        elem.render()
-                            else:
-                                widget.render()
-
-            # Add controls assigned directly to this panel
-            for ctrl in panel._controls:
-                widget = self._get_control_widget(ctrl)
-                if widget is not None:
-                    if isinstance(widget, list):
-                        # Handle button groups
-                        with gr.Row():
-                            for elem in widget:
-                                elem.render()
-                    else:
-                        widget.render()
+        """Recursively render a Panel hierarchy. Delegates to gradio_layout."""
+        return build_panel_widget(self, panel)
 
     @staticmethod
     def convert_image(out_im):
