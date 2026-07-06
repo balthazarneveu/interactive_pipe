@@ -23,7 +23,7 @@ small focused commits; pipeline functions must contain only function calls.
 ### 1. Doc/status contradiction on inline tuple syntax (untouched by decision)
 
 readme changelog (0.8.9 notes) says inline tuple syntax is deprecated, but
-the code emits no warning and `doc/inline_syntax.md` presents it as a
+the code emits no warning and `docs/guide/inline-syntax.md` presents it as a
 supported style. Deliberately left as-is in the July 2026 pass (user
 decision: ignore). If revisited: truly deprecating is awkward because
 `control_from_tuple` is shared with the recommended decorator-kwarg syntax —

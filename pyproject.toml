@@ -79,6 +79,12 @@ dev=[
   "pyright>=1.1.390",
 ]
 
+docs=[
+  "mkdocs-material>=9.5",
+  "mkdocstrings[python]>=0.27",
+  "mkdocs-llmstxt>=0.2",
+]
+
 [tool.setuptools.package-data]
 interactive_pipe = ["py.typed"]
 
