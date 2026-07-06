@@ -1,0 +1,95 @@
+site_name: interactive_pipe
+site_description: Turn plain python processing functions into interactive GUI apps with sliders — Qt, matplotlib, Jupyter or Gradio.
+site_url: https://balthazarneveu.github.io/interactive_pipe/
+repo_url: https://github.com/balthazarneveu/interactive_pipe
+repo_name: balthazarneveu/interactive_pipe
+edit_uri: edit/master/docs/
+
+theme:
+  name: material
+  logo: images/logo.svg
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.snippets:
+      base_path: [".", "docs"]
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: true
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+  - llmstxt:
+      markdown_description: >-
+        interactive_pipe turns plain python processing functions into
+        interactive GUI pipelines (Qt, matplotlib, Jupyter widgets, Gradio)
+        using two decorators. Filters declare widget-bound keyword arguments;
+        the pipeline function chains them and is analyzed statically, so its
+        body must contain only filter calls.
+      full_output: llms-full.txt
+      sections:
+        Getting started:
+          - index.md
+          - getting-started/*.md
+        Guide:
+          - guide/*.md
+        API reference:
+          - api/*.md
+        Meta:
+          - faq.md
+          - changelog.md
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+      - Quickstart: getting-started/quickstart.md
+      - Backends: getting-started/backends.md
+  - Guide:
+      - Controls: guide/controls.md
+      - Keyboard: guide/keyboard.md
+      - Context, layout & events: guide/context-layout.md
+      - Panels: guide/panels.md
+      - Inline tuple syntax: guide/inline-syntax.md
+      - Tips & tricks: guide/tips.md
+      - Examples gallery: guide/examples.md
+  - API reference:
+      - Decorators: api/decorators.md
+      - Controls: api/controls.md
+      - Data objects: api/data-objects.md
+      - Context & layout: api/context.md
+  - FAQ: faq.md
+  - Roadmap: roadmap.md
+  - Changelog: changelog.md
+  - Contributing: contributing.md

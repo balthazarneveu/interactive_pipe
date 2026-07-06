@@ -39,4 +39,4 @@ The docs site is built with MkDocs Material:
 ./venv/bin/python -m mkdocs serve
 ```
 
-Architecture notes for anyone digging into the core live in [code_architecture.md](code_architecture.md).
+Architecture notes for anyone digging into the core live in [code_architecture.md](https://github.com/balthazarneveu/interactive_pipe/blob/master/code_architecture.md).

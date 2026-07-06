@@ -127,12 +127,12 @@ def black_and_white(img, bnw=True):
 ## Examples
 
 For reference examples of the inline syntax, see:
-- [samples/decorated_pipeline_abbreviated.py](/samples/decorated_pipeline_abbreviated.py)
+- [samples/decorated_pipeline_abbreviated.py](https://github.com/balthazarneveu/interactive_pipe/blob/master/samples/decorated_pipeline_abbreviated.py)
 
 For decorator syntax examples, see:
-- [samples/decorated_pipeline.py](/samples/decorated_pipeline.py) - Using Control objects
-- [readme.md](/readme.md) - Quick start examples with tuple syntax
-- [samples/readme.md](/samples/readme.md) - Tutorial examples
+- [samples/decorated_pipeline.py](https://github.com/balthazarneveu/interactive_pipe/blob/master/samples/decorated_pipeline.py) - Using Control objects
+- [Quickstart](../getting-started/quickstart.md) - Quick start examples with tuple syntax
+- [Examples gallery](examples.md) - Tutorial examples
 
 ## Full Support
 
