@@ -8,23 +8,18 @@ import numpy as np
 
 from interactive_pipe.data_objects.audio import audio_to_html
 from interactive_pipe.graphical.gradio_control import ControlFactory
+from interactive_pipe.graphical.gradio_outputs import (  # noqa: F401
+    MPL_SUPPORT,  # re-exported for backward compatibility
+    build_output_container,
+    convert_output_value,
+)
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.window import InteractivePipeWindow
 from interactive_pipe.headless.control import Control
 from interactive_pipe.headless.panel import Panel
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 
-MPL_SUPPORT = False
 GRADIO_INTERFACE_MODE = False
-try:
-    import matplotlib.pyplot as plt
-
-    from interactive_pipe.data_objects.curves import Curve
-    from interactive_pipe.data_objects.table import Table
-
-    MPL_SUPPORT = True
-except ImportError:
-    pass
 
 
 class InteractivePipeGradio(InteractivePipeGUI):
@@ -99,26 +94,10 @@ class InteractivePipeGradio(InteractivePipeGUI):
                 if out_item is None:
                     out_list_gradio_containers.append(gr.HTML())
                     continue
-                if isinstance(out_item, np.ndarray):
-                    if len(out_item.shape) == 1:
-                        out_list_gradio_containers.append(gr.Audio(label=title))
-                        canvas_cell["type"] = "audio"
-                    else:
-                        out_list_gradio_containers.append(gr.Image(format="png", type="numpy", label=title))
-                        canvas_cell["type"] = "image"
-                elif MPL_SUPPORT and isinstance(out_item, Curve):
-                    # if out_item.title is not None:
-                    #     title = out_item.title
-                    out_list_gradio_containers.append(gr.Plot(label=title))
-                    canvas_cell["type"] = "curve"
-                elif isinstance(out_item, Table):
-                    out_list_gradio_containers.append(gr.Dataframe(label=title))
-                    canvas_cell["type"] = "table"
-                # @TODO: https://github.com/balthazarneveu/interactive_pipe/issues/50 support audio!
-                elif isinstance(out_item, str):
-                    out_list_gradio_containers.append(gr.Textbox(label=title))
-                else:
-                    raise NotImplementedError(f"output type {type(out_item)} not supported")
+                container, type_tag = build_output_container(out_item, title)
+                out_list_gradio_containers.append(container)
+                if type_tag is not None:
+                    canvas_cell["type"] = type_tag
         if self.window.audio:
             audio_widget = gr.HTML()
             self.window.audio_widget = audio_widget  # type: ignore[reportAttributeAccessIssue]
@@ -192,38 +171,14 @@ class MainWindow(InteractivePipeWindow):
                     # Handle jagged out list - may not have element at this position
                     if idy >= len(out[idx]) or out[idx][idy] is None:
                         flat_out.append("")
-                    elif MPL_SUPPORT and isinstance(out[idx][idy], Curve):
-                        # https://github.com/balthazarneveu/interactive_pipe/issues/54
-                        # Update curves instead of creating new ones shall be faster
-                        # Gradio still flickers anyway.
-                        curve = out[idx][idy]
-                        fig, ax = plt.subplots()
-                        Curve._plot_curve(curve.data, ax=ax)
-                        flat_out.append(fig)
-                    elif isinstance(out[idx][idy], Table):
-                        table = out[idx][idy]
-                        # Convert to format expected by gr.Dataframe
-                        # Format: list of lists with first row as headers
-                        # Use _format_values() to apply precision formatting
-                        # Check if this is a headerless table (all columns are empty)
-                        has_headers = any(col != "" for col in table.columns)
-                        if has_headers:
-                            table_data = [table.columns] + table._format_values()
-                        else:
-                            # Headerless table - just show values
-                            table_data = table._format_values()
-                        flat_out.append(table_data)
-                    elif isinstance(out[idx][idy], np.ndarray):
-                        if len(out[idx][idy].shape) == 1:
-                            logging.debug(f"CONVERTING AUDIO  {idx} {idy}")
-                            flat_out.append((self.audio_sampling_rate, out[idx][idy]))
-                        else:
-                            logging.debug(f"CONVERTING IMAGE  {idx} {idy}")
-                            flat_out.append(self.convert_image(out[idx][idy]))
-                    elif isinstance(out[idx][idy], str):
-                        flat_out.append(out[idx][idy])
                     else:
-                        raise NotImplementedError(f"output type {type(out[idx][idy])} not suported")
+                        flat_out.append(
+                            convert_output_value(
+                                out[idx][idy],
+                                audio_sampling_rate=self.audio_sampling_rate,
+                                convert_image=self.convert_image,
+                            )
+                        )
             else:
                 logging.info(f"CONVERTING IMAGE  {idx} ")
                 flat_out.append(self.convert_image(out[idx]))
