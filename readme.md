@@ -1,6 +1,6 @@
 <div align="center">
 
-![Interactive pipe](https://raw.githubusercontent.com/balthazarneveu/interactive_pipe/master/static/interact-pipe-logo-horizontal-rgb.svg)
+![Interactive pipe](static/interact-pipe-logo-horizontal-rgb.svg)
 
 [![PyPI](https://img.shields.io/pypi/v/interactive-pipe)](https://pypi.org/project/interactive-pipe/)
 [![Python versions](https://img.shields.io/pypi/pyversions/interactive-pipe)](https://pypi.org/project/interactive-pipe/)
@@ -25,7 +25,7 @@ pip install interactive-pipe
 - Keep your algorithm library untouched: interactivity is added by decoration, not by rewriting.
 - The same pipeline runs headless for batch processing and tests.
 
-![Interactive pipe demo](https://raw.githubusercontent.com/balthazarneveu/interactive_pipe/master/docs/images/demo_multi_image.gif)
+![Interactive pipe demo](docs/images/demo_multi_image.gif)
 
 ## Quick taste
 
@@ -57,7 +57,7 @@ Calling `pipe(...)` opens a window with sliders for every declared parameter. ðŸ
 | *PyQt / PySide* | *Matplotlib* | *Jupyter / Colab* | *Gradio* |
 |:-----:|:------:|:----:|:----:|
 | `gui="qt"` | `gui="mpl"` | `gui="nb"` | `gui="gradio"` |
-| ![qt](https://raw.githubusercontent.com/balthazarneveu/interactive_pipe/master/docs/images/qt_backend.jpg) | ![mpl](https://raw.githubusercontent.com/balthazarneveu/interactive_pipe/master/docs/images/mpl_backend.jpg) | ![nb](https://raw.githubusercontent.com/balthazarneveu/interactive_pipe/master/docs/images/notebook_backend.jpg) | ![gradio](https://raw.githubusercontent.com/balthazarneveu/interactive_pipe/master/docs/images/gradio_backend.jpg) |
+| ![qt](docs/images/qt_backend.jpg) | ![mpl](docs/images/mpl_backend.jpg) | ![nb](docs/images/notebook_backend.jpg) | ![gradio](docs/images/gradio_backend.jpg) |
 
 Plus headless mode (`gui=None`) for batch processing. Full feature matrix in the [backends docs](https://balthazarneveu.github.io/interactive_pipe/getting-started/backends/).
 
