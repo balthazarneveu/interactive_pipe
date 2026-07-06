@@ -106,7 +106,7 @@ def format_affine_matrix(img: np.ndarray, matrix: np.ndarray):
     """Format the affine matrix as a headerless table."""
     # Create headerless table from 2x3 matrix
     affine_table = Table(matrix, title="Affine Matrix (2x3)", precision=4)
-    layout.style("affine", title="Affine Transformation Matrix")
+    layout.style("affine_table", title="Affine Transformation Matrix")
 
     return img, affine_table
 
@@ -176,8 +176,8 @@ def apply_color_rotation(
         title=f"RGB Matrix \nH={hue:.1f}°\nS={saturation:.2f}\nV={value:.2f}",
         precision=4,
     )
-    layout.style("color_matrix", title="Color Rotation Matrix")
-
+    layout.style("color_table", title="Color Rotation Matrix")
+    layout.style("colorized_img", title="Colorized image")
     return transformed_img, color_table
 
 
