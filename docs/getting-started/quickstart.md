@@ -65,7 +65,7 @@ Notes:
 
 - With a bare `@interactive()` and `def blend(img0, img1, blend_coeff=0.5):`, `blend_coeff` simply won't get a slider.
 - `@interactive(blend_coeff=[0., 1.])` creates a slider initialized to the middle of the range (0.5).
-- `@interactive(bnw=(True, "black and white", "k"))` replaces the checkbox by a keypress event (press ++k++ to toggle).
+- `@interactive(bnw=KeyboardControl(True, keydown="k"))` replaces the checkbox by a keypress event (press ++k++ to toggle) — see the [Keyboard guide](../guide/keyboard.md).
 
 ## Keeping your library clean
 

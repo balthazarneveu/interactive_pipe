@@ -22,12 +22,14 @@ The `color_choice` list becomes a dropdown menu; the default is the first elemen
 ## Switching between images
 
 ```python
-@interactive(image_index=(0, [0, 2], None, ["pagedown", "pageup", True]))
+from interactive_pipe import KeyboardControl
+
+@interactive(image_index=KeyboardControl(0, [0, 2], keydown="pagedown", keyup="pageup", modulo=True))
 def switch_image(img1, img2, img3, image_index=0):
     return [img1, img2, img3][image_index]
 ```
 
-The `["pagedown", "pageup", True]` part binds the index to keys; `True` makes it wrap around (back to 0 past the maximum).
+`modulo=True` makes the index wrap around (back to 0 past the maximum) — flip through images with ++page-up++ / ++page-down++.
 
 ## Avoid in-place operations
 

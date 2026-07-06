@@ -32,7 +32,7 @@ def switch_image(img1, img2, img3, image_index=0):
 - Special keys: arrows, `"pageup"`/`"pagedown"`, spacebar, `"f1"`–`"f12"`; anything else is a single character.
 - On backends without key events (gradio, notebook), a `KeyboardControl` maps back to a regular slider — no need to remove it.
 
-The tuple shorthand also has a keyboard form: `@interactive(image_index=(0, [0, 2], None, ["pagedown", "pageup", True]))` declares the same control, and `(True, "black and white", "k")` turns a checkbox into a ++k++ toggle.
+Keyboard bindings always use the explicit `KeyboardControl` object — there is no tuple shorthand for them. A bool `KeyboardControl(True, keydown="k")` turns a checkbox into a ++k++ toggle.
 
 ## Key-bound one-shot events
 
