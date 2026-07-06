@@ -235,7 +235,8 @@ class Table(Data):
 
     def _load(self, path: Path, **kwargs) -> Dict[str, Any]:
         if path.suffix == ".pkl":
-            data = Data.load_binary(path)
+            # App-controlled round-trip of files written by save_binary
+            data = Data.load_binary(path, allow_pickle=True)
             return data
         elif path.suffix == ".csv":
             _require_pandas("CSV import")
