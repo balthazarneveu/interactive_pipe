@@ -114,7 +114,6 @@ class InteractivePipeGradio(InteractivePipeGUI):
             audio_widget = gr.HTML()
             self.window.audio_widget = audio_widget  # type: ignore[reportAttributeAccessIssue]
         self.window.instantiate_gradio_interface(out_list_gradio_containers)
-        self.window.refresh()
         self.custom_end()
         results = self.pipeline.results
         if results is None:
@@ -227,7 +226,7 @@ class MainWindow(InteractivePipeWindow):
         return out_tuple
 
     def instantiate_gradio_interface(self, outputs: List[gr.components.Component]):  # type: ignore[reportInvalidTypeForm]
-        """Build the interface then launch it (kept as build + launch wrapper)."""
+        """Build the interface then launch it exactly once."""
         self.build_interface(outputs)
         self.launch()
 
@@ -359,10 +358,6 @@ class MainWindow(InteractivePipeWindow):
             return (out_im.clip(0.0, 1.0) * 255).astype(np.uint8)
         else:
             return out_im
-
-    def refresh(self):
-        if self.pipeline is not None:
-            self.io.launch()
 
     def reset_sliders(self):
         # Click on default examples in Gradio
