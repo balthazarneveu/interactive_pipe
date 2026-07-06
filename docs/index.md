@@ -31,7 +31,7 @@ def my_pipeline(img):
 my_pipeline(np.array([0.0, 0.5, 0.8]) * np.ones((256, 512, 3)))
 ```
 
-Head to the [Quickstart](getting-started/quickstart.md) for the full walkthrough, or browse the [API reference](api/decorators.md).
+Head to the [Quickstart](getting-started/quickstart.md) for the full walkthrough, the [decorators guide](guide/decorators.md), or the [API reference](api/controls.md).
 
 ## Who is this for?
 
