@@ -27,7 +27,7 @@ def interactive_pipeline(
     context: Optional[dict] = None,
     markdown_description: Optional[str] = None,
     name: Optional[str] = None,
-    **kwargs_gui,
+    **kwargs_gui: Any,
 ) -> Callable[[Callable[..., Any]], Union[HeadlessPipeline, Callable[..., Any]]]:
     """Decorator turning a pipeline function into an interactive GUI application.
 
