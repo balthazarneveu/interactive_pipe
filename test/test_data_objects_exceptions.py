@@ -62,6 +62,22 @@ class TestDataExceptions:
         with pytest.raises(ValueError, match="cannot be None"):
             Data.safe_path_with_suffix(None)
 
+    def test_check_path_raises_valueerror_when_path_none(self):
+        # Must never fall back to an interactive input() prompt: a headless
+        # pipeline calling save()/load() without a path would block on stdin.
+        with pytest.raises(ValueError, match="path cannot be None"):
+            Data.check_path(None)
+
+    def test_save_raises_valueerror_when_path_none(self):
+        data = ConcreteData({"key": "value"})
+        with pytest.raises(ValueError, match="path cannot be None"):
+            data.save(None)
+
+    def test_load_raises_valueerror_when_path_none(self):
+        data = ConcreteData(None)
+        with pytest.raises(ValueError, match="path cannot be None"):
+            data.load(None)
+
     def test_save_binary_raises_valueerror_when_not_pkl(self, tmp_path):
         file_path = tmp_path / "test.txt"
         with pytest.raises(ValueError, match="requires .pkl extension"):

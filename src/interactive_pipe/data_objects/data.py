@@ -78,10 +78,9 @@ class Data:
     @staticmethod
     def check_path(path: Optional[Path] = None, load: bool = False, extensions=None) -> Path:
         if path is None:
-            path_str = Data.prompt_file()
-            if path_str is None:
-                raise RuntimeError("path cannot be None after prompt")
-            path = Path(path_str)
+            # No interactive fallback here: a headless pipeline must never
+            # block on stdin. GUI callers prompt explicitly via prompt_file().
+            raise ValueError("path cannot be None: provide a file path (or call prompt_file() to ask the user)")
         if isinstance(path, str):
             path = Path(path)
         if not isinstance(path, Path):
