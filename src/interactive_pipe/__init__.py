@@ -41,3 +41,29 @@ pipeline = interactive_pipeline
 # import interactive_pipe as ip
 # @ip.block(...)
 # @ip.pipeline(...)
+
+__all__ = [
+    "__version__",
+    "Backend",
+    "FilterError",
+    "context",
+    "layout",
+    "audio",
+    "events",
+    "get_context",
+    "Curve",
+    "SingleCurve",
+    "Image",
+    "Table",
+    "Control",
+    "CircularControl",
+    "TextPrompt",
+    "TimeControl",
+    "KeyboardControl",
+    "Panel",
+    "interact",
+    "interactive",
+    "interactive_pipeline",
+    "block",
+    "pipeline",
+]
