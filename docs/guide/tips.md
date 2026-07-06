@@ -46,3 +46,22 @@ def bad_processing_block(inp):
 ## Export / import tuning
 
 Press ++e++ in the GUI to export the current parameters to YAML and ++o++ to load them back; headless pipelines expose the same via `export_tuning()` / `load_tuning()`. Press ++g++ to export a graphviz diagram of the pipeline.
+
+## One-shot GUI with `@interact`
+
+For a quick experiment on a *single* function — no pipeline needed — `@interact` opens the GUI immediately at decoration time:
+
+```python
+from interactive_pipe import interact
+import numpy as np
+
+image = np.random.rand(256, 512, 3)
+
+@interact(image, gain=(1.0, [0.0, 3.0]))
+def show(img, gain=1.0):
+    return img * gain
+```
+
+Handy in notebooks and throwaway scripts; for anything reusable, prefer `@interactive` + `@interactive_pipeline` ([decorators guide](decorators.md)).
+
+::: interactive_pipe.interact
