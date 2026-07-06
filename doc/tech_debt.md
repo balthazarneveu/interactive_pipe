@@ -20,37 +20,7 @@ small focused commits; pipeline functions must contain only function calls.
 
 ## Open items
 
-### 1. Unreachable PySide6 fallback (behavior decision pending)
-
-`src/interactive_pipe/graphical/qt_backend.py` — the PyQt5 `except ImportError`
-branch raises `ModuleNotFoundError("No PyQt")` before the PySide6 block can
-ever run, so a PySide6-only machine cannot use the Qt backend. The block was
-moved verbatim (with a NOTE) during the split. Fixing it means moving the
-raise after the PySide6 attempt — a behavior change on PyQt-less machines
-that cannot be tested locally (only PyQt6 is installed in ./venv).
-
-### 2. Gradio double launch
-
-`InteractivePipeGradio.run` launches the Blocks app twice: once via
-`instantiate_gradio_interface` (build + launch wrapper) and again via
-`MainWindow.refresh()`. The build/launch split
-(`build_interface()`/`launch()` in `graphical/gradio_gui.py`) makes
-consolidation easy, but the call count is pinned by
-`test/test_smoke_gradio.py` on purpose — collapsing to a single launch is a
-behavior change that needs manual verification against a real browser
-session.
-
-### 3. Key-bound events have no filter-facing reader
-
-`InteractivePipeGUI.bind_key_to_context` writes into
-`pipeline.framework_state.events`, but since the 0.9.0 injection removal no
-proxy exposes events to filters — the feature is unreachable from user code
-(the F1 help text used to advertise `context['__event'][...]`, which no
-longer exists). Candidate fix: an `events` proxy in `core/context.py`
-mirroring `layout`/`audio`, plus a demo. Alternatively remove the event
-machinery from `gui.py` altogether.
-
-### 4. Doc/status contradiction on inline tuple syntax (untouched by decision)
+### 1. Doc/status contradiction on inline tuple syntax (untouched by decision)
 
 readme changelog (0.8.9 notes) says inline tuple syntax is deprecated, but
 the code emits no warning and `doc/inline_syntax.md` presents it as a
@@ -59,14 +29,29 @@ decision: ignore). If revisited: truly deprecating is awkward because
 `control_from_tuple` is shared with the recommended decorator-kwarg syntax —
 un-deprecating (dropping the readme claim) is the cheap consistent option.
 
-### 5. Repeated-filter controls only drive the first instance
+## Done in the July 2026 follow-up pass (don't redo)
 
-Pinned (not fixed) by
-`test/test_control_registry.py::test_repeated_filter_keeps_single_control_on_first_instance`:
-when one decorated filter is used twice in a pipeline, its registered
-controls connect to the first instance only; the repeat runs with default
-values. Supporting live controls on repeated filters needs per-instance
-Control cloning at pipeline construction.
+- **PySide6 fallback reachable**: `qt_backend.py` now warns (instead of
+  raising) when PyQt5 is missing, tries PySide6, and only then raises
+  `ModuleNotFoundError("No PyQt")` — same cascade as `qt_control.py`;
+  `choose_backend.py` still gets the error on a binding-less machine.
+  Subprocess tests in `test/test_qt_backend_cascade.py` pin both paths.
+- **Gradio single launch**: `InteractivePipeGradio.run` launches the Blocks
+  app exactly once (the launching `MainWindow.refresh()` is gone; the second
+  launch also dropped the share flag). Verified against a real local server;
+  `test/test_smoke_gradio.py` pins one launch call carrying `share=`.
+- **`events` proxy**: filters read key-bound context events via
+  `from interactive_pipe import events` (`events.get(name)` is False when
+  unbound, so filters also run headless). Demo: `demo/key_event_demo.py`;
+  Qt round-trip test in `test/test_smoke_qt.py`.
+- **Per-instance controls on repeated filters**: `from_function` clones
+  registered controls for each repeat (`Control.clone_unconnected`, names
+  suffixed like the filter: `amount` → `amount_1`), and the `@interactive`
+  wrapper lets engine-passed kwargs win over registered control values (it
+  used to clobber them, making repeats mirror the first slider). Key/timer
+  bound controls (KeyboardControl/TimeControl) stay on the first instance —
+  their key bindings would collide — pinned in
+  `test/test_control_registry.py`.
 
 ## Done in the July 2026 cleanup pass (don't redo)
 
