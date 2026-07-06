@@ -6,7 +6,6 @@
 - [Tutorial in a Colab notebook](https://colab.research.google.com/github/livalgo/interactive-pipe-examples/blob/main/interactive_pipe_tutorial.ipynb)
 - [Quickstart as a Colab notebook](https://colab.research.google.com/drive/1PZn8P_5TABVCugT3IcLespvZG-gxnFbO?usp=sharing) (ipywidgets backend)
 - [Speech exploration notebook](https://colab.research.google.com/drive/1mUX2FW0qflWn-v3nIx90P_KvRxnXlBpz#scrollTo=qDTaIwvaJQ6R) — signal processing in a notebook
-- [Under the hood](https://colab.research.google.com/drive/1e4IB_jLGgGYonPXFuE9YdnaVNEC_1f19?usp=sharing) — build a pipeline graph object-style, without the decorators
 
 ![tutorial](../images/tutorial.png)
 
@@ -53,6 +52,6 @@ All in [`demo/`](https://github.com/balthazarneveu/interactive_pipe/tree/master/
 The [`samples/`](https://github.com/balthazarneveu/interactive_pipe/tree/master/samples) folder walks through the declaration styles:
 
 - `decorated_pipeline.py` — decorator syntax with explicit `Control` objects
-- `decorated_pipeline_abbreviated.py` — the [inline tuple shorthand](inline-syntax.md)
+- `decorated_pipeline_abbreviated.py` — the abbreviated tuple declarations
 - `object_oriented_pipeline_declarations.py` — pipeline graph built by hand, no decorators
 - `interact_sample/` — a small filter library + `@interact` one-shot GUI + its pytest suite
