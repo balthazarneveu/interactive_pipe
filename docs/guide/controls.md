@@ -2,9 +2,40 @@
 
 A control binds a GUI widget to a filter keyword argument. Declare controls in the `@interactive()` decorator; the widget type is inferred from the default value's type and the presence of a range.
 
-## Declaration patterns
+## Two equivalent styles
 
-Every control can be declared two ways: a **tuple shorthand** `(default, range, name, group)` for conciseness, or an **explicit object** when you need the extra arguments (`step`, `icons`, `tooltip`, ...). Both are equivalent; specialized widgets (keyboard, circular, timer) only exist as explicit objects.
+The same control can always be written as a **tuple shorthand** — great for prototyping — or as an **explicit object** — clearer in larger codebases and required for the extra arguments (`step`, `icons`, `tooltip`, ...):
+
+=== "Tuple shorthand"
+
+    ```python
+    from interactive_pipe import interactive
+
+    @interactive(gain=(1.0, [0.5, 2.0], "exposure"))
+    def exposure(img, gain=1.0):
+        return img * gain
+    ```
+
+    The tuple order is `(default, range, name, group)` — trailing elements are optional.
+
+=== "Explicit object"
+
+    ```python
+    from interactive_pipe import interactive, Control
+
+    @interactive(gain=Control(1.0, [0.5, 2.0], name="exposure"))
+    def exposure(img, gain=1.0):
+        return img * gain
+    ```
+
+    `Control` unlocks every option: `Control(1.0, [0.5, 2.0], name="exposure", step=0.05, group="Panel A", tooltip="scene brightness")`.
+
+!!! tip "Even shorter"
+    A bare range works too: `@interactive(blend_coeff=[0., 1.])` creates a slider initialized to the middle of the range, and `@interactive(mode=["dark", "light"])` a dropdown defaulting to the first choice.
+
+Specialized widgets (keyboard, circular slider, timer) only exist as explicit objects.
+
+## Declaration patterns
 
 | You want | Tuple shorthand | Explicit object |
 |---|---|---|
@@ -20,23 +51,7 @@ Every control can be declared two ways: a **tuple shorthand** `(default, range, 
 | Circular slider (Qt) | — | `angle=CircularControl(90, [0, 360], modulo=True)` |
 | Animated timer | — | `t=TimeControl(update_interval_ms=50)` |
 
-Use `Control` objects when you need the extra arguments:
-
-```python
-from interactive_pipe import interactive, Control
-
-@interactive(
-    gain=Control(1.0, [0.5, 2.0], name="exposure", step=0.05, tooltip="scene brightness"),
-)
-def exposure(img, gain=1.0):
-    return img * gain
-```
-
 See the [Control API reference](../api/controls.md) for every argument.
-
-## Slider range shorthand
-
-`@interactive(blend_coeff=[0., 1.])` — a bare range creates a slider initialized to the middle of the range.
 
 ## Image buttons (Qt)
 

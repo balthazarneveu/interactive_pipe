@@ -39,6 +39,8 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.details
   - pymdownx.keys
+  - pymdownx.tabbed:
+      alternate_style: true
   - pymdownx.snippets:
       base_path: [".", "docs"]
   - toc:
