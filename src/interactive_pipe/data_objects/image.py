@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 
@@ -48,7 +49,20 @@ except ImportError:
 
 
 class Image(Data):
-    def __init__(self, data, title="") -> None:
+    """Image payload with save, load and display helpers.
+
+    Wraps a float numpy array with values expected in ``[0, 1]``, of shape
+    ``(H, W)`` (grayscale) or ``(H, W, 3)`` (RGB). Saving and loading go
+    through Pillow or OpenCV, whichever is installed; pass
+    ``backend="pillow"`` or ``backend="opencv"`` to force one.
+
+    Args:
+        data: Image array, float values in ``[0, 1]``.
+        title: Title used when displaying or appended to the file stem
+            when saving.
+    """
+
+    def __init__(self, data: np.ndarray, title: str = "") -> None:
         super().__init__(data)
         self.title = title
         self.path = None
@@ -72,7 +86,16 @@ class Image(Data):
         return self.load_image(path, backend=backend)
 
     @staticmethod
-    def save_image(data, path: Path, precision=8, backend=None):
+    def save_image(data: np.ndarray, path: Path, precision: int = 8, backend: Optional[str] = None) -> None:
+        """Save a ``[0, 1]`` float image array to disk.
+
+        Args:
+            data: Image array, float values in ``[0, 1]``.
+            path: Destination file path (extension picks the format).
+            precision: Bit depth of the written file (8 or 16;
+                Pillow supports 8 only).
+            backend: ``"pillow"`` or ``"opencv"``; auto-selected when None.
+        """
         backend = _resolve_image_backend(backend)
         if backend == IMAGE_BACKEND_OPENCV:
             Image.save_image_cv2(data, path, precision)
@@ -80,7 +103,8 @@ class Image(Data):
             Image.save_image_PIL(data, path, precision)
 
     @staticmethod
-    def rescale_dynamic(data, precision=8):
+    def rescale_dynamic(data: np.ndarray, precision: int = 8) -> np.ndarray:
+        """Scale a ``[0, 1]`` float image to integer dynamic (``[0, 2^precision - 1]``)."""
         if len(data.shape) == 2:
             # Black & white image
             data = np.expand_dims(data, axis=-1)  # add channel dimension
@@ -89,7 +113,8 @@ class Image(Data):
         return np.round(data * amplitude).clip(0, amplitude)
 
     @staticmethod
-    def normalize_dynamic(img, precision=8):
+    def normalize_dynamic(img: np.ndarray, precision: int = 8) -> np.ndarray:
+        """Scale an integer image (``[0, 2^precision - 1]``) to ``[0, 1]`` floats."""
         return img / (2.0**precision - 1)  # scale image data to [0, 1]
 
     @staticmethod
@@ -126,13 +151,21 @@ class Image(Data):
         return Image.normalize_dynamic(np.array(img), precision=precision)
 
     @staticmethod
-    def load_image(path: Path, precision=8, backend=None) -> np.ndarray:
+    def load_image(path: Path, precision: int = 8, backend: Optional[str] = None) -> np.ndarray:
+        """Load an image file as a ``[0, 1]`` float RGB array.
+
+        Args:
+            path: Image file path.
+            precision: Bit depth of the stored file used for normalization.
+            backend: ``"pillow"`` or ``"opencv"``; auto-selected when None.
+        """
         backend = _resolve_image_backend(backend)
         if backend == IMAGE_BACKEND_OPENCV:
             return Image.load_image_cv2(path)
         return Image.load_image_PIL(path, precision)
 
-    def show(self):
+    def show(self) -> None:
+        """Display the image in a matplotlib figure (title includes the shape)."""
         plt.figure()
         plt.imshow(self.data)
         ttl = (f"{self.title} -" if self.title else "") + f"{self.data.shape}"

@@ -10,8 +10,37 @@ if TYPE_CHECKING:
 
 
 class KeyboardControl(Control):
-    """
-    Plug and play class to replace a slider by keyboard interaction
+    """Control driven by keyboard keys instead of a slider widget.
+
+    Pressing ``keydown`` decreases the value by ``step`` (or moves to the
+    previous choice for a string control); ``keyup`` increases it. A bool
+    control toggles on each ``keydown`` press. Special keys such as arrows,
+    page up/down, spacebar and F1-F12 are supported (see
+    ``SPECIAL_KEYS_LIST``); other keys are single characters.
+
+    Args:
+        value_default: Initial value; its type selects the behavior
+            (int, float, bool or str).
+        value_range: ``[min, max]`` for numeric values, or the list of
+            choices for a string control.
+        keydown: Key that decreases the value / toggles a bool.
+        keyup: Key that increases the value. Omit for a toggle-only binding.
+        modulo: When True, the value wraps around at the range bounds
+            instead of saturating.
+        name: Label of the control. Auto-generated if omitted.
+        step: Increment applied on each key press (same defaults as
+            ``Control``).
+        filter_to_connect: Filter to connect immediately (requires
+            ``parameter_name_to_connect``).
+        parameter_name_to_connect: Keyword argument of the connected filter.
+        group: ``Panel`` instance or panel name used to group controls.
+
+    Example:
+        @interactive(
+            gain=KeyboardControl(1.0, [0.0, 3.0], keydown="g", keyup="h")
+        )
+        def amplify(img, gain=1.0):
+            return gain * img
     """
 
     KEY_UP = "up"
@@ -35,11 +64,11 @@ class KeyboardControl(Control):
         self,
         value_default: Union[int, float, bool, str],
         value_range: Optional[List[Union[int, float, str]]] = None,
-        keydown=None,
-        keyup=None,
-        modulo=False,
-        name=None,
-        step=None,
+        keydown: Optional[str] = None,
+        keyup: Optional[str] = None,
+        modulo: bool = False,
+        name: Optional[str] = None,
+        step: Optional[Union[int, float]] = None,
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
         group: Optional[Union[str, Panel]] = None,

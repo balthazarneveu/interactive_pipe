@@ -12,6 +12,44 @@ if TYPE_CHECKING:
 
 
 class Control:
+    """Binds a GUI widget to a filter keyword argument.
+
+    The widget type is inferred from the type of ``value_default`` and the
+    presence of ``value_range``:
+
+    - ``bool`` -> checkbox (``value_range`` must be None)
+    - ``int`` / ``float`` with a 2-element ``value_range`` -> slider
+    - ``int`` / ``float`` without ``value_range`` -> free numeric parameter
+    - ``str`` with a list of choices as ``value_range`` -> dropdown
+    - ``str`` without ``value_range`` -> free text prompt
+
+    Args:
+        value_default: Initial value; its type selects the widget
+            (int, float, bool or str).
+        value_range: ``[min, max]`` for numeric sliders, or the list of
+            choices for a string dropdown. Must be None for bool.
+        name: Label displayed next to the widget. Auto-generated if omitted.
+        step: Slider increment. Defaults to 1 for int sliders and 1/100 of
+            the range for float sliders.
+        filter_to_connect: Filter to connect immediately (requires
+            ``parameter_name_to_connect``). Usually left to the
+            ``@interactive`` decorator.
+        parameter_name_to_connect: Keyword argument of the connected filter.
+        icons: Icon image paths (one per choice) for string dropdowns.
+        group: ``Panel`` instance or panel name used to group controls;
+            same-named string groups share one panel across filters.
+        tooltip: Hover text displayed on the widget.
+
+    Example:
+        @interactive(
+            gain=Control(1.0, [0.0, 3.0]),  # float slider
+            flip=Control(False),  # checkbox
+            mode=Control("dark", ["dark", "light"]),  # dropdown
+        )
+        def my_filter(img, gain=1.0, flip=False, mode="dark"):
+            ...
+    """
+
     counter = 0
     _registry = {}  # Global registry to store controls for each function
     # Process-wide by design: same-named string groups share one Panel across filters
@@ -231,8 +269,11 @@ class Control:
 
 
 class CircularControl(Control):
-    """
-    Replace a slider by a circular slider
+    """Circular (dial) variant of a numeric slider.
+
+    Behaves like a numeric ``Control`` but is rendered as a rotary dial.
+    With ``modulo=True`` the value wraps around at the ``value_range``
+    bounds instead of saturating (useful for angles).
     """
 
     def __init__(
@@ -265,6 +306,12 @@ class CircularControl(Control):
 
 
 class TextPrompt(Control):
+    """Free-text entry box bound to a string keyword argument.
+
+    Unlike a string ``Control`` with a ``value_range`` (a dropdown of fixed
+    choices), a ``TextPrompt`` accepts arbitrary text typed by the user.
+    """
+
     def __init__(
         self,
         value_default: str,
@@ -274,7 +321,6 @@ class TextPrompt(Control):
         group: Optional[Union[str, Panel]] = None,
         tooltip: Optional[str] = None,
     ) -> None:
-        """Text box"""
         super().__init__(
             value_default=value_default,
             value_range=None,
