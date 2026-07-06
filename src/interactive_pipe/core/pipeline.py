@@ -45,9 +45,9 @@ class PipelineCore:
         if context is None:
             context = {}
         self.global_params = context
-        for filter in self.filters:
+        for filt in self.filters:
             # link each filter to global params
-            filter.global_params = self.global_params
+            filt.global_params = self.global_params
 
         # Initialize user context (separate from global_params for clean API)
         self._user_context = dict(context) if isinstance(context, dict) else {}
@@ -73,8 +73,8 @@ class PipelineCore:
         self.name = name
 
     def reset_cache(self):
-        for filter in self.filters:
-            filter.reset_cache()
+        for filt in self.filters:
+            filt.reset_cache()
 
     def run(self) -> dict:
         """Useful for standalone python access without gui or disk write"""
@@ -87,8 +87,8 @@ class PipelineCore:
             _set_user_context(None)
 
     def _reset_global_params(self):
-        for filter in self.filters:
-            filter.global_params = self.global_params
+        for filt in self.filters:
+            filt.global_params = self.global_params
 
     @property
     def parameters(self):

@@ -170,7 +170,7 @@ class PipelineEngine:
             # put prc output at the right position within result vector
             if prc.outputs is not None:
                 for i, ido in enumerate(prc.outputs):
-                    if isinstance(out, list) or isinstance(out, tuple):
+                    if isinstance(out, (list, tuple)):
                         result[ido] = out[i]
                     # Simpler manner of defining a process fuction (do not return a list)
                     else:

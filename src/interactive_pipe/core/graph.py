@@ -18,7 +18,7 @@ def get_name(node, preserve_structure=False) -> Union[str, Sequence[Any], None]:
         return node.id
     elif isinstance(node, ast.Attribute):
         return node.attr
-    elif isinstance(node, ast.Tuple) or isinstance(node, ast.List):
+    elif isinstance(node, (ast.Tuple, ast.List)):
         names = [get_name(elt, preserve_structure=preserve_structure) for elt in node.elts]
         if preserve_structure:
             # Preserve nested structure - filter out None but keep nesting

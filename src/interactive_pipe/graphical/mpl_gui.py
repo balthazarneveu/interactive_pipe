@@ -194,7 +194,7 @@ class MainWindow(MatplotlibWindow):
             if ctrl._type is bool or (ctrl._type is str and ctrl.value_range is not None):
                 x_start = 0.01
                 width = 0.08
-                number_of_items = 1 if ctrl._type is bool else len(ctrl.value_range)
+                number_of_items = 1 if (ctrl._type is bool or ctrl.value_range is None) else len(ctrl.value_range)
                 height = 0.02 * number_of_items
                 y_start = self.next_slider_position - height
                 self.next_slider_position -= self.spacer + height

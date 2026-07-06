@@ -17,7 +17,7 @@ try:
 except ImportError:
     logging.info("Cannot import wavio")
 
-__iter_audio_player = 0
+_audio_player_counter = 0
 
 
 def audio_to_html(audio: Union[None, str, Path, Tuple[int, np.ndarray]], controls=True) -> str:
@@ -44,10 +44,10 @@ def audio_to_html(audio: Union[None, str, Path, Tuple[int, np.ndarray]], control
     if controls:
         audio_player += " controls"
     audio_player += " autoplay></audio>"
-    global __iter_audio_player
+    global _audio_player_counter
     # to avoid reusing the same exact id and thus not updating the audio player
-    audio_player += "<p hidden>" + str(__iter_audio_player) + "</p>"
-    __iter_audio_player += 1
+    audio_player += "<p hidden>" + str(_audio_player_counter) + "</p>"
+    _audio_player_counter += 1
 
     return audio_player
 

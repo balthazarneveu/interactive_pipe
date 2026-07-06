@@ -62,7 +62,7 @@ class Control:
             self.step = 1
             if value_range is not None:
                 raise ValueError("value_range must be None for bool type")
-        elif isinstance(value_default, float) or isinstance(value_default, int):
+        elif isinstance(value_default, (float, int)):
             if value_range is None:  # free range parameter!
                 self._type = int if isinstance(value_default, int) else float
             else:
@@ -200,14 +200,14 @@ class Control:
     def connect_parameter(self, update_param_func: Callable):
         self.update_param_func = update_param_func
 
-    def connect_filter(self, filter: FilterCore, parameter_name):
+    def connect_filter(self, filt: FilterCore, parameter_name):
         def update_param_func(val):
-            logging.info(f"update filter {filter.name} - param {parameter_name} - value {val}")
-            filter.values = {parameter_name: val}
+            logging.info(f"update filter {filt.name} - param {parameter_name} - value {val}")
+            filt.values = {parameter_name: val}
 
         self.update_param_func = update_param_func
         self.parameter_name_to_connect = parameter_name
-        self.filter_to_connect = filter
+        self.filter_to_connect = filt
 
 
 class CircularControl(Control):
