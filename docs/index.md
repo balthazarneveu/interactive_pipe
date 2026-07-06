@@ -58,7 +58,7 @@ Head to the [Quickstart](getting-started/quickstart.md) for the full walkthrough
 - Four backends: Qt, matplotlib, Jupyter widgets (`nb`), Gradio — plus headless mode ([backend matrix](getting-started/backends.md)).
 - Caching of intermediate results in RAM for much faster interaction.
 - [`KeyboardControl`](guide/keyboard.md): update values on key press instead of a slider.
-- Curve plots (2D signals), [Table outputs](api/data-objects.md), audio support.
+- [Curve plots (2D signals), table outputs and audio support](guide/outputs.md).
 - [`TimeControl`](api/controls.md): play/pause an incrementing timer for animations.
 - [Context API](guide/context-layout.md): share state across filters via the `context`, `layout`, `audio` and `events` proxies.
 - [Panel system](guide/panels.md): group controls into nested, collapsible, detachable panels.
