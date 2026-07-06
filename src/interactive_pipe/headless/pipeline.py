@@ -82,6 +82,7 @@ class HeadlessPipeline(PipelineCore):
         filters_count = {}
         filters_names = []
         control_list = []
+        seen_function_ids = set()
         for filt_dict in graph["call_graph"]:
             # avoid duplicate filters names
             filt_name = filt_dict["function_name"]
@@ -113,7 +114,15 @@ class HeadlessPipeline(PipelineCore):
                     apply_fn=filt_dict["function_object"],
                 )
                 func_kwargs = analyze_apply_fn_signature(filt_dict["function_object"])[1]
-                params_to_analyze = {**func_kwargs, **Control.get_controls(filt_name)}
+                # Registered controls only apply to the first occurrence of a
+                # given function: a repeated filter shares the same Control
+                # objects and reconnecting them would steal the live update
+                # from the first instance.
+                if id(filt_dict["function_object"]) not in seen_function_ids:
+                    registered_controls = Control.get_controls(filt_dict["function_object"])
+                else:
+                    registered_controls = {}
+                params_to_analyze = {**func_kwargs, **registered_controls}
             for param_name, param_value in params_to_analyze.items():
                 if isinstance(param_value, Control):
                     param_value.connect_filter(filt, param_name)
@@ -121,8 +130,22 @@ class HeadlessPipeline(PipelineCore):
                     control_list.append(param_value)
             filters.append(filt)
             filters_names.append(filt_name)
+            seen_function_ids.add(id(filt_dict["function_object"]))
         logging.debug(filters_count)
         logging.debug(filters_names)
+
+        # GUI widgets are keyed by control name: distinct controls sharing a
+        # name within one pipeline would silently drive the wrong filter.
+        controls_by_name = {}
+        for ctrl in control_list:
+            previous = controls_by_name.get(ctrl.name)
+            if previous is not None and previous is not ctrl:
+                raise ValueError(
+                    f"Duplicate control name '{ctrl.name}' in pipeline '{pipe.__name__}': "
+                    "control names must be unique within a pipeline. "
+                    "Pass name=... to one of the controls to disambiguate."
+                )
+            controls_by_name[ctrl.name] = ctrl
 
         # Helper function to convert nested output names to indexes
         def convert_outputs_to_indexes(output_structure):

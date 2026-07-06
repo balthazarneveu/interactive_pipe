@@ -6,7 +6,6 @@ from typing import Dict
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.headless.control import Control
 from interactive_pipe.headless.pipeline import HeadlessPipeline
-from interactive_pipe.helper import _private  # import registered_controls_names
 from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
 from interactive_pipe.helper.keyword_args_analyzer import (
     get_controls_from_decorated_function_declaration,
@@ -88,7 +87,6 @@ def interact(
         if disable:
             return func
         # this will run the GUI automatically
-        _private.registered_controls_names = []
         filter_instance = filter_from_function(func, **decorator_controls)
         filter_instance.run_gui(
             *(decorator_args if not omitted_parentheses_flag else decorator_args[1:]),
