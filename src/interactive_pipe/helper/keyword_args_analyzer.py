@@ -3,12 +3,11 @@ from typing import Callable, Union
 
 from interactive_pipe.core.graph import analyze_apply_fn_signature
 from interactive_pipe.headless.control import Control
-from interactive_pipe.helper import _private
 from interactive_pipe.helper.control_abbreviation import control_from_tuple
 
 
 def __create_control_from_keyword_argument(
-    param_name: str, unknown_keyword_arg: Union[Control, list, tuple]
+    param_name: str, unknown_keyword_arg: Union[Control, list, tuple], seen_control_names: set
 ) -> Union[None, Control]:
     """Create a Control from a given keyword argument named  param_name with value unknown_keyword_arg
 
@@ -16,7 +15,9 @@ def __create_control_from_keyword_argument(
     - If unknown_keyword_arg is a tuple or a list or something else,
     guess the Slider declaration automatically (see `control_from_tuple`)
 
-    You cannot have several controls which have the same attribute .name
+    Control names must be unique within one decorated function
+    (`seen_control_names` is scoped per function, so re-decorating in a
+    notebook or sharing parameter names across filters is fine).
     See https://github.com/balthazarneveu/interactive_pipe/issues/35 for more details
     """
     chosen_control = None
@@ -41,14 +42,15 @@ def __create_control_from_keyword_argument(
             # NOTE: for keyword args, setting a boolean will not trigger a tickmark (although it is possible)
             # Use (True) instead of True if you want to make a tickbox
     if chosen_control is not None:
-        if chosen_control.name in _private.registered_controls_names:
-            raise ValueError(f"{chosen_control.name} already attributed - {_private.registered_controls_names}")
-        _private.registered_controls_names.append(chosen_control.name)
+        if chosen_control.name in seen_control_names:
+            raise ValueError(f"{chosen_control.name} already attributed - {sorted(seen_control_names)}")
+        seen_control_names.add(chosen_control.name)
     return chosen_control
 
 
 def get_controls_from_decorated_function_declaration(func: Callable, decorator_controls: dict):
     controls = {}
+    seen_control_names = set()
     keyword_args = analyze_apply_fn_signature(func)[1]
     keyword_names = list(keyword_args.keys())
 
@@ -62,7 +64,7 @@ def get_controls_from_decorated_function_declaration(func: Callable, decorator_c
     # def func(img1, img2, param_1=Control(...))
 
     for param_name, unknown_keyword_arg in keyword_args.items():
-        chosen_control = __create_control_from_keyword_argument(param_name, unknown_keyword_arg)
+        chosen_control = __create_control_from_keyword_argument(param_name, unknown_keyword_arg, seen_control_names)
         if chosen_control is not None:
             controls[param_name] = chosen_control
 
@@ -74,10 +76,10 @@ def get_controls_from_decorated_function_declaration(func: Callable, decorator_c
                 f"typo: control {param_name} passed through the decorator "
                 f"does not match any of the function keyword args {keyword_names}"
             )
-        chosen_control = __create_control_from_keyword_argument(param_name, unknown_keyword_arg)
+        chosen_control = __create_control_from_keyword_argument(param_name, unknown_keyword_arg, seen_control_names)
         if chosen_control is not None:
             controls[param_name] = chosen_control
 
     for param_name, control in controls.items():
-        Control.register(func.__name__, param_name, control)
+        Control.register(func, param_name, control)
     return controls

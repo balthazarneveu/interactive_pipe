@@ -14,19 +14,25 @@ if TYPE_CHECKING:
 class Control:
     counter = 0
     _registry = {}  # Global registry to store controls for each function
-    _panel_cache = {}  # Cache for string-based panels (to avoid duplicates)
+    # Process-wide by design: same-named string groups share one Panel across filters
+    _panel_cache = {}
+
+    @staticmethod
+    def registry_key(func: Callable) -> str:
+        # Keyed by module + qualname so same-named functions in different
+        # modules do not collide. functools.wraps preserves both, so the key
+        # is identical for a decorated function and its wrapper.
+        return f"{func.__module__}.{func.__qualname__}"
 
     @classmethod
-    def register(cls, func_name, param_name, control_instance):
-        cls._registry.setdefault(func_name, {})[param_name] = control_instance
+    def register(cls, func, param_name, control_instance):
+        cls._registry.setdefault(cls.registry_key(func), {})[param_name] = control_instance
 
     @classmethod
     def get_controls(cls, func):
-        if isinstance(func, Callable):
-            func_name = func.__name__
-        else:
-            func_name = func
-        return cls._registry.get(func_name, {})
+        if not isinstance(func, Callable):
+            raise TypeError(f"get_controls expects the function object, got {type(func)}")
+        return cls._registry.get(cls.registry_key(func), {})
 
     def __init__(
         self,
