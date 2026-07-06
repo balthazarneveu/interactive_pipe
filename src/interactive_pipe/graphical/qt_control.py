@@ -198,14 +198,21 @@ class IntSliderControl(BaseControl):
             raise TypeError(f"Expected int for IntSliderControl default, got {type(valdefault)}")
         slider.setRange(valmin, valmax)
         slider.setValue(valdefault)
-        slider.setSingleStep(1)
-        slider.setPageStep(10)
+        step = self.ctrl.step if self.ctrl.step else 1
+        if not isinstance(step, int):
+            raise TypeError(f"Expected int for IntSliderControl step, got {type(step)}")
+        slider.setSingleStep(step)
+        slider.setPageStep(step)
         # slider.setTickPosition(QSlider.TickPosition.TicksAbove)
-        slider.valueChanged.connect(partial(self.update_func, self.name))
+        slider.valueChanged.connect(partial(self._on_value_changed, valmin, step))
         if self.ctrl.tooltip:
             slider.setToolTip(self.ctrl.tooltip)
         self.control_widget = slider
         return self.control_widget
+
+    def _on_value_changed(self, valmin, step, value):
+        snapped = valmin + round((value - valmin) / step) * step
+        self.update_func(self.name, snapped)
 
     def reset(self):
         value = self.ctrl.value
@@ -227,7 +234,13 @@ class FloatSliderControl(BaseControl):
     def convert_int_to_value(self, val):
         if self.ctrl.value_range is None:
             raise ValueError("value_range must be set for FloatSliderControl")
-        return self.ctrl.value_range[0] + (self.ctrl.value_range[1] - self.ctrl.value_range[0]) * val / 1000  # type: ignore[reportOptionalSubscript,reportOperatorIssue]
+        value_min = self.ctrl.value_range[0]  # type: ignore[reportOptionalSubscript]
+        value_max = self.ctrl.value_range[1]  # type: ignore[reportOptionalSubscript]
+        value = value_min + (value_max - value_min) * val / 1000  # type: ignore[reportOperatorIssue]
+        step = self.ctrl.step
+        if step:
+            value = round((value - value_min) / step) * step + value_min
+        return value
 
     def create(self):
         if self.ctrl.value_range is None:
@@ -257,8 +270,15 @@ class FloatSliderControl(BaseControl):
         if not isinstance(valdefault, (int, float)):
             raise TypeError(f"Expected int or float for FloatSliderControl default, got {type(valdefault)}")
         slider.setValue(self.convert_value_to_int(valdefault))
-        slider.setSingleStep(1)
-        slider.setPageStep(10)
+        value_min = self.ctrl.value_range[0]  # type: ignore[reportOptionalSubscript]
+        value_max = self.ctrl.value_range[1]  # type: ignore[reportOptionalSubscript]
+        if not isinstance(value_min, (int, float)) or not isinstance(value_max, (int, float)):
+            raise TypeError(
+                f"Expected int or float for FloatSliderControl range, got {type(value_min)}, {type(value_max)}"
+            )
+        int_step = max(1, round(self.ctrl.step / (value_max - value_min) * 1000)) if self.ctrl.step else 1
+        slider.setSingleStep(int_step)
+        slider.setPageStep(int_step)
         # slider.setTickPosition(QSlider.TickPosition.TicksAbove)
 
         # Connect the slider's value changed signal to update the line edit

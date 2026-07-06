@@ -57,6 +57,7 @@ class IntSliderNotebookControl(BaseControl):
             min=self.ctrl.value_range[0],  # type: ignore[reportOptionalSubscript]
             max=self.ctrl.value_range[1],  # type: ignore[reportOptionalSubscript]
             value=self.ctrl.value_default,
+            step=self.ctrl.step,
             style=style,
             layout=self.layout,
             tooltip=self.ctrl.tooltip,
@@ -80,6 +81,7 @@ class FloatSliderNotebookControl(BaseControl):
             min=self.ctrl.value_range[0],  # type: ignore[reportOptionalSubscript]
             max=self.ctrl.value_range[1],  # type: ignore[reportOptionalSubscript]
             value=self.ctrl.value_default,
+            step=self.ctrl.step,
             style=style,
             layout=self.layout,
             tooltip=self.ctrl.tooltip,

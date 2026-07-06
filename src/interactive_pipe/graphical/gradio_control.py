@@ -79,7 +79,7 @@ class IntSliderControl(BaseControl):
             minimum=float(self.ctrl.value_range[0]),  # type: ignore[reportOptionalSubscript]
             maximum=float(self.ctrl.value_range[1]),  # type: ignore[reportOptionalSubscript]
             label=self.name,
-            step=1,
+            step=self.ctrl.step,
             info=self.ctrl.tooltip,
         )
         return self.control_widget
@@ -105,6 +105,7 @@ class FloatSliderControl(BaseControl):
             minimum=float(self.ctrl.value_range[0]),  # type: ignore[reportOptionalSubscript]
             maximum=float(self.ctrl.value_range[1]),  # type: ignore[reportOptionalSubscript]
             label=self.name,
+            step=self.ctrl.step,
             info=self.ctrl.tooltip,
         )
 
