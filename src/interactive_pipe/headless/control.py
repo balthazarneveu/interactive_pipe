@@ -243,7 +243,7 @@ class Control:
         if self.update_param_func is not None:
             self.update_param_func(self.value)
 
-    def clone_unconnected(self, name: str) -> "Control":
+    def _clone_unconnected(self, name: str) -> "Control":
         """Shallow clone for a repeated filter instance: same value spec,
         panel and widget type, but a fresh name, the default value and no
         filter connection (the pipeline connects it to the repeat)."""

@@ -126,7 +126,7 @@ class HeadlessPipeline(PipelineCore):
                     # default values.
                     instance_suffix = f"_{filters_count[filt_dict['function_name']]}"
                     registered_controls = {
-                        param_name: ctrl.clone_unconnected(ctrl.name + instance_suffix)
+                        param_name: ctrl._clone_unconnected(ctrl.name + instance_suffix)
                         for param_name, ctrl in Control.get_controls(filt_dict["function_object"]).items()
                         if not isinstance(ctrl, (KeyboardControl, TimeControl))
                     }

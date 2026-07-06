@@ -83,6 +83,7 @@ nav:
       - Quickstart: getting-started/quickstart.md
       - Backends: getting-started/backends.md
   - Guide:
+      - Decorators: guide/decorators.md
       - Controls: guide/controls.md
       - Keyboard: guide/keyboard.md
       - Context, layout & events: guide/context-layout.md
@@ -90,7 +91,6 @@ nav:
       - Tips & tricks: guide/tips.md
       - Examples gallery: guide/examples.md
   - API reference:
-      - Decorators: api/decorators.md
       - Controls: api/controls.md
       - Data objects: api/data-objects.md
       - Context & layout: api/context.md
