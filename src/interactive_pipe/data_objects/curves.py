@@ -261,7 +261,7 @@ class Curve(Data):
         elif isinstance(curves, dict):
             curve_list = [SingleCurve(**curves)]  # type: ignore
             logging.debug("Empty curve")
-        elif isinstance(curves, list) or isinstance(curves, tuple):
+        elif isinstance(curves, (list, tuple)):
             if all(isinstance(item, SingleCurve) for item in curves):
                 curve_list = curves
             else:
@@ -282,7 +282,7 @@ class Curve(Data):
 
     def __create_curve_from_abbreviation(self, curve: Union[list, tuple, dict, SingleCurve, np.ndarray]):
         current_curve = None
-        if isinstance(curve, list) or isinstance(curve, tuple):
+        if isinstance(curve, (list, tuple)):
             if len(curve) < 2:
                 raise ValueError(f"curve must have at least 2 elements (x, y), got {len(curve)} elements: {curve}")
             style = None

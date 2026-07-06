@@ -55,7 +55,7 @@ class HeadlessPipeline(PipelineCore):
         return inputs
 
     @classmethod
-    def from_function(cls, pipe: Callable[..., Any], inputs=None, *, __routing_by_indexes=False, **kwargs):
+    def from_function(cls, pipe: Callable[..., Any], inputs=None, *, _routing_by_indexes=False, **kwargs):
         if not isinstance(pipe, Callable):
             raise TypeError(f"pipe must be Callable, got {type(pipe)}")
         graph = get_call_graph(pipe)
@@ -66,7 +66,7 @@ class HeadlessPipeline(PipelineCore):
         for input_index, input_name in enumerate(graph["args"]):
             all_variables[input_name] = total_index
             function_inputs[input_name] = total_index
-            if __routing_by_indexes:
+            if _routing_by_indexes:
                 input_routing.append(total_index)
             else:
                 input_routing.append(input_name)
@@ -92,7 +92,7 @@ class HeadlessPipeline(PipelineCore):
                 filt_name = filt_name + f"_{filters_count[filt_name]}"
             else:
                 filters_count[filt_name] = 0
-            if __routing_by_indexes:
+            if _routing_by_indexes:
                 inputs_filt = HeadlessPipeline.routing_indexes(filt_dict["args"], all_variables)
                 outputs_filt = HeadlessPipeline.routing_indexes(filt_dict["returns"], all_variables)
             else:
@@ -100,14 +100,14 @@ class HeadlessPipeline(PipelineCore):
                 outputs_filt = filt_dict["returns"]
             logging.debug(f"-----------------> {filt_name} {inputs_filt} {outputs_filt}")
             if isinstance(filt_dict["function_object"], FilterCore):
-                filter = filt_dict["function_object"]
-                filter.inputs = inputs_filt
-                filter.outputs = outputs_filt
-                filter.name = filt_name
-                params_to_analyze = filter.controls
+                filt = filt_dict["function_object"]
+                filt.inputs = inputs_filt
+                filt.outputs = outputs_filt
+                filt.name = filt_name
+                params_to_analyze = filt.controls
             else:
                 # when using the @interactive decorator
-                filter = FilterCore(
+                filt = FilterCore(
                     name=filt_name,
                     inputs=inputs_filt,
                     outputs=outputs_filt,
@@ -117,10 +117,10 @@ class HeadlessPipeline(PipelineCore):
                 params_to_analyze = {**func_kwargs, **Control.get_controls(filt_name)}
             for param_name, param_value in params_to_analyze.items():
                 if isinstance(param_value, Control):
-                    param_value.connect_filter(filter, param_name)
-                    filter.values = {param_name: param_value.value_default}
+                    param_value.connect_filter(filt, param_name)
+                    filt.values = {param_name: param_value.value_default}
                     control_list.append(param_value)
-            filters.append(filter)
+            filters.append(filt)
             filters_names.append(filt_name)
         logging.debug(filters_count)
         logging.debug(filters_names)
@@ -134,7 +134,7 @@ class HeadlessPipeline(PipelineCore):
             else:
                 return output_structure
 
-        if __routing_by_indexes:
+        if _routing_by_indexes:
             outputs = convert_outputs_to_indexes(graph["returns"])
         else:
             outputs = graph["returns"]

@@ -530,7 +530,7 @@ class MainWindow(QWidget if PYQTVERSION else object, InteractivePipeWindow):  # 
             self.showNormal()
             if isinstance(self.size, int):
                 self.setMinimumWidth(self.size)
-            elif isinstance(self.size, tuple) or isinstance(self.size, list):
+            elif isinstance(self.size, (tuple, list)):
                 self.setMinimumWidth(self.size[0])
                 self.setMinimumHeight(self.size[1])
 
