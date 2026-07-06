@@ -41,6 +41,7 @@ class Control:
         tooltip: Hover text displayed on the widget.
 
     Example:
+        ```python
         @interactive(
             gain=Control(1.0, [0.0, 3.0]),  # float slider
             flip=Control(False),  # checkbox
@@ -48,6 +49,7 @@ class Control:
         )
         def my_filter(img, gain=1.0, flip=False, mode="dark"):
             ...
+        ```
     """
 
     counter = 0
@@ -352,9 +354,11 @@ class TimeControl(Control):
         pause_resume_key: Key to pause/resume (default: "p").
 
     Example:
+        ```python
         @interactive(time=TimeControl(update_interval_ms=50))
         def animate(time=0.0):
             return time
+        ```
     """
 
     def __init__(

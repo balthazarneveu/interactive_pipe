@@ -92,9 +92,11 @@ def interact(
             shorthand).
 
     Example:
+        ```python
         @interact(image, gain=(1.0, [0.0, 3.0]))
         def show(img, gain=1.0):
             return img * gain
+        ```
     """
     omitted_parentheses_flag = False
 
@@ -142,9 +144,11 @@ def interactive(**decorator_controls: Any):
             shorthand.
 
     Example:
+        ```python
         @interactive(gain=(1.0, [0.0, 3.0]))
         def amplify(img, gain=1.0):
             return gain * img
+        ```
     """
 
     def wrapper(func):
