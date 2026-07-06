@@ -10,6 +10,7 @@ class Panel:
     - Grid layouts (via list of lists)
 
     Example:
+        ```python
         # Simple panel
         text_panel = Panel("Text Settings")
 
@@ -28,6 +29,7 @@ class Panel:
             [text_panel, color_panel],  # Row 1: side by side
             [effects_panel],            # Row 2: full width
         ])
+        ```
     """
 
     def __init__(
@@ -75,10 +77,12 @@ class Panel:
             self for method chaining
 
         Example:
+            ```python
             main_panel.add_elements([
                 [text_panel, color_panel],  # Row 1
                 [effects_panel],            # Row 2
             ])
+            ```
         """
         self.elements = elements
         self._set_parent_refs()

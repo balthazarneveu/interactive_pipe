@@ -36,11 +36,13 @@ class KeyboardControl(Control):
         group: ``Panel`` instance or panel name used to group controls.
 
     Example:
+        ```python
         @interactive(
             gain=KeyboardControl(1.0, [0.0, 3.0], keydown="g", keyup="h")
         )
         def amplify(img, gain=1.0):
             return gain * img
+        ```
     """
 
     KEY_UP = "up"

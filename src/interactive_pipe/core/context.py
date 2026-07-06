@@ -80,8 +80,10 @@ class _LayoutProxy:
             **style_kwargs: Additional style properties (colormap, vmin, vmax, etc.)
 
         Example:
+            ```python
             layout.style("processed", title=f"Brightness: {brightness:.2f}")
             layout.style("heatmap", title="Heat Map", colormap="viridis", vmin=0, vmax=1)
+            ```
 
         Raises:
             RuntimeError: If called outside of filter execution context.
@@ -103,6 +105,7 @@ class _LayoutProxy:
                         or a 2D list of output names defining the grid arrangement
 
         Example:
+            ```python
             # Single row (flat list)
             layout.grid(["img1", "img2", "img3"])
 
@@ -114,6 +117,7 @@ class _LayoutProxy:
                 ["original", "processed"],
                 ["histogram", "stats"]
             ])
+            ```
 
         Raises:
             RuntimeError: If called outside of filter execution context.
@@ -135,7 +139,9 @@ class _LayoutProxy:
             outputs: List of output names to display in a single row
 
         Example:
+            ```python
             layout.row(["original", "filtered", "result"])
+            ```
 
         Raises:
             RuntimeError: If called outside of filter execution context.
@@ -162,7 +168,9 @@ class _AudioProxy:
             audio_path: Path to the audio file
 
         Example:
+            ```python
             audio.set("path/to/track.mp3")
+            ```
 
         Raises:
             RuntimeError: If called outside of filter execution context.
@@ -176,7 +184,9 @@ class _AudioProxy:
         """Start audio playback.
 
         Example:
+            ```python
             audio.play()
+            ```
 
         Raises:
             RuntimeError: If called outside of filter execution context.
@@ -188,7 +198,9 @@ class _AudioProxy:
         """Pause audio playback.
 
         Example:
+            ```python
             audio.pause()
+            ```
 
         Raises:
             RuntimeError: If called outside of filter execution context.
@@ -200,7 +212,9 @@ class _AudioProxy:
         """Stop audio playback.
 
         Example:
+            ```python
             audio.stop()
+            ```
 
         Raises:
             RuntimeError: If called outside of filter execution context.
@@ -223,12 +237,14 @@ class _EventsProxy:
     the key press - the GUI resets it right after.
 
     Example:
+        ```python
         from interactive_pipe import events, interactive
 
         @interactive()
         def denoise(img):
             strength = 0.5 if events.get("boost_denoise") else 0.1
             return smooth(img, strength)
+        ```
 
     Prefer events.get(name): it returns False for events that were never
     bound, so the same filter also runs headless or in a GUI without the
@@ -284,6 +300,7 @@ def get_context() -> Dict[str, Any]:
         RuntimeError: If called outside of pipeline execution.
 
     Example:
+        ```python
         # In filter A
         @interactive(threshold=(0.5, [0.0, 1.0]))
         def detect_objects(img, threshold=0.5):
@@ -301,6 +318,7 @@ def get_context() -> Dict[str, Any]:
             count = ctx.get("detection_count", 0)
             layout.style("analysis", title=f"Found {count} objects")
             return analysis_result
+        ```
     """
     ctx = _user_context.get()
     if ctx is None:
@@ -323,6 +341,7 @@ class _ContextProxy:
     ctx = get_context(); ctx["key"].
 
     Example:
+        ```python
         from interactive_pipe import context
 
         @interactive()
@@ -336,6 +355,7 @@ class _ContextProxy:
             other_data = context.other_key
 
             return img
+        ```
     """
 
     def __getitem__(self, key: str) -> Any:

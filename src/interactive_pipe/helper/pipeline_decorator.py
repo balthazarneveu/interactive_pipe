@@ -64,6 +64,7 @@ def interactive_pipeline(
             ``state``, ...) is passed; use ``context={...}`` instead.
 
     Example:
+        ```python
         @interactive_pipeline(gui="qt", cache=True)
         def my_pipeline(img):
             flipped = flip(img)
@@ -71,6 +72,7 @@ def interactive_pipeline(
             return flipped, amplified
 
         my_pipeline(input_image)  # opens the interactive window
+        ```
     """
     # Reject removed aliases of the 'context' parameter with a clear message
     for alias in REMOVED_CONTEXT_ALIASES:
