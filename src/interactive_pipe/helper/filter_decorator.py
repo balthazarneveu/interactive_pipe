@@ -126,8 +126,11 @@ def interactive(**decorator_controls):
 
         @functools.wraps(func)
         def inner(*args, **kwargs):
-            # Combine args and kwargs into a single dictionary
-            merged_kwargs = {**kwargs, **controls}
+            # Explicit kwargs take precedence: the pipeline engine passes each
+            # filter instance's own values (a repeated filter gets per-instance
+            # control clones). Registered controls fill the rest so a direct
+            # call of the decorated function uses the live control values.
+            merged_kwargs = {**controls, **kwargs}
             bound_args = inspect.signature(func).bind(*args, **merged_kwargs)
             bound_args.apply_defaults()
 

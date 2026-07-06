@@ -6,6 +6,7 @@ import pytest
 
 from interactive_pipe import interactive
 from interactive_pipe.headless.control import Control
+from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 
 
@@ -67,6 +68,17 @@ def scale(img, amount=0.5):
 def repeated_pipeline(img):
     a = scale(img)
     b = scale(a)
+    return b
+
+
+@interactive(kb_toggle=KeyboardControl(False, keydown="k"))
+def kb_filter(img, kb_toggle=False):
+    return 1.0 - img if kb_toggle else img
+
+
+def repeated_kb_pipeline(img):
+    a = kb_filter(img)
+    b = kb_filter(a)
     return b
 
 
@@ -133,10 +145,26 @@ def test_distinct_control_names_across_filters_build_and_run():
     assert np.allclose(result, img * 0.5 + 0.1)
 
 
-def test_repeated_filter_keeps_single_control_on_first_instance():
-    # Pinned behavior: using one decorated filter twice yields one control,
-    # connected to the first instance (the repeat runs with default values).
+def test_repeated_filter_gets_per_instance_control_clones():
+    # Using one decorated filter twice yields one control per instance: the
+    # original drives the first filter, a suffixed clone drives the repeat.
     pipeline = HeadlessPipeline.from_function(repeated_pipeline, inputs=["img"])
     assert [filt.name for filt in pipeline.filters] == ["scale", "scale_1"]
+    assert [ctrl.name for ctrl in pipeline.controls] == ["amount", "amount_1"]
+    assert pipeline.controls[0].filter_to_connect is pipeline.filters[0]
+    assert pipeline.controls[1].filter_to_connect is pipeline.filters[1]
+    # both instances are driven independently
+    pipeline.controls[0].update(0.5)
+    pipeline.controls[1].update(0.25)
+    img = np.ones((2, 2))
+    (result,) = pipeline(img)
+    assert np.allclose(result, img * 0.5 * 0.25)
+
+
+def test_repeated_filter_keyboard_control_stays_on_first_instance():
+    # Pinned: key-bound controls are not cloned (their key bindings would
+    # collide), so the repeat runs with default values.
+    pipeline = HeadlessPipeline.from_function(repeated_kb_pipeline, inputs=["img"])
+    assert [filt.name for filt in pipeline.filters] == ["kb_filter", "kb_filter_1"]
     assert len(pipeline.controls) == 1
     assert pipeline.controls[0].filter_to_connect is pipeline.filters[0]

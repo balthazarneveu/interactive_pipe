@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from copy import deepcopy
+from copy import copy, deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, List, Optional, Union
 
@@ -202,6 +202,20 @@ class Control:
         self.value = new_value
         if self.update_param_func is not None:
             self.update_param_func(self.value)
+
+    def clone_unconnected(self, name: str) -> "Control":
+        """Shallow clone for a repeated filter instance: same value spec,
+        panel and widget type, but a fresh name, the default value and no
+        filter connection (the pipeline connects it to the repeat)."""
+        clone = copy(self)
+        clone.name = name
+        clone.filter_to_connect = None
+        clone.parameter_name_to_connect = None
+        clone.update_param_func = None
+        clone.reset()
+        if clone.panel is not None:
+            clone.panel._register_control(clone)
+        return clone
 
     def connect_parameter(self, update_param_func: Callable):
         self.update_param_func = update_param_func

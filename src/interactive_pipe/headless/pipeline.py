@@ -6,7 +6,8 @@ from interactive_pipe.core.filter import FilterCore, analyze_apply_fn_signature
 from interactive_pipe.core.graph import get_call_graph
 from interactive_pipe.core.pipeline import PipelineCore
 from interactive_pipe.data_objects.parameters import Parameters
-from interactive_pipe.headless.control import Control
+from interactive_pipe.headless.control import Control, TimeControl
+from interactive_pipe.headless.keyboard import KeyboardControl
 
 
 class HeadlessPipeline(PipelineCore):
@@ -114,14 +115,21 @@ class HeadlessPipeline(PipelineCore):
                     apply_fn=filt_dict["function_object"],
                 )
                 func_kwargs = analyze_apply_fn_signature(filt_dict["function_object"])[1]
-                # Registered controls only apply to the first occurrence of a
-                # given function: a repeated filter shares the same Control
-                # objects and reconnecting them would steal the live update
-                # from the first instance.
                 if id(filt_dict["function_object"]) not in seen_function_ids:
                     registered_controls = Control.get_controls(filt_dict["function_object"])
                 else:
-                    registered_controls = {}
+                    # Repeated filter: the registered Control objects already
+                    # drive the first instance, so each repeat gets clones
+                    # suffixed like the filter name ("amount" -> "amount_1").
+                    # Key/timer-bound controls are not cloned - their key
+                    # bindings would collide - so repeats run those with
+                    # default values.
+                    instance_suffix = f"_{filters_count[filt_dict['function_name']]}"
+                    registered_controls = {
+                        param_name: ctrl.clone_unconnected(ctrl.name + instance_suffix)
+                        for param_name, ctrl in Control.get_controls(filt_dict["function_object"]).items()
+                        if not isinstance(ctrl, (KeyboardControl, TimeControl))
+                    }
                 params_to_analyze = {**func_kwargs, **registered_controls}
             for param_name, param_value in params_to_analyze.items():
                 if isinstance(param_value, Control):
