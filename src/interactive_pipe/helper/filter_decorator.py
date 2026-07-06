@@ -51,8 +51,10 @@ class EnhancedFilterCore(FilterCore):
                 raise ValueError("Filter run returned None, cannot deduce output routing")
             output_routing = [f"output {idx}" for idx in range(len(out))]
             self.outputs = output_routing
-        except Exception as exc:
-            logging.warning(f"cannot automatically deduce the output routing\n{exc}")
+        except Exception:
+            # Broad on purpose: the dry run executes arbitrary user filter code.
+            # Deduction is best-effort; fall back to the provided output_routing.
+            logging.exception("cannot automatically deduce the output routing")
         gui_pipeline = self.get_gui(gui=gui, output_routing=output_routing, size=size)
         gui_pipeline.pipeline.inputs_routing = list(range(len(self.signature[0])))
         gui_pipeline(*args)

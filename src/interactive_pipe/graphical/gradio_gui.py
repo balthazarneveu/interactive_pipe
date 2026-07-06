@@ -69,9 +69,10 @@ class InteractivePipeGradio(InteractivePipeGUI):
             global_params_first_run = copy(self.pipeline.global_params)
             # Do not use deepcopy, it will break the audio playback feature
         except Exception as exc:
+            # Broad on purpose: global_params can hold arbitrary user objects;
+            # if the shallow copy fails, fall back to a shared reference.
             logging.warning(f"Cannot copy global_params: {exc}")
             global_params_first_run = self.pipeline.global_params
-            pass
         out_list = self.window.process_inputs_fn(*self.window.default_values)
         self.pipeline.global_params = global_params_first_run
         # Reset global parameters... in case they were modified by the first run
@@ -452,7 +453,8 @@ class MainWindow(InteractivePipeWindow):
                     try:
                         if self.markdown_description.startswith("#"):
                             title = self.markdown_description.split("\n")[0][1:]
-                    except Exception as _e:  # noqa E722
+                    except AttributeError:
+                        # markdown_description is not a str: keep default title
                         pass
                     with gr.Accordion(title, open=False):
                         gr.Markdown(self.markdown_description)

@@ -249,6 +249,8 @@ class InteractivePipeGUI:
                     ]
                 )
         except Exception as exc:
+            # Broad on purpose: graph display is an optional extra triggered by
+            # a key binding; surface the failure to the user, never crash.
             self.print_message(
                 [
                     f"Failed to display graph: {exc}",

@@ -158,6 +158,8 @@ class PipelineEngine:
                             # out is not iterable (e.g., single value)
                             logging.debug(f"out type-> {type(out)}")
                 except Exception as e:
+                    # Broad on purpose: prc.run executes arbitrary user filter
+                    # code; wrap whatever it raises in FilterError and re-raise.
                     # Create a clean, user-friendly error
                     _, _, tb = sys.exc_info()
                     filter_error = FilterError(prc.name, e, tb)

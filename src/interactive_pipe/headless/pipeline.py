@@ -1,5 +1,4 @@
 import logging
-import traceback
 from pathlib import Path
 from typing import Any, Callable, List, Optional
 
@@ -179,9 +178,10 @@ class HeadlessPipeline(PipelineCore):
         """Open a json/yaml tuning file and set parameters"""
         try:
             self.parameters = Parameters.from_file(path).data
-        except Exception as exc:
-            logging.warning(f"Cannot load parameters from {path}\n{exc}")
-            traceback.print_exc()
+        except Exception:
+            # Broad on purpose: best-effort load, a corrupt/missing tuning file
+            # must not crash the app (bound to a GUI key).
+            logging.exception(f"Cannot load parameters from {path}")
 
     def __repr__(self):
         """Describe filters routing and tuning parameters"""
@@ -275,9 +275,10 @@ class HeadlessPipeline(PipelineCore):
                         # Type narrowing: we've checked hasattr, so this should be safe
                         if hasattr(res_current, "save"):
                             res_current.save(current_name)  # type: ignore
-                except Exception as exc:
-                    logging.warning(f"Cannot save image {current_name}\n{exc}")
-                    traceback.print_exc()
+                except Exception:
+                    # Broad on purpose: one failed output must not abort the
+                    # whole batch save; continue with the remaining outputs.
+                    logging.exception(f"Cannot save image {current_name}")
             # @ TODO: handle proper output suffixes namings
             logging.info(f"saved image {current_name}")
         return path
@@ -351,7 +352,7 @@ class HeadlessPipeline(PipelineCore):
 
         try:
             import graphviz
-        except Exception as exc:
+        except ImportError as exc:
             logging.warning("cannot generate pipeline graph, need to install graphviz")
             logging.warning(exc)
             return None
@@ -413,7 +414,9 @@ class HeadlessPipeline(PipelineCore):
             else:
                 dot.render(self.name, view=view)
         except Exception as exc:
-            # Check if this is an ExecutableNotFound error
+            # Broad on purpose: graph rendering is a best-effort extra; the
+            # string matching below handles ExecutableNotFound even when the
+            # optional import above failed.
             exc_type_name = type(exc).__name__
             if ExecutableNotFound and isinstance(exc, ExecutableNotFound):
                 logging.error(
