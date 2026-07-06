@@ -60,7 +60,7 @@ Head to the [Quickstart](getting-started/quickstart.md) for the full walkthrough
 - [`KeyboardControl`](guide/keyboard.md): update values on key press instead of a slider.
 - [Curve plots (2D signals)](guide/curves.md), [table outputs](guide/tables.md) and [audio support](guide/audio.md).
 - [`TimeControl`](api/controls.md): play/pause an incrementing timer for animations.
-- [Context API](guide/context-layout.md): share state across filters via the `context`, `layout` and `events` proxies.
+- [Context API](guide/context.md): share state across filters via the `context` and `events` proxies; arrange the display with [`layout`](guide/layout.md).
 - [Panel system](guide/panels.md): group controls into nested, collapsible, detachable panels.
 - MIT license.
 

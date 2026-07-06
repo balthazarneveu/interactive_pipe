@@ -17,7 +17,7 @@ def my_filter(img):
 
 ### How do I change the layout?
 
-*Can I change the grid layout of images live? (e.g. comparing 2 images side by side, then switching to a 2x2 grid for debugging)* — Yes, on the Qt backend. Use the `layout` proxy to control image arrangement and styling; see [Context, layout & events](guide/context-layout.md#layout-arrange-and-style-the-outputs).
+*Can I change the grid layout of images live? (e.g. comparing 2 images side by side, then switching to a 2x2 grid for debugging)* — Yes, on the Qt backend. Use the `layout` proxy to control image arrangement and styling; see the [Layout guide](guide/layout.md).
 
 ### Do I have to remove `KeyboardControl` when using gradio or notebook backends?
 
