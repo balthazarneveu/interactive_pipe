@@ -18,7 +18,7 @@ import pytest  # noqa: E402
 
 qt_gui = pytest.importorskip("interactive_pipe.graphical.qt_gui")
 
-from interactive_pipe import interactive, layout  # noqa: E402
+from interactive_pipe import events, interactive, layout  # noqa: E402
 from interactive_pipe.data_objects.curves import Curve, SingleCurve  # noqa: E402
 from interactive_pipe.data_objects.table import Table  # noqa: E402
 from interactive_pipe.headless.control import Control  # noqa: E402
@@ -118,6 +118,20 @@ def detached_filter(img, detached_gain=0.5):
 
 def detached_pipeline(img):
     out = detached_filter(img)
+    return out
+
+
+EVENT_LOG = []
+
+
+@interactive()
+def event_probe(img):
+    EVENT_LOG.append(events.get("noise_evt"))
+    return img
+
+
+def event_pipeline(img):
+    out = event_probe(img)
     return out
 
 
@@ -229,6 +243,18 @@ def test_context_key_event_lifecycle():
     assert observed["during_press"] is True
     # reset after the press so the event only fires for one pipeline run
     assert gui.pipeline.framework_state.events["noise_evt"] is False
+
+
+def test_context_key_event_visible_to_filter_through_events_proxy():
+    EVENT_LOG.clear()
+    gui = build_gui(event_pipeline)
+    gui.bind_key_to_context("n", "noise_evt", "toggle noise event")
+    gui.pipeline.run()
+    # bound key pressed: the run triggered by on_press must see the flag
+    gui.on_press("n", refresh_func=gui.pipeline.run)
+    gui.pipeline.reset_cache()
+    gui.pipeline.run()
+    assert EVENT_LOG == [False, True, False]
 
 
 def test_audio_placeholders_registered():

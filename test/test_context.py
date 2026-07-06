@@ -6,6 +6,7 @@ import pytest
 from interactive_pipe import (
     audio,
     context,
+    events,
     get_context,
     interactive,
     layout,
@@ -39,6 +40,42 @@ def test_audio_operations_outside_pipeline_do_not_crash():
         audio.set("test.mp3")
     with pytest.raises(RuntimeError, match="outside of filter execution"):
         audio.play()
+
+
+def test_events_outside_pipeline_raises_error():
+    """Test that the events proxy raises when used outside filter execution."""
+    with pytest.raises(RuntimeError, match="outside of filter execution"):
+        events["any_event"]
+    with pytest.raises(RuntimeError, match="outside of filter execution"):
+        events.get("any_event")
+
+
+def test_events_readable_from_filter():
+    """Filters read key-bound events through the events proxy."""
+    observed = {}
+
+    @interactive()
+    def event_reader(img):
+        observed["strict"] = events["boost"]
+        observed["get_bound"] = events.get("boost")
+        observed["get_unbound"] = events.get("never_bound")
+        observed["contains"] = "boost" in events
+        observed["keys"] = list(events.keys())
+        return img
+
+    filter_obj = FilterCore(apply_fn=event_reader, inputs=[0], outputs=[0])
+    pipeline = PipelineCore(filters=[filter_obj], inputs=[0], outputs=[[0]], cache=False)
+    pipeline.inputs = [np.ones((4, 4))]
+
+    # the GUI writes the flag (bind_key_to_context / on_press); simulate it
+    pipeline.framework_state.events["boost"] = True
+    pipeline.run()
+
+    assert observed["strict"] is True
+    assert observed["get_bound"] is True
+    assert observed["get_unbound"] is False
+    assert observed["contains"] is True
+    assert observed["keys"] == ["boost"]
 
 
 def test_get_context_returns_user_dict():
