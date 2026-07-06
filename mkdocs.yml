@@ -29,6 +29,11 @@ theme:
         icon: material/brightness-4
         name: Light mode
 
+watch:
+  - src
+  - CHANGELOG.md
+  - CONTRIBUTING.md
+
 markdown_extensions:
   - admonition
   - pymdownx.superfences
