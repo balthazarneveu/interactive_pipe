@@ -1,5 +1,6 @@
 import logging
 from copy import deepcopy
+from typing import Any, List, Optional
 
 import numpy as np
 
@@ -16,7 +17,7 @@ class InteractivePipeWindow:
 
     def __init__(self, *args, name=None, pipeline=None, size=None, style=None, **kwargs) -> None:
         self.name = name
-        self.image_canvas = None
+        self.image_canvas: Optional[List[List[Any]]] = None
         self._size = size
         if style is not None:
             logging.info("no support for style in Qt backend")

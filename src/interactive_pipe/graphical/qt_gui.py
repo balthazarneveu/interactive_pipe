@@ -221,6 +221,8 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
 
         # Track detached panel windows
         self.detached_windows = []
+        # Set by QtPanelBuilder when a TimeControl widget is created
+        self.timer: Optional[QTimer] = None
 
         # Create main vertical layout (replaces QFormLayout)
         main_layout = QVBoxLayout()
@@ -457,7 +459,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         ax_placeholder = None
         image_label = QLabel(self)
         text_label = QLabel(text=f"{row} {col}")
-        self.image_canvas[row][col] = {
+        self.image_canvas[row][col] = {  # type: ignore[reportOptionalSubscript]
             "image": image_label,
             "title": text_label,
             "ax_placeholder": ax_placeholder,
@@ -475,7 +477,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
                 img_widget.setParent(None)
 
     def update_image(self, image_array_original, row, col):
-        cell = self.image_canvas[row][col]
+        cell = self.image_canvas[row][col]  # type: ignore[reportOptionalSubscript]
         if isinstance(image_array_original, np.ndarray) and len(image_array_original.shape) == 1:
             image_array_original = signal_to_curve(image_array_original)
         if isinstance(image_array_original, np.ndarray):

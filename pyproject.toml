@@ -82,6 +82,10 @@ ignore = ["E203"]  # E203: whitespace before ':' (conflicts with black formattin
 [tool.pyright]
 pythonVersion = "3.9"
 typeCheckingMode = "basic"
+# Resolve imports against the project venv (PyQt6, gradio, ...); without
+# this pyright falls back to the system interpreter and cannot see Qt.
+venvPath = "."
+venv = "venv"
 include = ["src"]
 exclude = ["**/venv/**", "**/__pycache__/**", "test/**"]
 reportMissingImports = "none"  # Qt libs and other optional dependencies
