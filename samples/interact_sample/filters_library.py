@@ -1,6 +1,6 @@
 import numpy as np
 
-from interactive_pipe.data_objects.curves import Curve
+from interactive_pipe import Curve
 
 # from interactive_pipe import interact
 
@@ -51,7 +51,7 @@ def switcher(
     img4: np.ndarray,
     choice: int = 0,
     amplify: float = 1.0,
-) -> np.ndarray:
+) -> "tuple[np.ndarray, np.ndarray]":
     return amplify * [img1, img2, img3, img4][choice], img4
 
 

@@ -21,6 +21,7 @@ import numpy as np
 from interactive_pipe import (
     CircularControl,
     Control,
+    Image,
     KeyboardControl,
     TextPrompt,
     context,
@@ -28,7 +29,6 @@ from interactive_pipe import (
     interactive_pipeline,
     layout,
 )
-from interactive_pipe.data_objects.image import Image
 
 
 def get_image_paths(img_folder: Path = Path(__file__).parent / "images"):
@@ -280,8 +280,8 @@ def add_text_overlay(
 )
 def add_noise(
     img: np.ndarray,
-    noise_amount: float = 0.0,
-    enable_noise: bool = False,
+    noise_amount: float = 0.1,
+    enable_noise: bool = True,
 ) -> np.ndarray:
     """Add noise effect (controlled by keyboard)"""
     if not enable_noise:

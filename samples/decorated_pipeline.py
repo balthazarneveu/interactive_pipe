@@ -29,7 +29,7 @@ def black_and_white(img, bnw=True):
 )
 def blend(img0, img1, blend_coeff=0.0):
     # please note that blend_coeff=0. will be replaced by the default 0.5 Control value
-    """Blends between two image.
+    """Blends between two images.
     - when blend_coeff=0 -> image 0  [slider to the left ]
     - when blend_coeff=1 -> image 1   [slider to the right]
     """

@@ -1,3 +1,5 @@
+"""Jukebox demo: touch an icon to play the matching music track (audio + image buttons)"""
+
 import argparse
 from pathlib import Path
 
@@ -5,13 +7,13 @@ import cv2
 
 from interactive_pipe import (
     Control,
+    Image,
     audio,
     context,
     interactive,
     interactive_pipeline,
     layout,
 )
-from interactive_pipe.data_objects.image import Image
 
 root = Path(__file__).parent
 img_folder = root / "images"
@@ -64,7 +66,7 @@ def play_song():
 
 def image_choice():
     song = context.get(TRACK, list(TRACK_DICT.keys())[0])
-    img = Image.from_file(TRACK_DICT[song][IMAGE]).data
+    img = Image.load_image(TRACK_DICT[song][IMAGE])
     max_height = 300
     h, w, _c = img.shape
     if h > max_height:

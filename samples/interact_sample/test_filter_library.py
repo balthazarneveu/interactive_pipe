@@ -7,7 +7,8 @@ def test_switcher():
     assert out == (2 * 3, 3)
 
 
-def test_switcher_visually():
+def switcher_visual_check():
+    """Manual check that pops a GUI: run this file directly, pytest won't collect it"""
     from interactive_pipe import interact
 
     COLOR_DICT = {
@@ -19,6 +20,7 @@ def test_switcher_visually():
     arg_img = [np.array(color_val) * np.ones((64, 64, 3)) for _, color_val in COLOR_DICT.items()]
     r, g, b, w = arg_img
     interact(r, g, b, w, choice=(0, [0, 3]), amplify=[0.0, 2.0])(switcher)
-    # you can still run the original function afterward
-    # out = switcher(0, 1, 2, 3, choice=2, amplify=3)
-    # assert out==(2*3, 3)
+
+
+if __name__ == "__main__":
+    switcher_visual_check()

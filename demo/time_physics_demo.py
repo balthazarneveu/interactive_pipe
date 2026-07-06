@@ -21,7 +21,6 @@ def bouncing_balls(time=0.0, gravity=1.0, n_balls=5, speed=1.0):
     canvas = np.zeros((size, size, 3), dtype=np.float32)
 
     # Ball properties
-    np.random.seed(42)  # Reproducible positions
     radius = 15
 
     # Apply speed multiplier to time

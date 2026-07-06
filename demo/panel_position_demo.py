@@ -16,13 +16,13 @@ from pathlib import Path
 import numpy as np
 
 from interactive_pipe import (
+    Image,
     Panel,
     TextPrompt,
     interactive,
     interactive_pipeline,
     layout,
 )
-from interactive_pipe.data_objects.image import Image
 
 
 def get_image_path():
