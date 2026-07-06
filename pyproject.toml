@@ -20,13 +20,28 @@ description = "Library to create flexible interactive image processing pipelines
 readme = "readme.md"
 requires-python = ">=3.9"
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Software Development :: User Interfaces",
+    "Typing :: Typed",
 ]
 
 [project.urls]
 "Homepage" = "https://github.com/balthazarneveu/interactive_pipe"
+"Documentation" = "https://balthazarneveu.github.io/interactive_pipe/"
+"Source" = "https://github.com/balthazarneveu/interactive_pipe"
+"Changelog" = "https://github.com/balthazarneveu/interactive_pipe/blob/master/CHANGELOG.md"
 "Bug Tracker" = "https://github.com/balthazarneveu/interactive_pipe/issues"
 
 [project.optional-dependencies]
@@ -63,6 +78,9 @@ dev=[
   "ruff>=0.9.0",
   "pyright>=1.1.390",
 ]
+
+[tool.setuptools.package-data]
+interactive_pipe = ["py.typed"]
 
 [tool.ruff]
 line-length = 120
