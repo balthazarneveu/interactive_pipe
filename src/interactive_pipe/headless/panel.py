@@ -63,7 +63,7 @@ class Panel:
         self.parent = None  # Parent panel in hierarchy
         self._controls = []  # Controls assigned to this panel
 
-    def add_elements(self, elements: Union[List["Panel"], List[List["Panel"]]]):
+    def add_elements(self, elements: Union[List["Panel"], List[List["Panel"]]]) -> "Panel":
         """Add child panels with optional grid layout.
 
         Args:

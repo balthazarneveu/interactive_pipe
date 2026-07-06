@@ -31,10 +31,10 @@ class Table(Data):
     columns=None when using numpy array input.
 
     Attributes:
-        .columns - list of column names (empty strings for headerless)
-        .values - 2D list of values (row-major)
-        .title - optional title
-        .precision - float formatting precision
+        columns: List of column names (empty strings for headerless).
+        values: 2D list of values (row-major).
+        title: Optional title.
+        precision: Float formatting precision.
     """
 
     def __init__(
@@ -211,11 +211,11 @@ class Table(Data):
     def _set_file_extensions(self):
         self.file_extensions = [".csv", ".pkl"]
 
-    def as_dataframe(self):
+    def as_dataframe(self) -> "pd.DataFrame":
         """Convert Table to pandas DataFrame.
 
         Returns:
-            pd.DataFrame: Table data as a pandas DataFrame
+            Table data as a pandas DataFrame
 
         Raises:
             RuntimeError: If pandas is not installed
@@ -264,7 +264,7 @@ class Table(Data):
             formatted.append(formatted_row)
         return formatted
 
-    def create_table(self, ax=None):
+    def create_table(self, ax: Optional[Any] = None) -> Any:
         """Create matplotlib table, returns table object.
 
         Args:
@@ -310,7 +310,7 @@ class Table(Data):
 
         return table
 
-    def update_table(self, _table_obj=None, ax=None):
+    def update_table(self, _table_obj: Optional[Any] = None, ax: Optional[Any] = None) -> Any:
         """Update existing matplotlib table.
 
         Note: matplotlib tables don't update well, so we clear and recreate.

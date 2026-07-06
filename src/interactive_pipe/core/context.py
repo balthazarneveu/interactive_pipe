@@ -71,7 +71,7 @@ class _LayoutProxy:
         - row(): Convenience for single-row layout
     """
 
-    def style(self, name: str, *, title: Optional[str] = None, **style_kwargs) -> None:
+    def style(self, name: str, *, title: Optional[str] = None, **style_kwargs: Any) -> None:
         """Set display properties for an output.
 
         Args:

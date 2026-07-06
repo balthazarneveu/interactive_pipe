@@ -1,7 +1,7 @@
 import functools
 import inspect
 import logging
-from typing import Dict
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.headless.control import Control
@@ -63,12 +63,12 @@ class EnhancedFilterCore(FilterCore):
 
 
 def interact(
-    *decorator_args,
-    gui="auto",
-    disable=False,
-    output_routing=None,
-    size=None,
-    **decorator_controls,
+    *decorator_args: Any,
+    gui: str = "auto",
+    disable: bool = False,
+    output_routing: Optional[List[str]] = None,
+    size: Union[str, Tuple[int, int], None] = None,
+    **decorator_controls: Any,
 ):
     """Launch a GUI from a single decorated function (one-shot decorator).
 
@@ -127,7 +127,7 @@ def filter_from_function(apply_fn, default_params=None, **kwargs) -> EnhancedFil
     return filter_instance
 
 
-def interactive(**decorator_controls):
+def interactive(**decorator_controls: Any):
     """Declare controls bound to a filter's keyword arguments.
 
     The decorated function keeps working as a plain function, but when used
