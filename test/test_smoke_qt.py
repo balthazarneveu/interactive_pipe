@@ -1,10 +1,9 @@
 """Qt GUI smoke tests (offscreen).
 
-Pins the behavior of qt_gui.py before/while it is split into modules
-(tech-debt item 1) and the framework-state refactor (item 2): window build,
-layout.style -> __output_styles -> title chain, per-type parameter updates,
-panels/collapsible/detached windows, all update_image branches, audio
-placeholders, key-event lifecycle and a full exec() round-trip.
+Covers window build, the layout.style -> framework_state -> title chain,
+per-type parameter updates, panels/collapsible/detached windows, all
+update_image branches, audio placeholders, key-event lifecycle and a full
+exec() round-trip.
 
 Runs with QT_QPA_PLATFORM=offscreen; skipped entirely when no Qt binding is
 installed. Never open modal dialogs here (help/F1 would block).

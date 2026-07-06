@@ -1,4 +1,4 @@
-"""Unit tests for core/framework_state.py (tech-debt item 2)."""
+"""Unit tests for core/framework_state.py."""
 
 import gc
 import weakref
@@ -13,7 +13,7 @@ from interactive_pipe.core.pipeline import PipelineCore
 
 def test_audio_defaults_are_noops():
     state = FrameworkState()
-    # Must not raise outside a GUI (same silent-skip as the legacy None checks)
+    # Must not raise outside a GUI (silent no-ops)
     state.audio.set_audio("anything.mp3")
     state.audio.play()
     state.audio.pause()
@@ -54,7 +54,7 @@ def test_pipeline_backref_is_weak():
 
     pipeline_ref = weakref.ref(pipeline)
     # Drop the strong references the test holds; the state must not keep the
-    # pipeline alive (this was the legacy __app/__pipeline reference cycle)
+    # pipeline (and through it the GUI) alive
     filt.framework_state = FrameworkState()  # detach the filter's share
     del pipeline, filt
     gc.collect()

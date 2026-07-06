@@ -1,10 +1,9 @@
 """Recursive panel/control widget building for the Qt GUI backend.
 
-Extracted from MainWindow (tech-debt item 1). QtPanelBuilder is stateless:
-every registry it touches (widget_list, name_label, result_label, timer)
-lives on the window, exactly as when this code was inline in qt_gui.py.
-MainWindow keeps thin `_build_panel_widget`/`_create_control_widget`
-delegates with unchanged signatures (DetachedPanelWindow calls them).
+QtPanelBuilder is stateless: every registry it touches (widget_list,
+name_label, result_label, timer) lives on the window. MainWindow exposes
+thin `_build_panel_widget`/`_create_control_widget` delegates
+(DetachedPanelWindow calls them).
 """
 
 import logging

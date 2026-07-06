@@ -1,11 +1,10 @@
 """Gradio GUI smoke tests (no server launch).
 
-Pins the behavior of gradio_gui.py before/while it is split into modules
-(tech-debt item 1) and the framework-state refactor (item 2): the dry-run
-output-type detection, the global_params save/restore around the dry run,
-per-type run_fn conversions, flat slider layouts, panel grouping and audio
-mode. Blocks.launch is monkeypatched so no server or browser ever starts;
-the double launch (instantiate + refresh) is pinned deliberately.
+Covers the dry-run output-type detection, the global_params save/restore
+around the dry run, per-type run_fn conversions, flat slider layouts, panel
+grouping and audio mode. Blocks.launch is monkeypatched so no server or
+browser ever starts; the double launch (instantiate + refresh) is pinned
+deliberately.
 """
 
 import os

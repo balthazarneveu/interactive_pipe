@@ -38,10 +38,10 @@ def get_interactive_pipeline_class(gui: Union[str, Backend, None] = "auto"):
     else:
         selected_gui = gui
     if selected_gui == "qt":
-        # Deliberate (tech_debt item 6): reset handlers to default so Ctrl-C /
-        # SIGTERM kill the Qt event loop. Side effect: clobbers any handlers a
-        # host application installed. If revisited, save/restore around the Qt
-        # event loop or make it opt-out.
+        # Deliberate: reset handlers to default so Ctrl-C / SIGTERM kill the
+        # Qt event loop. Side effect: clobbers any handlers a host application
+        # installed. If revisited, save/restore around the Qt event loop or
+        # make it opt-out.
         signal.signal(signal.SIGINT, signal.SIG_DFL)
         signal.signal(signal.SIGTERM, signal.SIG_DFL)
         from interactive_pipe.graphical.qt_gui import (  # noqa: F811

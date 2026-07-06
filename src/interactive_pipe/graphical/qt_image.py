@@ -1,10 +1,8 @@
 """Display helpers for the Qt GUI backend image grid.
 
-Extracted from MainWindow.update_image (tech-debt item 1): pure numpy ->
-QPixmap conversion, the 1D-signal Curve fallback, and the matplotlib
-canvas-cell helpers. The cell helpers mutate the passed canvas cell dict
-(self.image_canvas[row][col]) exactly like the original inline code did -
-the contract is just visible in the signatures now.
+Pure numpy -> QPixmap conversion, the 1D-signal Curve fallback, and the
+matplotlib canvas-cell helpers. The cell helpers mutate the canvas cell
+dict (window.image_canvas[row][col]) passed to them.
 """
 
 import logging

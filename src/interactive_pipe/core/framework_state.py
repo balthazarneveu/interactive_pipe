@@ -1,11 +1,8 @@
 """Typed framework state shared between the pipeline, filters, GUIs and the
 context proxies (layout/audio).
 
-Replaces the historic magic double-underscore keys stored inside
-pipeline.global_params ("__output_styles", "__pipeline", "__events",
-"__set_audio"/"__play"/"__pause"/"__stop"). global_params itself remains the
-user-facing shared-state dict for class-based filters; it simply no longer
-carries framework internals.
+Framework internals live here; pipeline.global_params is the user-facing
+shared-state dict for class-based filters and carries no framework state.
 
 This module imports nothing from the rest of core, so anything can import it
 without cycles.
@@ -40,8 +37,7 @@ class FrameworkState:
         events: key-bound context events managed by the GUI base class
         audio: audio playback callbacks registered by the GUI backend
         pipeline: back-reference to the owning pipeline, held via weakref so
-            the state never keeps the pipeline (and the GUI) alive - this was
-            the reference cycle of the legacy "__app"/"__pipeline" keys.
+            the state never keeps the pipeline (and the GUI) alive.
     """
 
     output_styles: Dict[str, Dict[str, Any]] = field(default_factory=dict)

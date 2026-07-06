@@ -286,8 +286,8 @@ class InteractivePipeGUI:
         for key_context, event_dict in self.context_key_bindings.items():
             formatted_key_context = self._format_key_for_help(key_context)
             formatted_doc = self._format_docstring_for_help(event_dict["doc"])
-            # NOTE: events currently have no filter-facing reader (tech debt) -
-            # they live in pipeline.framework_state.events
+            # NOTE: events live in pipeline.framework_state.events and currently
+            # have no filter-facing reader (see doc/tech_debt.md)
             help.append(f"[{formatted_key_context}]    : {formatted_doc} (event '{event_dict['param_name']}')")
         self.print_message(help)
         return help

@@ -1,5 +1,5 @@
 """Control registry scoping: cross-module keys, per-function name uniqueness,
-duplicate-name detection at pipeline construction (tech-debt item 4)."""
+duplicate-name detection at pipeline construction."""
 
 import numpy as np
 import pytest
@@ -71,8 +71,8 @@ def repeated_pipeline(img):
 
 
 def test_same_param_name_in_two_filters_does_not_raise():
-    # Before the per-function scoping fix, the second decoration raised
-    # "already attributed" because control names were checked process-wide.
+    # Control-name uniqueness is scoped per decorated function: two filters
+    # may freely share a parameter name.
     @interactive(coeff=(0.5, [0.0, 1.0]))
     def first(img, coeff=0.5):
         return img * coeff
