@@ -16,19 +16,19 @@ def get_interactive_pipeline_class(gui: Union[str, Backend, None] = "auto"):
             try:
                 __IPYTHON__  # type: ignore  # noqa: F821
                 selected_gui = "nb"
-            except Exception:
+            except NameError:
                 try:
                     from interactive_pipe.graphical.qt_gui import (
                         InteractivePipeQT as ChosenGui,
                     )
 
                     selected_gui = "qt"
-                except Exception as qt_import_exception:
+                except ImportError as qt_import_exception:
                     try:
                         import matplotlib.pyplot as plt  # noqa: F401
 
                         selected_gui = "mpl"
-                    except Exception as mpl_import_exception:
+                    except ImportError as mpl_import_exception:
                         raise NameError(
                             "Error in auto backend choice:\n"
                             + f"Could not import Qt: {qt_import_exception}\n"
@@ -38,7 +38,10 @@ def get_interactive_pipeline_class(gui: Union[str, Backend, None] = "auto"):
     else:
         selected_gui = gui
     if selected_gui == "qt":
-        # make sure that the signal handlers are reset to default
+        # Deliberate (tech_debt item 6): reset handlers to default so Ctrl-C /
+        # SIGTERM kill the Qt event loop. Side effect: clobbers any handlers a
+        # host application installed. If revisited, save/restore around the Qt
+        # event loop or make it opt-out.
         signal.signal(signal.SIGINT, signal.SIG_DFL)
         signal.signal(signal.SIGTERM, signal.SIG_DFL)
         from interactive_pipe.graphical.qt_gui import (  # noqa: F811

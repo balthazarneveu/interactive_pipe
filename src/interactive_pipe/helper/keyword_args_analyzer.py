@@ -30,10 +30,10 @@ def __create_control_from_keyword_argument(
                 # Convert list to tuple for type checking
                 tuple_arg = tuple(unknown_keyword_arg) if isinstance(unknown_keyword_arg, list) else unknown_keyword_arg
                 chosen_control = control_from_tuple(tuple_arg, param_name=param_name)
-            except Exception as first_exc:
+            except (TypeError, ValueError, IndexError) as first_exc:
                 try:
                     chosen_control = control_from_tuple((unknown_keyword_arg,), param_name=param_name)
-                except Exception as exc:
+                except (TypeError, ValueError, IndexError) as exc:
                     logging.debug(f"could not build control from bare value {param_name}: {first_exc}")
                     raise ValueError(
                         f"Cannot create a control from {param_name}={unknown_keyword_arg!r}: {exc}"

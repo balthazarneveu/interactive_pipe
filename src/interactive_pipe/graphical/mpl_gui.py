@@ -49,6 +49,8 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
                 if mng is not None and hasattr(mng, "full_screen_toggle"):
                     mng.full_screen_toggle()
             except Exception as exc:
+                # Broad on purpose: full-screen toggling is cosmetic and
+                # backend-specific; never crash over it.
                 logging.warning(f"Cannot maximize screen: {exc}")
         if self.window.fig is None:
             raise RuntimeError("Window figure not initialized")
