@@ -90,6 +90,18 @@ class PipelineCore:
             # Clear user context after execution
             _set_user_context(None)
 
+    def update_user_context(self, context: Optional[Dict[str, Any]]) -> None:
+        """Merge user-provided context into the pipeline's user context.
+
+        The single sanctioned way to feed context in from the outside
+        (GUI __call__ / pipeline __call__); does nothing when context is None.
+        """
+        if context is None:
+            return
+        if not isinstance(context, dict):
+            raise TypeError(f"context must be a dict, got {type(context)}")
+        self._user_context.update(context)
+
     def _reset_global_params(self):
         for filt in self.filters:
             filt.global_params = self.global_params

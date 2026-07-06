@@ -330,11 +330,7 @@ class HeadlessPipeline(PipelineCore):
             if inputs_list is not None and len(inputs_list) == 0:
                 self.inputs = None  # type: ignore
         # Handle context parameter - update user context if provided
-        if context is not None:
-            if isinstance(context, dict):
-                self._user_context.update(context)
-            else:
-                raise TypeError(f"context must be a dict, got {type(context)}")
+        self.update_user_context(context)
         # Only update self.parameters if parameters argument is explicitly provided
         if parameters is not None:
             self.parameters = parameters

@@ -89,11 +89,7 @@ class InteractivePipeGUI:
         if parameters is None:
             parameters = {}
         # Handle context parameter - update user context if provided
-        if context is not None:
-            if isinstance(context, dict):
-                self.pipeline._user_context.update(context)
-            else:
-                raise TypeError(f"context must be a dict, got {type(context)}")
+        self.pipeline.update_user_context(context)
         self.pipeline.parameters = parameters
         self.pipeline.parameters = self.pipeline.parameters_from_keyword_args(**kwargs)
         self.pipeline.inputs = list(args)
