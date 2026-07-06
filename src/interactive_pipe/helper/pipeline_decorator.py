@@ -8,21 +8,69 @@ from interactive_pipe.helper.choose_backend import get_interactive_pipeline_clas
 
 
 def pipeline(pipeline_function: Callable, **kwargs) -> HeadlessPipeline:
+    """Build a ``HeadlessPipeline`` from a pipeline function, without any GUI.
+
+    Non-decorator equivalent of ``interactive_pipeline(gui=None)``, handy for
+    tests and batch processing. Extra keyword arguments are forwarded to
+    ``HeadlessPipeline.from_function``.
+
+    Note: the top-level ``interactive_pipe.pipeline`` alias points to
+    ``interactive_pipeline`` (the decorator), not to this helper.
+    """
     return HeadlessPipeline.from_function(pipeline_function, **kwargs)
 
 
 def interactive_pipeline(
     gui: Union[str, Backend, None] = "auto",
-    safe_input_buffer_deepcopy=True,
-    cache=False,
+    safe_input_buffer_deepcopy: bool = True,
+    cache: bool = False,
     context: Optional[dict] = None,
     markdown_description: Optional[str] = None,
     name: Optional[str] = None,
     **kwargs_gui,
 ) -> Callable[[Callable[..., Any]], Union[HeadlessPipeline, Callable[..., Any]]]:
-    """@interactive_pipeline
+    """Decorator turning a pipeline function into an interactive GUI application.
 
-    Function decorator to add some controls @interactive_pipeline
+    The decorated function chains filters (typically declared with
+    ``@interactive``) and is analyzed statically to build the execution
+    graph. Its body must therefore contain only filter-function calls,
+    assignments and a return statement — no control flow (if/for/while)
+    or arithmetic; put such logic inside the filters themselves.
+
+    Args:
+        gui: Backend used to display the pipeline. One of ``"auto"``,
+            ``"qt"``, ``"mpl"``, ``"nb"`` (Jupyter widgets), ``"gradio"``
+            or a ``Backend`` enum value. ``None`` or ``"headless"``
+            returns a ``HeadlessPipeline`` without launching any GUI.
+        safe_input_buffer_deepcopy: Deep-copy the input buffers before each
+            run so filters cannot mutate the original inputs.
+        cache: Cache intermediate filter outputs between runs so only the
+            filters affected by a control change are re-executed.
+        context: Initial content of the shared context dictionary, readable
+            and writable from filters through the ``context`` proxy.
+        markdown_description: Description displayed by backends that support
+            it (e.g. Gradio).
+        name: Window/application title. Defaults to the function name.
+        **kwargs_gui: Extra options forwarded to the GUI backend,
+            e.g. ``size``.
+
+    Returns:
+        A decorator. Applied to a pipeline function it returns either a
+        ``HeadlessPipeline`` (when ``gui`` is None or ``"headless"``) or a
+        callable that launches the GUI when invoked with the pipeline inputs.
+
+    Raises:
+        TypeError: If a removed pre-0.9.0 context alias (``global_params``,
+            ``state``, ...) is passed; use ``context={...}`` instead.
+
+    Example:
+        @interactive_pipeline(gui="qt", cache=True)
+        def my_pipeline(img):
+            flipped = flip(img)
+            amplified = amplify(flipped)
+            return flipped, amplified
+
+        my_pipeline(input_image)  # opens the interactive window
     """
     # Reject removed aliases of the 'context' parameter with a clear message
     for alias in REMOVED_CONTEXT_ALIASES:

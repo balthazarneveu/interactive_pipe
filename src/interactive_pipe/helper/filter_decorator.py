@@ -70,16 +70,31 @@ def interact(
     size=None,
     **decorator_controls,
 ):
-    """interact decorator allows you to launch a GUI from a single function
+    """Launch a GUI from a single decorated function (one-shot decorator).
 
-    This will directly launch a GUI.
-    This is a "One shot decorator
+    Unlike ``@interactive``, decorating a function with ``@interact``
+    immediately runs it inside a GUI: widgets are created for the declared
+    controls and the window opens right away. Inspired by the ipywidgets
+    ``interact`` function, except that returning numpy arrays or ``Curve``
+    instances handles the display automatically — no matplotlib boilerplate.
 
-    ___________________________________________________________________________
+    Args:
+        *decorator_args: Positional inputs passed to the function
+            (e.g. the input image).
+        gui: Backend, same values as ``interactive_pipeline``
+            (default ``"auto"``).
+        disable: When True, return the function untouched (no GUI).
+        output_routing: Names of the outputs, when they cannot be deduced
+            from a dry run.
+        size: Window/figure size hint forwarded to the backend.
+        **decorator_controls: Controls bound to keyword arguments by name
+            (``Control`` instances or the ``(default, [min, max])`` tuple
+            shorthand).
 
-    Note: `@interact` is a lot inspired by the `iPyWidget` interact function you'd usually use...
-    except that you can return numpy arrays & Curve class instances to automatically deal with the plot mechanism
-    Which avoids writing a lot of matplotlib boiler plate code
+    Example:
+        @interact(image, gain=(1.0, [0.0, 3.0]))
+        def show(img, gain=1.0):
+            return img * gain
     """
     omitted_parentheses_flag = False
 
@@ -113,12 +128,23 @@ def filter_from_function(apply_fn, default_params=None, **kwargs) -> EnhancedFil
 
 
 def interactive(**decorator_controls):
-    """Decorator to declare some controls linked to keyword arguments.
-    Parameters will become "variable" and sliders automatically appear in the GUI.
+    """Declare controls bound to a filter's keyword arguments.
 
-    `@interactive` differs from `interact` in the sense that it will not launch a gui.
-    It is simply used to declare some sliders and allows re-using these functions afterwards.
-    Function decorator to add some controls
+    The decorated function keeps working as a plain function, but when used
+    inside an ``@interactive_pipeline`` the declared controls appear as GUI
+    widgets. Unlike ``@interact``, no GUI is launched at decoration time,
+    so the filter can be reused across pipelines.
+
+    Args:
+        **decorator_controls: Mapping of keyword-argument name to a control
+            declaration — a ``Control`` instance (or subclass such as
+            ``KeyboardControl``) or the ``(default, [min, max])`` tuple
+            shorthand.
+
+    Example:
+        @interactive(gain=(1.0, [0.0, 3.0]))
+        def amplify(img, gain=1.0):
+            return gain * img
     """
 
     def wrapper(func):
