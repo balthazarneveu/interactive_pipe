@@ -38,6 +38,7 @@ markdown_extensions:
   - admonition
   - pymdownx.superfences
   - pymdownx.details
+  - pymdownx.keys
   - pymdownx.snippets:
       base_path: [".", "docs"]
   - toc:
@@ -86,7 +87,6 @@ nav:
       - Keyboard: guide/keyboard.md
       - Context, layout & events: guide/context-layout.md
       - Panels: guide/panels.md
-      - Inline tuple syntax: guide/inline-syntax.md
       - Tips & tricks: guide/tips.md
       - Examples gallery: guide/examples.md
   - API reference:

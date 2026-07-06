@@ -3,7 +3,7 @@ This file demonstrates the inline parameter syntax - the most concise way to def
 interactive parameters, but harder to maintain in production code.
 
 For production code, see: samples/decorated_pipeline.py (decorator parameter syntax)
-For syntax comparison, see: docs/guide/inline-syntax.md
+For syntax comparison, see: samples/decorated_pipeline.py
 """
 
 import numpy as np

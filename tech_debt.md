@@ -22,12 +22,13 @@ small focused commits; pipeline functions must contain only function calls.
 
 ### 1. Doc/status contradiction on inline tuple syntax (untouched by decision)
 
-readme changelog (0.8.9 notes) says inline tuple syntax is deprecated, but
-the code emits no warning and `docs/guide/inline-syntax.md` presents it as a
-supported style. Deliberately left as-is in the July 2026 pass (user
-decision: ignore). If revisited: truly deprecating is awkward because
-`control_from_tuple` is shared with the recommended decorator-kwarg syntax —
-un-deprecating (dropping the readme claim) is the cheap consistent option.
+CHANGELOG (0.8.9 notes) says inline tuple syntax is deprecated, but the code
+emits no warning. The standalone inline-syntax doc page was removed from the
+docs site in July 2026 (too niche); the tuple shorthand is still shown as
+supported in the controls guide. If revisited: truly deprecating is awkward
+because `control_from_tuple` is shared with the recommended decorator-kwarg
+syntax — un-deprecating (dropping the changelog claim) is the cheap
+consistent option.
 
 ## Done in the July 2026 follow-up pass (don't redo)
 
