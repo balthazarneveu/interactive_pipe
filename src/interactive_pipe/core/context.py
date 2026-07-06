@@ -11,11 +11,13 @@ Internal implementation uses contextvars to maintain separate framework and user
 from contextvars import ContextVar
 from typing import Any, Dict, List, Optional, Union
 
+from interactive_pipe.core.framework_state import FrameworkState
+
 # ============================================================================
 # Internal Context Variables (not exported)
 # ============================================================================
 
-_framework_state: ContextVar[Optional[Dict[str, Any]]] = ContextVar("_ip_framework_state", default=None)
+_framework_state: ContextVar[Optional[FrameworkState]] = ContextVar("_ip_framework_state", default=None)
 
 _user_context: ContextVar[Optional[Dict[str, Any]]] = ContextVar("_ip_user_context", default=None)
 
@@ -25,8 +27,8 @@ _user_context: ContextVar[Optional[Dict[str, Any]]] = ContextVar("_ip_user_conte
 # ============================================================================
 
 
-def _get_framework_state() -> Dict[str, Any]:
-    """Internal: Get framework state dict.
+def _get_framework_state() -> FrameworkState:
+    """Internal: Get the typed framework state.
 
     Raises:
         RuntimeError: If called outside of filter execution context.
@@ -41,7 +43,7 @@ def _get_framework_state() -> Dict[str, Any]:
     return state
 
 
-def _set_framework_state(state: Optional[Dict[str, Any]]) -> None:
+def _set_framework_state(state: Optional[FrameworkState]) -> None:
     """Internal: Set framework state (called by filter.run)."""
     _framework_state.set(state)
 
@@ -84,15 +86,13 @@ class _LayoutProxy:
             RuntimeError: If called outside of filter execution context.
         """
         state = _get_framework_state()
-        if "__output_styles" not in state:
-            state["__output_styles"] = {}
 
         style = {}
         if title is not None:
             style["title"] = title
         style.update(style_kwargs)
 
-        state["__output_styles"][name] = style
+        state.output_styles[name] = style
 
     def grid(self, arrangement: Union[List[str], List[List[str]]]) -> None:
         """Set the output grid layout.
@@ -118,7 +118,7 @@ class _LayoutProxy:
             RuntimeError: If called outside of filter execution context.
         """
         state = _get_framework_state()
-        pipeline = state.get("__pipeline")
+        pipeline = state.pipeline
         if pipeline is not None:
             # Convert flat list to nested list (single row)
             if arrangement and isinstance(arrangement[0], str):
@@ -167,9 +167,9 @@ class _AudioProxy:
             RuntimeError: If called outside of filter execution context.
         """
         state = _get_framework_state()
-        setter = state.get("__set_audio")
-        if setter:
-            setter(audio_path)
+        # AudioBindings defaults to no-ops, so this silently does nothing
+        # outside a GUI (same behavior as before)
+        state.audio.set_audio(audio_path)
 
     def play(self) -> None:
         """Start audio playback.
@@ -181,9 +181,7 @@ class _AudioProxy:
             RuntimeError: If called outside of filter execution context.
         """
         state = _get_framework_state()
-        play_fn = state.get("__play")
-        if play_fn:
-            play_fn()
+        state.audio.play()
 
     def pause(self) -> None:
         """Pause audio playback.
@@ -195,9 +193,7 @@ class _AudioProxy:
             RuntimeError: If called outside of filter execution context.
         """
         state = _get_framework_state()
-        pause_fn = state.get("__pause")
-        if pause_fn:
-            pause_fn()
+        state.audio.pause()
 
     def stop(self) -> None:
         """Stop audio playback.
@@ -209,9 +205,7 @@ class _AudioProxy:
             RuntimeError: If called outside of filter execution context.
         """
         state = _get_framework_state()
-        stop_fn = state.get("__stop")
-        if stop_fn:
-            stop_fn()
+        state.audio.stop()
 
 
 # ============================================================================

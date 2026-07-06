@@ -43,7 +43,7 @@ class InteractivePipeWindow:
         if self.pipeline is None:
             raise RuntimeError("Pipeline is not set")
         img_name = self.pipeline.outputs[row][col]
-        current_style = self.pipeline.global_params["__output_styles"].get(img_name, {"title": img_name})
+        current_style = self.pipeline.framework_state.output_styles.get(img_name, {"title": img_name})
         return current_style
 
     def check_image_canvas_changes(self, expected_image_canvas_shape):

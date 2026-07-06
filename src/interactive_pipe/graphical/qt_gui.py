@@ -71,15 +71,11 @@ class InteractivePipeQT(InteractivePipeGUI):
             main_gui=self,
             **kwargs,
         )
-        self.pipeline.global_params["__pipeline"] = self.pipeline
         self.set_default_key_bindings()
 
         if self.audio:
-            # Set up placeholder functions so pipeline can run before audio is ready
-            self.pipeline.global_params["__set_audio"] = lambda x: None
-            self.pipeline.global_params["__play"] = lambda: None
-            self.pipeline.global_params["__pause"] = lambda: None
-            self.pipeline.global_params["__stop"] = lambda: None
+            # AudioBindings defaults are no-ops, so the pipeline can run
+            # before the real player exists.
             # Defer audio initialization to avoid PipeWire sync blocking
             QTimer.singleShot(100, self.audio_player)
 
@@ -174,11 +170,11 @@ class InteractivePipeQT(InteractivePipeGUI):
 
     def audio_player(self):
         self.player = QtAudioPlayer()
-        self.pipeline.global_params["__player"] = self.player.media_player
-        self.pipeline.global_params["__set_audio"] = self.player.set_audio
-        self.pipeline.global_params["__play"] = self.player.play
-        self.pipeline.global_params["__pause"] = self.player.pause
-        self.pipeline.global_params["__stop"] = self.player.stop
+        audio = self.pipeline.framework_state.audio
+        audio.set_audio = self.player.set_audio
+        audio.play = self.player.play
+        audio.pause = self.player.pause
+        audio.stop = self.player.stop
 
 
 class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGeneralTypeIssues]
@@ -221,7 +217,6 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         QWidget.__init__(self, *args, **kwargs)
         InteractivePipeWindow.__init__(self, name=name, pipeline=pipeline, size=size)
         self.main_gui = main_gui
-        self.pipeline.global_params["__window"] = self
         self.setWindowTitle(self.name)
 
         # Track detached panel windows

@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 from interactive_pipe.core.context import REMOVED_CONTEXT_ALIASES, _set_user_context
 from interactive_pipe.core.engine import PipelineEngine
 from interactive_pipe.core.filter import FilterCore
+from interactive_pipe.core.framework_state import FrameworkState
 
 
 class PipelineCore:
@@ -45,9 +46,12 @@ class PipelineCore:
         if context is None:
             context = {}
         self.global_params = context
+        self.framework_state = FrameworkState()
+        self.framework_state.pipeline = self
         for filt in self.filters:
-            # link each filter to global params
+            # link each filter to the shared user dict and framework state
             filt.global_params = self.global_params
+            filt.framework_state = self.framework_state
 
         # Initialize user context (separate from global_params for clean API)
         self._user_context = dict(context) if isinstance(context, dict) else {}
@@ -89,6 +93,7 @@ class PipelineCore:
     def _reset_global_params(self):
         for filt in self.filters:
             filt.global_params = self.global_params
+            filt.framework_state = self.framework_state
 
     @property
     def parameters(self):

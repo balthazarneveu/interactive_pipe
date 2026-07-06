@@ -220,21 +220,22 @@ def test_full_run_exec_and_quit():
 def test_context_key_event_lifecycle():
     gui = build_gui(basic_pipeline)
     gui.bind_key_to_context("n", "noise_evt", "toggle noise event")
-    assert gui.pipeline.global_params["__events"]["noise_evt"] is False
+    assert gui.pipeline.framework_state.events["noise_evt"] is False
     observed = {}
 
     def spy_refresh():
-        observed["during_press"] = gui.pipeline.global_params["__events"]["noise_evt"]
+        observed["during_press"] = gui.pipeline.framework_state.events["noise_evt"]
 
     gui.on_press("n", refresh_func=spy_refresh)
     assert observed["during_press"] is True
     # reset after the press so the event only fires for one pipeline run
-    assert gui.pipeline.global_params["__events"]["noise_evt"] is False
+    assert gui.pipeline.framework_state.events["noise_evt"] is False
 
 
 def test_audio_placeholders_registered():
     gui = build_gui(basic_pipeline, audio=True)
     # Real audio init is deferred via QTimer (never fires without an event
-    # loop): only the no-op placeholders must be in place.
-    for key in ("__set_audio", "__play", "__pause", "__stop"):
-        assert callable(gui.pipeline.global_params[key])
+    # loop): the AudioBindings no-op defaults must be in place.
+    audio_bindings = gui.pipeline.framework_state.audio
+    for callback in (audio_bindings.set_audio, audio_bindings.play, audio_bindings.pause, audio_bindings.stop):
+        assert callable(callback)
