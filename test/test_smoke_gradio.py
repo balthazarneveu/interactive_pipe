@@ -3,7 +3,7 @@
 Covers the dry-run output-type detection, the global_params save/restore
 around the dry run, per-type run_fn conversions, flat slider layouts, panel
 grouping and audio mode. Blocks.launch is monkeypatched so no server or
-browser ever starts; the double launch (instantiate + refresh) is pinned
+browser ever starts; the single launch (with the share flag) is pinned
 deliberately.
 """
 
@@ -130,8 +130,10 @@ def test_end_to_end_build_with_mixed_grid(launch_recorder):
     gui, results = build_and_run(gradio_mixed_pipeline)
     assert isinstance(results, list)
     assert isinstance(gui.window.io, gr.Blocks)
-    # instantiate_gradio_interface launches once, refresh() launches again
-    assert len(launch_recorder) == 2
+    # instantiate_gradio_interface builds then launches exactly once,
+    # forwarding the share flag
+    assert len(launch_recorder) == 1
+    assert launch_recorder[0].get("share") is False
     types = block_types(gui.window.io)
     assert gr.Image in types and gr.Plot in types and gr.Dataframe in types and gr.Textbox in types
     canvas = gui.window.image_canvas
