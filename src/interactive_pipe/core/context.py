@@ -1,8 +1,9 @@
 """Clean context API using contextvars to avoid polluting function signatures.
 
-This module provides three main exports:
+This module provides four main exports:
 - layout: Display control (titles, styles, grid arrangement)
 - audio: Audio playback control
+- events: Read-only access to key-bound context events
 - get_context(): User-defined shared state between filters
 
 Internal implementation uses contextvars to maintain separate framework and user contexts.
@@ -209,6 +210,63 @@ class _AudioProxy:
 
 
 # ============================================================================
+# Events Proxy - Key-Bound Context Events (read-only)
+# ============================================================================
+
+
+class _EventsProxy:
+    """Read-only proxy for key-bound context events.
+
+    GUI backends raise an event flag when a key registered through
+    InteractivePipeGUI.bind_key_to_context is pressed; filters read the flags
+    here. An event stays True only for the single pipeline run triggered by
+    the key press - the GUI resets it right after.
+
+    Example:
+        from interactive_pipe import events, interactive
+
+        @interactive()
+        def denoise(img):
+            strength = 0.5 if events.get("boost_denoise") else 0.1
+            return smooth(img, strength)
+
+    Prefer events.get(name): it returns False for events that were never
+    bound, so the same filter also runs headless or in a GUI without the
+    key binding.
+    """
+
+    def __getitem__(self, name: str) -> bool:
+        """Strict access: raises KeyError if the event was never bound.
+
+        Raises:
+            RuntimeError: If called outside of filter execution context.
+        """
+        return _get_framework_state().events[name]
+
+    def get(self, name: str, default: bool = False) -> bool:
+        """Return the event flag, or `default` when the event is not bound.
+
+        Raises:
+            RuntimeError: If called outside of filter execution context.
+        """
+        return _get_framework_state().events.get(name, default)
+
+    def __contains__(self, name: str) -> bool:
+        """Check whether an event name is bound."""
+        return name in _get_framework_state().events
+
+    def keys(self):
+        """Names of all bound events."""
+        return _get_framework_state().events.keys()
+
+    def __repr__(self) -> str:
+        try:
+            return f"<EventsProxy: {dict(_get_framework_state().events)}>"
+        except RuntimeError:
+            return "<EventsProxy: not in filter execution>"
+
+
+# ============================================================================
 # User Context - Shared State Between Filters
 # ============================================================================
 
@@ -367,4 +425,5 @@ REMOVED_CONTEXT_ALIASES = tuple(key for key in REMOVED_CONTEXT_KWARGS if key != 
 
 layout = _LayoutProxy()
 audio = _AudioProxy()
+events = _EventsProxy()  # Read-only view of key-bound context events
 context = _ContextProxy()  # Direct dict-like access to user context

@@ -6,6 +6,7 @@ from interactive_pipe.core.backend import Backend
 from interactive_pipe.core.context import (
     audio,
     context,  # Direct dict-like access
+    events,  # Key-bound context events (read-only)
     get_context,
     layout,
 )
