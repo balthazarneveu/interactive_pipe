@@ -1,3 +1,5 @@
+"""Multi-image demo: browse images, blur (torch when available) and threshold them"""
+
 import argparse
 import logging
 from pathlib import Path
@@ -5,8 +7,7 @@ from typing import List
 
 import numpy as np
 
-from interactive_pipe import Panel, interactive, interactive_pipeline, layout
-from interactive_pipe.data_objects.image import Image
+from interactive_pipe import Image, Panel, interactive, interactive_pipeline, layout
 
 TORCH_AVAILABLE = True
 try:
@@ -97,8 +98,27 @@ def image_pipeline(img_list: List[Path]):
 # --------------------------------------------------------------------------------------------
 
 
+def main_demo(img_list: List[Path], backend: str = "qt", panel_position: str = "bottom"):
+    blur_panel = Panel("Blurring", position=panel_position)
+
+    # Decorate image selector - similar to @interactive
+    interactive(index=(0, [0, len(img_list) - 1], "image selector", "choice"))(  # from 0 to the number of images
+        img_selector
+    )
+    interactive(
+        half_blur_size=(0, [0, 7], "blur size", blur_panel),
+        gpu=(False, "gpu", blur_panel) if TORCH_AVAILABLE else None,
+    )(blur_image)
+    interactive(threshold=(0.5, [0.0, 1.0], "threshold", blur_panel))(threshold)
+    interactive_pipeline(
+        gui=backend,
+        cache=False,
+        name="Demo interactive",
+        size=(10, 10) if backend == "nb" else None,
+    )(image_pipeline)(img_list)
+
+
 if __name__ == "__main__":
-    img_list = get_paths()
     parser = argparse.ArgumentParser(description="Multi-image demo with backend selection")
     parser.add_argument(
         "-b",
@@ -117,20 +137,4 @@ if __name__ == "__main__":
         help="Panel to use: left, right, top, or bottom (default: bottom)",
     )
     args = parser.parse_args()
-    blur_panel = Panel("Blurring", position=args.panel)
-
-    # Decorate image selector - similar to @interactive
-    interactive(index=(0, [0, len(img_list) - 1], "image selector", "choice"))(  # from 0 to the number of images
-        img_selector
-    )
-    interactive(
-        half_blur_size=(0, [0, 7], "blur size", blur_panel),
-        gpu=(False, "gpu", blur_panel) if TORCH_AVAILABLE else None,
-    )(blur_image)
-    interactive(threshold=(0.5, [0.0, 1.0], "threshold", blur_panel))(threshold)
-    interactive_pipeline(
-        gui=args.backend,
-        cache=False,
-        name="Demo interactive",
-        size=(10, 10) if args.backend == "nb" else None,
-    )(image_pipeline)(img_list)
+    main_demo(get_paths(), backend=args.backend, panel_position=args.panel)

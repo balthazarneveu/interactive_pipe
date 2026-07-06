@@ -17,11 +17,11 @@ from interactive_pipe import (
     CircularControl,
     Control,
     Panel,
+    Table,
     interactive,
     interactive_pipeline,
     layout,
 )
-from interactive_pipe.data_objects.table import Table
 
 
 def create_checkerboard(checker_size: int = 64, board_size: int = 512):
@@ -173,7 +173,7 @@ def apply_color_rotation(
     # Create headerless table for display
     color_table = Table(
         scaled_matrix,
-        title=f"RGB Matrix \nH={hue:.1f}°\nS={saturation:.2f}\nV={value:.2f}",
+        title=f"RGB Matrix\nH={hue:.1f}°\nS={saturation:.2f}\nV={value:.2f}",
         precision=4,
     )
     layout.style("color_table", title="Color Rotation Matrix")

@@ -12,8 +12,7 @@ import argparse
 
 import numpy as np
 
-from interactive_pipe import interactive, interactive_pipeline, layout
-from interactive_pipe.data_objects.curves import Curve
+from interactive_pipe import Curve, interactive, interactive_pipeline, layout
 
 
 @interactive(

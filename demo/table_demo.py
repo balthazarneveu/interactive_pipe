@@ -17,8 +17,7 @@ import argparse
 
 import numpy as np
 
-from interactive_pipe import interactive, interactive_pipeline, layout
-from interactive_pipe.data_objects.table import Table
+from interactive_pipe import Table, interactive, interactive_pipeline, layout
 
 # Try to import pandas, but make it optional
 try:

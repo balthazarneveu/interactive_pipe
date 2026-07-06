@@ -12,8 +12,7 @@ import argparse
 
 import numpy as np
 
-from interactive_pipe import Control, interactive, interactive_pipeline, layout
-from interactive_pipe.data_objects.curves import Curve
+from interactive_pipe import Control, Curve, interactive, interactive_pipeline, layout
 
 
 @interactive(
@@ -200,7 +199,7 @@ if __name__ == "__main__":
         type=str,
         choices=["qt", "gradio", "mpl", "nb", "headless"],
         default="qt",
-        help="Backend to use: qt, gradio, mpl, or nb (default: qt)",
+        help="Backend to use: qt, gradio, mpl, nb, or headless (default: qt)",
     )
     args = parser.parse_args()
 

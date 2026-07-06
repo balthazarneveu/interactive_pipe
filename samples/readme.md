@@ -2,7 +2,7 @@
 
 
 ## Jupyter notebook tutorial
-*Since ipywidgets in notebooks are supported, the tutorial is also available in a [google collab notebook](https://colab.research.google.com/drive/1PZn8P_5TABVCugT3IcLespvZG-gxnFbO?usp=sharing)*
+*Since ipywidgets in notebooks are supported, the tutorial is also available in a [Google Colab notebook](https://colab.research.google.com/drive/1PZn8P_5TABVCugT3IcLespvZG-gxnFbO?usp=sharing)*
 
 ## Code samples
 Please find some [code samples](/samples)
@@ -50,7 +50,7 @@ def black_and_white(img, bnw=True):
 
 @interactive(blend_coeff=(0.5, [0., 1.]))
 def blend(img0, img1, blend_coeff=0.5):
-    '''Blends between two image. 
+    '''Blends between two images.
     - when blend_coeff=0 -> image 0  [slider to the left ] 
     - when blend_coeff=1 -> image 1   [slider to the right] 
     '''
@@ -68,7 +68,7 @@ if __name__ == '__main__':
     sample_pipeline(input_image)
 
 ```
-❤️ This code shall display you a GUI with three images. The middle one is the result of the blend
+❤️ This code should display a GUI with three images. The middle one is the result of the blend.
 
 > Note: If you write `@interactive()` with `def blend(img0, img1, blend_coeff=0.5):`, blend_coeff will simply not be a slider on the GUI.
 
@@ -112,7 +112,7 @@ def black_and_white(img, bnw=True):
 )
 def blend(img0, img1, blend_coeff=0.): 
     # please note that blend_coeff=0. will be replaced by the default 0.5 Control value
-    '''Blends between two image. 
+    '''Blends between two images.
     - when blend_coeff=0 -> image 0  [slider to the left ] 
     - when blend_coeff=1 -> image 1   [slider to the right] 
     '''
@@ -145,7 +145,7 @@ In this first part, we'll define very simple image processing filter functions.
 
 These will be unrelated to interactivity or sliders or anything fancy here!
 
->The important point here is that if you build any library, **you may not want interactive_pipe to interfere with it or even be imported in you module**. Let's keep functions as what they are, clean and simple without a relationship to GUI or interactivity.
+>The important point here is that if you build any library, **you may not want interactive_pipe to interfere with it or even be imported in your module**. Let's keep functions as what they are, clean and simple without a relationship to GUI or interactivity.
 
 
 So let's define 3 very simple image processing functions: `exposure`, `black_and_white` & `blend`.
@@ -196,7 +196,7 @@ def sample_pipeline(input_image):
 
 if __name__ == '__main__':
     input_image = np.array([0., 0.5, 0.8])*np.ones((1, 2, 3)) # (w=2 x h=1) blue image
-    bnw, blended, exposed = sample_pipeline(input_image)
+    exposed, blended, bnw_image = sample_pipeline(input_image)
     print(f"{blended=}")
 #blended=array([[[0. , 0.5, 0.8],
 #        [0. , 0.5, 0.8]]])
@@ -214,7 +214,7 @@ def ugly_verbose_pipeline(input_image, blend_coeff=0.5, bnw=True, coeff=0.8, bia
     blended  = blend(exposed, bnw_image, blend_coeff=blend_coeff)
     return exposed, blended, bnw_image
 # Now you can tweak your parameters as much as you want...
-bnw, blended, exposed = sample_pipeline(input_image, blend_coeff=0.8, coeff=0.7, bias=-0.1, bnw=True)
+exposed, blended, bnw_image = ugly_verbose_pipeline(input_image, blend_coeff=0.8, coeff=0.7, bias=-0.1, bnw=True)
 ```
 
 ### Step 2 : headless pipeline
@@ -239,7 +239,7 @@ print(sample_pipeline)
 ```
 You can see here that the pipeline has been analyzed, parameters have been understood.
 
-The underlying graph can be shown: the pipeline is made of links between our 3 filter. Each filter's outputs are provided to the next filter's inputs and so on.
+The underlying graph can be shown: the pipeline is made of links between our 3 filters. Each filter's outputs are provided to the next filter's inputs and so on.
 
 ```python
 print(sample_pipeline.filters)
@@ -295,7 +295,7 @@ from image_filters import exposure, black_and_white, blend
 from interactive_pipe import interactive, interactive_pipeline, Control
 
 # Let's make each of the three library filters interactive.
-# Please note that image_filters.py was kept the same since the begining and does not depend on interactive_pipe
+# Please note that image_filters.py was kept the same since the beginning and does not depend on interactive_pipe
 interactive(
     coeff= Control(1., [0.5, 2.], name="exposure"),
     bias= Control(0, [-0.2, 0.2], name="offset expo")
@@ -323,5 +323,5 @@ sample_pipeline(input_image)
 You should see a GUI pop now!
 
 
-# Advanced tutorials
+## Advanced tutorials
 - [Under the hood with interactive pipe!](https://colab.research.google.com/drive/1e4IB_jLGgGYonPXFuE9YdnaVNEC_1f19?usp=sharing) : discover what's going on if you want to write a full pipeline graph by yourself without using the somehow "magic" decorators. The point of this example is to discourage you from doing that or if you simply want to learn in depth or help contributing to the interactive pipe. The sample code is also available here: [samples/object_oriented_pipeline_declarations.py](/samples/object_oriented_pipeline_declarations.py)

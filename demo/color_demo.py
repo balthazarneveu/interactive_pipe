@@ -1,4 +1,7 @@
+"""Dropdown & text-prompt demo: pick a color from a menu and set a custom image title"""
+
 import argparse
+from typing import Optional
 
 import numpy as np
 
@@ -13,11 +16,11 @@ COLOR_DICT = {
 
 COLOR_OPTIONS = list(COLOR_DICT.keys())
 
-# Default color - will be updated from command line
+# Default color when calling the filter without a GUI
 DEFAULT_COLOR = "red"
 
 
-def generate_colored_image(color: str = DEFAULT_COLOR, custom_title: str = None):
+def generate_colored_image(color: str = DEFAULT_COLOR, custom_title: Optional[str] = None):
     """Generate a solid colored image based on the selected color"""
     rgb = COLOR_DICT[color]
 
@@ -25,7 +28,7 @@ def generate_colored_image(color: str = DEFAULT_COLOR, custom_title: str = None)
     height, width = 400, 400
     img = np.ones((height, width, 3), dtype=np.float32)
     img[:, :] = rgb
-    if custom_title is not None and isinstance(custom_title, str) and len(custom_title) > 0:
+    if custom_title:
         layout.style("colored_image", title=custom_title)
     else:
         # Set the title to show the selected color

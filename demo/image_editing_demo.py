@@ -1,3 +1,5 @@
+"""Image editing demo: tone & color knobs organized in collapsible/detached panels"""
+
 import argparse
 
 import cv2
@@ -182,7 +184,7 @@ def add_text(img: np.ndarray, text: str = "nothing") -> np.ndarray:
     return result
 
 
-def image_editing_pipeline(img: np.ndarray):  # pyright: ignore[reportUndefinedVariable]
+def image_editing_pipeline(img: np.ndarray):
     output = apply_knobs(img)
     output = add_text(output)
     return output
@@ -201,8 +203,6 @@ def add_interactivity():
 
     color_panel = Panel("Color", collapsible=True, collapsed=False)
     lighting_panel.add_elements([[contrast_panel, stretching_panel]])
-    # main_panel = Panel("Image Editing", collapsible=True, collapsed=True)
-    # main_panel.add_elements([[lighting_panel, color_panel]])
     interactive(
         black_point=Control(
             0.0,
@@ -277,7 +277,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-b",
         "--backend",
-        choices=["qt", "gradio", "mpl"],
+        choices=["qt", "gradio", "mpl", "nb"],
         default="qt",
         help="GUI backend to use (default: qt)",
     )

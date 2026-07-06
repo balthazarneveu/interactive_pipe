@@ -16,13 +16,13 @@ from pathlib import Path
 import numpy as np
 
 from interactive_pipe import (
+    Image,
     Panel,
     TextPrompt,
     interactive,
     interactive_pipeline,
     layout,
 )
-from interactive_pipe.data_objects.image import Image
 
 
 def get_image_path():
@@ -240,7 +240,7 @@ if __name__ == "__main__":
     print("\n" + "=" * 70)
     print("PANEL SYSTEM DEMO")
     print("=" * 70)
-    print("\nThis demo showcases the new Panel system for organizing controls.")
+    print("\nThis demo showcases the Panel system for organizing controls.")
     print("\nPanel Hierarchy:")
     print("  Main Panel 'Processing Controls'")
     print("    ├─ Row 1 (grid):")

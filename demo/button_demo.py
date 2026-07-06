@@ -1,10 +1,11 @@
+"""Image-button demo: icons act as buttons, the selection is shared through the context"""
+
 import argparse
 from pathlib import Path
 
 import cv2
 
-from interactive_pipe import Control, context, interactive, interactive_pipeline, layout
-from interactive_pipe.data_objects.image import Image
+from interactive_pipe import Control, Image, context, interactive, interactive_pipeline, layout
 
 root = Path(__file__).parent
 img_folder = root / "images"
@@ -36,6 +37,7 @@ def selection_choice(selection="elephant"):
 
 
 def handle_selection():
+    """React to the user's selection (here: simply log it to the terminal)"""
     selection = context.get(SELECTION, None)
     first_exec = context.get("first_exec", True)
     if not first_exec:
@@ -48,7 +50,7 @@ def handle_selection():
 
 def image_choice():
     selection = context.get(SELECTION, list(SELECTION_DICT.keys())[0])
-    img = Image.from_file(SELECTION_DICT[selection][IMAGE]).data
+    img = Image.load_image(SELECTION_DICT[selection][IMAGE])
     max_height = 300  # Raspberry pi with a 7" touchscreen
     h, w, _c = img.shape
     if h > max_height:

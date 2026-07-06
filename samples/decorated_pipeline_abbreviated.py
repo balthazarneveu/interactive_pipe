@@ -28,8 +28,8 @@ def black_and_white(img, bnw=(True, "black and white")):
 
 
 @interactive()
-def blend(img0, img1, blend_coeff=([0.0, 1.0])):
-    """Blends between two image.
+def blend(img0, img1, blend_coeff=[0.0, 1.0]):
+    """Blends between two images.
     - when blend_coeff=0 -> image 0  [slider to the left ]
     - when blend_coeff=1 -> image 1   [slider to the right]
     """
