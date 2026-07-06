@@ -14,7 +14,6 @@ from interactive_pipe.headless.control import Control
 from interactive_pipe.headless.panel import Panel
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 
-PYQTVERSION = None
 MPL_SUPPORT = False
 GRADIO_INTERFACE_MODE = False
 try:
@@ -168,95 +167,98 @@ class MainWindow(InteractivePipeWindow):
         self.audio = audio
         self.audio_sampling_rate = audio_sampling_rate
         self.audio_widget = None  # type: ignore[reportAttributeAccessIssue]
-        # Define the functions that will be called when the input changes for gradio. => gr.Interface(fn=process_fn)
-
-        def process_outputs_fn(out) -> tuple:
-            flat_out = []
-            # Iterate over rectangular image_canvas to match container count
-            if self.image_canvas is None:
-                raise RuntimeError("image_canvas not initialized")
-            if out is None:
-                logging.warning("No output to display")
-                return tuple()
-            for idx in range(len(self.image_canvas)):  # type: ignore[reportArgumentType]
-                if idx >= len(out) or out[idx] is None:
-                    continue
-                if isinstance(out[idx], list):
-                    if self.image_canvas[idx] is None:
-                        continue
-                    for idy in range(len(self.image_canvas[idx])):  # type: ignore[reportOptionalSubscript]
-                        # Handle jagged out list - may not have element at this position
-                        if idy >= len(out[idx]) or out[idx][idy] is None:
-                            flat_out.append("")
-                        elif MPL_SUPPORT and isinstance(out[idx][idy], Curve):
-                            # https://github.com/balthazarneveu/interactive_pipe/issues/54
-                            # Update curves instead of creating new ones shall be faster
-                            # Gradio still flickers anyway.
-                            curve = out[idx][idy]
-                            fig, ax = plt.subplots()
-                            Curve._plot_curve(curve.data, ax=ax)
-                            flat_out.append(fig)
-                        elif isinstance(out[idx][idy], Table):
-                            table = out[idx][idy]
-                            # Convert to format expected by gr.Dataframe
-                            # Format: list of lists with first row as headers
-                            # Use _format_values() to apply precision formatting
-                            # Check if this is a headerless table (all columns are empty)
-                            has_headers = any(col != "" for col in table.columns)
-                            if has_headers:
-                                table_data = [table.columns] + table._format_values()
-                            else:
-                                # Headerless table - just show values
-                                table_data = table._format_values()
-                            flat_out.append(table_data)
-                        elif isinstance(out[idx][idy], np.ndarray):
-                            if len(out[idx][idy].shape) == 1:
-                                logging.debug(f"CONVERTING AUDIO  {idx} {idy}")
-                                flat_out.append((self.audio_sampling_rate, out[idx][idy]))
-                            else:
-                                logging.debug(f"CONVERTING IMAGE  {idx} {idy}")
-                                flat_out.append(self.convert_image(out[idx][idy]))
-                        elif isinstance(out[idx][idy], str):
-                            flat_out.append(out[idx][idy])
-                        else:
-                            raise NotImplementedError(f"output type {type(out[idx][idy])} not suported")
-                else:
-                    logging.info(f"CONVERTING IMAGE  {idx} ")
-                    flat_out.append(self.convert_image(out[idx]))
-            if len(flat_out) == 1:
-                return flat_out[0]
-            return tuple(flat_out)
-
-        def process_inputs_fn(*args) -> list:
-            # Only process controls that have widgets (args only contains values for widgets)
-            for idx in range(len(args)):
-                if idx < len(self.ctrl_keys_with_widgets):
-                    ctrl_key = self.ctrl_keys_with_widgets[idx]
-                    self.ctrl[ctrl_key].update(args[idx])
-            if self.pipeline is None:
-                raise RuntimeError("Pipeline is not set")
-            out = self.pipeline.run()  # type: ignore[reportOptionalMemberAccess]
-            if out is None:
-                return []
-            if isinstance(out, tuple):
-                return list(out)
-            return out  # type: ignore[reportReturnType]
-
-        def run_fn(*args) -> tuple:
-            out = process_inputs_fn(*args)
-            out_tuple = process_outputs_fn(out)
-            if self.audio:
-                audio_content = getattr(self, "audio_content", None)
-                html_audio = audio_to_html(audio_content)  # type: ignore[reportOptionalMemberAccess]
-                if isinstance(out_tuple, tuple):
-                    return (*out_tuple, html_audio)
-                else:
-                    return (out_tuple, html_audio)
-            return out_tuple
-
         self.default_values = [self.ctrl[ctrl_key].value for ctrl_key in self.ctrl_keys_with_widgets]
-        self.process_inputs_fn = process_inputs_fn
-        self.run_fn = run_fn
+        # Aliases kept for compatibility: gradio event bindings and
+        # InteractivePipeGradio.run reference these attribute names.
+        self.process_inputs_fn = self.process_inputs
+        self.run_fn = self.run_all
+
+    def process_outputs(self, out) -> tuple:
+        """Convert pipeline outputs to per-type gradio values (flat tuple)."""
+        flat_out = []
+        # Iterate over rectangular image_canvas to match container count
+        if self.image_canvas is None:
+            raise RuntimeError("image_canvas not initialized")
+        if out is None:
+            logging.warning("No output to display")
+            return tuple()
+        for idx in range(len(self.image_canvas)):  # type: ignore[reportArgumentType]
+            if idx >= len(out) or out[idx] is None:
+                continue
+            if isinstance(out[idx], list):
+                if self.image_canvas[idx] is None:
+                    continue
+                for idy in range(len(self.image_canvas[idx])):  # type: ignore[reportOptionalSubscript]
+                    # Handle jagged out list - may not have element at this position
+                    if idy >= len(out[idx]) or out[idx][idy] is None:
+                        flat_out.append("")
+                    elif MPL_SUPPORT and isinstance(out[idx][idy], Curve):
+                        # https://github.com/balthazarneveu/interactive_pipe/issues/54
+                        # Update curves instead of creating new ones shall be faster
+                        # Gradio still flickers anyway.
+                        curve = out[idx][idy]
+                        fig, ax = plt.subplots()
+                        Curve._plot_curve(curve.data, ax=ax)
+                        flat_out.append(fig)
+                    elif isinstance(out[idx][idy], Table):
+                        table = out[idx][idy]
+                        # Convert to format expected by gr.Dataframe
+                        # Format: list of lists with first row as headers
+                        # Use _format_values() to apply precision formatting
+                        # Check if this is a headerless table (all columns are empty)
+                        has_headers = any(col != "" for col in table.columns)
+                        if has_headers:
+                            table_data = [table.columns] + table._format_values()
+                        else:
+                            # Headerless table - just show values
+                            table_data = table._format_values()
+                        flat_out.append(table_data)
+                    elif isinstance(out[idx][idy], np.ndarray):
+                        if len(out[idx][idy].shape) == 1:
+                            logging.debug(f"CONVERTING AUDIO  {idx} {idy}")
+                            flat_out.append((self.audio_sampling_rate, out[idx][idy]))
+                        else:
+                            logging.debug(f"CONVERTING IMAGE  {idx} {idy}")
+                            flat_out.append(self.convert_image(out[idx][idy]))
+                    elif isinstance(out[idx][idy], str):
+                        flat_out.append(out[idx][idy])
+                    else:
+                        raise NotImplementedError(f"output type {type(out[idx][idy])} not suported")
+            else:
+                logging.info(f"CONVERTING IMAGE  {idx} ")
+                flat_out.append(self.convert_image(out[idx]))
+        if len(flat_out) == 1:
+            return flat_out[0]
+        return tuple(flat_out)
+
+    def process_inputs(self, *args) -> list:
+        """Update controls from widget values and run the pipeline."""
+        # Only process controls that have widgets (args only contains values for widgets)
+        for idx in range(len(args)):
+            if idx < len(self.ctrl_keys_with_widgets):
+                ctrl_key = self.ctrl_keys_with_widgets[idx]
+                self.ctrl[ctrl_key].update(args[idx])
+        if self.pipeline is None:
+            raise RuntimeError("Pipeline is not set")
+        out = self.pipeline.run()  # type: ignore[reportOptionalMemberAccess]
+        if out is None:
+            return []
+        if isinstance(out, tuple):
+            return list(out)
+        return out  # type: ignore[reportReturnType]
+
+    def run_all(self, *args) -> tuple:
+        """Full widget-values -> pipeline -> gradio-values round trip."""
+        out = self.process_inputs(*args)
+        out_tuple = self.process_outputs(out)
+        if self.audio:
+            audio_content = getattr(self, "audio_content", None)
+            html_audio = audio_to_html(audio_content)  # type: ignore[reportOptionalMemberAccess]
+            if isinstance(out_tuple, tuple):
+                return (*out_tuple, html_audio)
+            else:
+                return (out_tuple, html_audio)
+        return out_tuple
 
     def instantiate_gradio_interface(self, outputs: List[gr.components.Component]):  # type: ignore[reportInvalidTypeForm]
         if GRADIO_INTERFACE_MODE:
