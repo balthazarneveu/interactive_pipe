@@ -1,6 +1,6 @@
 import logging
 import sys
-from typing import List, Optional, Union, cast
+from typing import List, Optional
 
 import numpy as np
 
@@ -39,6 +39,12 @@ from interactive_pipe.graphical.qt_backend import (  # noqa: F401
     Table,
 )
 from interactive_pipe.graphical.qt_control import ControlFactory
+from interactive_pipe.graphical.qt_image import (
+    numpy_to_pixmap,
+    signal_to_curve,
+    update_curve_cell,
+    update_table_cell,
+)
 
 # Re-exported for backward compatibility (they lived in this module until 0.9.x)
 from interactive_pipe.graphical.qt_widgets import CollapsibleBox, DetachedPanelWindow  # noqa: F401
@@ -621,103 +627,19 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
                 img_widget.setParent(None)
 
     def update_image(self, image_array_original, row, col):
+        cell = self.image_canvas[row][col]
         if isinstance(image_array_original, np.ndarray) and len(image_array_original.shape) == 1:
-            logging.warning(
-                "Audio playback not supported with 1D signal"
-                + "\nuse live audio instead while using Qt!"
-                + "\nuse instead: context['__set_audio'](audio_track)"
-                + "\nSee example here: https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/jukebox.py"
-            )
-            logging.warning("We'll try to display the audio signal as an image instead")
-            image_array_original = Curve(
-                cast(
-                    List[Union[SingleCurve, list, tuple, dict, np.ndarray]],
-                    [
-                        SingleCurve(
-                            # x=np.linspace(0, image_array_original.shape[0]/44100, image_array_original.shape[0]),
-                            y=image_array_original,
-                            # style="k"
-                        )
-                    ],
-                ),
-                # xlabel="Time[s]",
-                ylabel="Amplitude",
-            )
-        elif isinstance(image_array_original, np.ndarray) and len(image_array_original.shape) > 1:
-            if len(image_array_original.shape) == 2:
-                # Consider black & white
-                image_array = image_array_original.copy()
-                c = 3
-                image_array = np.expand_dims(image_array, axis=-1)
-                image_array = np.repeat(image_array, c, axis=-1)
-            elif len(image_array_original.shape) == 3:
-                if not isinstance(image_array_original, np.ndarray):
-                    raise TypeError(f"Expected numpy array, got {type(image_array_original)}")
-                if image_array_original.shape[-1] != 3:
-                    raise ValueError(f"Expected 3-channel image, got {image_array_original.shape[-1]} channels")
-                image_array = image_array_original
-            else:
-                raise NotImplementedError(
-                    f"{image_array_original.shape}4 dimensions image or more like burst are not supported"
-                )
-            h, w, c = image_array.shape
-            bytes_per_line = c * w
-            # Convert numpy array data to bytes for QImage
-            image_bytes = image_array.tobytes()
-            image = QImage(image_bytes, w, h, bytes_per_line, QImage.Format.Format_RGB888)
-            pixmap = QPixmap.fromImage(image)
-            image_label = self.image_canvas[row][col]["image"]
-            image_label.setPixmap(pixmap)
+            image_array_original = signal_to_curve(image_array_original)
+        if isinstance(image_array_original, np.ndarray):
+            cell["image"].setPixmap(numpy_to_pixmap(image_array_original))
+        elif MPL_SUPPORT and FigureCanvas is not None and isinstance(image_array_original, Curve):
+            update_curve_cell(cell, self.image_grid_layout, row, col, image_array_original)
+        elif MPL_SUPPORT and FigureCanvas is not None and isinstance(image_array_original, Table):
+            update_table_cell(cell, self.image_grid_layout, row, col, image_array_original)
         elif isinstance(image_array_original, str):
-            txt_label = self.image_canvas[row][col]["image"]
-            txt_label.setText(image_array_original)
-        if not isinstance(image_array_original, np.ndarray):
-            image_array = image_array_original
-            if MPL_SUPPORT and isinstance(image_array, Curve) and FigureCanvas is not None:
-                image_label = FigureCanvas(Figure(figsize=(10, 10)))
-                if self.image_canvas[row][col]["ax_placeholder"] is None:
-                    ax_placeholder = image_label.figure.subplots()
-                    self.image_canvas[row][col]["image"] = image_label
-                    self.image_grid_layout.addWidget(
-                        image_label,
-                        2 * row + 1,
-                        col,
-                        alignment=Qt.AlignmentFlag.AlignCenter,
-                    )
-                    self.image_canvas[row][col]["ax_placeholder"] = ax_placeholder
-                ax = self.image_canvas[row][col]["ax_placeholder"]
-                plt_obj = self.image_canvas[row][col].get("plot_object", None)
-                if isinstance(image_array, Curve):
-                    if plt_obj is None:
-                        self.image_canvas[row][col]["plot_object"] = image_array.create_plot(ax=ax)  # type: ignore[reportAttributeAccessIssue]
-                    else:
-                        image_array.update_plot(plt_obj, ax=ax)  # type: ignore[reportAttributeAccessIssue]
-                        ax.figure.canvas.draw()
-            elif MPL_SUPPORT and isinstance(image_array, Table) and FigureCanvas is not None:
-                image_label = FigureCanvas(Figure(figsize=(10, 10)))
-                if self.image_canvas[row][col]["ax_placeholder"] is None:
-                    ax_placeholder = image_label.figure.subplots()
-                    self.image_canvas[row][col]["image"] = image_label
-                    self.image_grid_layout.addWidget(
-                        image_label,
-                        2 * row + 1,
-                        col,
-                        alignment=Qt.AlignmentFlag.AlignCenter,
-                    )
-                    self.image_canvas[row][col]["ax_placeholder"] = ax_placeholder
-                ax = self.image_canvas[row][col]["ax_placeholder"]
-                table_obj = self.image_canvas[row][col].get("plot_object", None)
-                if isinstance(image_array, Table):
-                    if table_obj is None:
-                        self.image_canvas[row][col]["plot_object"] = image_array.create_table(ax=ax)  # type: ignore[reportAttributeAccessIssue]
-                    else:
-                        image_array.update_table(table_obj, ax=ax)  # type: ignore[reportAttributeAccessIssue]
-                    ax.figure.canvas.draw()
-            elif isinstance(image_array, str):
-                txt_label = self.image_canvas[row][col]["image"]
-                txt_label.setText(image_array)
-        text_label = self.image_canvas[row][col]["title"]
-        text_label.setText(self.get_current_style(row, col).get("title", ""))
+            cell["image"].setText(image_array_original)
+        # Title update stays unconditional and last
+        cell["title"].setText(self.get_current_style(row, col).get("title", ""))
 
     @staticmethod
     def convert_image(out_im):
