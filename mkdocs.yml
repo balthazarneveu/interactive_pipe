@@ -56,6 +56,10 @@ plugins:
             members_order: source
             separate_signature: true
             show_signature_annotations: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
   - llmstxt:
       markdown_description: >-
         interactive_pipe turns plain python processing functions into
