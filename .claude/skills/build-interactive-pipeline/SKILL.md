@@ -52,7 +52,7 @@ def pipe(img):                            def pipe(img):
 | Int slider | `size=(5, [1, 15])` (int default + int bounds; optional `step`) |
 | Checkbox | `flip=(True,)` — note the trailing comma |
 | Dropdown | `mode=("dark", ["dark", "light"])` or just `mode=["dark", "light"]` |
-| Key toggle | `flip=(True, "flip", "k")` — press k instead of a checkbox |
+| Key toggle | `flip=KeyboardControl(True, keydown="k")` — press k instead of a checkbox (no tuple shorthand for key bindings) |
 | Explicit object | `gain=Control(1.0, [0.0, 3.0], name="gain", step=0.1, group="Panel A", tooltip="...")` |
 | Keyboard-driven | `idx=KeyboardControl(0, [0, 2], keydown="pagedown", keyup="pageup", modulo=True)` |
 | Text box | `txt=TextPrompt("hello")` |

@@ -4,21 +4,23 @@ A control binds a GUI widget to a filter keyword argument. Declare controls in t
 
 ## Declaration patterns
 
-| You want | Declaration | Widget |
-|---|---|---|
-| Float slider | `gain=(1.0, [0.5, 2.0])` | slider with 1/100-range step |
-| Float slider, custom label | `gain=(1.0, [0.5, 2.0], "exposure")` | slider labelled "exposure" |
-| Int slider | `size=(5, [1, 15])` | slider with step 1 |
-| Checkbox | `flip=(True,)` or `flip=Control(True)` | tick box |
-| Dropdown | `mode=(["dark", "light"])` | menu, first element is the default |
-| Dropdown, explicit default | `mode=("light", ["dark", "light"])` | menu defaulting to "light" |
-| Key binding instead of widget | `flip=(True, "flip", "k")` | press ++k++ to toggle |
-| Free text box | `TextPrompt("Hello world!")` | text entry |
-| Circular slider (Qt) | `CircularControl(90, [0, 360], modulo=True)` | rotary dial |
-| Key-driven value | `KeyboardControl(...)` | see [Keyboard](keyboard.md) |
-| Animated timer | `TimeControl(update_interval_ms=50)` | auto-incrementing time |
+Every control can be declared two ways: a **tuple shorthand** `(default, range, name, group)` for conciseness, or an **explicit object** when you need the extra arguments (`step`, `icons`, `tooltip`, ...). Both are equivalent; specialized widgets (keyboard, circular, timer) only exist as explicit objects.
 
-The tuple shorthand `(default, [min, max], name)` is equivalent to `Control(default, [min, max], name=name)`. Use `Control` objects when you need the extra arguments (`step`, `icons`, `group`, `tooltip`):
+| You want | Tuple shorthand | Explicit object |
+|---|---|---|
+| Float slider | `gain=(1.0, [0.5, 2.0])` | `gain=Control(1.0, [0.5, 2.0])` |
+| ... with a custom label | `gain=(1.0, [0.5, 2.0], "exposure")` | `gain=Control(1.0, [0.5, 2.0], name="exposure")` |
+| Int slider (step 1) | `size=(5, [1, 15])` | `size=Control(5, [1, 15])` |
+| Checkbox | `flip=(True,)` | `flip=Control(True)` |
+| Dropdown | `mode=("light", ["dark", "light"])` | `mode=Control("light", ["dark", "light"])` |
+| Dropdown, first choice as default | `mode=["dark", "light"]` | — |
+| Free text box | `txt=("Hello world!", None)` | `txt=TextPrompt("Hello world!")` |
+| Grouped in a panel | `gain=(1.0, [0.5, 2.0], "gain", "Panel A")` | `gain=Control(1.0, [0.5, 2.0], group="Panel A")` |
+| Key-driven value ([Keyboard](keyboard.md)) | — | `idx=KeyboardControl(0, [0, 2], keydown="pagedown", keyup="pageup", modulo=True)` |
+| Circular slider (Qt) | — | `angle=CircularControl(90, [0, 360], modulo=True)` |
+| Animated timer | — | `t=TimeControl(update_interval_ms=50)` |
+
+Use `Control` objects when you need the extra arguments:
 
 ```python
 from interactive_pipe import interactive, Control
