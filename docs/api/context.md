@@ -1,6 +1,6 @@
 # Context & layout
 
-The proxies importable from `interactive_pipe` for sharing state and controlling the display — see the [guide](../guide/context-layout.md) for usage patterns.
+The proxies importable from `interactive_pipe` for sharing state and controlling the display — see the [Context & events](../guide/context.md) and [Layout](../guide/layout.md) guides for usage patterns.
 
 ::: interactive_pipe.core.context.get_context
 

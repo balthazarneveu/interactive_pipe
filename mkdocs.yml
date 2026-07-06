@@ -89,14 +89,18 @@ nav:
       - Quickstart: getting-started/quickstart.md
       - Backends: getting-started/backends.md
   - Guide:
-      - Decorators: guide/decorators.md
-      - Controls: guide/controls.md
-      - Curve plots: guide/curves.md
-      - Tables: guide/tables.md
-      - Audio: guide/audio.md
-      - Keyboard: guide/keyboard.md
-      - Context, layout & events: guide/context-layout.md
-      - Panels: guide/panels.md
+      - Pipeline:
+          - Decorators: guide/decorators.md
+          - Context & events: guide/context.md
+      - Displaying results:
+          - Layout: guide/layout.md
+          - Audio: guide/audio.md
+          - Tables: guide/tables.md
+          - Curve plots: guide/curves.md
+      - Widgets:
+          - Controls: guide/controls.md
+          - Panels: guide/panels.md
+          - Keyboard: guide/keyboard.md
       - Tips & tricks: guide/tips.md
       - Examples gallery: guide/examples.md
   - API reference:
