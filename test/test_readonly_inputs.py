@@ -158,6 +158,86 @@ def test_interactive_decorator_default_blocks_mutation():
         headless(input_image)
 
 
+class _FakeTensor:
+    """Mimics the duck-typed torch surface the engine relies on: type(x).__module__
+    rooted at "torch" and an autograd version counter bumped by in-place ops."""
+
+    __module__ = "torch"
+
+    def __init__(self, value=0.0):
+        self.value = value
+        self._version = 0
+
+    def mul_(self, factor):  # in-place op, like torch
+        self.value *= factor
+        self._version += 1
+        return self
+
+
+def test_torch_tensor_inplace_mutation_detected():
+    """Torch tensors cannot be made read-only: mutation is detected right after the
+    filter runs through the version counter, on the very first run."""
+
+    def bad(tensor, gain=2.0):
+        tensor.mul_(gain)
+        return [tensor]
+
+    filt = FilterCore(apply_fn=bad, inputs=[0], outputs=[1])
+    pip = PipelineCore(filters=[filt], inputs=[0], outputs=[1])
+    pip.inputs = [_FakeTensor(3.0)]
+
+    with pytest.raises(FilterError) as exc_info:
+        pip.run()
+    assert isinstance(exc_info.value.original_error, RuntimeError)
+    assert "in-place mutation of a torch tensor" in str(exc_info.value.original_error)
+
+
+def test_torch_tensor_inplace_filter_allowed():
+    """inplace=True filters receive deep copies: tensor mutation is safe and permitted."""
+
+    def legacy(tensor, gain=2.0):
+        tensor.mul_(gain)
+        return [tensor]
+
+    original = _FakeTensor(3.0)
+    filt = FilterCore(apply_fn=legacy, inputs=[0], outputs=[1], inplace=True)
+    pip = PipelineCore(filters=[filt], inputs=[0], outputs=[1], safe_input_buffer_deepcopy=False)
+    pip.inputs = [original]
+
+    res = pip.run()
+    assert res[1].value == 6.0
+    assert original.value == 3.0  # the filter mutated a private copy
+
+
+def test_torch_tensor_nested_in_list_detected():
+    def bad(tensor_list):
+        tensor_list[0].mul_(2.0)
+        return [tensor_list[0]]
+
+    filt = FilterCore(apply_fn=bad, inputs=[0], outputs=[1])
+    pip = PipelineCore(filters=[filt], inputs=[0], outputs=[1])
+    pip.inputs = [[_FakeTensor(1.0)]]
+
+    with pytest.raises(FilterError):
+        pip.run()
+
+
+def test_torch_real_tensor_mutation_detected():
+    """Same contract against real torch, when available."""
+    torch = pytest.importorskip("torch")
+
+    def bad(tensor, gain=2.0):
+        tensor += gain  # in-place on torch tensors
+        return [tensor]
+
+    filt = FilterCore(apply_fn=bad, inputs=[0], outputs=[1])
+    pip = PipelineCore(filters=[filt], inputs=[0], outputs=[1])
+    pip.inputs = [torch.zeros(2, 3)]
+
+    with pytest.raises(FilterError):
+        pip.run()
+
+
 def test_readonly_inputs_with_graph_cache():
     """Protection composes with the dependency-aware cache: cache hits serve buffers
     that stay safe from downstream mutation."""
