@@ -32,6 +32,8 @@ def interactive_pipeline(
     - True: sequential prefix cache (a change recomputes every filter after it in source order)
     - "graph": dependency-aware cache - only filters actually affected by a change are
       recomputed, following the data-flow graph and runtime-tracked `context` usage
+    - "graph-strict": same as "graph", but context reads return numpy arrays as read-only
+      views so accidental in-place mutation raises at the offending line (debug helper)
     """
     # Handle deprecated aliases for context parameter
     for alias in _CONTEXT_ALIASES:

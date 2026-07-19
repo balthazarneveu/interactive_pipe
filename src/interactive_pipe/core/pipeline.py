@@ -3,7 +3,7 @@ import warnings
 from typing import Any, Dict, List, Optional, Union
 
 from interactive_pipe.core.context import _set_user_context
-from interactive_pipe.core.context_tracking import ContextTracker
+from interactive_pipe.core.context_tracking import GRAPH_CACHE_MODES, ContextTracker
 from interactive_pipe.core.engine import PipelineEngine
 from interactive_pipe.core.filter import FilterCore
 
@@ -70,7 +70,7 @@ class PipelineCore:
         if self._graph_cache_mode:
             # dependency-aware cache: track context reads/writes per filter so
             # context-based data dependencies invalidate the right cached results
-            self._user_context = ContextTracker(self._user_context)
+            self._user_context = ContextTracker(self._user_context, strict=self.engine.cache == "graph-strict")
             self.engine.context_tracker = self._user_context
 
         self.reset_cache()
@@ -99,7 +99,7 @@ class PipelineCore:
 
     @property
     def _graph_cache_mode(self) -> bool:
-        return self.engine.cache == "graph"
+        return self.engine.cache in GRAPH_CACHE_MODES
 
     @property
     def global_params(self):

@@ -10,8 +10,10 @@ Covers:
 """
 
 import numpy as np
+import pytest
 
 from interactive_pipe.core.context import context
+from interactive_pipe.core.engine import FilterError
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.pipeline import PipelineCore
 
@@ -475,10 +477,58 @@ def test_graph_cache_external_inplace_mutation_detected():
 
 def test_graph_cache_results_match_no_cache():
     """Graph cache must produce the same results as running without cache."""
-    for cache in [False, "graph"]:
+    for cache in [False, "graph", "graph-strict"]:
         counters = {"branch_a": 0, "branch_b": 0, "merge": 0}
         pip = make_diamond_pipeline(counters, cache=cache)
         pip.run()
         pip.parameters = {"branch_b": {"gain_b": 3.0}, "merge": {"blend": 0.25}}
         res = pip.run()
         assert np.allclose(res[3], 0.25 * input_image + 0.75 * 3.0 * input_image)
+
+
+def test_graph_strict_blocks_inplace_ndarray_mutation():
+    """cache="graph-strict": context reads hand out read-only numpy views, so
+    in-place mutation raises at the offending line instead of being absorbed."""
+
+    def bad(img):
+        context["acc"][0, 0] = 5.0  # mutation of a read-only view -> ValueError
+        return [img]
+
+    filt = FilterCore(apply_fn=bad, inputs=[0], outputs=[1])
+    pip = PipelineCore(filters=[filt], inputs=[0], outputs=[1], context={"acc": np.zeros((2, 2))}, cache="graph-strict")
+    pip.inputs = [input_image]
+
+    with pytest.raises(FilterError) as exc_info:
+        pip.run()
+    assert isinstance(exc_info.value.original_error, ValueError)
+
+
+def test_graph_strict_allows_reads_and_reassignment():
+    """Strict mode does not break legitimate patterns: reading arrays and assigning
+    fresh ones works, and the graph cache semantics are preserved."""
+    counters = {"writer": 0, "reader": 0}
+
+    def writer(img, gain=2.0):
+        counters["writer"] += 1
+        base = context["acc"]  # read-only view is fine to read
+        context["acc"] = base * gain  # assigning a fresh array is the supported way
+        return [img]
+
+    def reader(img):
+        counters["reader"] += 1
+        return [img + context["acc"]]
+
+    filt_w = FilterCore(apply_fn=writer, inputs=[0], outputs=[1])
+    filt_r = FilterCore(apply_fn=reader, inputs=[0], outputs=[2])
+    pip = PipelineCore(
+        filters=[filt_w, filt_r],
+        inputs=[0],
+        outputs=[2],
+        context={"acc": np.ones((2, 3))},
+        cache="graph-strict",
+    )
+    pip.inputs = [input_image]
+
+    res = pip.run()
+    assert counters == {"writer": 1, "reader": 1}
+    assert np.allclose(res[2], input_image + 2.0)

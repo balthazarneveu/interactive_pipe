@@ -6,7 +6,7 @@ import traceback
 from copy import deepcopy
 from typing import List, Optional, Set, Union
 
-from interactive_pipe.core.context_tracking import ContextTracker
+from interactive_pipe.core.context_tracking import GRAPH_CACHE_MODES, ContextTracker
 from interactive_pipe.core.filter import FilterCore
 
 
@@ -123,6 +123,8 @@ class PipelineEngine:
       or a context key it reads was updated (tracked at runtime through a ContextTracker).
       Filters using legacy context injection (global_params & aliases) act as barriers:
       they are recomputed whenever any earlier filter is recomputed.
+    - cache="graph-strict": same as "graph", but context reads return numpy arrays as
+      read-only views so accidental in-place mutation raises at the offending line.
     """
 
     def __init__(self, cache: Union[bool, str] = False, safe_input_buffer_deepcopy=True) -> None:
@@ -154,7 +156,7 @@ class PipelineEngine:
                 else:
                     result = imglst
 
-        graph_mode = self.cache == "graph"
+        graph_mode = self.cache in GRAPH_CACHE_MODES
         trackers: List[ContextTracker] = []
         if graph_mode:
             trackers = [t for t in (self.context_tracker, self.global_params_tracker) if t is not None]

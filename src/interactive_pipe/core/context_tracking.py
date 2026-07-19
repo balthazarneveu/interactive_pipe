@@ -29,6 +29,10 @@ import hashlib
 import pickle
 from typing import Any, Dict, Optional, Set
 
+# cache modes enabling dependency-aware caching; "graph-strict" additionally returns
+# numpy arrays as read-only views so in-place mutation raises at the offending line
+GRAPH_CACHE_MODES = ("graph", "graph-strict")
+
 _UNSET = object()
 
 
@@ -73,8 +77,17 @@ class ContextTracker(dict):
       are reliably detected.
     """
 
-    def __init__(self, initial: Optional[Dict[str, Any]] = None, ignore_prefix: Optional[str] = None):
+    def __init__(
+        self,
+        initial: Optional[Dict[str, Any]] = None,
+        ignore_prefix: Optional[str] = None,
+        strict: bool = False,
+    ):
         super().__init__(initial or {})
+        # strict mode: reads return numpy arrays as read-only views, so in-place
+        # mutation raises a ValueError at the offending user line instead of being
+        # silently absorbed by fingerprint detection
+        self._strict = strict
         self._reads: Dict[str, Set[Any]] = {}  # filter name -> keys it reads
         self._reads_all: Set[str] = set()  # filters enumerating the whole context
         self._current: Optional[str] = None  # name of the filter currently running
@@ -92,6 +105,16 @@ class ContextTracker(dict):
 
     def _ignored(self, key: Any) -> bool:
         return self._ignore_prefix is not None and isinstance(key, str) and key.startswith(self._ignore_prefix)
+
+    def _wrap_readonly(self, value: Any) -> Any:
+        if not self._strict:
+            return value
+        value_type = type(value)
+        if value_type.__module__ == "numpy" and value_type.__name__ == "ndarray":
+            view = value.view()
+            view.flags.writeable = False
+            return view
+        return value
 
     # ------------------------------------------------------------------
     # Engine hooks
@@ -214,11 +237,13 @@ class ContextTracker(dict):
     # ------------------------------------------------------------------
     def __getitem__(self, key):
         self._record_read(key)
-        return dict.__getitem__(self, key)
+        return self._wrap_readonly(dict.__getitem__(self, key))
 
     def get(self, key, default=None):
         self._record_read(key)
-        return dict.get(self, key, default)
+        if dict.__contains__(self, key):
+            return self._wrap_readonly(dict.__getitem__(self, key))
+        return default
 
     def __contains__(self, key):
         self._record_read(key)
@@ -232,7 +257,7 @@ class ContextTracker(dict):
         self._record_read(key)
         if not dict.__contains__(self, key):
             self._record_write(key, default)
-        return dict.setdefault(self, key, default)
+        return self._wrap_readonly(dict.setdefault(self, key, default))
 
     def __delitem__(self, key):
         if dict.__contains__(self, key):
