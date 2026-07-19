@@ -23,7 +23,7 @@ def pipeline(pipeline_function: Callable, **kwargs) -> HeadlessPipeline:
 def interactive_pipeline(
     gui: Union[str, Backend, None] = "auto",
     safe_input_buffer_deepcopy: bool = True,
-    cache: bool = False,
+    cache: Union[bool, str] = False,
     context: Optional[dict] = None,
     markdown_description: Optional[str] = None,
     name: Optional[str] = None,
@@ -44,8 +44,16 @@ def interactive_pipeline(
             returns a ``HeadlessPipeline`` without launching any GUI.
         safe_input_buffer_deepcopy: Deep-copy the input buffers before each
             run so filters cannot mutate the original inputs.
-        cache: Cache intermediate filter outputs between runs so only the
-            filters affected by a control change are re-executed.
+        cache: Cache intermediate filter outputs between runs.
+            - False (default): recompute every filter on every interaction.
+            - True: sequential prefix cache - a change recomputes every
+              filter after it in source order.
+            - "graph": dependency-aware cache - only filters actually
+              affected by a change are recomputed, following the data-flow
+              graph and runtime-tracked ``context`` usage.
+            - "graph-strict": same as "graph", but context reads return
+              numpy arrays as read-only views so accidental in-place
+              mutation raises at the offending line (debug helper).
         context: Initial content of the shared context dictionary, readable
             and writable from filters through the ``context`` proxy.
         markdown_description: Description displayed by backends that support
