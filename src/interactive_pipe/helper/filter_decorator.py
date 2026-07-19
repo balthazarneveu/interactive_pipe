@@ -68,6 +68,7 @@ def interact(
     disable: bool = False,
     output_routing: Optional[List[str]] = None,
     size: Union[str, Tuple[int, int], None] = None,
+    inplace: bool = False,
     **decorator_controls: Any,
 ):
     """Launch a GUI from a single decorated function (one-shot decorator).
@@ -104,7 +105,7 @@ def interact(
         if disable:
             return func
         # this will run the GUI automatically
-        filter_instance = filter_from_function(func, **decorator_controls)
+        filter_instance = filter_from_function(func, inplace=inplace, **decorator_controls)
         filter_instance.run_gui(
             *(decorator_args if not omitted_parentheses_flag else decorator_args[1:]),
             gui=gui,
@@ -120,16 +121,16 @@ def interact(
     return wrapper
 
 
-def filter_from_function(apply_fn, default_params=None, **kwargs) -> EnhancedFilterCore:
+def filter_from_function(apply_fn, default_params=None, inplace: bool = False, **kwargs) -> EnhancedFilterCore:
     if default_params is None:
         default_params = {}
     controls = get_controls_from_decorated_function_declaration(apply_fn, kwargs)
-    filter_instance = EnhancedFilterCore(apply_fn=apply_fn, default_params=default_params)
+    filter_instance = EnhancedFilterCore(apply_fn=apply_fn, default_params=default_params, inplace=inplace)
     filter_instance.controls = controls
     return filter_instance
 
 
-def interactive(**decorator_controls: Any):
+def interactive(inplace: bool = False, **decorator_controls: Any):
     """Declare controls bound to a filter's keyword arguments.
 
     The decorated function keeps working as a plain function, but when used
@@ -138,6 +139,10 @@ def interactive(**decorator_controls: Any):
     so the filter can be reused across pipelines.
 
     Args:
+        inplace: Declare that this filter mutates its input buffers. The
+            engine then hands it private writable copies instead of
+            read-only views. Prefer copying explicitly
+            (``img = img.copy()``) in new code.
         **decorator_controls: Mapping of keyword-argument name to a control
             declaration — a ``Control`` instance (or subclass such as
             ``KeyboardControl``) or the ``(default, [min, max])`` tuple
@@ -171,6 +176,8 @@ def interactive(**decorator_controls: Any):
             # Call the original function with the processed arguments
             return func(*bound_args.args, **bound_args.kwargs)
 
+        # picked up by HeadlessPipeline.from_function when building the FilterCore
+        setattr(inner, "__interactive_pipe_inplace__", inplace)
         return inner
 
     return wrapper
