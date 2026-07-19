@@ -288,6 +288,11 @@ class PipelineEngine:
                             # out is not iterable (e.g., single value)
                             logging.debug(f"out type-> {type(out)}")
                 except Exception as e:
+                    # the run dies here: persist the context keys already changed this
+                    # run (by this filter or completed ones) so the next run still
+                    # invalidates their readers
+                    for trk in trackers:
+                        trk.report_aborted_run(changed_keys[id(trk)])
                     # Create a clean, user-friendly error
                     _, _, tb = sys.exc_info()
                     filter_error = FilterError(prc.name, e, tb)

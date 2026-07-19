@@ -178,6 +178,16 @@ class ContextTracker(dict):
                 changed.add(key)
         return changed
 
+    def report_aborted_run(self, changed_keys: Set[Any]) -> None:
+        """Persist an aborted run's context changes as external changes.
+
+        When a filter raises, the run dies before downstream readers consume the keys
+        already changed this run (and before feedback edges are processed) - but the
+        fingerprint baselines were already advanced. Re-injecting the changes as
+        external ones makes the next run invalidate every reader of those keys.
+        """
+        self._external_changes |= changed_keys | self.finish_filter()
+
     def consume_external_changes(self) -> Set[Any]:
         """Return keys changed outside of any filter since the last run, and reset."""
         changes = self._external_changes

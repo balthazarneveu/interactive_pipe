@@ -532,3 +532,43 @@ def test_graph_strict_allows_reads_and_reassignment():
     res = pip.run()
     assert counters == {"writer": 1, "reader": 1}
     assert np.allclose(res[2], input_image + 2.0)
+
+
+def test_graph_cache_aborted_run_preserves_context_invalidation():
+    """When a filter crashes mid-run, context keys already changed by completed filters
+    must still invalidate their readers on the next run (the aborted run died before
+    propagating them, but the fingerprint baselines had already advanced)."""
+    counters = {"reader": 0}
+
+    def writer(img, gain=1.0):
+        context["k"] = gain
+        return [img]
+
+    def crasher(img, boom=0):
+        if boom:
+            raise ValueError("boom")
+        return [img]
+
+    def reader(img):
+        counters["reader"] += 1
+        return [img * context.get("k", 1.0)]
+
+    filt_w = FilterCore(apply_fn=writer, inputs=[0], outputs=[1])
+    filt_c = FilterCore(apply_fn=crasher, inputs=[0], outputs=[2])
+    filt_r = FilterCore(apply_fn=reader, inputs=[0], outputs=[3])
+    pip = PipelineCore(filters=[filt_w, filt_c, filt_r], inputs=[0], outputs=[3], cache="graph")
+    pip.inputs = [input_image]
+
+    pip.run()
+    assert counters == {"reader": 1}
+
+    # run 2: writer commits k=5.0, then the crasher aborts the run
+    pip.parameters = {"writer": {"gain": 5.0}, "crasher": {"boom": 1}}
+    with pytest.raises(FilterError):
+        pip.run()
+
+    # run 3: the reader must catch up with the value written during the aborted run
+    pip.parameters = {"crasher": {"boom": 0}}
+    res = pip.run()
+    assert counters == {"reader": 2}
+    assert np.allclose(res[3], 5.0 * input_image)
