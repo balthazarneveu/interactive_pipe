@@ -113,6 +113,7 @@ class HeadlessPipeline(PipelineCore):
                     inputs=inputs_filt,
                     outputs=outputs_filt,
                     apply_fn=filt_dict["function_object"],
+                    inplace=bool(getattr(filt_dict["function_object"], "__interactive_pipe_inplace__", False)),
                 )
                 func_kwargs = analyze_apply_fn_signature(filt_dict["function_object"])[1]
                 if id(filt_dict["function_object"]) not in seen_function_ids:

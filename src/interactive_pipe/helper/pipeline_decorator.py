@@ -24,6 +24,7 @@ def interactive_pipeline(
     gui: Union[str, Backend, None] = "auto",
     safe_input_buffer_deepcopy: bool = True,
     cache: Union[bool, str] = False,
+    readonly_inputs: bool = True,
     context: Optional[dict] = None,
     markdown_description: Optional[str] = None,
     name: Optional[str] = None,
@@ -44,6 +45,13 @@ def interactive_pipeline(
             returns a ``HeadlessPipeline`` without launching any GUI.
         safe_input_buffer_deepcopy: Deep-copy the input buffers before each
             run so filters cannot mutate the original inputs.
+        readonly_inputs: Hand filters their numpy inputs as read-only views
+            (default True), so in-place mutation (``img += 1``) raises
+            immediately instead of silently corrupting sibling filters or
+            cached buffers. Declare ``@interactive(inplace=True)`` on a filter
+            that intentionally mutates its inputs (it then receives private
+            writable copies), or pass False to restore the permissive
+            behavior.
         cache: Cache intermediate filter outputs between runs.
             - False (default): recompute every filter on every interaction.
             - True: sequential prefix cache - a change recomputes every
@@ -95,6 +103,7 @@ def interactive_pipeline(
             pipeline_function,
             safe_input_buffer_deepcopy=safe_input_buffer_deepcopy,
             cache=cache,
+            readonly_inputs=readonly_inputs,
             context=context,
         )
         if gui is None or gui == "headless":

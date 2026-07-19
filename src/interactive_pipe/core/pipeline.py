@@ -33,12 +33,15 @@ class PipelineCore:
         context: Optional[dict] = None,
         outputs: Optional[list] = None,
         safe_input_buffer_deepcopy: bool = True,
+        readonly_inputs: bool = True,
         **kwargs,
     ):
         if not all(isinstance(f, FilterCore) for f in filters):
             raise ValueError(f"All elements in 'filters' must be instances of 'Filter'. {[type(f) for f in filters]}")
         self.filters = filters
-        self.engine = PipelineEngine(cache, safe_input_buffer_deepcopy=safe_input_buffer_deepcopy)
+        self.engine = PipelineEngine(
+            cache, safe_input_buffer_deepcopy=safe_input_buffer_deepcopy, readonly_inputs=readonly_inputs
+        )
 
         # Reject removed aliases of the 'context' parameter with a clear message
         for alias in REMOVED_CONTEXT_ALIASES:
