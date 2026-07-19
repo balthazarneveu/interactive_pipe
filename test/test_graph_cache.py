@@ -446,3 +446,66 @@ def test_graph_cache_aborted_run_preserves_context_invalidation():
     res = pip.run()
     assert counters == {"reader": 2}
     assert np.allclose(res[3], 5.0 * input_image)
+
+
+def test_graph_cache_class_filter_global_params_tracked():
+    """Class-based filters accessing self.global_params directly (no signature hint)
+    are tracked through the wrapped shared dict."""
+    counters = {"GpWriter": 0, "GpReader": 0}
+
+    class GpWriter(FilterCore):
+        def apply(self, img, gain=2.0):
+            counters["GpWriter"] += 1
+            self.global_params["ratio"] = gain
+            return [img]
+
+    class GpReader(FilterCore):
+        def apply(self, img):
+            counters["GpReader"] += 1
+            return [img * self.global_params.get("ratio", 1.0)]
+
+    filt_w = GpWriter(inputs=[0], outputs=[1])
+    filt_r = GpReader(inputs=[0], outputs=[2])
+
+    pip = PipelineCore(filters=[filt_w, filt_r], inputs=[0], outputs=[2], cache="graph")
+    pip.inputs = [input_image]
+
+    res = pip.run()
+    assert counters == {"GpWriter": 1, "GpReader": 1}
+    assert np.allclose(res[2], 2.0 * input_image)
+
+    pip.run()
+    assert counters == {"GpWriter": 1, "GpReader": 1}
+
+    # the writer's parameter changes -> the reader must see the new shared value
+    pip.parameters = {"GpWriter": {"gain": 5.0}}
+    res = pip.run()
+    assert counters == {"GpWriter": 2, "GpReader": 2}
+    assert np.allclose(res[2], 5.0 * input_image)
+
+
+def test_graph_cache_global_params_replacement_resets_cache():
+    """Replacing pipeline.global_params wholesale (gradio dry-run pattern) rewraps
+    the tracker and invalidates every cached result."""
+    counters = {"GpReader": 0}
+
+    class GpReader(FilterCore):
+        def apply(self, img):
+            counters["GpReader"] += 1
+            return [img * self.global_params.get("ratio", 1.0)]
+
+    filt_r = GpReader(inputs=[0], outputs=[1])
+    pip = PipelineCore(filters=[filt_r], inputs=[0], outputs=[1], cache="graph")
+    pip.inputs = [input_image]
+
+    pip.run()
+    pip.run()
+    assert counters == {"GpReader": 1}
+
+    pip.global_params = {"ratio": 3.0}
+    res = pip.run()
+    assert counters == {"GpReader": 2}
+    assert np.allclose(res[1], 3.0 * input_image)
+    # engine tracker follows the replacement and filters are relinked
+    assert pip.engine.global_params_tracker is pip.global_params
+    assert filt_r.global_params is pip.global_params

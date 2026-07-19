@@ -54,12 +54,14 @@ class PipelineCore:
 
         if context is None:
             context = {}
+        # property setter links every filter to the shared dict and, in graph cache
+        # mode, wraps it in a ContextTracker (class filters access it as self.global_params)
         self.global_params = context
         self.framework_state = FrameworkState()
         self.framework_state.pipeline = self
         for filt in self.filters:
-            # link each filter to the shared user dict and framework state
-            filt.global_params = self.global_params
+            # link each filter to the shared framework state
+            # (global_params linking is handled by the property setter)
             filt.framework_state = self.framework_state
 
         # Initialize user context (separate from global_params for clean API)
@@ -97,6 +99,32 @@ class PipelineCore:
     @property
     def _graph_cache_mode(self) -> bool:
         return self.engine.cache in GRAPH_CACHE_MODES
+
+    @property
+    def global_params(self):
+        return self._global_params_storage
+
+    @global_params.setter
+    def global_params(self, new_global_params: dict):
+        """Replace the shared dict and relink every filter to it.
+
+        Class-based filters access this dict as ``self.global_params`` inside their
+        apply method - a data channel invisible to signature or AST inspection. In
+        graph cache mode the dict is wrapped in a ContextTracker so those accesses
+        are attributed to the running filter like the modern ``context`` proxy.
+        Replacing the shared state wholesale (e.g. gradio dry run) also invalidates
+        every cached result computed from it.
+        """
+        if self._graph_cache_mode:
+            if not isinstance(new_global_params, ContextTracker):
+                new_global_params = ContextTracker(new_global_params)
+            self.engine.global_params_tracker = new_global_params
+            # replacing the shared state invalidates anything computed from it
+            self.reset_cache()
+        self._global_params_storage = new_global_params
+        for filt in self.filters:
+            # link each filter to global params
+            filt.global_params = new_global_params
 
     def run(self) -> dict:
         """Useful for standalone python access without gui or disk write"""
