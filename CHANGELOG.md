@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.1 (July 2026)
+
+### New features
+- **Dependency-aware cache (`cache="graph"`)**: a new opt-in cache mode that recomputes a filter only when it is actually affected by a change — its own sliders moved, one of its producers in the data-flow graph was recomputed, or a `context` key it reads was updated (tracked at runtime). Unlike `cache=True` (a sequential prefix cache that recomputes every filter after the change in source order), independent branches are left untouched. `cache=True` / `cache=False` behavior is unchanged.
+  - `cache="graph-strict"` behaves like `"graph"` but hands out `context` numpy arrays as read-only views, so accidental in-place mutation of shared context data raises at the offending line (debugging helper).
+
+### Improvements & bug fixes
+- **Read-only filter inputs by default (`readonly_inputs=True`)**: filters now receive their numpy inputs as read-only views, so an in-place mutation (`img += 1`) raises immediately instead of silently corrupting sibling filters or cached buffers. Declare `@interactive(inplace=True)` on a filter that intentionally mutates its inputs — it then receives private writable copies. Pass `readonly_inputs=False` to `@interactive_pipeline(...)` to restore the previous permissive behavior.
+- In-place mutation of torch tensor inputs is now detected as well (torch tensors do not support numpy's read-only flag), surfacing the same class of silent-corruption bug for PyTorch-based filters.
+
 ## 0.9.0 (July 2026)
 
 ### Breaking changes
