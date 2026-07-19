@@ -4,8 +4,9 @@ import sys
 import time
 import traceback
 from copy import deepcopy
-from typing import List
+from typing import List, Optional, Set, Union
 
+from interactive_pipe.core.context_tracking import GRAPH_CACHE_MODES, ContextTracker
 from interactive_pipe.core.filter import FilterCore
 
 
@@ -102,10 +103,49 @@ def _filter_error_excepthook(exc_type, exc_value, exc_tb):
         _original_excepthook(exc_type, exc_value, exc_tb)
 
 
+def _build_dependency_indexes(filters: List[FilterCore]) -> List[Set[int]]:
+    """For each filter, the indexes of upstream filters producing its inputs.
+
+    Source order is always a valid topological order (a variable is produced before
+    it is consumed), so dependencies only point backwards in the filter list.
+    """
+    producer = {}  # variable name (or index) -> index of the filter producing it
+    dependencies: List[Set[int]] = []
+    for idx, prc in enumerate(filters):
+        deps = set()
+        for inp in prc.inputs or []:
+            if inp is not None and inp in producer:
+                deps.add(producer[inp])
+        dependencies.append(deps)
+        for out in prc.outputs or []:
+            producer[out] = idx
+    return dependencies
+
+
 class PipelineEngine:
-    def __init__(self, cache=False, safe_input_buffer_deepcopy=True) -> None:
+    """Executes a list of filters sequentially, with several cache modes:
+
+    - cache=False: recompute every filter on every run.
+    - cache=True: sequential prefix cache. A filter is skipped only when its own
+      parameters AND those of every filter before it (in list order) are unchanged.
+    - cache="graph": dependency-aware cache. A filter is recomputed only when its own
+      parameters changed, one of its actual producers (variable routing) was recomputed,
+      or a context key it reads was updated (tracked at runtime through ContextTrackers
+      wired by PipelineCore: one for the user context, one for the shared global_params
+      dict used by class-based filters).
+    - cache="graph-strict": same as "graph", but context reads return numpy arrays as
+      read-only views so accidental in-place mutation raises at the offending line.
+    """
+
+    def __init__(self, cache: Union[bool, str] = False, safe_input_buffer_deepcopy=True) -> None:
         self.cache = cache
         self.safe_input_buffer_deepcopy = safe_input_buffer_deepcopy
+        # trackers wired by PipelineCore when cache is a graph mode:
+        # - context_tracker wraps the user context (`context` proxy API)
+        # - global_params_tracker wraps the shared dict accessed as self.global_params
+        #   by class-based filters
+        self.context_tracker: Optional[ContextTracker] = None
+        self.global_params_tracker: Optional[ContextTracker] = None
 
     def run(self, filters: List[FilterCore], imglst=None):
         performances = []
@@ -126,16 +166,38 @@ class PipelineEngine:
                 else:
                     result = imglst
 
+        graph_mode = self.cache in GRAPH_CACHE_MODES
+        trackers: List[ContextTracker] = []
+        if graph_mode:
+            trackers = [t for t in (self.context_tracker, self.global_params_tracker) if t is not None]
+        dependencies = _build_dependency_indexes(filters) if graph_mode else []
+        dirty_flags: List[bool] = []
+        # per tracker: context keys updated outside of the pipeline run (GUI events,
+        # user code) - either through tracked writes or silent in-place mutation
+        changed_keys: dict = {id(t): set(t.consume_external_changes()) | t.detect_silent_changes() for t in trackers}
+        run_writes: List[tuple] = []  # (filter index, tracker, context keys changed this run)
+
         skip_calculation = True
         previous_calculation = False
         for idx, prc in enumerate(filters):
             tic = time.perf_counter()
-            # if cache not available or if cache available and values have changed, need to recalculate from now on
-            # cache | has changed | skip_calculation
-            # 0     | X           | False -> no cache, cannot skip so calculate
-            # 1     | 0           | True  -> cache with no change, skip the calculation
-            # 1     | 1           | False -> cache and result changed, cannot skip so calculate
-            skip_calculation &= (prc.cache_mem is not None) and (not prc.cache_mem.has_changed(prc.values))
+            if graph_mode:
+                # dependency-aware cache: a filter is dirty when its own parameters changed,
+                # one of its producers is dirty, or a context key it reads was updated
+                params_changed = (prc.cache_mem is None) or prc.cache_mem.has_changed(prc.values)
+                deps_dirty = any(dirty_flags[dep] for dep in dependencies[idx])
+                context_dirty = any(t.reads_changed_keys(prc.name, changed_keys[id(t)]) for t in trackers)
+                is_dirty = params_changed or deps_dirty or context_dirty
+                dirty_flags.append(is_dirty)
+                skip_calculation = not is_dirty
+            else:
+                # if cache not available or if cache available and values have changed,
+                # need to recalculate from now on
+                # cache | has changed | skip_calculation
+                # 0     | X           | False -> no cache, cannot skip so calculate
+                # 1     | 0           | True  -> cache with no change, skip the calculation
+                # 1     | 1           | False -> cache and result changed, cannot skip so calculate
+                skip_calculation &= (prc.cache_mem is not None) and (not prc.cache_mem.has_changed(prc.values))
 
             if skip_calculation and self.cache:
                 logging.debug(f"-->  Load cached outputs from filter {idx}: {prc.name}")
@@ -145,6 +207,9 @@ class PipelineEngine:
                 previous_calculation = False
             else:
                 logging.debug(("... " if previous_calculation else "!!! ") + f"Calculating {prc.name}")
+                for trk in trackers:
+                    # attribute context reads/writes to this filter while it runs
+                    trk.begin_filter(prc.name)
                 try:
                     routing_in = []
                     if prc.inputs:
@@ -158,6 +223,11 @@ class PipelineEngine:
                             # out is not iterable (e.g., single value)
                             logging.debug(f"out type-> {type(out)}")
                 except Exception as e:
+                    # the run dies here: persist the context keys already changed this
+                    # run (by this filter or completed ones) so the next run still
+                    # invalidates their readers
+                    for trk in trackers:
+                        trk.report_aborted_run(changed_keys[id(trk)])
                     # Broad on purpose: prc.run executes arbitrary user filter
                     # code; wrap whatever it raises in FilterError and re-raise.
                     # Create a clean, user-friendly error
@@ -165,6 +235,13 @@ class PipelineEngine:
                     filter_error = FilterError(prc.name, e, tb)
                     filter_error.print_compact()
                     raise filter_error from None  # 'from None' suppresses the chained traceback
+                finally:
+                    filter_changes = [(trk, trk.finish_filter()) for trk in trackers]
+                for trk, keys_changed in filter_changes:
+                    if keys_changed:
+                        # context keys updated by this filter dirty their readers downstream
+                        changed_keys[id(trk)] |= keys_changed
+                        run_writes.append((idx, trk, keys_changed))
                 previous_calculation = True
                 if self.cache and prc.cache_mem is not None:  # cache result if cache available
                     logging.debug(f"<-- Storing result from {prc.name}")
@@ -179,6 +256,26 @@ class PipelineEngine:
                         result[ido] = out
             toc = time.perf_counter()
             performances.append(f"{prc.name}: {toc - tic:0.4f} seconds")
+
+        if run_writes:
+            # Backward context edges (feedback across runs): when a filter updates a key
+            # read by a filter located earlier in the pipeline (or by itself), the reader
+            # computed with the previous value - invalidate its cache for the next run.
+            # Readers located after the writer already saw the fresh value this run.
+            name_to_idx = {filt.name: filt_idx for filt_idx, filt in enumerate(filters)}
+            for writer_idx, trk, keys in run_writes:
+                for key in keys:
+                    for reader_name in trk.readers_of(key):
+                        reader_idx = name_to_idx.get(reader_name)
+                        if reader_idx is None or reader_idx > writer_idx:
+                            continue
+                        reader_cache = filters[reader_idx].cache_mem
+                        if reader_cache is not None:
+                            logging.debug(
+                                f"Context feedback: {filters[writer_idx].name} updated '{key}', "
+                                f"invalidating earlier reader {reader_name} for next run"
+                            )
+                            reader_cache.force_change = True
 
         # Limit result using self.numfigs but with indices pointed by last filter
         logging.info("\n".join(performances))
