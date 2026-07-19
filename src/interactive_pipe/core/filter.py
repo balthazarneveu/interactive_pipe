@@ -54,6 +54,18 @@ class PureFilter:
             self.__args_names, self.__kwargs_names = analyze_apply_fn_signature(self.apply)
             self.signature = (self.__args_names, self.__kwargs_names)
 
+    @property
+    def uses_legacy_context(self) -> bool:
+        """True when the apply function requests legacy context injection (global_params & aliases).
+
+        Legacy filters communicate through an untracked shared dictionary, so the
+        dependency-aware cache (cache="graph") treats them as barriers: they are
+        recomputed whenever any earlier filter is recomputed.
+        """
+        self.check_apply_signature()
+        kwargs_names = self.signature[1]
+        return any(global_key in kwargs_names for global_key in EQUIVALENT_STATE_KEYS)
+
     def __initialize_default_values(self):
         if hasattr(self, "_values"):
             raise RuntimeError("_values attribute already exists")
