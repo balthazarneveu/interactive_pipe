@@ -6,21 +6,54 @@ The tracker records which filter reads and which filter writes each context key,
 engine can invalidate the cached result of a filter whenever a context key it relies on
 has been updated - even though this data dependency is invisible to the AST call graph.
 
+Change detection combines two mechanisms:
+
+- dict instrumentation attributes reads and writes to the running filter;
+- content fingerprints (:func:`_fingerprint`) catch what instrumentation cannot see:
+  in-place mutation of stored objects (``context["boxes"].append(...)``) is detected by
+  re-fingerprinting every key a filter accessed when it finishes, and mutations happening
+  outside any filter (GUI callbacks, stashed references) are detected at the start of the
+  next run (:meth:`ContextTracker.detect_silent_changes`).
+
 Known limitations (conservative by design, documented for users of ``cache="graph"``):
 
-- In-place mutation of a stored value (``context["arr"][0] = 5``) is only seen as a read.
-  Assign a new value (``context["arr"] = new_arr``) so the change is detected.
-- Re-assigning the exact same object is treated as a change (it may have been mutated
-  in place), which can cause extra recomputations but never stale results.
+- A value mutated through a reference stashed in a previous run is only detected at the
+  next run start: the runs in between may serve one stale frame for its readers.
 - ``dict(context)`` style copies bypass instrumentation; prefer explicit key access or
   ``context.items()`` which registers the filter as a reader of every key.
-- Class-based filters touching ``self.global_params`` directly inside ``apply`` are not
-  tracked; prefer the ``context`` proxy API.
+- Unpicklable values cannot be fingerprinted: their key counts as changed on every check,
+  so their readers are recomputed on every run (never stale, but never cached either).
 """
 
+import hashlib
+import pickle
 from typing import Any, Dict, Optional, Set
 
 _UNSET = object()
+
+
+def _fingerprint(value: Any) -> Any:
+    """Content digest used to decide whether a context value actually changed.
+
+    Detects in-place mutation that dict instrumentation alone cannot see, and
+    avoids spurious invalidation when a filter rewrites an equal value.
+
+    - primitives: the value itself (with its type, so True != 1)
+    - numpy arrays: shape + dtype + hash of the raw buffer (one fast memory pass)
+    - anything else: hash of its pickle serialization
+    - unpicklable values: a unique marker that never compares equal, so the key is
+      conservatively considered changed on every check (extra recompute, never stale)
+    """
+    if value is None or isinstance(value, (bool, int, float, str, bytes)):
+        return ("primitive", type(value).__name__, value)
+    value_type = type(value)
+    if value_type.__module__ == "numpy" and value_type.__name__ == "ndarray":
+        return ("ndarray", value.shape, str(value.dtype), hashlib.sha1(value.tobytes()).digest())
+    try:
+        payload = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL)
+    except Exception:
+        return object()
+    return ("pickle", hashlib.sha1(payload).digest())
 
 
 class ContextTracker(dict):
@@ -34,9 +67,10 @@ class ContextTracker(dict):
       it stays registered as a reader of that key.
     - Whole-dict enumeration (``keys``/``values``/``items``/iteration/``len``) registers
       the current filter as a reader of every key (conservative).
-    - A write only counts as a change when the new value compares different from the
-      stored one; when the comparison is ambiguous (e.g. numpy arrays) the write is
-      conservatively considered a change.
+    - A key only counts as changed when its content fingerprint differs from the
+      baseline (the net effect of the filter, judged at the filter boundary), so
+      rewriting an equal value never invalidates readers, while in-place mutations
+      are reliably detected.
     """
 
     def __init__(self, initial: Optional[Dict[str, Any]] = None, ignore_prefix: Optional[str] = None):
@@ -44,11 +78,17 @@ class ContextTracker(dict):
         self._reads: Dict[str, Set[Any]] = {}  # filter name -> keys it reads
         self._reads_all: Set[str] = set()  # filters enumerating the whole context
         self._current: Optional[str] = None  # name of the filter currently running
-        self._current_changes: Set[Any] = set()  # keys changed by the current filter
         self._external_changes: Set[Any] = set()  # keys changed outside any filter
+        self._current_touched: Set[Any] = set()  # keys accessed by the current filter
+        self._current_read_all = False  # current filter enumerated the whole context
         # keys starting with this prefix are not tracked at all
         # (used to exclude __framework keys when wrapping the legacy global_params dict)
         self._ignore_prefix = ignore_prefix
+        # content fingerprints: baseline for change detection, including in-place mutation
+        self._digests: Dict[Any, Any] = {}
+        for key in dict.keys(self):
+            if not self._ignored(key):
+                self._digests[key] = _fingerprint(dict.__getitem__(self, key))
 
     def _ignored(self, key: Any) -> bool:
         return self._ignore_prefix is not None and isinstance(key, str) and key.startswith(self._ignore_prefix)
@@ -59,14 +99,61 @@ class ContextTracker(dict):
     def begin_filter(self, name: str) -> None:
         """Attribute subsequent context accesses to the given filter."""
         self._current = name
-        self._current_changes = set()
+        self._current_touched = set()
+        self._current_read_all = False
 
     def finish_filter(self) -> Set[Any]:
-        """Stop attributing accesses and return the keys changed by the filter."""
-        changes = self._current_changes
+        """Stop attributing accesses and return the keys the filter NET-changed.
+
+        Every key the filter accessed is re-fingerprinted and compared against the
+        stored baseline, so that:
+        - in-place mutation of a stored object (context["boxes"].append(...)) counts
+          as a change even though no dict write ever happened;
+        - only the net effect matters: a filter resetting then rebuilding an equal
+          value (context["boxes"] = []; ...append(...)) leaves the key unchanged,
+          which lets feedback/self loops converge instead of recomputing forever.
+        """
+        touched = self._current_touched
+        if self._current_read_all:
+            touched = touched | {key for key in dict.keys(self) if not self._ignored(key)}
+        changes: Set[Any] = set()
+        for key in touched:
+            if dict.__contains__(self, key):
+                new_digest = _fingerprint(dict.__getitem__(self, key))
+                old_digest = self._digests.get(key, _UNSET)
+                self._digests[key] = new_digest
+                if old_digest is _UNSET or old_digest != new_digest:
+                    changes.add(key)
+            elif self._digests.pop(key, _UNSET) is not _UNSET:
+                # key deleted by this filter
+                changes.add(key)
         self._current = None
-        self._current_changes = set()
+        self._current_touched = set()
+        self._current_read_all = False
         return changes
+
+    def detect_silent_changes(self) -> Set[Any]:
+        """Re-fingerprint every key having a registered reader and return those whose
+        content changed through untracked paths since the last check (in-place mutation
+        of a stored object between runs: GUI callbacks, stashed references...).
+
+        Called by the engine at the start of each run.
+        """
+        monitored: Set[Any] = set()
+        for keys in self._reads.values():
+            monitored |= keys
+        if self._reads_all:
+            monitored |= {key for key in dict.keys(self) if not self._ignored(key)}
+        changed = set()
+        for key in monitored:
+            if not dict.__contains__(self, key):
+                continue
+            new_digest = _fingerprint(dict.__getitem__(self, key))
+            old_digest = self._digests.get(key, _UNSET)
+            self._digests[key] = new_digest
+            if old_digest is not _UNSET and old_digest != new_digest:
+                changed.add(key)
+        return changed
 
     def consume_external_changes(self) -> Set[Any]:
         """Return keys changed outside of any filter since the last run, and reset."""
@@ -96,28 +183,30 @@ class ContextTracker(dict):
     def _record_read(self, key: Any) -> None:
         if self._current is not None and not self._ignored(key):
             self._reads.setdefault(self._current, set()).add(key)
+            self._current_touched.add(key)
 
     def _record_read_all(self) -> None:
         if self._current is not None:
             self._reads_all.add(self._current)
+            self._current_read_all = True
 
     def _record_write(self, key: Any, new_value: Any = _UNSET) -> None:
         if self._ignored(key):
             return
-        changed = True
-        if new_value is not _UNSET and dict.__contains__(self, key):
-            old_value = dict.__getitem__(self, key)
-            if old_value is not new_value:
-                try:
-                    changed = bool(old_value != new_value)
-                except Exception:
-                    # ambiguous comparison (e.g. numpy arrays): assume changed
-                    changed = True
-            # identical object: keep changed=True, it may have been mutated in place
-        if changed:
-            if self._current is not None:
-                self._current_changes.add(key)
-            else:
+        if self._current is not None:
+            # net change decided at finish_filter by fingerprint comparison
+            self._current_touched.add(key)
+            return
+        # write outside any filter (GUI events, user code between runs)
+        if new_value is _UNSET:
+            # deletion: a change when the key was known
+            if self._digests.pop(key, _UNSET) is not _UNSET:
+                self._external_changes.add(key)
+        else:
+            new_digest = _fingerprint(new_value)
+            old_digest = self._digests.get(key, _UNSET)
+            self._digests[key] = new_digest
+            if old_digest is _UNSET or old_digest != new_digest:
                 self._external_changes.add(key)
 
     # ------------------------------------------------------------------

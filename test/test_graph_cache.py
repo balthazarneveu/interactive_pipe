@@ -340,6 +340,139 @@ def test_graph_cache_global_params_replacement_resets_cache():
     assert filt_r.global_params is pip.global_params
 
 
+def test_graph_cache_inplace_mutation_detected():
+    """In-place mutation of a stored object (append on a list obtained by read) is
+    caught by fingerprinting at the filter boundary: readers recompute the same run.
+    The reset-then-rebuild pattern converges (equal net content = no change)."""
+    counters = {"detect": 0, "draw": 0}
+
+    def detect(img, sigma=1.0):
+        counters["detect"] += 1
+        context["boxes"] = []
+        context["boxes"].append(sigma)  # in-place mutation after the reset write
+        return [img]
+
+    def draw(img):
+        counters["draw"] += 1
+        return [img + sum(context["boxes"])]
+
+    filt_d = FilterCore(apply_fn=detect, inputs=[0], outputs=[1])
+    filt_v = FilterCore(apply_fn=draw, inputs=[0], outputs=[2])
+    pip = PipelineCore(filters=[filt_d, filt_v], inputs=[0], outputs=[2], cache="graph")
+    pip.inputs = [input_image]
+
+    res = pip.run()
+    assert counters == {"detect": 1, "draw": 1}
+    assert np.allclose(res[2], input_image + 1.0)
+
+    # detect reads AND writes "boxes" (self feedback edge): one settle run replays it,
+    # but the net content is identical so draw stays cached
+    pip.run()
+    assert counters == {"detect": 2, "draw": 1}
+    pip.run()
+    assert counters == {"detect": 2, "draw": 1}
+
+    # detect recomputes with a new sigma: draw must see the new boxes the same run
+    pip.parameters = {"detect": {"sigma": 2.0}}
+    res = pip.run()
+    assert counters == {"detect": 3, "draw": 2}
+    assert np.allclose(res[2], input_image + 2.0)
+
+    # one settle run for the self edge, then stable again
+    pip.run()
+    assert counters == {"detect": 4, "draw": 2}
+    pip.run()
+    assert counters == {"detect": 4, "draw": 2}
+
+
+def test_graph_cache_accumulator_always_recomputes():
+    """A filter accumulating state in the context (reads and grows the same key) is a
+    genuinely stateful filter: it recomputes every run, and its readers follow."""
+    counters = {"accumulate": 0, "display": 0}
+
+    def accumulate(img, step=1.0):
+        counters["accumulate"] += 1
+        context["history"].append(step)  # grows forever: never the same net content
+        return [img]
+
+    def display(img):
+        counters["display"] += 1
+        return [img + len(context["history"])]
+
+    filt_a = FilterCore(apply_fn=accumulate, inputs=[0], outputs=[1])
+    filt_s = FilterCore(apply_fn=display, inputs=[0], outputs=[2])
+    pip = PipelineCore(filters=[filt_a, filt_s], inputs=[0], outputs=[2], context={"history": []}, cache="graph")
+    pip.inputs = [input_image]
+
+    res = pip.run()
+    assert counters == {"accumulate": 1, "display": 1}
+    assert np.allclose(res[2], input_image + 1)
+
+    res = pip.run()
+    assert counters == {"accumulate": 2, "display": 2}
+    assert np.allclose(res[2], input_image + 2)
+
+
+def test_graph_cache_equal_value_rewrite_no_spurious_recompute():
+    """Rewriting an equal value (fresh object, same content) must not invalidate readers."""
+    counters = {"writer": 0, "reader": 0}
+
+    def writer(img, gain=2.0, brightness=1.0):
+        counters["writer"] += 1
+        context["meta"] = {"labels": ["a", "b"], "gain": gain}  # fresh dict every run
+        return [img * brightness]
+
+    def reader(img):
+        counters["reader"] += 1
+        return [img + context["meta"]["gain"]]
+
+    filt_w = FilterCore(apply_fn=writer, inputs=[0], outputs=[1])
+    filt_r = FilterCore(apply_fn=reader, inputs=[0], outputs=[2])
+    pip = PipelineCore(filters=[filt_w, filt_r], inputs=[0], outputs=[2], cache="graph")
+    pip.inputs = [input_image]
+
+    pip.run()
+    assert counters == {"writer": 1, "reader": 1}
+
+    # brightness changes -> writer recomputes but rewrites identical meta content:
+    # reader stays cached
+    pip.parameters = {"writer": {"brightness": 3.0}}
+    pip.run()
+    assert counters == {"writer": 2, "reader": 1}
+
+    # gain changes -> meta content differs -> reader recomputes
+    pip.parameters = {"writer": {"gain": 9.0}}
+    res = pip.run()
+    assert counters == {"writer": 3, "reader": 2}
+    assert np.allclose(res[2], input_image + 9.0)
+
+
+def test_graph_cache_external_inplace_mutation_detected():
+    """Mutating a stored numpy array in place from outside the pipeline (GUI callback,
+    stashed reference) is caught by the run-start fingerprint sweep."""
+    counters = {"reader": 0}
+    lut = np.array([2.0, 3.0])
+
+    def reader(img):
+        counters["reader"] += 1
+        return [img * context["lut"][0]]
+
+    filt_r = FilterCore(apply_fn=reader, inputs=[0], outputs=[1])
+    pip = PipelineCore(filters=[filt_r], inputs=[0], outputs=[1], context={"lut": lut}, cache="graph")
+    pip.inputs = [input_image]
+
+    res = pip.run()
+    pip.run()
+    assert counters == {"reader": 1}
+    assert np.allclose(res[1], 2.0 * input_image)
+
+    # in-place mutation through the original reference, no dict operation at all
+    lut[0] = 7.0
+    res = pip.run()
+    assert counters == {"reader": 2}
+    assert np.allclose(res[1], 7.0 * input_image)
+
+
 def test_graph_cache_results_match_no_cache():
     """Graph cache must produce the same results as running without cache."""
     for cache in [False, "graph"]:

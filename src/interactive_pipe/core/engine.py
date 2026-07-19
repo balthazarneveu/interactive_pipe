@@ -160,8 +160,9 @@ class PipelineEngine:
             trackers = [t for t in (self.context_tracker, self.global_params_tracker) if t is not None]
         dependencies = _build_dependency_indexes(filters) if graph_mode else []
         dirty_flags: List[bool] = []
-        # per tracker: context keys updated outside of the pipeline run (GUI events, user code)
-        changed_keys: dict = {id(t): set(t.consume_external_changes()) for t in trackers}
+        # per tracker: context keys updated outside of the pipeline run (GUI events,
+        # user code) - either through tracked writes or silent in-place mutation
+        changed_keys: dict = {id(t): set(t.consume_external_changes()) | t.detect_silent_changes() for t in trackers}
         run_writes: List[tuple] = []  # (filter index, tracker, context keys changed this run)
 
         skip_calculation = True
