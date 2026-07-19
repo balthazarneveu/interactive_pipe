@@ -112,6 +112,7 @@ class HeadlessPipeline(PipelineCore):
                     inputs=inputs_filt,
                     outputs=outputs_filt,
                     apply_fn=filt_dict["function_object"],
+                    inplace=bool(getattr(filt_dict["function_object"], "__interactive_pipe_inplace__", False)),
                 )
                 func_kwargs = analyze_apply_fn_signature(filt_dict["function_object"])[1]
                 params_to_analyze = {**func_kwargs, **Control.get_controls(filt_name)}

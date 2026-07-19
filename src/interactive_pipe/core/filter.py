@@ -126,7 +126,11 @@ class FilterCore(PureFilter):
         inputs: Optional[List[Union[int, str]]] = _SENTINEL,  # type: ignore
         outputs: Optional[List[Union[int, str]]] = _SENTINEL,  # type: ignore
         cache=True,
+        inplace: bool = False,
     ):
+        """inplace: declare that this filter mutates its inputs. The engine then hands it
+        private writable deep copies instead of read-only views, keeping shared buffers
+        and upstream caches safe. Prefer copying explicitly (img = img.copy()) in new code."""
         if default_params is None:
             default_params = {}
         if inputs is _SENTINEL:
@@ -143,6 +147,7 @@ class FilterCore(PureFilter):
         self.inputs = inputs
         self.outputs = outputs
         self.cache = cache
+        self.inplace = inplace
         self.reset_cache()
 
     def reset_cache(self):

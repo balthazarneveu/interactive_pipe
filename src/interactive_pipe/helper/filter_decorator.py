@@ -67,6 +67,7 @@ def interact(
     disable=False,
     output_routing=None,
     size=None,
+    inplace=False,
     **decorator_controls,
 ):
     """interact decorator allows you to launch a GUI from a single function
@@ -87,7 +88,7 @@ def interact(
             return func
         # this will run the GUI automatically
         _private.registered_controls_names = []
-        filter_instance = filter_from_function(func, **decorator_controls)
+        filter_instance = filter_from_function(func, inplace=inplace, **decorator_controls)
         filter_instance.run_gui(
             *(decorator_args if not omitted_parentheses_flag else decorator_args[1:]),
             gui=gui,
@@ -103,22 +104,26 @@ def interact(
     return wrapper
 
 
-def filter_from_function(apply_fn, default_params=None, **kwargs) -> EnhancedFilterCore:
+def filter_from_function(apply_fn, default_params=None, inplace: bool = False, **kwargs) -> EnhancedFilterCore:
     if default_params is None:
         default_params = {}
     controls = get_controls_from_decorated_function_declaration(apply_fn, kwargs)
-    filter_instance = EnhancedFilterCore(apply_fn=apply_fn, default_params=default_params)
+    filter_instance = EnhancedFilterCore(apply_fn=apply_fn, default_params=default_params, inplace=inplace)
     filter_instance.controls = controls
     return filter_instance
 
 
-def interactive(**decorator_controls):
+def interactive(inplace: bool = False, **decorator_controls):
     """Decorator to declare some controls linked to keyword arguments.
     Parameters will become "variable" and sliders automatically appear in the GUI.
 
     `@interactive` differs from `interact` in the sense that it will not launch a gui.
     It is simply used to declare some sliders and allows re-using these functions afterwards.
     Function decorator to add some controls
+
+    inplace: declare that this filter mutates its input buffers. The engine then hands it
+    private writable copies instead of read-only views. Prefer copying explicitly
+    (img = img.copy()) in new code.
     """
 
     def wrapper(func):
@@ -138,6 +143,8 @@ def interactive(**decorator_controls):
             # Call the original function with the processed arguments
             return func(*bound_args.args, **bound_args.kwargs)
 
+        # picked up by HeadlessPipeline.from_function when building the FilterCore
+        setattr(inner, "__interactive_pipe_inplace__", inplace)
         return inner
 
     return wrapper

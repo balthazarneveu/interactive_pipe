@@ -93,6 +93,23 @@ def _filter_error_excepthook(exc_type, exc_value, exc_tb):
 sys.excepthook = _filter_error_excepthook
 
 
+def _readonly_view(value):
+    """Return numpy arrays as read-only views (recursing into lists/tuples of buffers).
+
+    Views copy nothing: mutating the returned object raises a ValueError at the
+    offending line, while reading is untouched. Non-numpy values pass through
+    unprotected (no cheap read-only wrapper exists for them).
+    """
+    value_type = type(value)
+    if value_type.__module__ == "numpy" and value_type.__name__ == "ndarray":
+        view = value.view()
+        view.flags.writeable = False
+        return view
+    if isinstance(value, (list, tuple)):
+        return type(value)(_readonly_view(item) for item in value)
+    return value
+
+
 def _build_dependency_indexes(filters: List[FilterCore]) -> List[Set[int]]:
     """For each filter, the indexes of upstream filters producing its inputs.
 
@@ -125,11 +142,22 @@ class PipelineEngine:
       they are recomputed whenever any earlier filter is recomputed.
     - cache="graph-strict": same as "graph", but context reads return numpy arrays as
       read-only views so accidental in-place mutation raises at the offending line.
+
+    Filter inputs are handed out as read-only numpy views by default (readonly_inputs=True):
+    mutating an input in place (img += 1) raises at the offending line instead of silently
+    corrupting sibling filters or cached buffers. Filters declaring inplace=True receive
+    private writable deep copies of their inputs instead.
     """
 
-    def __init__(self, cache: Union[bool, str] = False, safe_input_buffer_deepcopy=True) -> None:
+    def __init__(
+        self,
+        cache: Union[bool, str] = False,
+        safe_input_buffer_deepcopy=True,
+        readonly_inputs: bool = True,
+    ) -> None:
         self.cache = cache
         self.safe_input_buffer_deepcopy = safe_input_buffer_deepcopy
+        self.readonly_inputs = readonly_inputs
         # trackers wired by PipelineCore when cache == "graph":
         # - context_tracker wraps the user context (new `context` proxy API)
         # - global_params_tracker wraps the legacy shared dict (global_params injection
@@ -208,6 +236,14 @@ class PipelineEngine:
                     routing_in = []
                     if prc.inputs:
                         routing_in = [result[idi] if idi is not None else None for idi in prc.inputs]
+                    if self.readonly_inputs and routing_in:
+                        if getattr(prc, "inplace", False):
+                            # declared in-place filter: private writable copies keep the
+                            # shared buffers and upstream caches safe
+                            routing_in = [deepcopy(buf) for buf in routing_in]
+                        else:
+                            # read-only views: in-place mutation raises at the user's line
+                            routing_in = [_readonly_view(buf) for buf in routing_in]
                     logging.debug(f"in types-> {[type(inp) for inp in routing_in]}")
                     out = prc.run(*routing_in)
                     if out is not None:

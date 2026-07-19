@@ -18,6 +18,7 @@ def interactive_pipeline(
     gui: Union[str, Backend, None] = "auto",
     safe_input_buffer_deepcopy=True,
     cache: Union[bool, str] = False,
+    readonly_inputs: bool = True,
     context: Optional[dict] = None,
     markdown_description: Optional[str] = None,
     name: Optional[str] = None,
@@ -34,6 +35,12 @@ def interactive_pipeline(
       recomputed, following the data-flow graph and runtime-tracked `context` usage
     - "graph-strict": same as "graph", but context reads return numpy arrays as read-only
       views so accidental in-place mutation raises at the offending line (debug helper)
+
+    readonly_inputs (default True): filters receive their numpy inputs as read-only views,
+    so in-place mutation (img += 1) raises immediately instead of silently corrupting
+    sibling filters or cached buffers. Declare @interactive(inplace=True) on a filter that
+    intentionally mutates its inputs (it then receives private writable copies), or pass
+    readonly_inputs=False to restore the legacy permissive behavior.
     """
     # Handle deprecated aliases for context parameter
     for alias in _CONTEXT_ALIASES:
@@ -53,6 +60,7 @@ def interactive_pipeline(
             pipeline_function,
             safe_input_buffer_deepcopy=safe_input_buffer_deepcopy,
             cache=cache,
+            readonly_inputs=readonly_inputs,
             context=context,
         )
         if gui is None or gui == "headless":
