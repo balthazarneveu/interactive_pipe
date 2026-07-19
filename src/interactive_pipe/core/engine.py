@@ -128,8 +128,12 @@ class PipelineEngine:
     def __init__(self, cache: Union[bool, str] = False, safe_input_buffer_deepcopy=True) -> None:
         self.cache = cache
         self.safe_input_buffer_deepcopy = safe_input_buffer_deepcopy
-        # optional ContextTracker wired by PipelineCore when cache == "graph"
+        # trackers wired by PipelineCore when cache == "graph":
+        # - context_tracker wraps the user context (new `context` proxy API)
+        # - global_params_tracker wraps the legacy shared dict (global_params injection
+        #   and class filters accessing self.global_params)
         self.context_tracker: Optional[ContextTracker] = None
+        self.global_params_tracker: Optional[ContextTracker] = None
 
     def run(self, filters: List[FilterCore], imglst=None):
         performances = []
@@ -151,12 +155,14 @@ class PipelineEngine:
                     result = imglst
 
         graph_mode = self.cache == "graph"
-        tracker = self.context_tracker if graph_mode else None
+        trackers: List[ContextTracker] = []
+        if graph_mode:
+            trackers = [t for t in (self.context_tracker, self.global_params_tracker) if t is not None]
         dependencies = _build_dependency_indexes(filters) if graph_mode else []
         dirty_flags: List[bool] = []
-        # context keys updated outside of the pipeline run (GUI events, user code)
-        changed_keys: Set = set(tracker.consume_external_changes()) if tracker else set()
-        run_writes: List[tuple] = []  # (filter index, context keys it changed this run)
+        # per tracker: context keys updated outside of the pipeline run (GUI events, user code)
+        changed_keys: dict = {id(t): set(t.consume_external_changes()) for t in trackers}
+        run_writes: List[tuple] = []  # (filter index, tracker, context keys changed this run)
 
         skip_calculation = True
         previous_calculation = False
@@ -167,10 +173,11 @@ class PipelineEngine:
                 # one of its producers is dirty, or a context key it reads was updated
                 params_changed = (prc.cache_mem is None) or prc.cache_mem.has_changed(prc.values)
                 deps_dirty = any(dirty_flags[dep] for dep in dependencies[idx])
-                if prc.uses_legacy_context:
-                    # legacy shared dict is untracked: conservative barrier
+                if prc.uses_legacy_context and self.global_params_tracker is None:
+                    # legacy shared dict untracked (engine used standalone without a
+                    # PipelineCore wiring the trackers): conservative barrier
                     deps_dirty = deps_dirty or any(dirty_flags)
-                context_dirty = tracker.reads_changed_keys(prc.name, changed_keys) if tracker else False
+                context_dirty = any(t.reads_changed_keys(prc.name, changed_keys[id(t)]) for t in trackers)
                 is_dirty = params_changed or deps_dirty or context_dirty
                 dirty_flags.append(is_dirty)
                 skip_calculation = not is_dirty
@@ -191,9 +198,9 @@ class PipelineEngine:
                 previous_calculation = False
             else:
                 logging.debug(("... " if previous_calculation else "!!! ") + f"Calculating {prc.name}")
-                if tracker is not None:
+                for trk in trackers:
                     # attribute context reads/writes to this filter while it runs
-                    tracker.begin_filter(prc.name)
+                    trk.begin_filter(prc.name)
                 try:
                     routing_in = []
                     if prc.inputs:
@@ -213,12 +220,12 @@ class PipelineEngine:
                     filter_error.print_compact()
                     raise filter_error from None  # 'from None' suppresses the chained traceback
                 finally:
-                    if tracker is not None:
-                        filter_changes = tracker.finish_filter()
-                if tracker is not None and filter_changes:
-                    # context keys updated by this filter dirty their readers downstream
-                    changed_keys |= filter_changes
-                    run_writes.append((idx, filter_changes))
+                    filter_changes = [(trk, trk.finish_filter()) for trk in trackers]
+                for trk, keys_changed in filter_changes:
+                    if keys_changed:
+                        # context keys updated by this filter dirty their readers downstream
+                        changed_keys[id(trk)] |= keys_changed
+                        run_writes.append((idx, trk, keys_changed))
                 previous_calculation = True
                 if self.cache and prc.cache_mem is not None:  # cache result if cache available
                     logging.debug(f"<-- Storing result from {prc.name}")
@@ -234,15 +241,15 @@ class PipelineEngine:
             toc = time.perf_counter()
             performances.append(f"{prc.name}: {toc - tic:0.4f} seconds")
 
-        if tracker is not None and run_writes:
+        if run_writes:
             # Backward context edges (feedback across runs): when a filter updates a key
             # read by a filter located earlier in the pipeline (or by itself), the reader
             # computed with the previous value - invalidate its cache for the next run.
             # Readers located after the writer already saw the fresh value this run.
             name_to_idx = {filt.name: filt_idx for filt_idx, filt in enumerate(filters)}
-            for writer_idx, keys in run_writes:
+            for writer_idx, trk, keys in run_writes:
                 for key in keys:
-                    for reader_name in tracker.readers_of(key):
+                    for reader_name in trk.readers_of(key):
                         reader_idx = name_to_idx.get(reader_name)
                         if reader_idx is None or reader_idx > writer_idx:
                             continue

@@ -61,14 +61,13 @@ class PipelineCore:
 
         if context is None:
             context = {}
+        # property setter links every filter to the shared dict
+        # and wraps it in a ContextTracker in graph cache mode
         self.global_params = context
-        for filter in self.filters:
-            # link each filter to global params
-            filter.global_params = self.global_params
 
         # Initialize user context (separate from global_params for clean API)
         self._user_context = dict(context) if isinstance(context, dict) else {}
-        if cache == "graph":
+        if self._graph_cache_mode:
             # dependency-aware cache: track context reads/writes per filter so
             # context-based data dependencies invalidate the right cached results
             self._user_context = ContextTracker(self._user_context)
@@ -97,6 +96,35 @@ class PipelineCore:
     def reset_cache(self):
         for filter in self.filters:
             filter.reset_cache()
+
+    @property
+    def _graph_cache_mode(self) -> bool:
+        return self.engine.cache == "graph"
+
+    @property
+    def global_params(self):
+        return self._global_params_storage
+
+    @global_params.setter
+    def global_params(self, new_global_params: dict):
+        """Replace the shared legacy context dict and relink every filter to it.
+
+        In graph cache mode the dict is wrapped in a ContextTracker so accesses
+        through legacy injection or `self.global_params` in class-based filters
+        are attributed to the running filter (framework keys starting with __ are
+        not tracked). Replacing the shared state wholesale (e.g. gradio dry run)
+        also invalidates every cached result computed from it.
+        """
+        if self._graph_cache_mode:
+            if not isinstance(new_global_params, ContextTracker):
+                new_global_params = ContextTracker(new_global_params, ignore_prefix="__")
+            self.engine.global_params_tracker = new_global_params
+            # replacing the shared state invalidates anything computed from it
+            self.reset_cache()
+        self._global_params_storage = new_global_params
+        for filter in self.filters:
+            # link each filter to global params
+            filter.global_params = new_global_params
 
     def run(self) -> dict:
         """Useful for standalone python access without gui or disk write"""

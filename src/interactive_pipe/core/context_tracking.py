@@ -39,13 +39,19 @@ class ContextTracker(dict):
       conservatively considered a change.
     """
 
-    def __init__(self, initial: Optional[Dict[str, Any]] = None):
+    def __init__(self, initial: Optional[Dict[str, Any]] = None, ignore_prefix: Optional[str] = None):
         super().__init__(initial or {})
         self._reads: Dict[str, Set[Any]] = {}  # filter name -> keys it reads
         self._reads_all: Set[str] = set()  # filters enumerating the whole context
         self._current: Optional[str] = None  # name of the filter currently running
         self._current_changes: Set[Any] = set()  # keys changed by the current filter
         self._external_changes: Set[Any] = set()  # keys changed outside any filter
+        # keys starting with this prefix are not tracked at all
+        # (used to exclude __framework keys when wrapping the legacy global_params dict)
+        self._ignore_prefix = ignore_prefix
+
+    def _ignored(self, key: Any) -> bool:
+        return self._ignore_prefix is not None and isinstance(key, str) and key.startswith(self._ignore_prefix)
 
     # ------------------------------------------------------------------
     # Engine hooks
@@ -88,7 +94,7 @@ class ContextTracker(dict):
     # Recording helpers
     # ------------------------------------------------------------------
     def _record_read(self, key: Any) -> None:
-        if self._current is not None:
+        if self._current is not None and not self._ignored(key):
             self._reads.setdefault(self._current, set()).add(key)
 
     def _record_read_all(self) -> None:
@@ -96,6 +102,8 @@ class ContextTracker(dict):
             self._reads_all.add(self._current)
 
     def _record_write(self, key: Any, new_value: Any = _UNSET) -> None:
+        if self._ignored(key):
+            return
         changed = True
         if new_value is not _UNSET and dict.__contains__(self, key):
             old_value = dict.__getitem__(self, key)

@@ -214,9 +214,9 @@ def test_graph_cache_external_context_update():
     assert counters == {"reader": 2}
 
 
-def test_graph_cache_legacy_global_params_barrier():
-    """Filters using legacy context injection are conservatively recomputed
-    whenever any earlier filter is recomputed."""
+def test_graph_cache_legacy_injection_tracked_precisely():
+    """The injected legacy dict is wrapped in a ContextTracker: a legacy filter is
+    only recomputed when a key it actually reads changes, not on any upstream change."""
     counters = {"first": 0, "legacy": 0}
 
     def first(img, gain=1.0):
@@ -225,7 +225,7 @@ def test_graph_cache_legacy_global_params_barrier():
 
     def legacy(img, global_params={}, offset=0.0):  # noqa: B006 - legacy API on purpose
         counters["legacy"] += 1
-        return [img + offset]
+        return [img + global_params.get("ratio", 0.0) + offset]
 
     filt1 = FilterCore(apply_fn=first, inputs=[0], outputs=[1])
     filt2 = FilterCore(apply_fn=legacy, inputs=[0], outputs=[2])
@@ -238,15 +238,106 @@ def test_graph_cache_legacy_global_params_barrier():
     pip.run()
     assert counters == {"first": 1, "legacy": 1}
 
-    # no variable dependency between the two filters, but the legacy filter
-    # could read anything from the shared dict -> barrier forces recomputation
+    # 'first' does not touch the shared dict: the legacy filter stays cached
     pip.parameters = {"first": {"gain": 2.0}}
     pip.run()
-    assert counters == {"first": 2, "legacy": 2}
+    assert counters == {"first": 2, "legacy": 1}
 
     # no change -> everything cached
     pip.run()
+    assert counters == {"first": 2, "legacy": 1}
+
+
+def test_graph_cache_standalone_engine_keeps_legacy_barrier():
+    """Without a PipelineCore wiring the trackers (engine used standalone),
+    legacy filters keep the conservative barrier behavior."""
+    from interactive_pipe.core.engine import PipelineEngine
+
+    counters = {"first": 0, "legacy": 0}
+
+    def first(img, gain=1.0):
+        counters["first"] += 1
+        return [img * gain]
+
+    def legacy(img, global_params={}, offset=0.0):  # noqa: B006 - legacy API on purpose
+        counters["legacy"] += 1
+        return [img + offset]
+
+    filt1 = FilterCore(apply_fn=first, inputs=[0], outputs=[1])
+    filt2 = FilterCore(apply_fn=legacy, inputs=[0], outputs=[2])
+    engine = PipelineEngine(cache="graph")
+
+    engine.run([filt1, filt2], imglst=[input_image])
+    assert counters == {"first": 1, "legacy": 1}
+    filt1.values = {"gain": 2.0}
+    engine.run([filt1, filt2], imglst=[input_image])
+    # untracked legacy dict -> barrier: legacy filter recomputed on any upstream change
     assert counters == {"first": 2, "legacy": 2}
+
+
+def test_graph_cache_class_filter_global_params_tracked():
+    """Class-based filters accessing self.global_params directly (no signature hint)
+    are tracked through the wrapped shared dict."""
+    counters = {"GpWriter": 0, "GpReader": 0}
+
+    class GpWriter(FilterCore):
+        def apply(self, img, gain=2.0):
+            counters["GpWriter"] += 1
+            self.global_params["ratio"] = gain
+            return [img]
+
+    class GpReader(FilterCore):
+        def apply(self, img):
+            counters["GpReader"] += 1
+            return [img * self.global_params.get("ratio", 1.0)]
+
+    filt_w = GpWriter(inputs=[0], outputs=[1])
+    filt_r = GpReader(inputs=[0], outputs=[2])
+    assert not filt_w.uses_legacy_context  # invisible to signature inspection!
+    assert not filt_r.uses_legacy_context
+
+    pip = PipelineCore(filters=[filt_w, filt_r], inputs=[0], outputs=[2], cache="graph")
+    pip.inputs = [input_image]
+
+    res = pip.run()
+    assert counters == {"GpWriter": 1, "GpReader": 1}
+    assert np.allclose(res[2], 2.0 * input_image)
+
+    pip.run()
+    assert counters == {"GpWriter": 1, "GpReader": 1}
+
+    # the writer's parameter changes -> the reader must see the new shared value
+    pip.parameters = {"GpWriter": {"gain": 5.0}}
+    res = pip.run()
+    assert counters == {"GpWriter": 2, "GpReader": 2}
+    assert np.allclose(res[2], 5.0 * input_image)
+
+
+def test_graph_cache_global_params_replacement_resets_cache():
+    """Replacing pipeline.global_params wholesale (gradio dry-run pattern) rewraps
+    the tracker and invalidates every cached result."""
+    counters = {"GpReader": 0}
+
+    class GpReader(FilterCore):
+        def apply(self, img):
+            counters["GpReader"] += 1
+            return [img * self.global_params.get("ratio", 1.0)]
+
+    filt_r = GpReader(inputs=[0], outputs=[1])
+    pip = PipelineCore(filters=[filt_r], inputs=[0], outputs=[1], cache="graph")
+    pip.inputs = [input_image]
+
+    pip.run()
+    pip.run()
+    assert counters == {"GpReader": 1}
+
+    pip.global_params = {"ratio": 3.0}
+    res = pip.run()
+    assert counters == {"GpReader": 2}
+    assert np.allclose(res[1], 3.0 * input_image)
+    # engine tracker follows the replacement and filters are relinked
+    assert pip.engine.global_params_tracker is pip.global_params
+    assert filt_r.global_params is pip.global_params
 
 
 def test_graph_cache_results_match_no_cache():
