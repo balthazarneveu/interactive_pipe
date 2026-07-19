@@ -17,7 +17,7 @@ def pipeline(pipeline_function: Callable, **kwargs) -> HeadlessPipeline:
 def interactive_pipeline(
     gui: Union[str, Backend, None] = "auto",
     safe_input_buffer_deepcopy=True,
-    cache=False,
+    cache: Union[bool, str] = False,
     context: Optional[dict] = None,
     markdown_description: Optional[str] = None,
     name: Optional[str] = None,
@@ -26,6 +26,12 @@ def interactive_pipeline(
     """@interactive_pipeline
 
     Function decorator to add some controls @interactive_pipeline
+
+    cache modes:
+    - False (default): recompute every filter on every interaction
+    - True: sequential prefix cache (a change recomputes every filter after it in source order)
+    - "graph": dependency-aware cache - only filters actually affected by a change are
+      recomputed, following the data-flow graph and runtime-tracked `context` usage
     """
     # Handle deprecated aliases for context parameter
     for alias in _CONTEXT_ALIASES:

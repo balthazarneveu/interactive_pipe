@@ -1,8 +1,9 @@
 import logging
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from interactive_pipe.core.context import _set_user_context
+from interactive_pipe.core.context_tracking import ContextTracker
 from interactive_pipe.core.engine import PipelineEngine
 from interactive_pipe.core.filter import FilterCore
 
@@ -15,13 +16,19 @@ class PipelineCore:
     - a list of filters
     - an engine to execute the filters (with cache or not)
     - optionally, some inputs to process
+
+    cache modes:
+    - False: recompute everything on every run
+    - True: sequential prefix cache (a parameter change recomputes every filter after it)
+    - "graph": dependency-aware cache (only the filters actually affected by a change
+      are recomputed, including dependencies through the shared `context`)
     """
 
     def __init__(
         self,
         filters: List[FilterCore],
         name="pipeline",
-        cache=False,
+        cache: Union[bool, str] = False,
         inputs: Optional[list] = None,
         parameters: Optional[dict] = None,
         context: Optional[dict] = None,
@@ -61,6 +68,11 @@ class PipelineCore:
 
         # Initialize user context (separate from global_params for clean API)
         self._user_context = dict(context) if isinstance(context, dict) else {}
+        if cache == "graph":
+            # dependency-aware cache: track context reads/writes per filter so
+            # context-based data dependencies invalidate the right cached results
+            self._user_context = ContextTracker(self._user_context)
+            self.engine.context_tracker = self._user_context
 
         self.reset_cache()
         if inputs is None:
