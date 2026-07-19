@@ -1,7 +1,8 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from interactive_pipe.core.context import REMOVED_CONTEXT_ALIASES, _set_user_context
+from interactive_pipe.core.context_tracking import GRAPH_CACHE_MODES, ContextTracker
 from interactive_pipe.core.engine import PipelineEngine
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.framework_state import FrameworkState
@@ -12,13 +13,21 @@ class PipelineCore:
     - a list of filters
     - an engine to execute the filters (with cache or not)
     - optionally, some inputs to process
+
+    cache modes:
+    - False: recompute everything on every run
+    - True: sequential prefix cache (a parameter change recomputes every filter after it)
+    - "graph": dependency-aware cache (only the filters actually affected by a change
+      are recomputed, including dependencies through the shared `context`)
+    - "graph-strict": like "graph", plus context reads return numpy arrays as read-only
+      views so accidental in-place mutation raises at the offending line
     """
 
     def __init__(
         self,
         filters: List[FilterCore],
         name="pipeline",
-        cache=False,
+        cache: Union[bool, str] = False,
         inputs: Optional[list] = None,
         parameters: Optional[dict] = None,
         context: Optional[dict] = None,
@@ -55,6 +64,11 @@ class PipelineCore:
 
         # Initialize user context (separate from global_params for clean API)
         self._user_context = dict(context) if isinstance(context, dict) else {}
+        if self._graph_cache_mode:
+            # dependency-aware cache: track context reads/writes per filter so
+            # context-based data dependencies invalidate the right cached results
+            self._user_context = ContextTracker(self._user_context, strict=self.engine.cache == "graph-strict")
+            self.engine.context_tracker = self._user_context
 
         self.reset_cache()
         if inputs is None:
@@ -79,6 +93,10 @@ class PipelineCore:
     def reset_cache(self):
         for filt in self.filters:
             filt.reset_cache()
+
+    @property
+    def _graph_cache_mode(self) -> bool:
+        return self.engine.cache in GRAPH_CACHE_MODES
 
     def run(self) -> dict:
         """Useful for standalone python access without gui or disk write"""
