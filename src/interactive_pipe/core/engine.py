@@ -120,6 +120,27 @@ def _readonly_view(value):
     return value
 
 
+def _capture_tensor_versions(buffers) -> List[tuple]:
+    """Snapshot torch tensors' in-place version counters (recursing into lists/tuples).
+
+    Torch has no read-only view concept, so mutation cannot be prevented like numpy.
+    But every in-place operation bumps the tensor's autograd version counter
+    (tensor._version, shared between a tensor and its views), which makes mutation
+    detectable in O(1) right after a filter runs. Duck-typed: torch is never imported.
+    """
+    versions = []
+    for buf in buffers:
+        if buf is None:
+            continue
+        if type(buf).__module__.split(".")[0] == "torch":
+            version = getattr(buf, "_version", None)
+            if version is not None:
+                versions.append((buf, version))
+        elif isinstance(buf, (list, tuple)):
+            versions.extend(_capture_tensor_versions(buf))
+    return versions
+
+
 def _build_dependency_indexes(filters: List[FilterCore]) -> List[Set[int]]:
     """For each filter, the indexes of upstream filters producing its inputs.
 
@@ -242,6 +263,7 @@ class PipelineEngine:
                     routing_in = []
                     if prc.inputs:
                         routing_in = [result[idi] if idi is not None else None for idi in prc.inputs]
+                    tensor_versions = []
                     if self.readonly_inputs and routing_in:
                         if getattr(prc, "inplace", False):
                             # declared in-place filter: private writable copies keep the
@@ -250,8 +272,19 @@ class PipelineEngine:
                         else:
                             # read-only views: in-place mutation raises at the user's line
                             routing_in = [_readonly_view(buf) for buf in routing_in]
+                            # torch tensors cannot be made read-only: detect mutation instead
+                            tensor_versions = _capture_tensor_versions(routing_in)
                     logging.debug(f"in types-> {[type(inp) for inp in routing_in]}")
                     out = prc.run(*routing_in)
+                    for buf, version in tensor_versions:
+                        if getattr(buf, "_version", version) != version:
+                            raise RuntimeError(
+                                "in-place mutation of a torch tensor input detected. "
+                                "Declare the filter with inplace=True (it will receive private "
+                                "writable copies) or copy first (tensor = tensor.clone()). "
+                                "Set readonly_inputs=False on the pipeline to allow this (unsafe "
+                                "with caching or when several filters share the same buffer)."
+                            )
                     if out is not None:
                         try:
                             logging.debug(f"out types-> {[type(ou) for ou in out]}")
