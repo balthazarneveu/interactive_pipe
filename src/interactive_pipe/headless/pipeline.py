@@ -230,15 +230,18 @@ class HeadlessPipeline(PipelineCore):
             # Not having .controls attribute
             # This happens for headless pipelines which have no list of controls
             return
+        # Merge control values into existing parameters instead of replacing
+        current_params = self.parameters  # Get current parameters
         for ctrl in self.controls:
             if ctrl.filter_to_connect is not None:
                 logging.info(f"{ctrl.filter_to_connect.name}, {ctrl.parameter_name_to_connect}, {ctrl.value}")
-                # Merge control value into existing parameters instead of replacing
-                current_params = self.parameters  # Get current parameters
                 if ctrl.filter_to_connect.name not in current_params:
                     current_params[ctrl.filter_to_connect.name] = {}
                 current_params[ctrl.filter_to_connect.name][ctrl.parameter_name_to_connect] = ctrl.value
-                self.parameters = current_params  # Set merged parameters
+        # Assign once, after every control has been merged: the setter also writes the
+        # values back into the controls, so assigning inside the loop would overwrite the
+        # not-yet-merged controls with the stale filter values (e.g. after a GUI reset).
+        self.parameters = current_params
 
     def __run(self):
         self.update_parameters_from_controls()
