@@ -52,7 +52,8 @@ class Image(Data):
     """Image payload with save, load and display helpers.
 
     Wraps a float numpy array with values expected in ``[0, 1]``, of shape
-    ``(H, W)`` (grayscale) or ``(H, W, 3)`` (RGB). Saving and loading go
+    ``(H, W)`` (grayscale), ``(H, W, 3)`` (RGB) or ``(H, W, 4)`` (RGBA,
+    PNG/TIFF only). Saving and loading go
     through Pillow or OpenCV, whichever is installed; pass
     ``backend="pillow"`` or ``backend="opencv"`` to force one.
 
@@ -118,12 +119,22 @@ class Image(Data):
         return img / (2.0**precision - 1)  # scale image data to [0, 1]
 
     @staticmethod
+    def _check_channels(data: np.ndarray) -> int:
+        """Return the channel count of an (H, W, C) image, accepting RGB and RGBA."""
+        channels = data.shape[-1]
+        if channels not in (3, 4):
+            raise ValueError(f"Expected an RGB or RGBA image, got {channels} channels (shape {data.shape})")
+        return channels
+
+    @staticmethod
     def save_image_cv2(data, path: Path, precision=8):
         if not isinstance(path, Path):
             raise TypeError(f"path must be a Path object, got {type(path)}")
         out = Image.rescale_dynamic(data, precision=precision)
         out = out.astype(np.uint8 if precision == 8 else np.uint16)
-        out = cv2.cvtColor(out, cv2.COLOR_BGR2RGB)
+        channels = Image._check_channels(out)
+        # OpenCV stores channels as BGR(A)
+        out = cv2.cvtColor(out, cv2.COLOR_RGB2BGR if channels == 3 else cv2.COLOR_RGBA2BGRA)
         cv2.imwrite(str(path), out)
 
     @staticmethod
@@ -134,15 +145,21 @@ class Image(Data):
             raise TypeError(f"path must be a Path object, got {type(path)}")
         out = Image.rescale_dynamic(data, precision=precision)
         out = out.astype(np.uint8)  # PIL requires image data in uint8 format
-        out = PilImage.fromarray(out, "RGB")
+        channels = Image._check_channels(out)
+        out = PilImage.fromarray(out, "RGB" if channels == 3 else "RGBA")
         out.save(str(path))
 
     @staticmethod
     def load_image_cv2(path: Path, precision=8) -> np.ndarray:
-        img = cv2.imread(str(path))
+        img = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
         if img is None:
             raise ValueError(f"Could not load image from {path}")
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # type: ignore
+        if img.ndim == 2:
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+        elif img.shape[-1] == 4:
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
+        else:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # type: ignore
         return Image.normalize_dynamic(img, precision=precision)
 
     @staticmethod
