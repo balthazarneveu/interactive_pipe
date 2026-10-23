@@ -7,7 +7,7 @@ from typing import Any, Optional
 class Data:
     def __init__(self, data, **kwargs) -> None:
         self._set_file_extensions()
-        self.data = None
+        self.data: Any = None
         if isinstance(data, Path):
             # you can directly instantiate from a Path - similar to from_file
             self.load(data, **kwargs)
