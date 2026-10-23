@@ -42,8 +42,8 @@ class ControlFactory:
 
         control_class_map = {
             bool: TickBoxControl,
-            int: IntSliderControl,
-            float: FloatSliderControl,
+            int: IntSliderControl if control.value_range is not None else NumberControl,
+            float: FloatSliderControl if control.value_range is not None else NumberControl,
             str: (
                 PromptControl
                 if control.value_range is None
@@ -109,6 +109,28 @@ class FloatSliderControl(BaseControl):
             info=self.ctrl.tooltip,
         )
 
+        return self.control_widget
+
+
+class NumberControl(BaseControl):
+    """Numeric entry for an int/float control declared without value_range."""
+
+    def check_control_type(self):
+        if self.ctrl._type not in (int, float):
+            raise TypeError(f"Expected int or float control type, got {self.ctrl._type}")
+        if self.ctrl.value_range is not None:
+            raise ValueError("value_range must be None for NumberControl")
+
+    def create(self) -> "gr.Number":  # type: ignore[reportInvalidTypeForm]
+        if gr is None:
+            raise ModuleNotFoundError("gradio is required for Gradio controls")
+        self.control_widget = gr.Number(
+            value=self.ctrl.value,
+            label=self.name,
+            precision=0 if self.ctrl._type is int else None,
+            step=self.ctrl.step if self.ctrl.step else (1 if self.ctrl._type is int else 0.1),
+            info=self.ctrl.tooltip,
+        )
         return self.control_widget
 
 

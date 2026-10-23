@@ -240,3 +240,22 @@ def test_controls_without_widgets_do_not_shift_widget_indexes(sliders_layout):
     assert isinstance(window.io, gr.Blocks)
     converted = window.run_fn(*window.default_values)
     assert isinstance(converted, np.ndarray)
+
+
+@interactive(gr_free_int=Control(3), gr_free_float=Control(0.5))
+def gr_free_filter(img, gr_free_int=3, gr_free_float=0.5):
+    return img * gr_free_float + gr_free_int
+
+
+def gradio_free_pipeline(img):
+    out = gr_free_filter(img)
+    return out
+
+
+def test_rangeless_numeric_controls_get_number_widgets():
+    gui, _ = build_and_run(gradio_free_pipeline)
+    window = gui.window
+    assert all(isinstance(widget, gr.Number) for widget in window.widget_list)
+    converted = window.run_fn(7, 2.25)
+    assert gui.pipeline.parameters["gr_free_filter"] == {"gr_free_int": 7, "gr_free_float": pytest.approx(2.25)}
+    assert isinstance(converted, np.ndarray)

@@ -3,7 +3,7 @@ import logging
 from interactive_pipe.headless.control import Control
 
 try:
-    from ipywidgets import Checkbox, Dropdown, FloatSlider, IntSlider, Layout, Text
+    from ipywidgets import Checkbox, Dropdown, FloatSlider, FloatText, IntSlider, IntText, Layout, Text
 
     IPYWIDGETS_AVAILABLE = True
 except ImportError:
@@ -11,7 +11,9 @@ except ImportError:
     # Create dummy classes to allow import even when ipywidgets is not available
     Dropdown = None
     FloatSlider = None
+    FloatText = None
     IntSlider = None
+    IntText = None
     Checkbox = None
     Layout = None
     Text = None
@@ -88,6 +90,30 @@ class FloatSliderNotebookControl(BaseControl):
         )
 
 
+class NumberNotebookControl(BaseControl):
+    """Numeric entry for an int/float control declared without value_range."""
+
+    def check_control_type(self):
+        if self.ctrl._type not in (int, float):
+            raise TypeError(f"Expected int or float control type, got {self.ctrl._type}")
+        if self.ctrl.value_range is not None:
+            raise ValueError("value_range must be None for NumberNotebookControl")
+
+    def create(self):
+        widget_class = IntText if self.ctrl._type is int else FloatText
+        if widget_class is None:
+            raise ModuleNotFoundError("ipywidgets is required for notebook controls")
+        style = {"description_width": "initial"}
+        return widget_class(  # type: ignore[reportOptionalCall]
+            value=self.ctrl.value,
+            description=self.name,
+            step=self.ctrl.step if self.ctrl.step else (1 if self.ctrl._type is int else 0.1),
+            style=style,
+            layout=self.layout,
+            tooltip=self.ctrl.tooltip,
+        )
+
+
 class BoolCheckButtonNotebookControl(BaseControl):
     def check_control_type(self):
         if self.ctrl._type is not bool:
@@ -156,8 +182,8 @@ class ControlFactory:
 
         control_class_map = {
             bool: BoolCheckButtonNotebookControl,
-            int: IntSliderNotebookControl,
-            float: FloatSliderNotebookControl,
+            int: IntSliderNotebookControl if control.value_range is not None else NumberNotebookControl,
+            float: FloatSliderNotebookControl if control.value_range is not None else NumberNotebookControl,
             str: (PromptNotebookControl if control.value_range is None else DialogNotebookControl),
         }
 
