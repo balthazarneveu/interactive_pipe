@@ -65,10 +65,10 @@ def get_call_graph(func: Callable, global_context=None) -> dict:
     for node in ast.walk(tree):
         if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
             function_name = get_name(node.value.func)
-            if function_name is None or function_name not in global_context:
-                raise KeyError(f"Function name '{function_name}' not found in global context")
             if not isinstance(function_name, str):
                 raise TypeError(f"Function name must be a string, got {type(function_name)}")
+            if function_name not in global_context:
+                raise KeyError(f"Function name '{function_name}' not found in global context")
             input_names = [get_name(arg) for arg in node.value.args]
             results.append(
                 {
@@ -86,40 +86,33 @@ def get_call_graph(func: Callable, global_context=None) -> dict:
             if isinstance(value, ast.Call):
                 function_name = get_name(value.func)
                 logging.debug(f"classic function with assignment {function_name}")
-                if function_name is None or function_name not in global_context:
+                if not isinstance(function_name, str):
+                    raise TypeError(f"Function name must be a string, got {type(function_name)}")
+                if function_name not in global_context:
                     raise KeyError(
                         f"Function name '{function_name}' not found in global context. "
                         f"Probably misspelled {function_name}"
                     )
                 input_names = [get_name(arg) for arg in value.args]
                 output_names = flatten_target_names(targets, mapping_function=get_name)  # type: ignore
-                if not isinstance(function_name, str):
-                    raise TypeError(f"Function name must be a string, got {type(function_name)}")
                 function_object = global_context[function_name]
                 if isinstance(function_object, FilterCore):
                     # Case of a filter instance
                     function_object.check_apply_signature()
                     # ---> forcing filter instance .name to be the name of the object used in the func
-                    if isinstance(function_name, str):
-                        function_object.name = function_name
-                    # you could use instead: # function_name = function_object.name to keep the original name
+                    function_object.name = function_name
                     sig = function_object.signature
                     function_object.inputs = input_names  # type: ignore
                     function_object.outputs = output_names  # type: ignore
-                    function_apply = function_object
-                elif isinstance(function_object, Callable):
+                elif callable(function_object):
                     # Case of a decorated function
                     sig = analyze_apply_fn_signature(function_object)
-                    if isinstance(function_name, str):
-                        function_apply = global_context[function_name]
-                    else:
-                        function_apply = function_object
                 else:
                     raise TypeError(f"Not supported {function_name} - should be function or FilterCore")
                 results.append(
                     {
                         "function_name": function_name,
-                        "function_object": function_apply,
+                        "function_object": function_object,
                         "signature": {"args": sig[0], "kwargs": sig[1]},
                         "args": input_names,
                         "returns": output_names,
