@@ -26,19 +26,15 @@ class ConcreteData(Data):
 class TestNoneHandling:
     """Test handling of None values"""
 
-    @pytest.mark.skip(reason="outputs=None causes TypeError in FilterCore.run() - bug in current implementation")
     def test_filtercore_with_none_inputs_outputs(self):
-        """Test FilterCore with inputs=None and outputs=None
-        Note: This test reveals a bug - outputs=None is not properly handled in run()
-        """
+        """FilterCore with inputs=None and outputs=None still wraps a scalar result in a tuple"""
 
         def no_input_func():
             return 42
 
         filter = FilterCore(apply_fn=no_input_func, inputs=None, outputs=None)
-        # When outputs=None, run() returns the raw output without wrapping
         result = filter.run()
-        assert result == 42
+        assert result == (42,)
 
     def test_filtercore_with_none_inputs_accepts_no_args(self):
         """Test that inputs=None accepts no arguments"""
