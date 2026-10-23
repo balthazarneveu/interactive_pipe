@@ -313,3 +313,44 @@ def test_rangeless_numeric_controls_get_spin_boxes():
     gui.reset_parameters()
     assert int_box.value() == 3 and float_box.value() == pytest.approx(0.5)
     assert gui.pipeline.parameters["free_filter"] == {"free_int": 3, "free_float": 0.5}
+
+
+@interactive(out_kind=("image", ["image", "text", "curve", "table", "signal"]))
+def shape_shifter(img, out_kind="image"):
+    if out_kind == "text":
+        return "hello"
+    if out_kind == "curve":
+        return Curve([SingleCurve(y=img.mean(axis=0))])
+    if out_kind == "table":
+        return Table(img[:2, :2], columns=["a", "b"])
+    if out_kind == "signal":
+        return img.flatten()
+    return img
+
+
+def shape_shifter_pipeline(img):
+    out = shape_shifter(img)
+    return out
+
+
+def test_output_type_change_between_frames_rebuilds_the_cell():
+    gui = build_gui(shape_shifter_pipeline)
+    window = gui.window
+    window.refresh()
+    canvas_widget_types = {}
+    for kind in ["text", "curve", "table", "image", "signal", "text", "image", "curve", "text"]:
+        window.update_parameter("out_kind", kind)
+        cell = window.image_canvas[0][0]
+        expected_kind = "curve" if kind == "signal" else kind
+        assert cell["kind"] == expected_kind
+        canvas_widget_types[kind] = type(cell["image"]).__name__
+        # exactly one widget occupies the image slot of the grid
+        occupants = [
+            window.image_grid_layout.itemAt(i).widget()
+            for i in range(window.image_grid_layout.count())
+            if window.image_grid_layout.getItemPosition(i)[:2] == (1, 0)
+        ]
+        assert len(occupants) == 1 and occupants[0] is cell["image"]
+    assert canvas_widget_types["text"] == "QLabel" and canvas_widget_types["image"] == "QLabel"
+    assert canvas_widget_types["curve"] != "QLabel" and canvas_widget_types["table"] != "QLabel"
+    assert window.image_canvas[0][0]["image"].text() == "hello"

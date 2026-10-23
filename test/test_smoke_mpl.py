@@ -101,3 +101,43 @@ def test_rangeless_numeric_controls_get_text_entries():
     int_box.set_val("not a number")  # rejected, value kept
     assert gui.window.ctrl["mpl_free_int"].value == 7
     gui.close()
+
+
+@interactive(mpl_out_kind=("image", ["image", "text", "curve", "table", "signal"]))
+def mpl_shape_shifter(img, mpl_out_kind="image"):
+    from interactive_pipe.data_objects.curves import Curve, SingleCurve
+    from interactive_pipe.data_objects.table import Table
+
+    if mpl_out_kind == "text":
+        return "hello"
+    if mpl_out_kind == "curve":
+        return Curve([SingleCurve(y=img.mean(axis=0))])
+    if mpl_out_kind == "table":
+        return Table(img[:2, :2], columns=["a", "b"])
+    if mpl_out_kind == "signal":
+        return img.flatten()
+    return img
+
+
+def mpl_shape_shifter_pipeline(img):
+    out = mpl_shape_shifter(img)
+    return out
+
+
+def test_output_type_change_between_frames_rebuilds_the_axes():
+    pipeline = HeadlessPipeline.from_function(mpl_shape_shifter_pipeline, inputs=["img"])
+    gui = mpl_gui.InteractivePipeMatplotlib(pipeline=pipeline, name="mpl shapes")
+    gui.pipeline.inputs = [INPUT_IMAGE.copy()]
+    gui.window.refresh()
+    for kind in ["text", "curve", "table", "image", "signal", "signal", "text", "image", "curve", "text"]:
+        gui.window.update_parameter("mpl_out_kind", kind)
+        cell = gui.window.image_canvas[0][0]
+        assert cell["kind"] == ("curve" if kind == "signal" else kind)
+        ax = cell["ax"]
+        if kind == "image":
+            assert len(ax.images) == 1 and len(ax.lines) == 0
+        elif kind in ("curve", "signal"):
+            assert len(ax.lines) == 1 and len(ax.images) == 0
+        elif kind == "text":
+            assert len(ax.images) == 0 and len(ax.lines) == 0 and cell["data"].get_text() == "hello"
+    gui.close()

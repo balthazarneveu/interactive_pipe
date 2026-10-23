@@ -1,6 +1,30 @@
 import logging
 from typing import Any, List, Optional
 
+import numpy as np
+
+from interactive_pipe.data_objects.curves import Curve
+from interactive_pipe.data_objects.table import Table
+
+
+def display_kind(content: Any) -> Optional[str]:
+    """Classify a pipeline output for display: "image" (2D/3D array), "signal"
+    (1D array), "curve", "table", "text" or None when unsupported.
+
+    Backends keep the kind of each canvas cell so that a filter switching
+    output type between frames rebuilds the cell instead of feeding the new
+    content to the previous widget/artist.
+    """
+    if isinstance(content, np.ndarray):
+        return "signal" if content.ndim == 1 else "image"
+    if isinstance(content, Curve):
+        return "curve"
+    if isinstance(content, Table):
+        return "table"
+    if isinstance(content, str):
+        return "text"
+    return None
+
 
 class InteractivePipeWindow:
     """Display & refresh image results, hosts the sliders & allows refreshing layout grid.

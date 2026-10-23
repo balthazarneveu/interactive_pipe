@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 
 import matplotlib.pyplot as plt
@@ -7,7 +8,7 @@ from matplotlib.figure import Figure
 
 from interactive_pipe.data_objects.curves import Curve
 from interactive_pipe.data_objects.table import Table
-from interactive_pipe.graphical.window import InteractivePipeWindow
+from interactive_pipe.graphical.window import InteractivePipeWindow, display_kind
 
 
 class MatplotlibWindow(InteractivePipeWindow):
@@ -75,36 +76,38 @@ class MatplotlibWindow(InteractivePipeWindow):
         if self.image_canvas is None:
             raise RuntimeError("Image canvas not initialized")
         ax_dict = self.image_canvas[row][col]
+        ax = ax_dict["ax"]
         img = self.convert_image(image_array)
-        current_style = self.get_current_style(row, col)
-        data = ax_dict.get("data", None)
-        if data:
-            if isinstance(img, np.ndarray):
-                if len(img.shape) > 1:
-                    data.set_data(img)
-                elif len(img.shape) == 1:
-                    data.set_ydata(img)
-            elif isinstance(img, Curve):
-                ax_dict["data"] = img.update_plot(data, ax=ax_dict["ax"])
-            elif isinstance(img, Table):
-                ax_dict["data"] = img.update_table(data, ax=ax_dict["ax"])
-            elif isinstance(img, str):
+        if isinstance(img, np.ndarray) and img.ndim == 1:
+            img = Curve([img])  # 1D signals are plotted
+        kind = display_kind(img)
+        if ax_dict.get("kind") != kind:
+            # the output type changed since the last frame: start from clean axes
+            ax.clear()
+            ax_dict["data"] = None
+            ax_dict["kind"] = kind
+            self.need_redraw = True
+        data = ax_dict.get("data")
+        if isinstance(img, np.ndarray):
+            if data is None:
+                ax_dict["data"] = ax.imshow(img)
+            else:
+                data.set_data(img)
+        elif isinstance(img, Curve):
+            ax_dict["data"] = img.create_plot(ax=ax) if data is None else img.update_plot(data, ax=ax)
+        elif isinstance(img, Table):
+            ax_dict["data"] = img.create_table(ax=ax) if data is None else img.update_table(data, ax=ax)
+        elif isinstance(img, str):
+            if data is None:
+                ax_dict["data"] = ax.text(0.5, 0.5, img, ha="center", va="center", fontsize=10)
+            else:
                 data.set_text(img)
         else:
-            if isinstance(img, np.ndarray):
-                if len(img.shape) > 1:
-                    ax_dict["data"] = ax_dict["ax"].imshow(img)
-                elif len(img.shape) == 1:
-                    ax_dict["data"] = Curve([img]).create_plot(ax=ax_dict["ax"])  # type: ignore[reportArgumentType]
-            elif isinstance(img, Curve):
-                ax_dict["data"] = img.create_plot(ax=ax_dict["ax"])
-            elif isinstance(img, Table):
-                ax_dict["data"] = img.create_table(ax=ax_dict["ax"])
-            elif isinstance(img, str):
-                ax_dict["data"] = ax_dict["ax"].text(0.5, 0.5, img, ha="center", va="center", fontsize=10)
+            logging.warning(f"Unsupported output type for display: {type(img)}")
+            return
         curve_has_own_title = isinstance(img, Curve) and img.title is not None
         if not curve_has_own_title and not isinstance(img, Table):
-            self.update_style(ax_dict["ax"], style=current_style)
+            self.update_style(ax, style=self.get_current_style(row, col))
 
     def refresh(self):
         if not hasattr(self, "need_redraw"):
