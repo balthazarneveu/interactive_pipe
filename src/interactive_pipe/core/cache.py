@@ -2,6 +2,36 @@ import logging
 from copy import deepcopy
 from typing import Any, Optional
 
+import numpy as np
+
+
+def _values_equal(new_value: Any, old_value: Any) -> bool:
+    """Equality that also works for array-like parameter values.
+
+    Filter parameters are usually scalars, but any keyword argument default
+    (e.g. a numpy kernel) ends up in the compared dicts, and ``dict != dict``
+    raises on arrays ("truth value of an array is ambiguous").
+    """
+    if new_value is old_value:
+        return True
+    if isinstance(new_value, np.ndarray) or isinstance(old_value, np.ndarray):
+        return np.array_equal(np.asarray(new_value), np.asarray(old_value))
+    if isinstance(new_value, dict) and isinstance(old_value, dict):
+        return new_value.keys() == old_value.keys() and all(
+            _values_equal(new_value[key], old_value[key]) for key in new_value
+        )
+    if isinstance(new_value, (list, tuple)) and isinstance(old_value, (list, tuple)):
+        return (
+            type(new_value) is type(old_value)
+            and len(new_value) == len(old_value)
+            and all(_values_equal(a, b) for a, b in zip(new_value, old_value))
+        )
+    try:
+        return bool(new_value == old_value)
+    except (TypeError, ValueError):
+        # incomparable objects: conservatively consider them changed
+        return False
+
 
 class CachedResults:
     """
@@ -88,7 +118,7 @@ class StateChange:
         :param new_params: The new parameters to check.
         :return: True if the parameters have changed or False otherwise.
         """
-        if self._stored_params is None or new_params != self._stored_params:
+        if self._stored_params is None or not _values_equal(new_params, self._stored_params):
             self._stored_params = deepcopy(new_params)
             self._update_needed = True
         else:
