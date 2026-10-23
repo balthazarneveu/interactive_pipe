@@ -26,7 +26,7 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
     def set_default_key_bindings(self):
         self.key_bindings = {
             **{
-                "f1": self.help,
+                "f1": self.show_help,
                 "r": self.reset_parameters,
                 "w": self.save_images,
                 "o": self.load_parameters,
@@ -126,7 +126,8 @@ class MainWindow(MatplotlibWindow):
             **kwargs,
         )
         self.main_gui = main_gui
-        self.fig, self.ax = plt.subplots(figsize=self.size if isinstance(self.size, tuple) else None, num=self.name)
+        figsize = self.window_size if isinstance(self.window_size, tuple) else None
+        self.fig, self.ax = plt.subplots(figsize=figsize, num=self.name)
         plt.axis("off")
         self.init_sliders()
 

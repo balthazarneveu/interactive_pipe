@@ -96,7 +96,7 @@ class InteractivePipeQT(InteractivePipeGUI):
     def set_default_key_bindings(self):
         self.key_bindings = {
             **{
-                "f1": self.help,
+                "f1": self.show_help,
                 "f11": self.toggle_full_screen,
                 "r": self.reset_parameters,
                 "w": self.save_images,
@@ -145,8 +145,8 @@ class InteractivePipeQT(InteractivePipeGUI):
             # Go to fullscreen
             self.window.full_screen()
         else:
-            window_size = self.window.size
-            if window_size is not None and isinstance(window_size, str) and "full" in window_size.lower():
+            window_size = self.window.window_size
+            if isinstance(window_size, str) and "full" in window_size.lower():
                 # Special case where the window naturally goes to fullscreen since user defined it...
                 # Force to go back to normal
                 self.window.showNormal()
@@ -260,18 +260,18 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         #     self.refresh()
         # # You will refresh the window  at the app level, only when running.
         # # no need to run the pipeline engine to initalize the GUI
-        self.size = size
+        self.window_size = size
         self.full_screen_flag = False
 
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.show()
 
     @property
-    def size(self):
+    def window_size(self):
         return self._size
 
-    @size.setter
-    def size(self, _size):
+    @window_size.setter
+    def window_size(self, _size):
         if isinstance(_size, str):
             if "full" not in _size.lower() and "max" not in _size.lower():
                 raise ValueError(f"size={_size} can only be among (full, fullscreen, maximized, max, maximum)")
@@ -280,21 +280,22 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
 
     def update_window(self):
         self.full_screen_flag = False
-        if self.size is None:
+        requested = self.window_size
+        if requested is None:
             self.showNormal()
             return
-        if isinstance(self.size, str):
-            if "max" in self.size.lower():
+        if isinstance(requested, str):
+            if "max" in requested.lower():
                 self.maximize_screen()
-            if "full" in self.size.lower():
+            if "full" in requested.lower():
                 self.full_screen()
         else:
             self.showNormal()
-            if isinstance(self.size, int):
-                self.setMinimumWidth(self.size)
-            elif isinstance(self.size, (tuple, list)):
-                self.setMinimumWidth(self.size[0])
-                self.setMinimumHeight(self.size[1])
+            if isinstance(requested, int):
+                self.setMinimumWidth(requested)
+            elif isinstance(requested, (tuple, list)):
+                self.setMinimumWidth(requested[0])
+                self.setMinimumHeight(requested[1])
 
     def full_screen(self):
         self.showFullScreen()
