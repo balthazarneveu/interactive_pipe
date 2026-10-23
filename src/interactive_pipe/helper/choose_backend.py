@@ -25,15 +25,21 @@ def get_interactive_pipeline_class(gui: Union[str, Backend, None] = "auto"):
                     selected_gui = "qt"
                 except ImportError as qt_import_exception:
                     try:
-                        import matplotlib.pyplot as plt  # noqa: F401
+                        import dearpygui.dearpygui  # noqa: F401
 
-                        selected_gui = "mpl"
-                    except ImportError as mpl_import_exception:
-                        raise NameError(
-                            "Error in auto backend choice:\n"
-                            + f"Could not import Qt: {qt_import_exception}\n"
-                            + f"Could not import Matplotlib {mpl_import_exception}"
-                        )
+                        selected_gui = "dpg"
+                    except ImportError as dpg_import_exception:
+                        try:
+                            import matplotlib.pyplot as plt  # noqa: F401
+
+                            selected_gui = "mpl"
+                        except ImportError as mpl_import_exception:
+                            raise NameError(
+                                "Error in auto backend choice:\n"
+                                + f"Could not import Qt: {qt_import_exception}\n"
+                                + f"Could not import Dear PyGui: {dpg_import_exception}\n"
+                                + f"Could not import Matplotlib {mpl_import_exception}"
+                            )
             _private.auto_gui = selected_gui
     else:
         selected_gui = gui
@@ -51,6 +57,10 @@ def get_interactive_pipeline_class(gui: Union[str, Backend, None] = "auto"):
         signal.signal(signal.SIGTERM, signal.SIG_DFL)
         from interactive_pipe.graphical.qt_gui import (  # noqa: F811
             InteractivePipeQT as ChosenGui,
+        )
+    elif selected_gui == "dpg":
+        from interactive_pipe.graphical.dpg_gui import (
+            InteractivePipeDPG as ChosenGui,
         )
     elif selected_gui == "mpl":
         from interactive_pipe.graphical.mpl_gui import (

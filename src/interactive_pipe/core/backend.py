@@ -5,6 +5,7 @@ class Backend(str, Enum):
     """Supported GUI backends for interactive pipelines."""
 
     QT = "qt"
+    DPG = "dpg"
     GRADIO = "gradio"
     MPL = "mpl"
     NB = "nb"
