@@ -185,14 +185,15 @@ class MainWindow(MatplotlibWindow):
                 height = 0.02 * number_of_items
                 y_start = self.next_slider_position - height
                 self.next_slider_position -= self.spacer + height
-            elif ctrl._type is float or ctrl._type is int or (ctrl._type is str and ctrl.value_range is None):
+            elif ctrl._type in (float, int, str):
                 x_start = 0.25
                 width = 0.65
-                height = 0.02
-                if ctrl._type is str:
-                    height = 0.05
+                # sliders are thin, text entries (str prompt / rangeless numbers) taller
+                height = 0.02 if ctrl.value_range is not None else 0.05
                 y_start = self.next_button_position - height
                 self.next_button_position -= self.spacer + height
+            else:
+                continue
             if not dry_run:
                 if self.fig is None:
                     raise RuntimeError("Figure not initialized")

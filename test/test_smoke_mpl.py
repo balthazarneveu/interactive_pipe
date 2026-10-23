@@ -15,6 +15,7 @@ import pytest  # noqa: E402
 mpl_gui = pytest.importorskip("interactive_pipe.graphical.mpl_gui")
 
 from interactive_pipe import interactive, layout  # noqa: E402
+from interactive_pipe.headless.control import Control  # noqa: E402
 from interactive_pipe.headless.pipeline import HeadlessPipeline  # noqa: E402
 
 INPUT_IMAGE = np.linspace(0.0, 1.0, 4 * 4, dtype=np.float64).reshape(4, 4)
@@ -73,4 +74,30 @@ def test_load_parameters_syncs_controls(tmp_path, monkeypatch):
     assert gui.window.ctrl["mpl_gain"].value == pytest.approx(0.1)
     assert gui.pipeline.parameters["mpl_adjust"]["mpl_gain"] == pytest.approx(0.1)
     assert gui.window.sliders_list["mpl_gain"].val == pytest.approx(0.1)
+    gui.close()
+
+
+@interactive(mpl_free_int=Control(3), mpl_free_float=Control(0.5))
+def mpl_free_filter(img, mpl_free_int=3, mpl_free_float=0.5):
+    return img * mpl_free_float + mpl_free_int
+
+
+def mpl_free_pipeline(img):
+    out = mpl_free_filter(img)
+    return out
+
+
+def test_rangeless_numeric_controls_get_text_entries():
+    """int/float controls without value_range used to crash the slider factory."""
+    pipeline = HeadlessPipeline.from_function(mpl_free_pipeline, inputs=["img"])
+    gui = mpl_gui.InteractivePipeMatplotlib(pipeline=pipeline, name="mpl free")
+    gui.pipeline.inputs = [INPUT_IMAGE.copy()]
+    gui.window.refresh()
+    int_box = gui.window.sliders_list["mpl_free_int"]
+    float_box = gui.window.sliders_list["mpl_free_float"]
+    int_box.set_val("7")
+    float_box.set_val("2.25")
+    assert gui.pipeline.parameters["mpl_free_filter"] == {"mpl_free_int": 7, "mpl_free_float": pytest.approx(2.25)}
+    int_box.set_val("not a number")  # rejected, value kept
+    assert gui.window.ctrl["mpl_free_int"].value == 7
     gui.close()

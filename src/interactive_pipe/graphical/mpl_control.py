@@ -138,6 +138,33 @@ class PromptMatplotlibControl(BaseControl):
         return self.text_box
 
 
+class NumberPromptMatplotlibControl(BaseControl):
+    """Text entry for an int/float control declared without value_range."""
+
+    def check_control_type(self):
+        if self.ctrl._type not in (int, float):
+            raise TypeError(f"Expected int or float control type, got {self.ctrl._type}")
+        if self.ctrl.value_range is not None:
+            raise ValueError("value_range must be None for NumberPromptMatplotlibControl")
+
+    def create(self):
+        if self.ax_control is None:
+            raise ValueError("ax_control must be provided for NumberPromptMatplotlibControl")
+        self.text_box = TextBox(self.ax_control, self.name, initial=str(self.ctrl.value))
+
+        def submit(text):
+            try:
+                value = self.ctrl._type(text)  # type: ignore[misc]
+            except (TypeError, ValueError):
+                logging.warning(f"{self.name}: cannot parse {text!r} as {self.ctrl._type.__name__}")
+                self.text_box.set_val(str(self.ctrl.value))
+                return
+            self.update_func(self.name, value)
+
+        self.text_box.on_submit(submit)
+        return self.text_box
+
+
 class ControlFactory:
     @staticmethod
     def create_control(control: Control, update_func, ax_control=None):
@@ -149,8 +176,8 @@ class ControlFactory:
 
         control_class_map = {
             bool: BoolCheckButtonMatplotlibControl,
-            int: IntSliderMatplotlibControl,
-            float: FloatSliderMatplotlibControl,
+            int: IntSliderMatplotlibControl if control.value_range is not None else NumberPromptMatplotlibControl,
+            float: FloatSliderMatplotlibControl if control.value_range is not None else NumberPromptMatplotlibControl,
             str: (PromptMatplotlibControl if control.value_range is None else StringRadioButtonMatplotlibControl),
         }
 
