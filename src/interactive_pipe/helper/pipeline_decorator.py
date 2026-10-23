@@ -22,7 +22,7 @@ def pipeline(pipeline_function: Callable, **kwargs) -> HeadlessPipeline:
 
 def interactive_pipeline(
     gui: Union[str, Backend, None] = "auto",
-    safe_input_buffer_deepcopy: bool = True,
+    safe_input_buffer_deepcopy: Optional[bool] = None,
     cache: Union[bool, str] = False,
     readonly_inputs: bool = True,
     context: Optional[dict] = None,
@@ -44,7 +44,10 @@ def interactive_pipeline(
             or a ``Backend`` enum value. ``None`` or ``"headless"``
             returns a ``HeadlessPipeline`` without launching any GUI.
         safe_input_buffer_deepcopy: Deep-copy the input buffers before each
-            run so filters cannot mutate the original inputs.
+            run. None (default) copies only inputs that the read-only
+            machinery cannot protect (anything but numpy arrays / torch
+            tensors when ``readonly_inputs`` is True); True always copies
+            (one full copy of the inputs per run); False never copies.
         readonly_inputs: Hand filters their numpy inputs as read-only views
             (default True), so in-place mutation (``img += 1``) raises
             immediately instead of silently corrupting sibling filters or

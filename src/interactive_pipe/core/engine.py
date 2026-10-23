@@ -120,6 +120,20 @@ def _readonly_view(value):
     return value
 
 
+def _is_protected_input(value) -> bool:
+    """True when the read-only input machinery already guards this buffer against
+    in-place mutation: numpy arrays (read-only views), torch tensors (version
+    counter check) and lists/tuples made only of those."""
+    value_type = type(value)
+    if value_type.__module__ == "numpy" and value_type.__name__ == "ndarray":
+        return True
+    if value_type.__module__.split(".")[0] == "torch":
+        return True
+    if isinstance(value, (list, tuple)):
+        return all(_is_protected_input(item) for item in value)
+    return False
+
+
 def _capture_tensor_versions(buffers) -> List[tuple]:
     """Snapshot torch tensors' in-place version counters (recursing into lists/tuples).
 
@@ -178,12 +192,20 @@ class PipelineEngine:
     mutating an input in place (img += 1) raises at the offending line instead of silently
     corrupting sibling filters or cached buffers. Filters declaring inplace=True receive
     private writable deep copies of their inputs instead.
+
+    safe_input_buffer_deepcopy controls the deep copy of the pipeline inputs at the start
+    of every run:
+    - None (default, "auto"): copy only what the read-only machinery cannot protect -
+      i.e. nothing when readonly_inputs is True and the input is a numpy array / torch
+      tensor (or a list of those); other objects are still copied.
+    - True: always deep copy every input (previous default, one full copy per run).
+    - False: never copy (unsafe when filters mutate their inputs with readonly_inputs=False).
     """
 
     def __init__(
         self,
         cache: Union[bool, str] = False,
-        safe_input_buffer_deepcopy=True,
+        safe_input_buffer_deepcopy: Optional[bool] = None,
         readonly_inputs: bool = True,
     ) -> None:
         self.cache = cache
@@ -196,24 +218,24 @@ class PipelineEngine:
         self.context_tracker: Optional[ContextTracker] = None
         self.global_params_tracker: Optional[ContextTracker] = None
 
+    def _prepare_input(self, buffer):
+        """Deep copy an input buffer unless it is already protected (see class docstring)."""
+        copy_mode = self.safe_input_buffer_deepcopy
+        if copy_mode is None:
+            copy_mode = not (self.readonly_inputs and _is_protected_input(buffer))
+        if copy_mode:
+            logging.debug("<<< Deepcopy input buffer")
+            return deepcopy(buffer)
+        return buffer
+
     def run(self, filters: List[FilterCore], imglst=None):
         performances = []
         logging.debug(100 * "-")
-        result = {}
-        if imglst is not None:
-            if isinstance(imglst, list):
-                for input_index, inp in enumerate(imglst):
-                    if self.safe_input_buffer_deepcopy:
-                        result[input_index] = deepcopy(inp)
-                        logging.debug(f"<<< Deepcopy input images {input_index}")
-                    else:
-                        result[input_index] = inp
-            elif isinstance(imglst, dict):
-                if self.safe_input_buffer_deepcopy:
-                    logging.debug("<<< Deepcopy input images")
-                    result = deepcopy(imglst)
-                else:
-                    result = imglst
+        result: dict = {}
+        if isinstance(imglst, list):
+            result = {input_index: self._prepare_input(inp) for input_index, inp in enumerate(imglst)}
+        elif isinstance(imglst, dict):
+            result = {key: self._prepare_input(inp) for key, inp in imglst.items()}
 
         graph_mode = self.cache in GRAPH_CACHE_MODES
         trackers: List[ContextTracker] = []

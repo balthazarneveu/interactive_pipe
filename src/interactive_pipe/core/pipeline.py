@@ -32,7 +32,7 @@ class PipelineCore:
         parameters: Optional[dict] = None,
         context: Optional[dict] = None,
         outputs: Optional[list] = None,
-        safe_input_buffer_deepcopy: bool = True,
+        safe_input_buffer_deepcopy: Optional[bool] = None,
         readonly_inputs: bool = True,
         **kwargs,
     ):
