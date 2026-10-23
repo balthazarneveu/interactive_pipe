@@ -87,3 +87,47 @@ def test_curves(tmp_path):
     # new_sig.title ="reloaded
     for idx, curve in enumerate(new_sig.curves):
         assert np.isclose(curve.y, sig.curves[idx].y).all()
+
+
+def test_single_curve_saves_figure(tmp_path):
+    """SingleCurve.save to an image went through Curve.save_figure with the wrong
+    data dict (KeyError 'curves') and never matched '.jpg'."""
+    absciss = np.linspace(0.0, 1.0, 10)
+    curve = SingleCurve(absciss, absciss**2, label="square")
+    for suffix in (".png", ".jpg"):
+        path = tmp_path / f"single{suffix}"
+        curve.save(path)
+        assert path.exists() and path.stat().st_size > 0
+
+
+def test_curve_slice_assignment_bounds():
+    absciss = np.linspace(0.0, 1.0, 10)
+    crv = Curve([SingleCurve(absciss, absciss), SingleCurve(absciss, 2 * absciss)])
+    crv[0:2] = [SingleCurve(absciss, 3 * absciss), SingleCurve(absciss, 4 * absciss)]
+    np.testing.assert_allclose(crv[1].y, 4 * absciss)
+    with pytest.raises(ValueError):
+        crv[0:2] = [SingleCurve(absciss, absciss)]
+    with pytest.raises(TypeError):
+        crv[0:1] = ["not a curve"]
+
+
+def test_curve_update_plot_handles_curve_count_change():
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    absciss = np.linspace(0.0, 1.0, 10)
+    fig, ax = plt.subplots()
+    crv = Curve([SingleCurve(absciss, absciss, label="a")])
+    plt_obj = crv.create_plot(ax=ax)
+    assert len(ax.get_lines()) == 1
+    # more curves than before: the plot is rebuilt
+    crv.append(SingleCurve(absciss, 2 * absciss, label="b"))
+    plt_obj = crv.update_plot(plt_obj, ax=ax)
+    assert len(plt_obj) == 2 and len(ax.get_lines()) == 2
+    # same count but a different signal length (x omitted): no size mismatch
+    crv[0] = SingleCurve(y=np.linspace(0.0, 1.0, 20))
+    plt_obj = crv.update_plot(plt_obj, ax=ax)
+    assert len(ax.get_lines()[0].get_xdata()) == 20
+    plt.close(fig)

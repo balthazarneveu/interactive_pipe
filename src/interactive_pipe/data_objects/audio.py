@@ -40,6 +40,8 @@ def audio_to_html(audio: Union[None, str, Path, Tuple[int, np.ndarray]], control
         wavio.write(audio_bytes, audio[1].astype(np.float32), audio[0], sampwidth=4)
         audio_bytes.seek(0)
         audio_base64 = base64.b64encode(audio_bytes.read()).decode("utf-8")
+    else:
+        raise TypeError(f"audio must be a path or a (rate, data) tuple, got {type(audio)}")
     audio_player = f'<audio src="data:audio/mpeg;base64,{audio_base64}"'
     if controls:
         audio_player += " controls"
