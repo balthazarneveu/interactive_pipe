@@ -264,3 +264,24 @@ def test_audio_placeholders_registered():
     audio_bindings = gui.pipeline.framework_state.audio
     for callback in (audio_bindings.set_audio, audio_bindings.play, audio_bindings.pause, audio_bindings.stop):
         assert callable(callback)
+
+
+def test_load_parameters_syncs_controls_and_widgets(tmp_path, monkeypatch):
+    from interactive_pipe.data_objects.parameters import Parameters
+
+    gui = build_gui(basic_pipeline)
+    gui.window.refresh()
+    tuning_path = tmp_path / "tuning.yaml"
+    gui.pipeline.export_tuning(tuning_path)
+    saved = Parameters.from_file(tuning_path).data
+    saved["adjust"]["brightness"] = 0.25
+    saved["adjust"]["mode"] = "max"
+    Parameters(saved).save(tuning_path, override=True)
+    monkeypatch.setattr(Parameters, "prompt_file", staticmethod(lambda *_a, **_k: str(tuning_path)))
+    gui.load_parameters()
+    assert gui.window.ctrl["brightness"].value == pytest.approx(0.25)
+    assert gui.window.ctrl["mode"].value == "max"
+    assert gui.pipeline.parameters["adjust"]["brightness"] == pytest.approx(0.25)
+    # widgets follow the controls
+    assert gui.window.widget_list["mode"].control_widget.currentText() == "max"
+    assert gui.window.image_canvas[0][0]["title"].text() == "mode=max"
