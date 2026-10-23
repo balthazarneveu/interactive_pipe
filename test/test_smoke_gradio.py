@@ -22,6 +22,7 @@ from interactive_pipe.data_objects.table import Table  # noqa: E402
 from interactive_pipe.graphical import gradio_gui  # noqa: E402
 from interactive_pipe.graphical.gradio_gui import InteractivePipeGradio  # noqa: E402
 from interactive_pipe.headless.control import Control  # noqa: E402
+from interactive_pipe.headless.keyboard import KeyboardControl  # noqa: E402
 from interactive_pipe.headless.panel import Panel  # noqa: E402
 from interactive_pipe.headless.pipeline import HeadlessPipeline  # noqa: E402
 
@@ -209,3 +210,33 @@ def test_audio_mode_adds_html_widget_and_extra_output():
     converted = window.run_fn(*window.default_values)
     assert isinstance(converted, tuple)
     assert isinstance(converted[-1], str)  # trailing audio HTML payload
+
+
+@interactive(
+    gr_kb_gain=KeyboardControl(0.5, [0.0, 1.0], keydown="1", keyup="2"),
+    gr_single=("only", ["only"]),
+    gr_slider=(0.5, [0.0, 1.0]),
+    gr_flag=Control(False),
+)
+def gr_sparse_filter(img, gr_kb_gain=0.5, gr_single="only", gr_slider=0.5, gr_flag=False):
+    return img * gr_kb_gain * gr_slider
+
+
+def gradio_sparse_pipeline(img):
+    out = gr_sparse_filter(img)
+    return out
+
+
+@pytest.mark.parametrize("sliders_layout", ["compact", "smart"])
+def test_controls_without_widgets_do_not_shift_widget_indexes(sliders_layout):
+    """Single-choice controls have no widget (keyboard controls become sliders in
+    the browser): layouts and event inputs must index widget_list by widget
+    position, not by control position."""
+    gui, _ = build_and_run(gradio_sparse_pipeline, sliders_layout=sliders_layout, sliders_per_row_layout=2)
+    window = gui.window
+    assert list(window.ctrl) == ["gr_kb_gain", "gr_single", "gr_slider", "gr_flag"]
+    assert window.ctrl_keys_with_widgets == ["gr_kb_gain", "gr_slider", "gr_flag"]
+    assert len(window.widget_list) == 3
+    assert isinstance(window.io, gr.Blocks)
+    converted = window.run_fn(*window.default_values)
+    assert isinstance(converted, np.ndarray)

@@ -95,8 +95,8 @@ class InteractivePipeGradio(InteractivePipeGUI):
                 continue
             for idy in range(len(self.window.image_canvas[idx])):  # type: ignore[reportOptionalSubscript]
                 canvas_cell = self.window.image_canvas[idx][idy]  # type: ignore[reportOptionalSubscript]
-                # Handle None or uninitialized (float from np.empty) padding positions
-                if canvas_cell is None or not isinstance(canvas_cell, dict):
+                # empty cells (None outputs, jagged row padding) get a blank placeholder
+                if canvas_cell is None:
                     out_list_gradio_containers.append(gr.HTML())
                     continue
                 title = canvas_cell.get("title", f"{idx} {idy}")

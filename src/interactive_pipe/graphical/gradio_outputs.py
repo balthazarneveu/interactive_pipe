@@ -15,7 +15,7 @@ import numpy as np
 
 MPL_SUPPORT = False
 try:
-    import matplotlib.pyplot as plt
+    from matplotlib.figure import Figure
 
     from interactive_pipe.data_objects.curves import Curve
     from interactive_pipe.data_objects.table import Table
@@ -51,8 +51,10 @@ def convert_output_value(out_item, *, audio_sampling_rate: int, convert_image: C
         # https://github.com/balthazarneveu/interactive_pipe/issues/54
         # Update curves instead of creating new ones shall be faster
         # Gradio still flickers anyway.
-        fig, ax = plt.subplots()
-        Curve._plot_curve(out_item.data, ax=ax)
+        # A bare Figure (not pyplot-managed) is garbage collected once gradio
+        # has rendered it; plt.subplots() leaked one figure per refresh.
+        fig = Figure()
+        Curve._plot_curve(out_item.data, ax=fig.subplots())
         return fig
     elif isinstance(out_item, Table):
         # Convert to format expected by gr.Dataframe
