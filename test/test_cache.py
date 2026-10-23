@@ -31,3 +31,19 @@ def test_has_changed_with_different_params():
     assert sc.has_changed({"param1": "value2"}) is True
     assert sc.update_needed is True
     assert repr(sc) == "Sample_Filter: needs update"
+
+
+def test_state_change_handles_array_parameters():
+    """A keyword argument default such as a numpy kernel lands in the compared
+    parameter dicts; dict comparison used to raise on it."""
+    import numpy as np
+
+    from interactive_pipe.core.cache import StateChange
+
+    state = StateChange()
+    assert state.has_changed({"kernel": np.ones(3), "gain": 1.0}) is True
+    assert state.has_changed({"kernel": np.ones(3), "gain": 1.0}) is False
+    assert state.has_changed({"kernel": np.ones(3), "gain": 2.0}) is True
+    assert state.has_changed({"kernel": np.zeros(3), "gain": 2.0}) is True
+    assert state.has_changed({"kernel": np.zeros(4), "gain": 2.0}) is True
+    assert state.has_changed({"kernel": np.zeros(4), "gain": 2.0}) is False

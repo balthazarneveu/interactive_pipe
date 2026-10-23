@@ -1,5 +1,4 @@
 import logging
-from copy import deepcopy
 from typing import Any, List, Optional
 
 
@@ -91,18 +90,16 @@ class InteractivePipeWindow:
         if _out is None:
             logging.warning("No output to display")
             return
-        out = deepcopy(_out)
         # In case no canvas has been provided
-        if isinstance(out, tuple):
-            out = [list(out)]
-        ny, nx = len(out), 0
-        for idy, img_row in enumerate(out):
+        if isinstance(_out, tuple):
+            _out = [list(_out)]
+        # Build a fresh grid of converted outputs: the pipeline results are left untouched
+        # (no deep copy of the buffers - converting large images every frame is costly enough).
+        out = []
+        for img_row in _out:
             if isinstance(img_row, list):
-                for idx, _out_img in enumerate(img_row):
-                    if out[idy][idx] is not None:
-                        out[idy][idx] = self.convert_image(out[idy][idx])
-                nx = len(img_row)
+                out.append([None if img is None else self.convert_image(img) for img in img_row])
             else:
-                out[idy] = [self.convert_image(out[idy])]
-        logging.debug(f"{ny} x {nx} figures")
+                out.append([self.convert_image(img_row)])
+        logging.debug(f"{len(out)} x {max((len(row) for row in out), default=0)} figures")
         self.set_images(out)
