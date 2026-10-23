@@ -121,15 +121,16 @@ class InteractivePipeGUI:
         for key, func in self.key_bindings.items():
             if key_pressed == key:
                 func()  # a GUI level function like reset parameters or export images
-        is_any_event_triggered = False
+        triggered_events = []
         for key, event_dict in self.context_key_bindings.items():
             event_triggered = key_pressed == key
             self.pipeline.framework_state.events[event_dict["param_name"]] = event_triggered
             if event_triggered:
                 logging.info(f"TRIGGERED A KEY EVENT {key_pressed} - {event_dict['doc']}")
-                is_any_event_triggered = True
-        if is_any_event_triggered:
-            self.pipeline.reset_cache()
+                triggered_events.append(event_dict["param_name"])
+        if triggered_events:
+            # only the filters reading these events (and what depends on them) rerun
+            self.pipeline.invalidate_event_readers(triggered_events)
             if refresh_func is not None:
                 refresh_func()
         self.reset_context_events()
