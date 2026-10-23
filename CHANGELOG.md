@@ -3,6 +3,11 @@
 ## Unreleased
 
 ### Improvements & bug fixes
+- A filter that changes its output type between frames (image one frame, text/curve/table the next) now rebuilds the display cell on Qt and matplotlib instead of feeding the new content to the previous widget; 1D signals update correctly on matplotlib.
+- Pipeline inputs are no longer deep-copied on every run when the read-only input views already protect them (`safe_input_buffer_deepcopy=None`, the new default, copies only unprotected objects; pass `True` to force the previous behavior).
+- A key-bound event (`bind_key_to_context`) only re-runs the filters that read it through `events` (and what depends on them) instead of resetting the whole cache.
+- `Image.save_image` / `load_image` accept RGBA arrays with both backends; Qt icon buttons highlight the current choice and follow resets; `interact(gui="headless")` gives a clear error.
+- Internal: window classes expose the requested size as `window_size` (Qt's `QWidget.size()` is no longer shadowed), `InteractivePipeGUI.help` is now `show_help` (alias kept), the Qt widget module reuses the binding cascade of `qt_backend`.
 - Numeric controls declared without a `value_range` (`Control(3)`, `Control(0.5)`) crashed every GUI backend; they now render as spin boxes (Qt), a numeric text entry (matplotlib), `gr.Number` (gradio) and `IntText`/`FloatText` (notebook).
 - 2D layouts keep `None` placeholders so cells and titles stay aligned, and jagged grids (rows of different lengths) no longer crash when the layout changes.
 - `cache=True` no longer raises "truth value of an array is ambiguous" when a filter has an array-valued keyword default (e.g. a numpy kernel).
@@ -93,7 +98,7 @@ The new API provides:
 - Graph visualization for GUI pipelines (press `G`)
 
 ### Deprecations
-- Inline syntax deprecated (use decorator syntax instead)
+- Decorator syntax (`@interactive(param=(default, [min, max]))`) is the recommended way to declare controls. The inline tuple shorthand in function defaults remains supported and emits no warning (this entry previously announced a deprecation that was never enforced).
 - `output_canvas` argument removed
 - Context aliases (`global_params`, `states` etc...) deprecated at initialization
 
