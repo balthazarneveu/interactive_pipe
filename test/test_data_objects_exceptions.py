@@ -289,15 +289,23 @@ class TestParametersExceptions:
         with pytest.raises(ValueError, match="expected one of"):
             params._save(file_path)
 
-    @pytest.mark.skipif(True, reason="Requires mocking YAML_SUPPORT=False")
-    def test_load_yaml_raises_runtimeerror_when_yaml_unavailable(self, tmp_path):
-        # This would require mocking YAML_SUPPORT
-        pass
+    def test_load_yaml_raises_runtimeerror_when_yaml_unavailable(self, tmp_path, monkeypatch):
+        from interactive_pipe.data_objects import parameters as parameters_module
 
-    @pytest.mark.skipif(True, reason="Requires mocking YAML_SUPPORT=False")
-    def test_save_yaml_raises_runtimeerror_when_yaml_unavailable(self, tmp_path):
-        # This would require mocking YAML_SUPPORT
-        pass
+        yaml_path = tmp_path / "test.yaml"
+        yaml_path.write_text("key: value\n")
+        monkeypatch.setattr(parameters_module, "YAML_SUPPORT", False)
+        with pytest.raises(RuntimeError, match="yaml is not installed"):
+            Parameters.load_yaml(yaml_path)
+        # without yaml, the supported extensions shrink to json
+        assert Parameters({}).file_extensions == [".json"]
+
+    def test_save_yaml_raises_runtimeerror_when_yaml_unavailable(self, tmp_path, monkeypatch):
+        from interactive_pipe.data_objects import parameters as parameters_module
+
+        monkeypatch.setattr(parameters_module, "YAML_SUPPORT", False)
+        with pytest.raises(RuntimeError, match="yaml is not installed"):
+            Parameters.save_yaml({"key": "value"}, tmp_path / "test.yaml")
 
 
 class TestAudioExceptions:
