@@ -92,7 +92,7 @@ def update_curve_cell(cell: dict, grid_layout, row: int, col: int, curve: "Curve
     if plt_obj is None:
         cell["plot_object"] = curve.create_plot(ax=ax)  # type: ignore[reportAttributeAccessIssue]
     else:
-        curve.update_plot(plt_obj, ax=ax)  # type: ignore[reportAttributeAccessIssue]
+        cell["plot_object"] = curve.update_plot(plt_obj, ax=ax)  # type: ignore[reportAttributeAccessIssue]
         ax.figure.canvas.draw()
 
 

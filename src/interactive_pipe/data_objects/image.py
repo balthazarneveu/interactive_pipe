@@ -161,7 +161,7 @@ class Image(Data):
         """
         backend = _resolve_image_backend(backend)
         if backend == IMAGE_BACKEND_OPENCV:
-            return Image.load_image_cv2(path)
+            return Image.load_image_cv2(path, precision)
         return Image.load_image_PIL(path, precision)
 
     def show(self) -> None:

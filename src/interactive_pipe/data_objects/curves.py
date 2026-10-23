@@ -137,13 +137,16 @@ class SingleCurve(Data):
         if path is None:
             raise ValueError("Save requires a path")
         self.path = path
-        Curve([self], xlabel=xlabel, ylabel=ylabel, title=title, grid=grid)
         if path.suffix == ".csv":
             SingleCurve.save_tabular(self.data, path)
         elif path.suffix == ".pkl":
             Data.save_binary(self.data, path)
-        elif path.suffix in [".png", "jpg"]:
-            Curve.save_figure(data=self.data, path=path, backend=backend, figsize=figsize)
+        elif path.suffix in [".png", ".jpg"]:
+            # a figure is always rendered from a Curve (plot styling lives there)
+            figure = Curve([self], xlabel=xlabel, ylabel=ylabel, title=title, grid=grid)
+            Curve.save_figure(data=figure.data, path=path, backend=backend, figsize=figsize)
+        else:
+            raise ValueError(f"Unsupported file extension: {path.suffix}, expected one of {self.file_extensions}")
 
     def _load(
         self,
@@ -263,13 +266,9 @@ class Curve(Data):
             curve_list = [SingleCurve(**curves)]  # type: ignore
             logging.debug("Empty curve")
         elif isinstance(curves, (list, tuple)):
-            if all(isinstance(item, SingleCurve) for item in curves):
-                curve_list = curves
-            else:
-                curve_list = []
-                for curve in curves:
-                    current_curve = self.__create_curve_from_abbreviation(curve)
-                    curve_list.append(current_curve)
+            curve_list = [self.__create_curve_from_abbreviation(curve) for curve in curves]
+        else:
+            raise TypeError(f"Unsupported curves declaration: {type(curves)}")
         data = {
             "curves": curve_list,
             "xlabel": xlabel,
@@ -391,10 +390,13 @@ class Curve(Data):
 
     def __setitem__(self, key: int, value):
         if isinstance(key, slice):
-            for lin_index, idx in enumerate(range(*key.indices(len(value)))):
-                if idx >= len(self.data["curves"]):
-                    raise IndexError(f"curve index {idx} out of range (max: {len(self.data['curves']) - 1})")
-                self.data["curves"][idx] = value[lin_index]
+            indices = range(*key.indices(len(self.data["curves"])))
+            if len(indices) != len(value):
+                raise ValueError(f"cannot assign {len(value)} curves to a slice of {len(indices)} curves")
+            for idx, new_curve in zip(indices, value):
+                if not isinstance(new_curve, SingleCurve):
+                    raise TypeError(f"value must be a SingleCurve instance, got {type(new_curve)}")
+                self.data["curves"][idx] = new_curve
             return
         if not isinstance(key, int):
             raise TypeError(f"key must be an integer, got {type(key)}")
@@ -417,10 +419,8 @@ class Curve(Data):
         if path.suffix != ".pkl":
             raise ValueError(f"Unsupported file extension: {path.suffix}, expected .pkl")
         self.path = path
-        if path.suffix == ".pkl":
-            # App-controlled round-trip of files written by save_binary
-            data = Data.load_binary(path, allow_pickle=True)
-        return data
+        # App-controlled round-trip of files written by save_binary
+        return Data.load_binary(path, allow_pickle=True)
 
     def _save(self, path: Path, backend=None, figsize=None):
         if path is None:
@@ -430,6 +430,8 @@ class Curve(Data):
             Data.save_binary(self.data, path)
         elif path.suffix in [".png", ".jpg"]:
             self.save_figure(self.data, self.path, backend=backend, figsize=figsize)
+        else:
+            raise ValueError(f"Unsupported file extension: {path.suffix}, expected one of {self.file_extensions}")
 
     @staticmethod
     def save_figure(data, path: Path, backend=None, figsize=None):
@@ -452,21 +454,33 @@ class Curve(Data):
         return plt_obj
 
     def update_plot(self, plt_obj, ax=None):
-        Curve._update_plot(self.data, plt_obj, ax=ax)
+        """Update an existing plot in place; returns the (possibly recreated) plot objects.
+
+        Callers should keep the returned value for the next update: when the number
+        of curves changed, the axes are cleared and the plot is rebuilt.
+        """
+        return Curve._update_plot(self.data, plt_obj, ax=ax)
 
     @staticmethod
     def _update_plot(data, plt_obj, ax=None):
+        if ax is not None and len(plt_obj) != len(data["curves"]):
+            # the set of lines changed: rebuild instead of updating line by line
+            ax.clear()
+            return Curve._plot_curve(data, ax=ax)
         legend = ax.get_legend() if ax is not None else None
         texts = []
         if legend is not None:
             texts = legend.get_texts()
         linear_index = 0
         for curve_idx, curve in enumerate(data["curves"]):
-            if curve.data.get("x", None) is not None:
-                plt_obj[curve_idx][0].set_xdata(curve.data["x"])
-            if curve.data.get("y", None) is not None:
-                plt_obj[curve_idx][0].set_ydata(curve.data["y"])
-            if curve.data["label"] is not None:
+            y = curve.data.get("y", None)
+            if y is None:
+                continue
+            x = curve.data.get("x", None)
+            line = plt_obj[curve_idx][0]
+            # set_data keeps x and y consistent even when the signal length changed
+            line.set_data(np.arange(len(y)) if x is None else x, y)
+            if curve.data["label"] is not None and linear_index < len(texts):
                 texts[linear_index].set_text(curve.data["label"])
                 linear_index += 1
 

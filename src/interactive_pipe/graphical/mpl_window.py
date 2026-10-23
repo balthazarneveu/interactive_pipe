@@ -85,7 +85,7 @@ class MatplotlibWindow(InteractivePipeWindow):
                 elif len(img.shape) == 1:
                     data.set_ydata(img)
             elif isinstance(img, Curve):
-                img.update_plot(data, ax=ax_dict["ax"])
+                ax_dict["data"] = img.update_plot(data, ax=ax_dict["ax"])
             elif isinstance(img, Table):
                 ax_dict["data"] = img.update_table(data, ax=ax_dict["ax"])
             elif isinstance(img, str):
