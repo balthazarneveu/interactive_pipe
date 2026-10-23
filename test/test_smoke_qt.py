@@ -354,3 +354,26 @@ def test_output_type_change_between_frames_rebuilds_the_cell():
     assert canvas_widget_types["text"] == "QLabel" and canvas_widget_types["image"] == "QLabel"
     assert canvas_widget_types["curve"] != "QLabel" and canvas_widget_types["table"] != "QLabel"
     assert window.image_canvas[0][0]["image"].text() == "hello"
+
+
+def test_icon_buttons_show_and_reset_selection(tmp_path):
+    from interactive_pipe.graphical.qt_control import ControlFactory, IconButtonsControl
+
+    icons = []
+    for name in ("a", "b"):
+        icon_path = tmp_path / f"{name}.png"
+        qt_gui.QPixmap(8, 8).save(str(icon_path))
+        icons.append(icon_path)
+    ctrl = Control("a", ["a", "b"], icons=icons, name="icon_ctrl")
+    received = []
+    widget = ControlFactory.create_control(ctrl, lambda name, value: received.append((name, value)))
+    assert isinstance(widget, IconButtonsControl)
+    widget.create()
+    checked = [btn.isChecked() for btn in widget.control_widgets]
+    assert checked == [True, False]
+    widget.control_widgets[1].click()
+    assert received == [("icon_ctrl", "b")]
+    assert [btn.isChecked() for btn in widget.control_widgets] == [False, True]
+    ctrl.value = "a"
+    widget.reset()
+    assert [btn.isChecked() for btn in widget.control_widgets] == [True, False]

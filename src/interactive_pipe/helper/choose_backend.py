@@ -37,6 +37,11 @@ def get_interactive_pipeline_class(gui: Union[str, Backend, None] = "auto"):
             _private.auto_gui = selected_gui
     else:
         selected_gui = gui
+    if selected_gui == "headless":
+        raise ValueError(
+            "'headless' is not a GUI backend: use interactive_pipeline(gui=None) (or gui='headless') to get a "
+            "HeadlessPipeline, or HeadlessPipeline.from_function directly."
+        )
     if selected_gui == "qt":
         # Deliberate: reset handlers to default so Ctrl-C / SIGTERM kill the
         # Qt event loop. Side effect: clobbers any handlers a host application

@@ -332,28 +332,30 @@ class IconButtonsControl(BaseControl):
 
         # Create a horizontal layout to hold the icon buttons
         hbox = QHBoxLayout()
+        # one checkable button per choice; the checked one shows the current value
         self.control_widgets = []
-        # Iterate over the ctrl's value range to create buttons with icons
-        for idx, icon_name in enumerate(self.ctrl.value_range):  # type: ignore[reportArgumentType]
+        for idx, choice in enumerate(self.ctrl.value_range):  # type: ignore[reportArgumentType]
             btn = QPushButton(self)
-            # Assuming you have a folder named 'icons' with images named after the ctrl's value range
-            icon_path = str(self.ctrl.icons[idx])  # type: ignore[reportOptionalSubscript]
-            btn.setIcon(QIcon(icon_path))
-            btn.setIconSize(QSize(64, 64))  # Example size, adjust as needed
-            # btn.setCheckable(True)  # Making the button checkable if you want to show which one is currently selected
-
-            # clicking selects the matching choice
-            btn.clicked.connect(partial(self.update_func, self.name, icon_name))
-            if self.ctrl.tooltip:
-                btn.setToolTip(self.ctrl.tooltip)
+            btn.setIcon(QIcon(str(self.ctrl.icons[idx])))  # type: ignore[reportOptionalSubscript]
+            btn.setIconSize(QSize(64, 64))
+            btn.setCheckable(True)
+            btn.setToolTip(self.ctrl.tooltip or str(choice))
+            btn.clicked.connect(partial(self._on_click, choice))
             self.control_widgets.append(btn)
             hbox.addWidget(btn)
-
+        self.reset()
         return hbox
 
+    def _on_click(self, choice):
+        self._check_only(choice)
+        self.update_func(self.name, choice)
+
+    def _check_only(self, choice):
+        for btn, btn_choice in zip(self.control_widgets, self.ctrl.value_range):  # type: ignore[reportArgumentType]
+            btn.setChecked(btn_choice == choice)
+
     def reset(self):
-        for _widget in self.control_widgets:
-            pass
+        self._check_only(self.ctrl.value)
 
 
 class DropdownMenuControl(BaseControl):
