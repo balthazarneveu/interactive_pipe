@@ -2,8 +2,6 @@ import logging
 from copy import deepcopy
 from typing import Any, List, Optional
 
-import numpy as np
-
 
 class InteractivePipeWindow:
     """Display & refresh image results, hosts the sliders & allows refreshing layout grid.
@@ -69,13 +67,12 @@ class InteractivePipeWindow:
         # Check if the layout has been updated!
         self.check_image_canvas_changes(expected_image_canvas_shape)
         if self.image_canvas is None:
-            self.image_canvas = np.empty(expected_image_canvas_shape).tolist()
+            # rectangular canvas: cells of short (jagged) rows and None outputs stay None
+            nrows, ncols = expected_image_canvas_shape
+            self.image_canvas = [[None] * ncols for _ in range(nrows)]
             for row, image_row in enumerate(image_grid):
                 for col, image_array in enumerate(image_row):
-                    if image_array is None:
-                        self.image_canvas[row][col] = None
-                        continue
-                    else:
+                    if image_array is not None:
                         self.add_image_placeholder(row, col)
 
     def set_images(self, image_grid) -> None:
@@ -91,13 +88,13 @@ class InteractivePipeWindow:
         raise NotImplementedError("Subclasses must implement convert_image")
 
     def refresh_display(self, _out) -> None:
+        if _out is None:
+            logging.warning("No output to display")
+            return
         out = deepcopy(_out)
         # In case no canvas has been provided
         if isinstance(out, tuple):
             out = [list(out)]
-        if out is None:
-            logging.warning("No output to display")
-            return
         ny, nx = len(out), 0
         for idy, img_row in enumerate(out):
             if isinstance(img_row, list):

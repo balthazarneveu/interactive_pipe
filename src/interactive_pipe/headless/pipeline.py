@@ -44,15 +44,9 @@ class HeadlessPipeline(PipelineCore):
 
     @staticmethod
     def routing_indexes(inputs_names, all_variables):
-        if inputs_names:
-            inputs = []
-            for input_index, input_name in enumerate(inputs_names):
-                inputs.append(all_variables[input_name])
-            if len(inputs) == 0:
-                inputs = None
-        else:
-            inputs = None
-        return inputs
+        if not inputs_names:
+            return None
+        return [all_variables[input_name] for input_name in inputs_names]
 
     @classmethod
     def from_function(cls, pipe: Callable[..., Any], inputs=None, *, _routing_by_indexes=False, **kwargs):
@@ -73,11 +67,10 @@ class HeadlessPipeline(PipelineCore):
             total_index += 1
         for filt_dict in graph["call_graph"]:
             for key in ["args", "returns"]:
-                if filt_dict[key]:
-                    for _, input_name in enumerate(filt_dict[key]):
-                        if input_name not in all_variables.keys():
-                            all_variables[input_name] = total_index
-                            total_index += 1
+                for variable_name in filt_dict[key] or []:
+                    if variable_name not in all_variables:
+                        all_variables[variable_name] = total_index
+                        total_index += 1
 
         filters = []
         filters_count = {}
@@ -182,29 +175,9 @@ class HeadlessPipeline(PipelineCore):
         return data_class
 
     def export_tuning(self, path: Optional[Path] = None, override=False) -> None:
-        """Export yaml tuning to disk"""
-        export_dict = {}
-        for sl in self.filters:
-            export_dict[sl.name] = sl.values
-        saved_dict = export_dict
-        if self.parameters != {}:
-            # Legacy yaml generation to add more elements to reproduce
-            if "path" in self.parameters:
-                saved_dict["path"] = self.parameters["path"]
-            if "tuning" in self.parameters:
-                for elt in self.parameters["tuning"]:
-                    if isinstance(self.parameters["tuning"][elt], dict):
-                        saved_dict[elt] = {}
-                        for e in self.parameters["tuning"][elt]:
-                            data = self.parameters["tuning"][elt][e][0]
-                            index = int(self.parameters["tuning"][elt][e][1])
-                            saved_dict[elt][e] = export_dict[data][index]
-                    else:
-                        data = self.parameters["tuning"][elt][0]
-                        index = int(self.parameters["tuning"][elt][1])
-                        saved_dict[elt] = export_dict[data][index]
+        """Export the current parameters of every filter to a json/yaml file"""
         if path is not None:
-            Parameters(saved_dict).save(path, override=override)
+            Parameters(self.parameters).save(path, override=override)
 
     def import_tuning(self, path: Optional[Path] = None) -> None:
         """Open a json/yaml tuning file and set parameters"""
@@ -246,24 +219,18 @@ class HeadlessPipeline(PipelineCore):
     def __run(self):
         self.update_parameters_from_controls()
         result_full = super().run()
-        if self.outputs is not None:
-            output_indexes = self.outputs
-        else:
-            output_indexes = self.filters[-1].outputs
-        if output_indexes:
-            if isinstance(output_indexes[0], list):
-                return [
-                    [
-                        None if out_index is None else result_full[out_index]
-                        for idx, out_index in enumerate(row)
-                        if out_index is not None and out_index in result_full
-                    ]
-                    for idy, row in enumerate(output_indexes)
-                    if isinstance(row, (list, tuple))
-                ]
-            return tuple(result_full[idx] for idx in output_indexes if idx in result_full)
-        else:
+        output_indexes = self.outputs if self.outputs is not None else self.filters[-1].outputs
+        if not output_indexes:
             return None
+        if isinstance(output_indexes[0], list):
+            # 2D layout: keep None placeholders so (row, col) positions stay aligned
+            # with self.outputs (empty cells are skipped by the GUI)
+            return [
+                [None if out_index is None else result_full.get(out_index) for out_index in row]
+                for row in output_indexes
+                if isinstance(row, (list, tuple))
+            ]
+        return tuple(result_full[idx] for idx in output_indexes if idx in result_full)
 
     def run(self):
         self.results = self.__run()
@@ -300,16 +267,10 @@ class HeadlessPipeline(PipelineCore):
             current_name = path.with_name(path.stem + "_" + str(num) + path.suffix)
             if res_current is not None and not (isinstance(res_current, list) and len(res_current) == 0):
                 try:
-                    if data_wrapper_fn is not None:
-                        wrapped = data_wrapper_fn(res_current)
-                        if hasattr(wrapped, "save"):
-                            wrapped.save(current_name)  # type: ignore
-                    else:
-                        if not hasattr(res_current, "save"):
-                            raise AttributeError(f"Result object {type(res_current)} has no 'save' method")
-                        # Type narrowing: we've checked hasattr, so this should be safe
-                        if hasattr(res_current, "save"):
-                            res_current.save(current_name)  # type: ignore
+                    to_save = data_wrapper_fn(res_current) if data_wrapper_fn is not None else res_current
+                    if not hasattr(to_save, "save"):
+                        raise AttributeError(f"Result object {type(to_save)} has no 'save' method")
+                    to_save.save(current_name)  # type: ignore
                 except Exception:
                     # Broad on purpose: one failed output must not abort the
                     # whole batch save; continue with the remaining outputs.
@@ -336,11 +297,8 @@ class HeadlessPipeline(PipelineCore):
             self.inputs = inputs  # type: ignore
             logging.info(f"Dict style inputs {list(inputs.keys())}, {self.inputs}")
         else:
-            # @TODO: we could check that the number of inputs matches what's expected here.
+            # the inputs setter validates the count against inputs_routing
             self.inputs = list(inputs_tuple) if inputs_tuple else None  # type: ignore
-            inputs_list = self.inputs
-            if inputs_list is not None and len(inputs_list) == 0:
-                self.inputs = None  # type: ignore
         # Handle context parameter - update user context if provided
         self.update_user_context(context)
         # Only update self.parameters if parameters argument is explicitly provided
