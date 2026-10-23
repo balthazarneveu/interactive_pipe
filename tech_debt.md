@@ -20,15 +20,20 @@ small focused commits; pipeline functions must contain only function calls.
 
 ## Open items
 
-### 1. Doc/status contradiction on inline tuple syntax (untouched by decision)
+None at the moment.
 
-CHANGELOG (0.8.9 notes) says inline tuple syntax is deprecated, but the code
-emits no warning. The standalone inline-syntax doc page was removed from the
-docs site in July 2026 (too niche); the tuple shorthand is still shown as
-supported in the controls guide. If revisited: truly deprecating is awkward
-because `control_from_tuple` is shared with the recommended decorator-kwarg
-syntax — un-deprecating (dropping the changelog claim) is the cheap
-consistent option.
+## Done in the October 2026 review pass (don't redo)
+
+- **Inline tuple syntax status (former item 1)**: un-deprecated. The 0.8.9
+  changelog entry now says the decorator syntax is recommended and the tuple
+  shorthand stays supported without warning (`control_from_tuple` serves both).
+- **Qt import cascade**: `qt_control.py` imports its symbols from
+  `qt_backend.py` (single cascade) and stays importable without a Qt binding
+  by catching the `ModuleNotFoundError`.
+- **`MainWindow.size` shadowed `QWidget.size()`**: the window-level request
+  is now `window_size` on every backend window; `InteractivePipeGUI.size`
+  (the user-facing kwarg) is unchanged. `InteractivePipeGUI.help` is
+  `show_help` (the old name is kept as an alias).
 
 ## Done in the July 2026 follow-up pass (don't redo)
 
