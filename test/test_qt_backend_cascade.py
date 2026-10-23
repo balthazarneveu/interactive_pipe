@@ -51,20 +51,27 @@ def fake_module(name, attr_names):
     return mod
 
 pyside6 = fake_module("PySide6", [])
-pyside6.QtCore = fake_module("PySide6.QtCore", ["Qt", "QTimer", "QUrl"])
-pyside6.QtGui = fake_module("PySide6.QtGui", ["QImage", "QPixmap"])
+pyside6.QtCore = fake_module("PySide6.QtCore", ["QSize", "Qt", "QTimer", "QUrl"])
+pyside6.QtGui = fake_module("PySide6.QtGui", ["QIcon", "QImage", "QPixmap"])
 pyside6.QtMultimedia = fake_module("PySide6.QtMultimedia", ["QAudioOutput", "QMediaPlayer"])
 pyside6.QtWidgets = fake_module(
     "PySide6.QtWidgets",
     [
         "QApplication",
+        "QCheckBox",
+        "QComboBox",
+        "QDial",
+        "QDoubleSpinBox",
         "QFrame",
         "QGridLayout",
         "QGroupBox",
         "QHBoxLayout",
         "QLabel",
+        "QLineEdit",
         "QMessageBox",
         "QPushButton",
+        "QSlider",
+        "QSpinBox",
         "QVBoxLayout",
         "QWidget",
     ],
@@ -100,3 +107,24 @@ def test_pyside6_only_machine_uses_pyside6():
     assert "PYQTVERSION:6" in stdout
     assert "QAPP_IS_PYSIDE:True" in stdout
     assert "WIDGET_BASE_IS_PYSIDE:True" in stdout
+
+
+NO_BINDING_CONTROL_SCRIPT = (
+    BLOCKER_PREAMBLE.format(blocked=("PyQt6", "PyQt5", "PySide6"))
+    + """
+from interactive_pipe.graphical import qt_control
+from interactive_pipe.headless.control import Control
+
+print("AVAILABLE:" + str(qt_control.PYQT_AVAILABLE))
+try:
+    qt_control.ControlFactory.create_control(Control(0.5, [0.0, 1.0]), lambda *_: None)
+except ModuleNotFoundError as exc:
+    print("RAISED:" + str(exc))
+"""
+)
+
+
+def test_qt_control_imports_without_binding_and_fails_loudly_on_use():
+    stdout = run_script(NO_BINDING_CONTROL_SCRIPT)
+    assert "AVAILABLE:False" in stdout
+    assert "RAISED:PyQt is required for Qt controls" in stdout
