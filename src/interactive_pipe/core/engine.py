@@ -347,6 +347,6 @@ class PipelineEngine:
                             reader_cache.force_change = True
 
         # Limit result using self.numfigs but with indices pointed by last filter
-        logging.info("\n".join(performances))
-        logging.info(f"Full buffer: {len(result)}")
+        logging.debug("\n".join(performances))
+        logging.debug(f"Full buffer: {len(result)}")
         return result

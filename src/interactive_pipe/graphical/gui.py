@@ -96,9 +96,16 @@ class InteractivePipeGUI:
         results = self.run()
         return results
 
+    @staticmethod
+    def _binding_identity(func: Callable) -> tuple:
+        # partial(update, name, flag) objects are rebuilt whenever widgets are
+        # re-initialized; compare the wrapped function and its arguments instead
+        return (getattr(func, "func", func), getattr(func, "args", ()), tuple(getattr(func, "keywords", {}).items()))
+
     def bind_key(self, key, func: Callable):
-        if key in self.key_bindings.keys():
-            logging.warning(f"Key {key} already bound to {self.key_bindings[key]}")
+        previous = self.key_bindings.get(key)
+        if previous is not None and self._binding_identity(previous) != self._binding_identity(func):
+            logging.warning(f"Key {key} already bound to {previous}")
         self.key_bindings[key] = func
 
     def bind_key_to_context(self, key: str, context_param_name: str, doc: str):
