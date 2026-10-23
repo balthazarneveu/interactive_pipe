@@ -162,7 +162,10 @@ def render_flat_sliders(window: "MainWindow") -> None:
             f"['compact', 'vertical', 'collapsible', 'smart'], "
             f"got {window.sliders_layout}"
         )
-    ctrl_dict_by_type = {"all": list(range(len(window.ctrl)))}
+    # widget indexes (into window.widget_list) grouped by category; controls without
+    # a widget (keyboard controls, single-choice dropdowns) are not in widget_list
+    widget_indexes = list(range(len(window.widget_list)))
+    ctrl_dict_by_type = {"all": widget_indexes}
     categories = ["all"]
     if window.sliders_layout == "compact":
         selected_mode = gr.Row()
@@ -174,44 +177,29 @@ def render_flat_sliders(window: "MainWindow") -> None:
     elif window.sliders_layout == "smart":
         # Group sliders by type
         ctrl_dict_by_type = {}
-        for ctrl_index, ctrl_key in enumerate(window.ctrl.keys()):
+        for widget_index, ctrl_key in enumerate(window.ctrl_keys_with_widgets):
             ctrl_type = window.ctrl[ctrl_key]._type
-            ctrl_type = str(ctrl_type).split("<class '")[1].replace("'>", "")
-            if ctrl_type == "int":
-                ctrl_type = "float"
-            if ctrl_type not in ctrl_dict_by_type:
-                ctrl_dict_by_type[ctrl_type] = []
-            ctrl_dict_by_type[ctrl_type].append(ctrl_index)
+            category = "float" if ctrl_type in (int, float) else ctrl_type.__name__
+            ctrl_dict_by_type.setdefault(category, []).append(widget_index)
         categories = ["str", "bool", "float"]
         selected_mode = gr.Column()
     else:
         raise NotImplementedError(f"Sliders layout {window.sliders_layout} not supported")
-    for ctrl_type in categories:
-        ctrl_indices = ctrl_dict_by_type.get(ctrl_type, [])
-        if len(ctrl_indices) == 0:
-            continue
-        if window.sliders_per_row_layout == 1:
-            with selected_mode:
-                for idx in range(len(window.widget_list)):
-                    if isinstance(window.widget_list[idx], list):
-                        with gr.Row():
-                            for elem in window.widget_list[idx]:
-                                elem.render()
-                    else:
-                        elem = window.widget_list[idx]
-                        elem.render()
-        else:
-            with selected_mode:
+    with selected_mode:
+        for ctrl_type in categories:
+            ctrl_indices = ctrl_dict_by_type.get(ctrl_type, [])
+            if len(ctrl_indices) == 0:
+                continue
+            if window.sliders_per_row_layout == 1:
+                for idx in ctrl_indices:
+                    _render_widget(window.widget_list[idx])
+            else:
                 for split_num in range(math.ceil(len(ctrl_indices) / window.sliders_per_row_layout)):
                     with gr.Row():
                         start = split_num * window.sliders_per_row_layout
-                        end = min(
-                            (split_num + 1) * window.sliders_per_row_layout,
-                            len(ctrl_indices),
-                        )
+                        end = min((split_num + 1) * window.sliders_per_row_layout, len(ctrl_indices))
                         for idx in ctrl_indices[start:end]:
-                            elem = window.widget_list[idx]
-                            elem.render()
+                            _render_widget(window.widget_list[idx])
 
 
 def collect_changing_inputs(window: "MainWindow") -> tuple:
@@ -222,14 +210,18 @@ def collect_changing_inputs(window: "MainWindow") -> tuple:
     """
     changing_inputs = []
     discard_reset_button = False
-    for idx in range(len(window.widget_list)):
-        if isinstance(window.widget_list[idx], list):
-            changing_inputs.append(gr.State(window.ctrl[list(window.ctrl.keys())[idx]].value_default))
+    for widget, ctrl_key in zip(window.widget_list, window.ctrl_keys_with_widgets):
+        if isinstance(widget, list):
+            ctrl = window.ctrl[ctrl_key]
+            changing_inputs.append(gr.State(ctrl.value_default))
             discard_reset_button = True  # Do not show reset button if there are lists of buttons
-            window.ctrl[list(window.ctrl.keys())[idx]].filter_to_connect.cache = False
-            window.ctrl[list(window.ctrl.keys())[idx]].filter_to_connect.cache_mem = None
+            # Disable the cache of the connected filter so clicking the same
+            # button twice still triggers a run
+            if ctrl.filter_to_connect is not None:
+                ctrl.filter_to_connect.cache = False
+                ctrl.filter_to_connect.cache_mem = None
         else:
-            changing_inputs.append(window.widget_list[idx])
+            changing_inputs.append(widget)
     return changing_inputs, discard_reset_button
 
 
