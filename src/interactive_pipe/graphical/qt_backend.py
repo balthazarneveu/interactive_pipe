@@ -24,17 +24,26 @@ __all__ = [
     "FigureCanvas",
     "QApplication",
     "QAudioOutput",
+    "QCheckBox",
+    "QComboBox",
+    "QDial",
+    "QDoubleSpinBox",
     "QFrame",
     "QGridLayout",
     "QGroupBox",
     "QHBoxLayout",
+    "QIcon",
     "QImage",
     "QLabel",
+    "QLineEdit",
     "QMediaContent",
     "QMediaPlayer",
     "QMessageBox",
     "QPixmap",
     "QPushButton",
+    "QSize",
+    "QSlider",
+    "QSpinBox",
     "Qt",
     "QtFrameBase",
     "QTimer",
@@ -52,18 +61,25 @@ if TYPE_CHECKING:
     # the runtime alias FigureCanvas is not in the matplotlib stubs
     from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
     from matplotlib.figure import Figure
-    from PyQt6.QtCore import Qt, QTimer, QUrl
-    from PyQt6.QtGui import QImage, QPixmap
+    from PyQt6.QtCore import QSize, Qt, QTimer, QUrl
+    from PyQt6.QtGui import QIcon, QImage, QPixmap
     from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
     from PyQt6.QtWidgets import (
         QApplication,
+        QCheckBox,
+        QComboBox,
+        QDial,
+        QDoubleSpinBox,
         QFrame,
         QGridLayout,
         QGroupBox,
         QHBoxLayout,
         QLabel,
+        QLineEdit,
         QMessageBox,
         QPushButton,
+        QSlider,
+        QSpinBox,
         QVBoxLayout,
         QWidget,
     )
@@ -85,18 +101,25 @@ else:
 
     if not PYQTVERSION:
         try:
-            from PyQt6.QtCore import Qt, QTimer, QUrl
-            from PyQt6.QtGui import QImage, QPixmap
+            from PyQt6.QtCore import QSize, Qt, QTimer, QUrl
+            from PyQt6.QtGui import QIcon, QImage, QPixmap
             from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
             from PyQt6.QtWidgets import (  # noqa: F811
                 QApplication,
+                QCheckBox,
+                QComboBox,
+                QDial,
+                QDoubleSpinBox,
                 QFrame,
                 QGridLayout,
                 QGroupBox,
                 QHBoxLayout,
                 QLabel,
+                QLineEdit,
                 QMessageBox,
                 QPushButton,
+                QSlider,
+                QSpinBox,
                 QVBoxLayout,
                 QWidget,
             )
@@ -105,18 +128,25 @@ else:
         except ImportError:
             logging.warning("Cannot import PyQt 6")
             try:
-                from PyQt5.QtCore import Qt, QTimer, QUrl
-                from PyQt5.QtGui import QImage, QPixmap
+                from PyQt5.QtCore import QSize, Qt, QTimer, QUrl
+                from PyQt5.QtGui import QIcon, QImage, QPixmap
                 from PyQt5.QtMultimedia import QAudioOutput, QMediaContent, QMediaPlayer
                 from PyQt5.QtWidgets import (  # noqa: F811
                     QApplication,
+                    QCheckBox,
+                    QComboBox,
+                    QDial,
+                    QDoubleSpinBox,
                     QFrame,
                     QGridLayout,
                     QGroupBox,
                     QHBoxLayout,
                     QLabel,
+                    QLineEdit,
                     QMessageBox,
                     QPushButton,
+                    QSlider,
+                    QSpinBox,
                     QVBoxLayout,
                     QWidget,
                 )
@@ -128,18 +158,25 @@ else:
 
     if not PYQTVERSION:
         try:
-            from PySide6.QtCore import Qt, QTimer, QUrl  # noqa: F811
-            from PySide6.QtGui import QImage, QPixmap  # noqa: F811
+            from PySide6.QtCore import QSize, Qt, QTimer, QUrl  # noqa: F811
+            from PySide6.QtGui import QIcon, QImage, QPixmap  # noqa: F811
             from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer  # noqa: F811
             from PySide6.QtWidgets import (  # noqa: F811
                 QApplication,
+                QCheckBox,
+                QComboBox,
+                QDial,
+                QDoubleSpinBox,
                 QFrame,
                 QGridLayout,
                 QGroupBox,
                 QHBoxLayout,
                 QLabel,
+                QLineEdit,
                 QMessageBox,
                 QPushButton,
+                QSlider,
+                QSpinBox,
                 QVBoxLayout,
                 QWidget,
             )

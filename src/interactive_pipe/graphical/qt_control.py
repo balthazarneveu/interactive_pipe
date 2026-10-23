@@ -3,91 +3,46 @@ from functools import partial
 
 from interactive_pipe.headless.control import Control
 
-PYQTVERSION = None
-PYQT_AVAILABLE = False
+# Qt symbols come from the shared binding cascade in qt_backend; unlike the GUI
+# modules this one stays importable without any Qt binding (the factory then
+# raises ModuleNotFoundError when a widget is requested).
+try:
+    from interactive_pipe.graphical.qt_backend import (
+        PYQTVERSION,
+        QCheckBox,
+        QComboBox,
+        QDial,
+        QDoubleSpinBox,
+        QHBoxLayout,
+        QIcon,
+        QLabel,
+        QLineEdit,
+        QPushButton,
+        QSize,
+        QSlider,
+        QSpinBox,
+        Qt,
+        QWidget,
+    )
 
-if not PYQTVERSION:
-    try:
-        from PyQt6.QtCore import QSize, Qt  # noqa: F811
-        from PyQt6.QtGui import QIcon  # noqa: F811
-        from PyQt6.QtWidgets import (  # noqa: F811
-            QCheckBox,
-            QComboBox,
-            QDial,
-            QDoubleSpinBox,
-            QHBoxLayout,
-            QLabel,
-            QLineEdit,
-            QPushButton,
-            QSlider,
-            QSpinBox,
-            QWidget,
-        )
-
-        PYQTVERSION = 6
-        PYQT_AVAILABLE = True
-    except ImportError:
-        logging.warning("Cannot import PyQt6")
-        try:
-            from PyQt5.QtCore import QSize, Qt
-            from PyQt5.QtGui import QIcon
-            from PyQt5.QtWidgets import (  # noqa: F811
-                QCheckBox,
-                QComboBox,
-                QDial,
-                QDoubleSpinBox,
-                QHBoxLayout,
-                QLabel,
-                QLineEdit,
-                QPushButton,
-                QSlider,
-                QSpinBox,
-                QWidget,
-            )
-
-            PYQTVERSION = 5
-            PYQT_AVAILABLE = True
-        except ImportError:
-            logging.warning("Cannot import PyQt5")
-if not PYQTVERSION:
-    try:
-        from PySide6.QtCore import QSize, Qt  # noqa: F811
-        from PySide6.QtGui import QIcon  # noqa: F811
-        from PySide6.QtWidgets import (  # noqa: F811
-            QCheckBox,
-            QComboBox,
-            QDial,
-            QDoubleSpinBox,
-            QHBoxLayout,
-            QLabel,
-            QLineEdit,
-            QPushButton,
-            QSlider,
-            QSpinBox,
-            QWidget,
-        )
-
-        PYQTVERSION = 6
-        PYQT_AVAILABLE = True
-    except ImportError:
-        logging.warning("Cannot import PySide6")
-
-if not PYQT_AVAILABLE:
-    # Create dummy classes to allow import even when PyQt is not available
-    QWidget = None  # noqa: F811
-    QLabel = None  # noqa: F811
-    QSlider = None  # noqa: F811
-    QHBoxLayout = None  # noqa: F811
-    QLineEdit = None  # noqa: F811
-    QComboBox = None  # noqa: F811
-    QCheckBox = None  # noqa: F811
-    QPushButton = None  # noqa: F811
-    QDial = None  # noqa: F811
-    QSpinBox = None  # noqa: F811
-    QDoubleSpinBox = None  # noqa: F811
-    Qt = None  # noqa: F811
-    QSize = None  # noqa: F811
-    QIcon = None  # noqa: F811
+    PYQT_AVAILABLE = True
+except ModuleNotFoundError:
+    PYQTVERSION = None
+    PYQT_AVAILABLE = False
+    QWidget = None
+    QLabel = None
+    QSlider = None
+    QHBoxLayout = None
+    QLineEdit = None
+    QComboBox = None
+    QCheckBox = None
+    QPushButton = None
+    QDial = None
+    QSpinBox = None
+    QDoubleSpinBox = None
+    Qt = None
+    QSize = None
+    QIcon = None
     logging.warning("PyQt not available. Qt controls will not work.")
 
 
