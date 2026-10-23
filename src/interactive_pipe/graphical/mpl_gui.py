@@ -172,7 +172,7 @@ class MainWindow(MatplotlibWindow):
             if not dry_run:
                 self.ctrl[slider_name] = ctrl
             if isinstance(ctrl, KeyboardControl):
-                if self.main_gui is not None:
+                if not dry_run and self.main_gui is not None:
                     self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
                 continue
             # Skip single-value controls (don't show anything)

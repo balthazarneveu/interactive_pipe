@@ -44,7 +44,7 @@ class EnhancedFilterCore(FilterCore):
 
     def run_gui(self, *args, gui="auto", output_routing=None, size=None):
         try:
-            self.inputs = args
+            self.inputs = list(range(len(args)))
             out = self.run(*args)
             if out is None:
                 raise ValueError("Filter run returned None, cannot deduce output routing")

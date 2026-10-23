@@ -104,5 +104,5 @@ class InteractivePipeWindow:
                 nx = len(img_row)
             else:
                 out[idy] = [self.convert_image(out[idy])]
-        logging.info(f"{ny} x {nx} figures")
+        logging.debug(f"{ny} x {nx} figures")
         self.set_images(out)

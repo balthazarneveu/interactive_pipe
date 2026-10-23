@@ -262,7 +262,7 @@ class Control:
 
     def connect_filter(self, filt: FilterCore, parameter_name):
         def update_param_func(val):
-            logging.info(f"update filter {filt.name} - param {parameter_name} - value {val}")
+            logging.debug(f"update filter {filt.name} - param {parameter_name} - value {val}")
             filt.values = {parameter_name: val}
 
         self.update_param_func = update_param_func

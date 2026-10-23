@@ -206,11 +206,10 @@ class HeadlessPipeline(PipelineCore):
         # Merge control values into existing parameters instead of replacing
         current_params = self.parameters  # Get current parameters
         for ctrl in self.controls:
-            if ctrl.filter_to_connect is not None:
-                logging.info(f"{ctrl.filter_to_connect.name}, {ctrl.parameter_name_to_connect}, {ctrl.value}")
-                if ctrl.filter_to_connect.name not in current_params:
-                    current_params[ctrl.filter_to_connect.name] = {}
-                current_params[ctrl.filter_to_connect.name][ctrl.parameter_name_to_connect] = ctrl.value
+            if ctrl.filter_to_connect is None or ctrl.parameter_name_to_connect is None:
+                continue
+            logging.debug(f"{ctrl.filter_to_connect.name}, {ctrl.parameter_name_to_connect}, {ctrl.value}")
+            current_params.setdefault(ctrl.filter_to_connect.name, {})[ctrl.parameter_name_to_connect] = ctrl.value
         # Assign once, after every control has been merged: the setter also writes the
         # values back into the controls, so assigning inside the loop would overwrite the
         # not-yet-merged controls with the stale filter values (e.g. after a GUI reset).
@@ -295,7 +294,7 @@ class HeadlessPipeline(PipelineCore):
             if not isinstance(inputs, dict):
                 raise TypeError(f"inputs must be a dict, got {type(inputs)}")
             self.inputs = inputs  # type: ignore
-            logging.info(f"Dict style inputs {list(inputs.keys())}, {self.inputs}")
+            logging.debug(f"Dict style inputs {list(inputs.keys())}")
         else:
             # the inputs setter validates the count against inputs_routing
             self.inputs = list(inputs_tuple) if inputs_tuple else None  # type: ignore
@@ -339,6 +338,12 @@ class HeadlessPipeline(PipelineCore):
         def edge_label(label):
             return f"[{label}]"
 
+        graphviz_hint = (
+            "Graphviz executables not found. Please install Graphviz system package:\n"
+            "  - Ubuntu/Debian: sudo apt-get install graphviz\n"
+            "  - macOS: brew install graphviz\n"
+            "  - Windows: Download from https://graphviz.org/download/"
+        )
         try:
             import graphviz
         except ImportError as exc:
@@ -407,20 +412,8 @@ class HeadlessPipeline(PipelineCore):
             # string matching below handles ExecutableNotFound even when the
             # optional import above failed.
             exc_type_name = type(exc).__name__
-            if ExecutableNotFound and isinstance(exc, ExecutableNotFound):
-                logging.error(
-                    "Graphviz executables not found. Please install Graphviz system package:\n"
-                    "  - Ubuntu/Debian: sudo apt-get install graphviz\n"
-                    "  - macOS: brew install graphviz\n"
-                    "  - Windows: Download from https://graphviz.org/download/"
-                )
-            elif "ExecutableNotFound" in exc_type_name or "ExecutableNotFound" in str(exc):
-                logging.error(
-                    "Graphviz executables not found. Please install Graphviz system package:\n"
-                    "  - Ubuntu/Debian: sudo apt-get install graphviz\n"
-                    "  - macOS: brew install graphviz\n"
-                    "  - Windows: Download from https://graphviz.org/download/"
-                )
+            if (ExecutableNotFound and isinstance(exc, ExecutableNotFound)) or "ExecutableNotFound" in exc_type_name:
+                logging.error(graphviz_hint)
             else:
                 logging.error(f"Failed to render graph: {exc}")
             return None
