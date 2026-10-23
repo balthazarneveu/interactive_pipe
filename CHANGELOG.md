@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Improvements & bug fixes
+- Numeric controls declared without a `value_range` (`Control(3)`, `Control(0.5)`) crashed every GUI backend; they now render as spin boxes (Qt), a numeric text entry (matplotlib), `gr.Number` (gradio) and `IntText`/`FloatText` (notebook).
+- 2D layouts keep `None` placeholders so cells and titles stay aligned, and jagged grids (rows of different lengths) no longer crash when the layout changes.
+- `cache=True` no longer raises "truth value of an array is ambiguous" when a filter has an array-valued keyword default (e.g. a numpy kernel).
+- `SingleCurve.save("plot.png" / ".jpg")` works (it raised `KeyError`), and curve plots update correctly when the number of curves or the signal length changes between frames.
+- `FilterError` tracebacks show user code only, also for installs from PyPI (framework frames were only filtered in editable checkouts).
+- Gradio: controls without a widget (single-choice dropdowns) no longer shift the event bindings of the following widgets; curve outputs no longer leak one matplotlib figure per refresh.
+- Qt: loading a tuning file (`o` key) no longer fails when the file omits a control or when two filters share a parameter name; the Qt6 audio volume is set on the correct scale; widgets hand the window values in the control's own domain (no more monkeypatching of `Control` objects).
+- `PipelineCore.parameters` returns copies, so mutating the returned dicts no longer silently alters filter state.
+- Per-frame diagnostics (engine timings, control updates, grid sizes) moved from INFO to DEBUG; output buffers are no longer deep-copied on every GUI refresh.
+
 ## 0.9.1 (July 2026)
 
 ### New features
