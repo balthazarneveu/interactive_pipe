@@ -17,7 +17,7 @@ class Panel:
         # Collapsible panel
         color_panel = Panel("Colors", collapsible=True, collapsed=False)
 
-        # Detached panel (Qt backend only - opens in separate window)
+        # Detached panel (Qt and Dear PyGui backends only - opens in separate window)
         tools_panel = Panel("Tools", detached=True, detached_size=(400, 600))
 
         # Panel with position (left, right, top, or bottom)
@@ -47,7 +47,7 @@ class Panel:
             name: Display name for the panel (shown in group box title)
             collapsible: Whether the panel can be collapsed/expanded
             collapsed: Initial collapsed state (only used if collapsible=True)
-            detached: Whether to render panel in a separate window (Qt backend only)
+            detached: Whether to render panel in a separate window (Qt and Dear PyGui backends only)
             detached_size: Optional (width, height) tuple for detached window size
             position: Position relative to images - "left", "right", "top", "bottom", or None (defaults to "bottom")
         """

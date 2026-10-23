@@ -277,7 +277,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-b",
         "--backend",
-        choices=["qt", "gradio", "mpl", "nb"],
+        choices=["qt", "dpg", "gradio", "mpl", "nb"],
         default="qt",
         help="GUI backend to use (default: qt)",
     )

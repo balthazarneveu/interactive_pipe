@@ -56,7 +56,7 @@ def pipe(img):                            def pipe(img):
 | Explicit object | `gain=Control(1.0, [0.0, 3.0], name="gain", step=0.1, group="Panel A", tooltip="...")` |
 | Keyboard-driven | `idx=KeyboardControl(0, [0, 2], keydown="pagedown", keyup="pageup", modulo=True)` |
 | Text box | `txt=TextPrompt("hello")` |
-| Animation timer | `t=TimeControl(update_interval_ms=50)` (Qt only; falls back to slider) |
+| Animation timer | `t=TimeControl(update_interval_ms=50)` (Qt and dpg only; falls back to slider) |
 
 Import `Control`, `KeyboardControl`, `TextPrompt`, `TimeControl`, `Panel` from `interactive_pipe`. Group controls with `group="name"` or a `Panel` instance (nestable, collapsible).
 
@@ -65,6 +65,7 @@ The decorated function's own default (`gain=1.0`) is overridden by the control's
 ## Backends (`gui=` argument)
 
 - `"qt"` — richest (needs `pip install "interactive-pipe[qt6]"`)
+- `"dpg"` — Dear PyGui GPU-rendered window, same features as Qt minus audio (needs `pip install "interactive-pipe[dpg]"`)
 - `"mpl"` — always available (matplotlib is a core dep)
 - `"nb"` — Jupyter/Colab (needs `[notebook]` extra)
 - `"gradio"` — web app (needs gradio)

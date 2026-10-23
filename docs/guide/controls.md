@@ -48,12 +48,12 @@ Specialized widgets (keyboard, circular slider, timer) only exist as explicit ob
 | Free text box | `txt=("Hello world!", None)` | `txt=TextPrompt("Hello world!")` |
 | Grouped in a panel | `gain=(1.0, [0.5, 2.0], "gain", "Panel A")` | `gain=Control(1.0, [0.5, 2.0], group="Panel A")` |
 | Key-driven value ([Keyboard](keyboard.md)) | — | `idx=KeyboardControl(0, [0, 2], keydown="pagedown", keyup="pageup", modulo=True)` |
-| Circular slider (Qt) | — | `angle=CircularControl(90, [0, 360], modulo=True)` |
+| Circular slider (Qt, Dear PyGui) | — | `angle=CircularControl(90, [0, 360], modulo=True)` |
 | Animated timer | — | `t=TimeControl(update_interval_ms=50)` |
 
 See the [Control API reference](../api/controls.md) for every argument.
 
-## Image buttons (Qt)
+## Image buttons (Qt, Dear PyGui)
 
 A string dropdown can be rendered as image buttons by providing one icon per choice:
 

@@ -2,7 +2,7 @@
 
 ## GUI shortcuts
 
-Built-in shortcuts while using the GUI (Qt and matplotlib backends):
+Built-in shortcuts while using the GUI (Qt, Dear PyGui and matplotlib backends):
 
 - ++f1++ show the help shortcuts in the terminal
 - ++f11++ toggle fullscreen mode

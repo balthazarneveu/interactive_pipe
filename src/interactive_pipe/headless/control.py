@@ -346,7 +346,7 @@ class TimeControl(Control):
     Starts at 0.0 and increments automatically. Press 'p' to pause/resume.
 
     Note:
-        Only supported on Qt backend. Falls back to a regular slider on other backends
+        Only supported on the Qt and Dear PyGui backends. Falls back to a regular slider on other backends
         (tooltip/group params are only relevant in that fallback case).
 
     Args:
