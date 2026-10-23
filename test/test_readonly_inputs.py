@@ -251,3 +251,44 @@ def test_torch_real_tensor_mutation_detected():
 
     with pytest.raises(FilterError):
         pip.run()
+
+
+def _passthrough(img):
+    return img
+
+
+def test_auto_input_copy_skips_protected_arrays():
+    """readonly views already guard numpy inputs: no per-run deep copy by default."""
+    original = np.arange(6.0).reshape(2, 3)
+    filt = FilterCore(apply_fn=_passthrough, inputs=[0], outputs=[1])
+    pip = PipelineCore(filters=[filt], inputs=[0], outputs=[1])
+    pip.inputs = [original]
+    res = pip.run()
+    assert np.shares_memory(res[1], original)
+    assert not res[1].flags.writeable  # still a read-only view
+    assert pip.inputs[0] is original
+
+
+def test_auto_input_copy_still_copies_unprotected_objects():
+    payload = {"values": [1, 2, 3]}
+    filt = FilterCore(apply_fn=_passthrough, inputs=[0], outputs=[1])
+    pip = PipelineCore(filters=[filt], inputs=[0], outputs=[1])
+    pip.inputs = [payload]
+    res = pip.run()
+    assert res[1] == payload and res[1] is not payload
+
+
+@pytest.mark.parametrize("readonly_inputs, copy_flag", [(False, None), (True, True)])
+def test_input_copy_when_requested_or_unprotected(readonly_inputs, copy_flag):
+    original = np.arange(6.0).reshape(2, 3)
+    filt = FilterCore(apply_fn=_passthrough, inputs=[0], outputs=[1])
+    pip = PipelineCore(
+        filters=[filt],
+        inputs=[0],
+        outputs=[1],
+        readonly_inputs=readonly_inputs,
+        safe_input_buffer_deepcopy=copy_flag,
+    )
+    pip.inputs = [original]
+    res = pip.run()
+    assert not np.shares_memory(res[1], original)
