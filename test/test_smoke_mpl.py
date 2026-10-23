@@ -57,3 +57,20 @@ def test_styled_title_lands_on_axes():
     # layout.style -> __output_styles -> get_current_style -> ax.set_title
     assert canvas[0][0]["ax"].get_title() == "Adjusted!"
     assert canvas[0][1]["ax"].get_title() == "rgb"  # unstyled falls back to output name
+
+
+def test_load_parameters_syncs_controls(tmp_path, monkeypatch):
+    from interactive_pipe.data_objects.parameters import Parameters
+
+    pipeline = HeadlessPipeline.from_function(mpl_pipeline, inputs=["img"])
+    gui = mpl_gui.InteractivePipeMatplotlib(pipeline=pipeline, name="mpl load")
+    gui.pipeline.inputs = [INPUT_IMAGE.copy()]
+    gui.window.refresh()
+    tuning_path = tmp_path / "tuning.json"
+    Parameters({"mpl_adjust": {"mpl_gain": 0.1}}).save(tuning_path)
+    monkeypatch.setattr(Parameters, "prompt_file", staticmethod(lambda *_a, **_k: str(tuning_path)))
+    gui.load_parameters()
+    assert gui.window.ctrl["mpl_gain"].value == pytest.approx(0.1)
+    assert gui.pipeline.parameters["mpl_adjust"]["mpl_gain"] == pytest.approx(0.1)
+    assert gui.window.sliders_list["mpl_gain"].val == pytest.approx(0.1)
+    gui.close()

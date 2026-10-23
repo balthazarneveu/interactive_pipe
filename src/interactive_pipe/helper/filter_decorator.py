@@ -158,6 +158,7 @@ def interactive(inplace: bool = False, **decorator_controls: Any):
 
     def wrapper(func):
         controls = get_controls_from_decorated_function_declaration(func, decorator_controls)
+        signature = inspect.signature(func)  # computed once, binding runs on every frame
 
         @functools.wraps(func)
         def inner(*args, **kwargs):
@@ -166,7 +167,7 @@ def interactive(inplace: bool = False, **decorator_controls: Any):
             # control clones). Registered controls fill the rest so a direct
             # call of the decorated function uses the live control values.
             merged_kwargs = {**controls, **kwargs}
-            bound_args = inspect.signature(func).bind(*args, **merged_kwargs)
+            bound_args = signature.bind(*args, **merged_kwargs)
             bound_args.apply_defaults()
 
             for k, v in bound_args.arguments.items():

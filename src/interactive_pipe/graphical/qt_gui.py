@@ -127,22 +127,9 @@ class InteractivePipeQT(InteractivePipeGUI):
 
     def load_parameters(self):
         """import parameters dictionary from a yaml/json file on disk"""
+        # HeadlessPipeline.parameters (set by import_tuning) writes the loaded
+        # values back into the connected controls; the widgets just need syncing.
         super().load_parameters()
-        for widget_idx, widget in self.window.ctrl.items():
-            matched = False
-            for filtname, params in self.pipeline.parameters.items():
-                for param_name in params.keys():
-                    if param_name == widget.parameter_name_to_connect:
-                        logging.debug(
-                            f"MATCH & update {filtname} {widget_idx} with "
-                            f"{self.pipeline.parameters[filtname][param_name]}"
-                        )
-                        self.window.ctrl[widget_idx].update(self.pipeline.parameters[filtname][param_name])
-                        matched = True
-            if not matched:
-                raise ValueError(
-                    f"could not match widget {widget_idx} with parameter to connect {widget.parameter_name_to_connect}"
-                )
         self.window.reset_sliders()
 
     def print_message(self, message_list: List[str]):

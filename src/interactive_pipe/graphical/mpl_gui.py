@@ -69,25 +69,10 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
 
     def load_parameters(self):
         """import parameters dictionary from a yaml/json file on disk"""
+        # HeadlessPipeline.parameters (set by import_tuning) writes the loaded
+        # values back into the connected controls; the widgets just need rebuilding.
         super().load_parameters()
         self.window.need_redraw = True
-        # @TODO: issue #18 - https://github.com/balthazarneveu/interactive_pipe/issues/18
-        # Requires mapping the parameters back into each Control objects
-        for widget_idx, widget in self.window.ctrl.items():
-            matched = False
-            for filtname, params in self.pipeline.parameters.items():
-                for param_name in params.keys():
-                    if param_name == widget.parameter_name_to_connect:
-                        logging.debug(
-                            f"MATCH & update {filtname} {widget_idx} with "
-                            f"{self.pipeline.parameters[filtname][param_name]}"
-                        )
-                        self.window.ctrl[widget_idx].update(self.pipeline.parameters[filtname][param_name])
-                        matched = True
-            if not matched:
-                raise ValueError(
-                    f"could not match widget {widget_idx} with parameter to connect {widget.parameter_name_to_connect}"
-                )
         self.window.reset_sliders()
 
     def reset_parameters(self):
@@ -238,13 +223,3 @@ class MainWindow(MatplotlibWindow):
             self.ctrl[idx].on_key_up()
         self.need_redraw = True
         self.refresh()
-
-    def refresh(self):
-        if not hasattr(self, "need_redraw"):
-            self.need_redraw = False
-        if self.pipeline is not None:
-            out = self.pipeline.run()
-            self.refresh_display(out)
-        if self.need_redraw:
-            plt.draw()
-        self.need_redraw = False

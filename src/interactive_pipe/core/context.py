@@ -368,10 +368,16 @@ class _ContextProxy:
 
     def __getattr__(self, name: str) -> Any:
         """Get item from context using attribute-style access."""
+        if name.startswith("_"):
+            # dunder/private lookups come from Python internals and tooling
+            # (copy, pickle, IPython completion...), never from user context keys
+            raise AttributeError(name)
         try:
             return get_context()[name]
         except KeyError:
-            raise AttributeError(f"Context has no attribute '{name}'. Available keys: {list(get_context().keys())}")
+            raise AttributeError(
+                f"Context has no attribute '{name}'. Available keys: {list(get_context().keys())}"
+            ) from None
 
     def __setattr__(self, name: str, value: Any) -> None:
         """Set item in context using attribute-style access."""

@@ -35,7 +35,7 @@ class MatplotlibWindow(InteractivePipeWindow):
             'font.size': 10
         }
         """
-        super().__init__(self, size=size, pipeline=pipeline, name=name)
+        super().__init__(size=size, pipeline=pipeline, name=name)
         self.controls = controls
         self.fig: Optional[Figure] = None  # Will be set by subclasses like MainWindow
         if style is not None:
