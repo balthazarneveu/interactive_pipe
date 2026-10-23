@@ -22,6 +22,10 @@ _framework_state: ContextVar[Optional[FrameworkState]] = ContextVar("_ip_framewo
 
 _user_context: ContextVar[Optional[Dict[str, Any]]] = ContextVar("_ip_user_context", default=None)
 
+# name of the filter currently executing (set by filter.run), used to attribute
+# event reads to filters
+_current_filter: ContextVar[Optional[str]] = ContextVar("_ip_current_filter", default=None)
+
 
 # ============================================================================
 # Internal Helper Functions (not exported)
@@ -52,6 +56,11 @@ def _set_framework_state(state: Optional[FrameworkState]) -> None:
 def _set_user_context(ctx: Optional[Dict[str, Any]]) -> None:
     """Internal: Set user context (called by pipeline)."""
     _user_context.set(ctx)
+
+
+def _set_current_filter(name: Optional[str]) -> None:
+    """Internal: Set the name of the running filter (called by filter.run)."""
+    _current_filter.set(name)
 
 
 # ============================================================================
@@ -251,13 +260,22 @@ class _EventsProxy:
     key binding.
     """
 
+    @staticmethod
+    def _record_read(state: FrameworkState, name: str) -> None:
+        """Register the running filter as a reader of the event (cache invalidation)."""
+        filter_name = _current_filter.get()
+        if filter_name is not None:
+            state.event_readers.setdefault(name, set()).add(filter_name)
+
     def __getitem__(self, name: str) -> bool:
         """Strict access: raises KeyError if the event was never bound.
 
         Raises:
             RuntimeError: If called outside of filter execution context.
         """
-        return _get_framework_state().events[name]
+        state = _get_framework_state()
+        self._record_read(state, name)
+        return state.events[name]
 
     def get(self, name: str, default: bool = False) -> bool:
         """Return the event flag, or `default` when the event is not bound.
@@ -265,15 +283,22 @@ class _EventsProxy:
         Raises:
             RuntimeError: If called outside of filter execution context.
         """
-        return _get_framework_state().events.get(name, default)
+        state = _get_framework_state()
+        self._record_read(state, name)
+        return state.events.get(name, default)
 
     def __contains__(self, name: str) -> bool:
         """Check whether an event name is bound."""
-        return name in _get_framework_state().events
+        state = _get_framework_state()
+        self._record_read(state, name)
+        return name in state.events
 
     def keys(self):
-        """Names of all bound events."""
-        return _get_framework_state().events.keys()
+        """Names of all bound events (registers the filter as a reader of each)."""
+        state = _get_framework_state()
+        for name in state.events:
+            self._record_read(state, name)
+        return state.events.keys()
 
     def __repr__(self) -> str:
         try:

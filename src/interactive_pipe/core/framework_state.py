@@ -10,7 +10,7 @@ without cycles.
 
 import weakref
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Set
 
 
 def _noop(*_args, **_kwargs) -> None:
@@ -35,6 +35,9 @@ class FrameworkState:
         output_styles: display styles per output name (layout.style writes,
             windows read titles from it)
         events: key-bound context events managed by the GUI base class
+        event_readers: event name -> names of the filters that read it through
+            the `events` proxy (recorded at runtime, lets a key press invalidate
+            only the filters that depend on the event)
         audio: audio playback callbacks registered by the GUI backend
         pipeline: back-reference to the owning pipeline, held via weakref so
             the state never keeps the pipeline (and the GUI) alive.
@@ -42,6 +45,7 @@ class FrameworkState:
 
     output_styles: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     events: Dict[str, bool] = field(default_factory=dict)
+    event_readers: Dict[str, Set[str]] = field(default_factory=dict)
     audio: AudioBindings = field(default_factory=AudioBindings)
     _pipeline_ref: Optional[weakref.ReferenceType] = field(default=None, repr=False)
 
@@ -59,6 +63,7 @@ class FrameworkState:
         state = FrameworkState(
             output_styles={name: dict(style) for name, style in self.output_styles.items()},
             events=dict(self.events),
+            event_readers={name: set(readers) for name, readers in self.event_readers.items()},
             audio=AudioBindings(
                 set_audio=self.audio.set_audio,
                 play=self.audio.play,
@@ -75,6 +80,8 @@ class FrameworkState:
         self.output_styles.update({name: dict(style) for name, style in snapshot.output_styles.items()})
         self.events.clear()
         self.events.update(snapshot.events)
+        self.event_readers.clear()
+        self.event_readers.update({name: set(readers) for name, readers in snapshot.event_readers.items()})
         self.audio = AudioBindings(
             set_audio=snapshot.audio.set_audio,
             play=snapshot.audio.play,

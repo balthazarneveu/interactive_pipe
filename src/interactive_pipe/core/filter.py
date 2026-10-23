@@ -3,7 +3,7 @@ from copy import deepcopy
 from typing import Any, Callable, List, Optional, Tuple, Union
 
 from interactive_pipe.core.cache import CachedResults
-from interactive_pipe.core.context import REMOVED_CONTEXT_KWARGS, _set_framework_state
+from interactive_pipe.core.context import REMOVED_CONTEXT_KWARGS, _set_current_filter, _set_framework_state
 from interactive_pipe.core.framework_state import FrameworkState
 from interactive_pipe.core.signature import analyze_apply_fn_signature
 
@@ -83,12 +83,14 @@ class PureFilter:
             if key not in self._kwargs_names.keys():
                 raise ValueError(f"{self.name}: {key} not in {self._kwargs_names.keys()}")
 
-        # Set framework state for context-based API (layout, audio, etc.)
+        # Set framework state for context-based API (layout, audio, events, etc.)
         _set_framework_state(self.framework_state)
+        _set_current_filter(self.name)
         try:
             return self.apply(*imgs, **self.values)
         finally:
             # Clear framework state after execution
+            _set_current_filter(None)
             _set_framework_state(None)
 
 

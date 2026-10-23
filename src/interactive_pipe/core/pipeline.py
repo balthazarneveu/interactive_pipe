@@ -99,6 +99,25 @@ class PipelineCore:
         for filt in self.filters:
             filt.reset_cache()
 
+    def invalidate_event_readers(self, event_names) -> None:
+        """Force the recomputation of the filters reading the given key-bound events.
+
+        Readers are recorded at runtime by the `events` proxy. Filters downstream
+        of a reader follow automatically (sequential cache: everything after it;
+        graph cache: its dependents). When an event has no known reader yet (first
+        press before any filter looked at it) the whole cache is reset instead.
+        """
+        readers = set()
+        for event_name in event_names:
+            known_readers = self.framework_state.event_readers.get(event_name)
+            if not known_readers:
+                self.reset_cache()
+                return
+            readers |= known_readers
+        for filt in self.filters:
+            if filt.name in readers and filt.cache_mem is not None:
+                filt.cache_mem.force_change = True
+
     @property
     def _graph_cache_mode(self) -> bool:
         return self.engine.cache in GRAPH_CACHE_MODES
