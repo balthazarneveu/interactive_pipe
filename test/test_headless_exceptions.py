@@ -143,3 +143,10 @@ class TestHeadlessPipelineExceptions:
         # Should not raise when called with no arguments
         result = pipeline()
         assert result is not None
+
+
+def test_headless_is_not_a_gui_backend():
+    from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
+
+    with pytest.raises(ValueError, match="not a GUI backend"):
+        get_interactive_pipeline_class("headless")
