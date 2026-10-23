@@ -13,10 +13,12 @@ The core package depends only on numpy, matplotlib, Pillow and PyYAML — the ma
 | `qt6` | PyQt6 | The Qt backend (`gui="qt"`), richest feature set |
 | `qt5` | PyQt5 | Qt backend on systems without Qt6 support |
 | `notebook` | ipywidgets | The Jupyter backend (`gui="nb"`), incl. Google Colab |
-| `full` | Qt6 + OpenCV + ipywidgets + pandas + gradio + pytest | Everything |
+| `dpg` | dearpygui | The Dear PyGui backend (`gui="dpg"`), GPU-rendered window |
+| `full` | Qt6 + Dear PyGui + OpenCV + ipywidgets + pandas + gradio + pytest | Everything |
 
 ```bash
 pip install "interactive-pipe[qt6]"       # Qt backend
+pip install "interactive-pipe[dpg]"       # Dear PyGui backend
 pip install "interactive-pipe[notebook]"  # Jupyter / Colab
 pip install "interactive-pipe[full]"      # everything
 ```

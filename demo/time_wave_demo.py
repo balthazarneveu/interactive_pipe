@@ -97,7 +97,7 @@ if __name__ == "__main__":
         "-b",
         "--backend",
         type=str,
-        choices=["qt", "gradio"],
+        choices=["qt", "dpg", "gradio"],
         default="qt",
         help="Backend to use: qt or gradio (default: qt)",
     )

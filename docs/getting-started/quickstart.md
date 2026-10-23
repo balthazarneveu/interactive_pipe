@@ -131,6 +131,6 @@ The exported YAML keeps one section per filter, so the parameters you tuned in t
 
 ## Next steps
 
-- [Backends](backends.md) — pick between Qt, matplotlib, Jupyter and Gradio.
+- [Backends](backends.md) — pick between Qt, Dear PyGui, matplotlib, Jupyter and Gradio.
 - [Controls](../guide/controls.md) — all the widget declaration patterns.
 - [Context & events](../guide/context.md) and [Layout](../guide/layout.md) — share state between filters and control the display.

@@ -56,7 +56,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-b",
         "--backend",
-        choices=["qt", "mpl"],  # key events need a windowed backend
+        choices=["qt", "dpg", "mpl"],  # key events need a windowed backend
         default="qt",
         help="GUI backend to use (default: qt)",
     )

@@ -1,5 +1,5 @@
 site_name: interactive_pipe
-site_description: Turn plain python processing functions into interactive GUI apps with sliders — Qt, matplotlib, Jupyter or Gradio.
+site_description: Turn plain python processing functions into interactive GUI apps with sliders — Qt, Dear PyGui, matplotlib, Jupyter or Gradio.
 site_url: https://balthazarneveu.github.io/interactive_pipe/
 repo_url: https://github.com/balthazarneveu/interactive_pipe
 repo_name: balthazarneveu/interactive_pipe
@@ -65,7 +65,7 @@ plugins:
   - llmstxt:
       markdown_description: >-
         interactive_pipe turns plain python processing functions into
-        interactive GUI pipelines (Qt, matplotlib, Jupyter widgets, Gradio)
+        interactive GUI pipelines (Qt, Dear PyGui, matplotlib, Jupyter widgets, Gradio)
         using two decorators. Filters declare widget-bound keyword arguments;
         the pipeline function chains them and is analyzed statically, so its
         body must contain only filter calls.

@@ -39,7 +39,7 @@ def add_caption(img, font_size=12):
     ...
 ```
 
-Features (Qt backend has the fullest support, gradio supports collapsible panels):
+Features (Qt and Dear PyGui have the fullest support, gradio supports collapsible panels):
 
 - **Nesting**: panels contain sub-panels via `add_elements`, with row-based grid layouts.
 - **Collapsible**: `collapsible=True`, optionally starting `collapsed=True`.

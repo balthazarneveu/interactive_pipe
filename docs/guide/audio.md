@@ -16,7 +16,7 @@ def choose_song(img, song="silence"):
 ```
 
 - `audio.set(path)` registers the file, `audio.play()` / `audio.pause()` / `audio.stop()` control playback.
-- Supported on the **Qt** backend (this is how the [Raspberry Pi jukebox](https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/jukebox_demo.py) works) and on **Gradio**.
+- Supported on the **Qt** backend (this is how the [Raspberry Pi jukebox](https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/jukebox_demo.py) works) and on **Gradio**; not available on matplotlib, notebook or Dear PyGui.
 - On Gradio you can additionally return 1D numpy arrays from filters to display audio players.
 - Outside a GUI (headless), the audio calls are silent no-ops, so the same filter stays batch-safe.
 

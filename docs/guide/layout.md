@@ -42,7 +42,7 @@ def pipeline(input):
     return result
 ```
 
-Live layout switching (e.g. going from a side-by-side comparison to a 2x2 grid while the app runs) is supported on the Qt backend.
+Live layout switching (e.g. going from a side-by-side comparison to a 2x2 grid while the app runs) is supported on the Qt and Dear PyGui backends.
 
 ## `layout` methods
 

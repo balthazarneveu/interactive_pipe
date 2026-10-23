@@ -53,6 +53,7 @@ A simple terminal should be enough to use it... This is the right class to use i
 ## Graphical
 - Currently supported backends:
     - `qt` based on either PySide or PyQt depending on what you have.
+    - `dpg` based on [Dear PyGui](https://github.com/hoffstadt/DearPyGui) (GPU rendered immediate-mode GUI).
     - `mpl` matplotlib used for scientific visualization.
     - `nb` based on [ipywidgets](https://ipywidgets.readthedocs.io/en/stable/) used in jupyter notebooks.
 
@@ -166,6 +167,7 @@ It uses matplotlib to display graphs inside an interactive pipe graphical window
 ## graphical
 - Currently supported backends:
     - `qt` based on either PySide or PyQt depending on what you have.
+    - `dpg` based on [Dear PyGui](https://github.com/hoffstadt/DearPyGui) (GPU rendered immediate-mode GUI).
     - `mpl` matplotlib used for scientific visualization.
     - `nb` based on [ipywidgets](https://ipywidgets.readthedocs.io/en/stable/) used in jupyter notebooks.
 

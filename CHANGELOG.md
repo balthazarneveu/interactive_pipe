@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### New features
+- **Dear PyGui backend (`gui="dpg"`)**: a GPU-rendered window built on [Dear PyGui](https://github.com/hoffstadt/DearPyGui) (`pip install "interactive-pipe[dpg]"`). Same declarative feature set as Qt — sliders, checkboxes, dropdowns, text prompts, rangeless numeric inputs, image buttons, knobs for `CircularControl`, panels at any position (nested, collapsible, detached), keyboard shortcuts and `KeyboardControl`, `TimeControl` animations, live layout changes — with images uploaded as raw float textures, native zoomable plots for `Curve` outputs and native tables. The `auto` backend picks it after Qt and before matplotlib. No audio playback.
+
 ### Improvements & bug fixes
 - A filter that changes its output type between frames (image one frame, text/curve/table the next) now rebuilds the display cell on Qt and matplotlib instead of feeding the new content to the previous widget; 1D signals update correctly on matplotlib.
 - Pipeline inputs are no longer deep-copied on every run when the read-only input views already protect them (`safe_input_buffer_deepcopy=None`, the new default, copies only unprotected objects; pass `True` to force the previous behavior).

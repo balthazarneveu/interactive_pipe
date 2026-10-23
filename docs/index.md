@@ -55,7 +55,7 @@ Head to the [Quickstart](getting-started/quickstart.md) for the full walkthrough
 ## Features
 
 - Modular multi-image processing filters with a declarative GUI: sliders, checkboxes, dropdowns, text prompts, image buttons, circular sliders.
-- Four backends: Qt, matplotlib, Jupyter widgets (`nb`), Gradio — plus headless mode ([backend matrix](getting-started/backends.md)).
+- Five backends: Qt, Dear PyGui (`dpg`), matplotlib, Jupyter widgets (`nb`), Gradio — plus headless mode ([backend matrix](getting-started/backends.md)).
 - Caching of intermediate results in RAM for much faster interaction.
 - [`KeyboardControl`](guide/keyboard.md): update values on key press instead of a slider.
 - [Curve plots (2D signals)](guide/curves.md), [table outputs](guide/tables.md) and [audio support](guide/audio.md).

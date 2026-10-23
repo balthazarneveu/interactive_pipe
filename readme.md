@@ -41,7 +41,7 @@ def exposure(img, coeff=1.0, bias=0.0):
 def blend(img0, img1, blend_coeff=0.5):
     return (1 - blend_coeff) * img0 + blend_coeff * img1
 
-@interactive_pipeline(gui="qt")  # or "mpl", "nb" (Jupyter/Colab), "gradio"
+@interactive_pipeline(gui="qt")  # or "dpg" (Dear PyGui), "mpl", "nb" (Jupyter/Colab), "gradio"
 def pipe(img):
     exposed = exposure(img)
     blended = blend(img, exposed)
@@ -59,7 +59,7 @@ Calling `pipe(...)` opens a window with sliders for every declared parameter. ðŸ
 | `gui="qt"` | `gui="mpl"` | `gui="nb"` | `gui="gradio"` |
 | ![qt](docs/images/qt_backend.jpg) | ![mpl](docs/images/mpl_backend.jpg) | ![nb](docs/images/notebook_backend.jpg) | ![gradio](docs/images/gradio_backend.jpg) |
 
-Plus headless mode (`gui=None`) for batch processing. Full feature matrix in the [backends docs](https://balthazarneveu.github.io/interactive_pipe/getting-started/backends/).
+Plus a GPU-rendered [Dear PyGui](https://github.com/hoffstadt/DearPyGui) window (`gui="dpg"`, `pip install "interactive-pipe[dpg]"`) and headless mode (`gui=None`) for batch processing. Full feature matrix in the [backends docs](https://balthazarneveu.github.io/interactive_pipe/getting-started/backends/).
 
 ## Learn more
 
