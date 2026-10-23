@@ -22,10 +22,10 @@ class QtAudioPlayer:
         if PYQTVERSION == 6:
             self.audio_output = QAudioOutput()
             self.media_player.setAudioOutput(self.audio_output)
-            self.audio_output.setVolume(50)
+            self.audio_output.setVolume(0.5)  # Qt6: linear scale in [0, 1]
             self.media_player.errorChanged.connect(self.handle_error)  # type: ignore[reportAttributeAccessIssue]
         else:
-            self.media_player.setVolume(50)  # type: ignore[reportAttributeAccessIssue]
+            self.media_player.setVolume(50)  # Qt5: percentage  # type: ignore[reportAttributeAccessIssue]
             self.media_player.error.connect(self.handle_error)  # type: ignore[reportAttributeAccessIssue]
 
     def handle_error(self):

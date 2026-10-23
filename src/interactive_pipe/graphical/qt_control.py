@@ -14,11 +14,13 @@ if not PYQTVERSION:
             QCheckBox,
             QComboBox,
             QDial,
+            QDoubleSpinBox,
             QHBoxLayout,
             QLabel,
             QLineEdit,
             QPushButton,
             QSlider,
+            QSpinBox,
             QWidget,
         )
 
@@ -33,11 +35,13 @@ if not PYQTVERSION:
                 QCheckBox,
                 QComboBox,
                 QDial,
+                QDoubleSpinBox,
                 QHBoxLayout,
                 QLabel,
                 QLineEdit,
                 QPushButton,
                 QSlider,
+                QSpinBox,
                 QWidget,
             )
 
@@ -53,11 +57,13 @@ if not PYQTVERSION:
             QCheckBox,
             QComboBox,
             QDial,
+            QDoubleSpinBox,
             QHBoxLayout,
             QLabel,
             QLineEdit,
             QPushButton,
             QSlider,
+            QSpinBox,
             QWidget,
         )
 
@@ -77,6 +83,8 @@ if not PYQT_AVAILABLE:
     QCheckBox = None  # noqa: F811
     QPushButton = None  # noqa: F811
     QDial = None  # noqa: F811
+    QSpinBox = None  # noqa: F811
+    QDoubleSpinBox = None  # noqa: F811
     Qt = None  # noqa: F811
     QSize = None  # noqa: F811
     QIcon = None  # noqa: F811
@@ -84,6 +92,14 @@ if not PYQT_AVAILABLE:
 
 
 class BaseControl(QWidget if PYQT_AVAILABLE else object):  # type: ignore[reportGeneralTypeIssues]
+    """Qt widget wrapper for one Control.
+
+    Widgets always hand ``update_func(name, value)`` a value expressed in the
+    control's own domain (float for a float slider, the chosen string for a
+    dropdown, bool for a tick box): the window applies it with ``Control.update``
+    without knowing which widget produced it.
+    """
+
     def __init__(self, name, ctrl: Control, update_func, silent=False):
         if not PYQT_AVAILABLE:
             raise ModuleNotFoundError(
@@ -119,8 +135,8 @@ class ControlFactory:
 
         control_class_map = {
             bool: TickBoxControl,
-            int: IntSliderControl,
-            float: FloatSliderControl,
+            int: IntSliderControl if control.value_range is not None else IntSpinBoxControl,
+            float: FloatSliderControl if control.value_range is not None else FloatSpinBoxControl,
             str: (
                 PromptControl
                 if control.value_range is None
@@ -229,7 +245,10 @@ class FloatSliderControl(BaseControl):
     def convert_value_to_int(self, val):
         if self.ctrl.value_range is None:
             raise ValueError("value_range must be set for FloatSliderControl")
-        return int((val - self.ctrl.value_range[0]) * 1000 / (self.ctrl.value_range[1] - self.ctrl.value_range[0]))  # type: ignore[reportOptionalSubscript,reportOperatorIssue]
+        value_min, value_max = self.ctrl.value_range[0], self.ctrl.value_range[1]  # type: ignore[reportOptionalSubscript]
+        if value_max == value_min:
+            return 0
+        return int(round((val - value_min) * 1000 / (value_max - value_min)))  # type: ignore[reportOperatorIssue]
 
     def convert_int_to_value(self, val):
         if self.ctrl.value_range is None:
@@ -261,7 +280,6 @@ class FloatSliderControl(BaseControl):
                     raise ModuleNotFoundError("PyQt is required for Qt controls")
                 slider_class = QSlider
                 slider = slider_class(Qt.Orientation.Horizontal, self)  # type: ignore[reportOptionalMemberAccess]
-        self.ctrl.convert_int_to_value = self.convert_int_to_value  # type: ignore[reportAttributeAccessIssue]
         slider.setRange(
             self.convert_value_to_int(self.ctrl.value_range[0]),  # type: ignore[reportOptionalSubscript]
             self.convert_value_to_int(self.ctrl.value_range[1]),  # type: ignore[reportOptionalSubscript]
@@ -281,18 +299,16 @@ class FloatSliderControl(BaseControl):
         slider.setPageStep(int_step)
         # slider.setTickPosition(QSlider.TickPosition.TicksAbove)
 
-        # Connect the slider's value changed signal to update the line edit
-        slider.valueChanged.connect(partial(self.update_func, self.name))
+        # the slider works on an integer scale: convert back to the float domain
+        slider.valueChanged.connect(self._on_value_changed)
 
         if self.ctrl.tooltip:
             slider.setToolTip(self.ctrl.tooltip)
-
-        # Add the slider and line edit to the horizontal layout
-        # hbox.addWidget(slider)
-
         self.control_widget = slider
-        # return hbox
         return slider
+
+    def _on_value_changed(self, slider_position: int):
+        self.update_func(self.name, self.convert_int_to_value(slider_position))
 
     def reset(self):
         self.control_widget.setValue(self.convert_value_to_int(self.ctrl.value))
@@ -326,8 +342,8 @@ class IconButtonsControl(BaseControl):
             btn.setIconSize(QSize(64, 64))  # Example size, adjust as needed
             # btn.setCheckable(True)  # Making the button checkable if you want to show which one is currently selected
 
-            # Connect the button's clicked signal to some update function
-            btn.clicked.connect(partial(self.update_func, self.name, idx))
+            # clicking selects the matching choice
+            btn.clicked.connect(partial(self.update_func, self.name, icon_name))
             if self.ctrl.tooltip:
                 btn.setToolTip(self.ctrl.tooltip)
             self.control_widgets.append(btn)
@@ -363,8 +379,7 @@ class DropdownMenuControl(BaseControl):
             self.control_widget.addItem(item_str)
         self.reset()
 
-        # Connect the combo box's value changed signal to some update function if needed
-        self.control_widget.currentIndexChanged.connect(partial(self.update_func, self.name))
+        self.control_widget.currentIndexChanged.connect(self._on_index_changed)
         if self.ctrl.tooltip:
             self.control_widget.setToolTip(self.ctrl.tooltip)
         # Add the combo box to the horizontal layout
@@ -373,6 +388,9 @@ class DropdownMenuControl(BaseControl):
         hbox.addWidget(label)
         return hbox
         # return self.control_widget
+
+    def _on_index_changed(self, index: int):
+        self.update_func(self.name, self.ctrl.value_range[index])  # type: ignore[reportOptionalSubscript]
 
     def reset(self):
         if self.control_widget is None:
@@ -446,7 +464,7 @@ class TickBoxControl(BaseControl):
 
         # Set the default state for the checkbox based on ctrl's default value
         self.reset()
-        self.control_widget.stateChanged.connect(partial(self.update_func, self.ctrl.name))
+        self.control_widget.stateChanged.connect(lambda state: self.update_func(self.name, bool(state)))
 
         if self.ctrl.tooltip:
             self.control_widget.setToolTip(self.ctrl.tooltip)
@@ -460,3 +478,58 @@ class TickBoxControl(BaseControl):
         if not isinstance(value, bool):
             raise TypeError(f"Expected bool for TickBoxControl value, got {type(value)}")
         self.control_widget.setChecked(value)
+
+
+class _SpinBoxControl(BaseControl):
+    """Numeric entry for a control declared without value_range (free parameter)."""
+
+    _widget_class = None  # set by subclasses (QSpinBox / QDoubleSpinBox)
+    _bounds = (-(2**31), 2**31 - 1)
+
+    def check_control_type(self):
+        if self.ctrl.value_range is not None:
+            raise ValueError(f"{type(self).__name__} is meant for controls without value_range")
+
+    def create(self):
+        widget_class = self._widget_class
+        if widget_class is None:
+            raise ModuleNotFoundError("PyQt is required for Qt controls")
+        spin_box = widget_class(self)
+        spin_box.setRange(*self._bounds)
+        self._configure(spin_box)
+        spin_box.setValue(self.ctrl.value)
+        spin_box.valueChanged.connect(partial(self.update_func, self.name))
+        if self.ctrl.tooltip:
+            spin_box.setToolTip(self.ctrl.tooltip)
+        self.control_widget = spin_box
+        return spin_box
+
+    def _configure(self, spin_box):
+        if self.ctrl.step:
+            spin_box.setSingleStep(self.ctrl.step)
+
+    def reset(self):
+        self.control_widget.setValue(self.ctrl.value)
+
+
+class IntSpinBoxControl(_SpinBoxControl):
+    _widget_class = QSpinBox
+
+    def check_control_type(self):
+        if self.ctrl._type is not int:
+            raise TypeError(f"Expected int control type, got {self.ctrl._type}")
+        super().check_control_type()
+
+
+class FloatSpinBoxControl(_SpinBoxControl):
+    _widget_class = QDoubleSpinBox
+    _bounds = (-1e12, 1e12)
+
+    def check_control_type(self):
+        if self.ctrl._type is not float:
+            raise TypeError(f"Expected float control type, got {self.ctrl._type}")
+        super().check_control_type()
+
+    def _configure(self, spin_box):
+        spin_box.setDecimals(4)
+        spin_box.setSingleStep(self.ctrl.step if self.ctrl.step else 0.1)

@@ -161,13 +161,14 @@ def test_window_builds_and_refreshes_with_styled_title():
 def test_update_parameter_per_control_type():
     gui = build_gui(basic_pipeline)
     window = gui.window
-    window.update_parameter("brightness", 1000)  # int slider position -> float range max
+    # widgets convert to the control domain before reaching update_parameter
+    window.widget_list["brightness"].control_widget.setValue(1000)  # slider position -> float range max
     assert window.ctrl["brightness"].value == pytest.approx(1.0)
-    window.update_parameter("mode", 1)  # index into value_range
+    window.widget_list["mode"].control_widget.setCurrentIndex(1)  # index -> choice
     assert window.ctrl["mode"].value == "max"
-    window.update_parameter("inverted", 1)
+    window.widget_list["inverted"].control_widget.setChecked(True)
     assert window.ctrl["inverted"].value is True
-    window.update_parameter("steps", 3)  # int control, direct value
+    window.widget_list["steps"].control_widget.setValue(3)
     assert window.ctrl["steps"].value == 3
     # the refresh triggered by updates must propagate to the styled title
     assert window.image_canvas[0][0]["title"].text() == "mode=max"
@@ -285,3 +286,30 @@ def test_load_parameters_syncs_controls_and_widgets(tmp_path, monkeypatch):
     # widgets follow the controls
     assert gui.window.widget_list["mode"].control_widget.currentText() == "max"
     assert gui.window.image_canvas[0][0]["title"].text() == "mode=max"
+
+
+@interactive(free_int=Control(3), free_float=Control(0.5))
+def free_filter(img, free_int=3, free_float=0.5):
+    return img * free_float + free_int
+
+
+def free_pipeline(img):
+    out = free_filter(img)
+    return out
+
+
+def test_rangeless_numeric_controls_get_spin_boxes():
+    """int/float controls without value_range used to crash the slider factory."""
+    gui = build_gui(free_pipeline)
+    window = gui.window
+    window.refresh()
+    int_box = window.widget_list["free_int"].control_widget
+    float_box = window.widget_list["free_float"].control_widget
+    int_box.setValue(7)
+    float_box.setValue(2.25)
+    assert window.ctrl["free_int"].value == 7
+    assert window.ctrl["free_float"].value == pytest.approx(2.25)
+    assert gui.pipeline.parameters["free_filter"] == {"free_int": 7, "free_float": pytest.approx(2.25)}
+    gui.reset_parameters()
+    assert int_box.value() == 3 and float_box.value() == pytest.approx(0.5)
+    assert gui.pipeline.parameters["free_filter"] == {"free_int": 3, "free_float": 0.5}
