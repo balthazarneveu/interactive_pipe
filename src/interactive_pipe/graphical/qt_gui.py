@@ -49,7 +49,7 @@ from interactive_pipe.graphical.qt_panels import QtPanelBuilder
 
 # Re-exported: interactive_pipe.graphical.qt_gui.CollapsibleBox etc. are public paths
 from interactive_pipe.graphical.qt_widgets import CollapsibleBox, DetachedPanelWindow  # noqa: F401
-from interactive_pipe.graphical.window import InteractivePipeWindow
+from interactive_pipe.graphical.window import InteractivePipeWindow, display_kind
 from interactive_pipe.headless.control import Control, TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.panel import Panel
@@ -445,18 +445,42 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         self.image_grid_layout.addWidget(image_label, 2 * row + 1, col, alignment=Qt.AlignmentFlag.AlignCenter)
 
     def delete_image_placeholder(self, img_widget_dict):
-        for obj_key, img_widget in img_widget_dict.items():
-            if obj_key == "plot_object":
-                img_widget = None
-            elif obj_key == "ax_placeholder" and img_widget is not None:
-                img_widget.remove()
-            elif img_widget is not None:
-                img_widget.setParent(None)
+        for key in ("image", "title"):
+            widget = img_widget_dict.get(key)
+            if widget is not None:
+                widget.setParent(None)
+        img_widget_dict["plot_object"] = None
+        img_widget_dict["ax_placeholder"] = None
+
+    def _reset_cell_widget(self, cell, row, col, new_kind):
+        """Swap the cell widget when the output type changes between frames."""
+        mpl_kinds = ("curve", "table")
+        previous_kind = cell.get("kind")
+        if previous_kind in mpl_kinds and new_kind in mpl_kinds:
+            # same FigureCanvas, different artist: wipe the axes
+            if cell.get("ax_placeholder") is not None:
+                cell["ax_placeholder"].clear()
+            cell["plot_object"] = None
+            return
+        if previous_kind in mpl_kinds or new_kind in mpl_kinds:
+            # FigureCanvas <-> QLabel: drop the current widget, a fresh QLabel is
+            # created here and the canvas helpers recreate theirs on demand
+            cell["image"].setParent(None)
+            cell["plot_object"] = None
+            cell["ax_placeholder"] = None
+            label = QLabel(self)
+            cell["image"] = label
+            self.image_grid_layout.addWidget(label, 2 * row + 1, col, alignment=Qt.AlignmentFlag.AlignCenter)
+        # image <-> text share the same QLabel (setText/setPixmap replace each other)
 
     def update_image(self, image_array_original, row, col):
         cell = self.image_canvas[row][col]  # type: ignore[reportOptionalSubscript]
         if isinstance(image_array_original, np.ndarray) and len(image_array_original.shape) == 1:
             image_array_original = signal_to_curve(image_array_original)
+        kind = display_kind(image_array_original)
+        if cell.get("kind") not in (None, kind):
+            self._reset_cell_widget(cell, row, col, kind)
+        cell["kind"] = kind
         if isinstance(image_array_original, np.ndarray):
             cell["image"].setPixmap(numpy_to_pixmap(image_array_original))
         elif MPL_SUPPORT and FigureCanvas is not None and isinstance(image_array_original, Curve):
@@ -465,6 +489,8 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             update_table_cell(cell, self.image_grid_layout, row, col, image_array_original)
         elif isinstance(image_array_original, str):
             cell["image"].setText(image_array_original)
+        else:
+            logging.warning(f"Unsupported output type for display: {type(image_array_original)}")
         # Title update stays unconditional and last
         cell["title"].setText(self.get_current_style(row, col).get("title", ""))
 

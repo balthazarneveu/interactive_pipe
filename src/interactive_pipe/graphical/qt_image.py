@@ -74,6 +74,9 @@ def _ensure_mpl_cell(cell: dict, grid_layout, row: int, col: int):
     if cell["ax_placeholder"] is None:
         canvas = FigureCanvas(Figure(figsize=(10, 10)))
         ax_placeholder = canvas.figure.subplots()
+        previous_widget = cell.get("image")
+        if previous_widget is not None and previous_widget is not canvas:
+            previous_widget.setParent(None)  # the QLabel placeholder is replaced by the canvas
         cell["image"] = canvas
         grid_layout.addWidget(
             canvas,
