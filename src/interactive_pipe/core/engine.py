@@ -9,6 +9,10 @@ from typing import List, Optional, Set, Union
 from interactive_pipe.core.context_tracking import GRAPH_CACHE_MODES, ContextTracker
 from interactive_pipe.core.filter import FilterCore
 
+# Root directory of the installed package: frames located below it belong to the
+# framework (works for editable "src/" checkouts as well as site-packages installs).
+_PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + os.sep
+
 
 class FilterError(Exception):
     """Clean, user-friendly exception for filter errors.
@@ -30,14 +34,9 @@ class FilterError(Exception):
         if self.tb is None:
             return []
 
-        # Walk through traceback to find the user's code (not in interactive_pipe/src)
+        # Walk through traceback to find the user's code (outside the package directory)
         tb_list = traceback.extract_tb(self.tb)
-        user_frames = []
-        for frame in tb_list:
-            # Skip frames from the interactive_pipe framework itself
-            if "interactive_pipe" in frame.filename and "/src/" in frame.filename:
-                continue
-            user_frames.append(frame)
+        user_frames = [frame for frame in tb_list if not os.path.abspath(frame.filename).startswith(_PACKAGE_DIR)]
 
         # If no user frames found, return last frame from traceback
         if not user_frames and tb_list:
@@ -95,10 +94,11 @@ _original_excepthook = sys.__excepthook__
 def _filter_error_excepthook(exc_type, exc_value, exc_tb):
     """Custom exception hook that handles FilterError without full traceback."""
     if exc_type is FilterError:
-        # FilterError already printed its compact form, just show a hint
-        print("Hint: Set INTERACTIVE_PIPE_DEBUG=1 for full traceback", file=sys.stderr)
+        # FilterError already printed its compact form: show the full traceback only on demand
         if os.environ.get("INTERACTIVE_PIPE_DEBUG"):
             _original_excepthook(exc_type, exc_value, exc_tb)
+        else:
+            print("Hint: Set INTERACTIVE_PIPE_DEBUG=1 for full traceback", file=sys.stderr)
     else:
         _original_excepthook(exc_type, exc_value, exc_tb)
 

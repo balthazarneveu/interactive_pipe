@@ -158,10 +158,12 @@ class PipelineCore:
 
     @property
     def parameters(self):
-        parameters = {}
-        for filt in self.filters:
-            parameters[filt.name] = filt.values
-        return parameters
+        """Current parameters of every filter, as {filter_name: {param: value}}.
+
+        The returned mapping is a shallow copy: mutating it does not alter the
+        filters; assign it back to ``parameters`` to apply changes.
+        """
+        return {filt.name: dict(filt.values) for filt in self.filters}
 
     @parameters.setter
     def parameters(self, new_parameters: Dict[str, Any]):
@@ -199,7 +201,7 @@ class PipelineCore:
         if inputs is not None:
             if isinstance(inputs, dict):
                 provided_keys = list(inputs.keys())
-                for idx, input_name in enumerate(self.inputs_routing):
+                for input_name in self.inputs_routing:
                     if input_name not in provided_keys:
                         raise ValueError(f"{input_name} is not among {provided_keys}")
                 self.__inputs = inputs
