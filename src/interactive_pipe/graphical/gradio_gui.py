@@ -149,7 +149,6 @@ class MainWindow(InteractivePipeWindow):
         self.sliders_layout = sliders_layout
         self.sliders_per_row_layout = sliders_per_row_layout
         self.init_sliders(controls)
-        self.size = size
         self.full_screen_flag = False
         self.pipeline = pipeline
         self.share_gradio_app = share_gradio_app

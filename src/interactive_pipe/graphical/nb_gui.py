@@ -60,7 +60,7 @@ class MainWindow(MatplotlibWindow):
 
     def create_figure(self):
         if self.fig is None:
-            self.fig, self.ax = plt.subplots(figsize=self.size)
+            self.fig, self.ax = plt.subplots(figsize=self.window_size)
             plt.axis("off")
 
     def init_sliders(self, controls: List[Control], dry_run=False):

@@ -25,7 +25,7 @@ class InteractivePipeGUI:
     A few special methods may be redefined for some specific backend needs.
     `reset_parameters`, `close`,
     `save_parameters`, `load_parameters`, `print_parameters`
-    `display_graph`, `help`
+    `display_graph`, `show_help`
     Docstring of these methods will be used in the "F1" help descriptions
     - Redefining `print_message` will allow a window popup for instance.
 
@@ -279,25 +279,28 @@ class InteractivePipeGUI:
         # Replace [" "] with [SPACEBAR] in docstrings
         return docstring.replace('[" "]', "[SPACEBAR]")
 
-    def help(self) -> List[str]:
+    def show_help(self) -> List[str]:
         """print this help in the console"""
-        help = []
+        help_lines = []
         for key, func in self.key_bindings.items():
             if func.__doc__ is not None:
                 if func.__doc__.startswith("["):
                     formatted_doc = self._format_docstring_for_help(func.__doc__)
-                    help.append(f"{formatted_doc}")
+                    help_lines.append(f"{formatted_doc}")
                 else:
                     formatted_key = self._format_key_for_help(key)
                     formatted_doc = self._format_docstring_for_help(func.__doc__)
-                    help.append(f"[{formatted_key}]    : {formatted_doc}")
+                    help_lines.append(f"[{formatted_key}]    : {formatted_doc}")
         for key_context, event_dict in self.context_key_bindings.items():
             formatted_key_context = self._format_key_for_help(key_context)
             formatted_doc = self._format_docstring_for_help(event_dict["doc"])
             # filters read these flags through the `events` context proxy
-            help.append(f"[{formatted_key_context}]    : {formatted_doc} (event '{event_dict['param_name']}')")
-        self.print_message(help)
-        return help
+            help_lines.append(f"[{formatted_key_context}]    : {formatted_doc} (event '{event_dict['param_name']}')")
+        self.print_message(help_lines)
+        return help_lines
+
+    # kept for backward compatibility (show_help avoids shadowing the builtin name)
+    help = show_help
 
     def print_message(self, message_list: List[str]):
         print("\n".join(message_list))

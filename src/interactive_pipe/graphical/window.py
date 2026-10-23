@@ -45,11 +45,15 @@ class InteractivePipeWindow:
         self.pipeline = pipeline
 
     @property
-    def size(self):
+    def window_size(self):
+        """Requested window size: (w, h), "fullscreen"/"maximized" or None.
+
+        Named window_size (not size) because Qt widgets already define size().
+        """
         return self._size
 
-    @size.setter
-    def size(self, _size):
+    @window_size.setter
+    def window_size(self, _size):
         self._size = _size
 
     def add_image_placeholder(self, row, col):
