@@ -84,10 +84,10 @@ def test_qt_reset_parameters_resets_every_control():
     gui = qt_gui.InteractivePipeQT(pipeline=pipeline, name="reset")
     gui.window.refresh()
     window = gui.window
-    window.update_parameter("gain", 1000)  # int slider position -> float range max
+    window.update_parameter("gain", 1.0)
     window.update_parameter("steps", 4)
-    window.update_parameter("inverted", 1)
-    window.update_parameter("mode", 1)  # index into value_range
+    window.update_parameter("inverted", True)
+    window.update_parameter("mode", "max")
     assert pipeline.parameters == CHANGED
     gui.reset_parameters()
     assert_everything_is_default(pipeline)

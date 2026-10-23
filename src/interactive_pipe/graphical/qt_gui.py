@@ -413,23 +413,13 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             self.name_label[idx].setText(f"{self.ctrl[idx].name}")
 
     def update_parameter(self, idx, value):
-        """Required implementation for graphical controllers update"""
-        if self.ctrl[idx]._type is str:
-            if self.ctrl[idx].value_range is None:
-                self.ctrl[idx].update(value)
-            else:
-                self.ctrl[idx].update(self.ctrl[idx].value_range[value])
-        elif self.ctrl[idx]._type is bool:
-            self.ctrl[idx].update(bool(value))
-        elif self.ctrl[idx]._type is float:
-            if isinstance(self.ctrl[idx], TimeControl):
-                self.ctrl[idx].update(value)
-            else:
-                self.ctrl[idx].update(self.ctrl[idx].convert_int_to_value(value))
-        elif self.ctrl[idx]._type is int:
-            self.ctrl[idx].update(value)
-        else:
-            raise NotImplementedError("{self.ctrl[idx]._type} not supported")
+        """Apply a new value (expressed in the control's own domain) and refresh.
+
+        Widgets (qt_control) and the timer convert to that domain themselves:
+        float for float sliders, the chosen string for dropdowns, bool for
+        tick boxes.
+        """
+        self.ctrl[idx].update(value)
         self.update_label(idx)
         self.refresh()
 
