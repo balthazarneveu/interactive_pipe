@@ -124,8 +124,11 @@ class NumberControl(BaseControl):
     def create(self) -> "gr.Number":  # type: ignore[reportInvalidTypeForm]
         if gr is None:
             raise ModuleNotFoundError("gradio is required for Gradio controls")
+        value = self.ctrl.value
+        if not isinstance(value, (int, float)):
+            raise TypeError(f"Expected a number for NumberControl, got {type(value)}")
         self.control_widget = gr.Number(
-            value=self.ctrl.value,
+            value=value,
             label=self.name,
             precision=0 if self.ctrl._type is int else None,
             step=self.ctrl.step if self.ctrl.step else (1 if self.ctrl._type is int else 0.1),

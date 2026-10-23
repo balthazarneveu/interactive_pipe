@@ -152,11 +152,15 @@ class NumberPromptMatplotlibControl(BaseControl):
             raise ValueError("ax_control must be provided for NumberPromptMatplotlibControl")
         self.text_box = TextBox(self.ax_control, self.name, initial=str(self.ctrl.value))
 
+        number_type = self.ctrl._type
+        if number_type is None:
+            raise TypeError("control type must be set for NumberPromptMatplotlibControl")
+
         def submit(text):
             try:
-                value = self.ctrl._type(text)  # type: ignore[misc]
+                value = number_type(text)
             except (TypeError, ValueError):
-                logging.warning(f"{self.name}: cannot parse {text!r} as {self.ctrl._type.__name__}")
+                logging.warning(f"{self.name}: cannot parse {text!r} as {number_type.__name__}")
                 self.text_box.set_val(str(self.ctrl.value))
                 return
             self.update_func(self.name, value)
