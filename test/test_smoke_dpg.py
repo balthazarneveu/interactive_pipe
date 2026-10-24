@@ -558,6 +558,37 @@ def test_key_presses_are_muted_while_typing_in_a_prompt(monkeypatch):
     assert window.ctrl["free_int"].value == 9  # reset was not triggered
 
 
+def test_key_presses_are_muted_while_the_file_dialog_is_open(monkeypatch):
+    """Typing a file name ("results.yaml") must not run r/e/t/i/g/q shortcuts."""
+    gui = build_gui(basic_pipeline)
+    window = gui.window
+    window.refresh()
+    calls = []
+    monkeypatch.setattr(gui, "reset_parameters", lambda: calls.append("reset"))
+    gui.key_bindings["r"] = gui.reset_parameters
+    dialog = window.open_file_dialog("Export", True, [".yaml"], "tuning.yaml", lambda _path: None)
+    gui._on_key_press(None, dpg.mvKey_R, None)
+    assert calls == []
+    dpg.configure_item(dialog, show=False)  # cancelled / chosen: shortcuts are back
+    gui._on_key_press(None, dpg.mvKey_R, None)
+    assert calls == ["reset"]
+
+
+def test_key_presses_are_muted_while_the_message_window_is_open(monkeypatch):
+    gui = build_gui(basic_pipeline)
+    window = gui.window
+    window.refresh()
+    calls = []
+    monkeypatch.setattr(gui, "reset_parameters", lambda: calls.append("reset"))
+    gui.key_bindings["r"] = gui.reset_parameters
+    window.show_message("Help", ["line"])
+    gui._on_key_press(None, dpg.mvKey_R, None)
+    assert calls == []
+    dpg.configure_item(window._message_window, show=False)
+    gui._on_key_press(None, dpg.mvKey_R, None)
+    assert calls == ["reset"]
+
+
 def test_context_key_event_lifecycle():
     gui = build_gui(basic_pipeline)
     gui.bind_key_to_context("n", "noise_evt", "toggle noise event")
