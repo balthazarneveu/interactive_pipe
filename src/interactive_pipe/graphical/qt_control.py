@@ -1,7 +1,7 @@
 import logging
 from functools import partial
 
-from interactive_pipe.headless.control import Control
+from interactive_pipe.headless.control import Control, RangeControl
 
 # Qt symbols come from the shared binding cascade in qt_backend; unlike the GUI
 # modules this one stays importable without any Qt binding (the factory then
@@ -22,6 +22,7 @@ try:
         QSlider,
         QSpinBox,
         Qt,
+        QVBoxLayout,
         QWidget,
     )
 
@@ -33,6 +34,7 @@ except ModuleNotFoundError:
     QLabel = None
     QSlider = None
     QHBoxLayout = None
+    QVBoxLayout = None
     QLineEdit = None
     QComboBox = None
     QCheckBox = None
@@ -87,6 +89,8 @@ class ControlFactory:
         # Return None for single-value controls (don't show anything)
         if control_type is str and control.value_range is not None and len(control.value_range) == 1:
             return None
+        if isinstance(control, RangeControl):
+            return RangeSliderControl(name, control, update_func)
 
         control_class_map = {
             bool: TickBoxControl,
@@ -490,3 +494,75 @@ class FloatSpinBoxControl(_SpinBoxControl):
     def _configure(self, spin_box):
         spin_box.setDecimals(4)
         spin_box.setSingleStep(self.ctrl.step if self.ctrl.step else 0.1)
+
+
+class RangeSliderControl(BaseControl):
+    """Two stacked sliders (lo on top, hi below) for a RangeControl.
+
+    Both sliders work on the same integer grid (one tick per ``step``).
+    Dragging one handle past the other pushes it along, so ``lo <= hi``
+    always holds; ``update_func`` receives the ``(lo, hi)`` tuple.
+    """
+
+    def check_control_type(self):
+        if not isinstance(self.ctrl, RangeControl):
+            raise TypeError(f"Expected a RangeControl, got {type(self.ctrl)}")
+
+    def _ticks(self) -> int:
+        value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
+        return max(1, int(round((value_max - value_min) / self.ctrl.step)))  # type: ignore[operator]
+
+    def to_position(self, value) -> int:
+        value_min = self.ctrl.value_range[0]  # type: ignore[index]
+        return max(0, min(self._ticks(), int(round((value - value_min) / self.ctrl.step))))  # type: ignore[operator]
+
+    def to_value(self, position: int):
+        value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
+        value = min(value_min + position * self.ctrl.step, value_max)  # type: ignore[operator]
+        return int(value) if self.ctrl._type is int else round(float(value), 12)
+
+    def create(self):
+        if QWidget is None or QVBoxLayout is None or QSlider is None or Qt is None:
+            raise ModuleNotFoundError("PyQt is required for Qt controls")
+        container = QWidget(self)
+        vbox = QVBoxLayout()
+        vbox.setContentsMargins(0, 0, 0, 0)
+        vbox.setSpacing(2)
+        self.lo_slider = QSlider(Qt.Orientation.Horizontal, container)
+        self.hi_slider = QSlider(Qt.Orientation.Horizontal, container)
+        for slider in (self.lo_slider, self.hi_slider):
+            slider.setRange(0, self._ticks())
+            slider.setSingleStep(1)
+            slider.setPageStep(1)
+            if self.ctrl.tooltip:
+                slider.setToolTip(self.ctrl.tooltip)
+            vbox.addWidget(slider)
+        container.setLayout(vbox)
+        self.control_widget = container
+        self.reset()
+        self.lo_slider.valueChanged.connect(self._on_lo_changed)
+        self.hi_slider.valueChanged.connect(self._on_hi_changed)
+        return container
+
+    def _set_silently(self, slider, position: int):
+        slider.blockSignals(True)
+        slider.setValue(position)
+        slider.blockSignals(False)
+
+    def _on_lo_changed(self, position: int):
+        if position > self.hi_slider.value():
+            self._set_silently(self.hi_slider, position)
+        self._emit()
+
+    def _on_hi_changed(self, position: int):
+        if position < self.lo_slider.value():
+            self._set_silently(self.lo_slider, position)
+        self._emit()
+
+    def _emit(self):
+        self.update_func(self.name, (self.to_value(self.lo_slider.value()), self.to_value(self.hi_slider.value())))
+
+    def reset(self):
+        lo, hi = self.ctrl.value
+        self._set_silently(self.lo_slider, self.to_position(lo))
+        self._set_silently(self.hi_slider, self.to_position(hi))
