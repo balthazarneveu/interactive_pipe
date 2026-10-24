@@ -48,6 +48,10 @@ MAX_ZOOM = 256.0
 # Bound on the preferred (initial) size of an image cell; the cell can still
 # be enlarged by the user and shrunk down to minimumSizeHint.
 MAX_HINT = QSize(800, 600)
+# Floor on the size of an image cell: sliders and panels have fixed size hints,
+# so without it a control-heavy window squeezes the images down to a thumbnail
+# (the window grows to fit this minimum instead, as it did with native-size cells).
+MIN_HINT = QSize(320, 240)
 
 HoverCallback = Callable[[int, int, Any], None]
 
@@ -215,7 +219,9 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
     def minimumSizeHint(self) -> QSize:  # noqa: N802 - Qt API
         if not self.has_image():
             return super().minimumSizeHint()
-        return QSize(32, 32)
+        w, h = self.image_size()
+        ratio = min(1.0, MIN_HINT.width() / w, MIN_HINT.height() / h)
+        return QSize(max(1, int(w * ratio)), max(1, int(h * ratio)))
 
     # --- view control (synced) ---------------------------------------------
     def set_mode(self, mode: str) -> None:
