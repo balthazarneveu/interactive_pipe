@@ -1,6 +1,7 @@
 import numpy as np
 
 from interactive_pipe import Control, interactive, interactive_pipeline
+from interactive_pipe.cli import parse_gui_args
 
 
 @interactive(
@@ -37,7 +38,6 @@ def blend(img0, img1, blend_coeff=0.0):
     return blended
 
 
-@interactive_pipeline(gui="qt")
 def sample_pipeline(input_image):
     exposed = exposure(input_image)
     bnw_image = black_and_white(input_image)
@@ -46,5 +46,10 @@ def sample_pipeline(input_image):
 
 
 if __name__ == "__main__":
+    # Backend and window from the command line, e.g.
+    #   python samples/decorated_pipeline.py --gui mpl --size 1280x800
+    #   python samples/decorated_pipeline.py --fullscreen
+    _args, gui_kwargs = parse_gui_args()
+    gui_kwargs.setdefault("gui", "qt")  # Qt unless --gui is given
     input_image = np.array([0.0, 0.5, 0.8]) * np.ones((256, 512, 3))
-    sample_pipeline(input_image)
+    interactive_pipeline(**gui_kwargs)(sample_pipeline)(input_image)
