@@ -2,6 +2,8 @@ import argparse
 
 import pytest
 
+import interactive_pipe.helper.pipeline_decorator as pipeline_decorator
+from interactive_pipe import Backend, interactive, interactive_pipeline
 from interactive_pipe.cli import (
     add_gui_arguments,
     gui_from_env,
@@ -11,6 +13,9 @@ from interactive_pipe.cli import (
     resolve_gui,
     size_from_env,
 )
+from interactive_pipe.headless.pipeline import HeadlessPipeline
+from interactive_pipe.helper import _private
+from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
 
 
 @pytest.fixture(autouse=True)
@@ -178,3 +183,147 @@ def test_resolve_gui(monkeypatch):
     assert resolve_gui(None) is None
     monkeypatch.setenv("INTERACTIVE_PIPE_GUI", "none")
     assert resolve_gui("auto") is None
+
+
+# --- environment overrides in interactive_pipeline ----------------------------
+
+
+@interactive(gain=(1.0, [0.0, 2.0]))
+def _amplify(img, gain=1.0):
+    return img * gain
+
+
+def _cli_pipeline(img):
+    out = _amplify(img)
+    return out
+
+
+class _FakeGui:
+    def __init__(self, pipeline=None, **kwargs):
+        self.pipeline = pipeline
+        self.kwargs = kwargs
+
+    def graph_representation(self, *args, **kwargs):
+        return None
+
+
+@pytest.fixture
+def recorded(monkeypatch):
+    """Replace the backend lookup so no real GUI is instantiated; record the requested gui."""
+    calls = []
+
+    def fake_get_class(gui="auto"):
+        calls.append(gui)
+        return _FakeGui
+
+    monkeypatch.setattr(pipeline_decorator, "get_interactive_pipeline_class", fake_get_class)
+    return calls
+
+
+def test_env_gui_overrides_auto(monkeypatch, recorded):
+    monkeypatch.setenv("INTERACTIVE_PIPE_GUI", "qt")
+    interactive_pipeline(gui="auto")(_cli_pipeline)
+    interactive_pipeline()(_cli_pipeline)
+    interactive_pipeline(gui=Backend.AUTO)(_cli_pipeline)
+    assert recorded == ["qt", "qt", "qt"]
+
+
+def test_no_env_keeps_auto(recorded):
+    interactive_pipeline(**{})(_cli_pipeline)
+    assert recorded == ["auto"]
+
+
+def test_explicit_gui_ignores_env(monkeypatch, recorded):
+    monkeypatch.setenv("INTERACTIVE_PIPE_GUI", "qt")
+    interactive_pipeline(gui="mpl")(_cli_pipeline)
+    assert recorded == ["mpl"]
+
+
+@pytest.mark.parametrize("value", ["headless", "none", "NONE"])
+def test_env_headless_returns_headless_pipeline(monkeypatch, recorded, value):
+    monkeypatch.setenv("INTERACTIVE_PIPE_GUI", value)
+    result = interactive_pipeline()(_cli_pipeline)
+    assert isinstance(result, HeadlessPipeline)
+    assert recorded == []
+
+
+def test_explicit_headless_ignores_env(monkeypatch, recorded):
+    monkeypatch.setenv("INTERACTIVE_PIPE_GUI", "qt")
+    assert isinstance(interactive_pipeline(gui=None)(_cli_pipeline), HeadlessPipeline)
+    assert isinstance(interactive_pipeline(gui="headless")(_cli_pipeline), HeadlessPipeline)
+    assert recorded == []
+
+
+def test_env_invalid_gui_raises(monkeypatch, recorded):
+    monkeypatch.setenv("INTERACTIVE_PIPE_GUI", "tk")
+    with pytest.raises(ValueError, match="INTERACTIVE_PIPE_GUI"):
+        interactive_pipeline()(_cli_pipeline)
+
+
+@pytest.mark.parametrize(
+    "value, expected", [("fullscreen", "fullscreen"), ("max", "maximized"), ("800x600", (800, 600))]
+)
+def test_env_size_used_when_not_given(monkeypatch, recorded, value, expected):
+    monkeypatch.setenv("INTERACTIVE_PIPE_SIZE", value)
+    demo = interactive_pipeline(gui="mpl")(_cli_pipeline)
+    assert demo.pipeline.kwargs["size"] == expected
+
+
+def test_explicit_size_ignores_env(monkeypatch, recorded):
+    monkeypatch.setenv("INTERACTIVE_PIPE_SIZE", "fullscreen")
+    demo = interactive_pipeline(gui="mpl", size=(320, 240))(_cli_pipeline)
+    assert demo.pipeline.kwargs["size"] == (320, 240)
+
+
+def test_no_env_size_passes_nothing(recorded):
+    demo = interactive_pipeline(gui="mpl")(_cli_pipeline)
+    assert "size" not in demo.pipeline.kwargs
+
+
+def test_cli_kwargs_win_over_env(monkeypatch, recorded):
+    monkeypatch.setenv("INTERACTIVE_PIPE_GUI", "qt")
+    monkeypatch.setenv("INTERACTIVE_PIPE_SIZE", "maximized")
+    _, gui_kwargs = parse_gui_args(["--gui", "dpg", "--size", "640x480", "--name", "cli"])
+    demo = interactive_pipeline(**gui_kwargs)(_cli_pipeline)
+    assert recorded == ["dpg"]
+    assert demo.pipeline.kwargs["size"] == (640, 480)
+    assert demo.pipeline.kwargs["name"] == "cli"
+
+
+def test_cli_headless(monkeypatch, recorded):
+    monkeypatch.setenv("INTERACTIVE_PIPE_GUI", "qt")
+    _, gui_kwargs = parse_gui_args(["--gui", "headless"])
+    assert isinstance(interactive_pipeline(**gui_kwargs)(_cli_pipeline), HeadlessPipeline)
+
+
+# --- get_interactive_pipeline_class: env vs the cached auto choice -----------
+
+
+def test_cached_auto_choice_does_not_swallow_env(monkeypatch):
+    monkeypatch.setattr(_private, "auto_gui", None)
+    pytest.importorskip("matplotlib")
+    from interactive_pipe.graphical.mpl_gui import InteractivePipeMatplotlib
+
+    # Populate the auto cache with a fake choice, then the env must still win
+    monkeypatch.setattr(_private, "auto_gui", "gradio")
+    monkeypatch.setenv("INTERACTIVE_PIPE_GUI", "mpl")
+    assert get_interactive_pipeline_class("auto") is InteractivePipeMatplotlib
+    assert _private.auto_gui == "gradio"  # cache untouched by the override
+
+
+def test_env_headless_keeps_auto_choice_for_direct_lookup(monkeypatch):
+    # @interact calls get_interactive_pipeline_class directly: "headless" cannot apply there
+    pytest.importorskip("matplotlib")
+    from interactive_pipe.graphical.mpl_gui import InteractivePipeMatplotlib
+
+    monkeypatch.setattr(_private, "auto_gui", "mpl")
+    monkeypatch.setenv("INTERACTIVE_PIPE_GUI", "headless")
+    assert get_interactive_pipeline_class("auto") is InteractivePipeMatplotlib
+
+
+def test_env_does_not_override_explicit_lookup(monkeypatch):
+    pytest.importorskip("matplotlib")
+    from interactive_pipe.graphical.mpl_gui import InteractivePipeMatplotlib
+
+    monkeypatch.setenv("INTERACTIVE_PIPE_GUI", "gradio")
+    assert get_interactive_pipeline_class("mpl") is InteractivePipeMatplotlib

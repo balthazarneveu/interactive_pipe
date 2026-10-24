@@ -2,12 +2,19 @@ import logging
 import signal
 from typing import Union
 
+from interactive_pipe.cli import gui_from_env
 from interactive_pipe.core.backend import Backend
 from interactive_pipe.helper import _private
 
 
 def get_interactive_pipeline_class(gui: Union[str, Backend, None] = "auto"):
     selected_gui = None
+    if isinstance(gui, str) and gui == "auto":
+        # INTERACTIVE_PIPE_GUI overrides "auto" (also covers @interact, which calls this directly).
+        # "headless" cannot be honoured here (a GUI class is expected): keep the auto choice.
+        env_gui = gui_from_env()
+        if env_gui is not None and env_gui not in ("auto", "headless"):
+            gui = env_gui
     if gui is None or gui == "auto":
         if _private.auto_gui is not None:
             selected_gui = _private.auto_gui  # skip selection, used cached one
