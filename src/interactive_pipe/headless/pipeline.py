@@ -210,10 +210,11 @@ class HeadlessPipeline(PipelineCore):
                 continue
             logging.debug(f"{ctrl.filter_to_connect.name}, {ctrl.parameter_name_to_connect}, {ctrl.value}")
             current_params.setdefault(ctrl.filter_to_connect.name, {})[ctrl.parameter_name_to_connect] = ctrl.value
-        # Assign once, after every control has been merged: the setter also writes the
-        # values back into the controls, so assigning inside the loop would overwrite the
-        # not-yet-merged controls with the stale filter values (e.g. after a GUI reset).
-        self.parameters = current_params
+        # Assign once, after every control has been merged, and to the filters only:
+        # the HeadlessPipeline setter also writes the values back into the controls,
+        # which would overwrite a control changed meanwhile (GUI thread while a
+        # threaded run reads them, or not-yet-merged controls after a GUI reset).
+        PipelineCore.parameters.__set__(self, current_params)  # type: ignore[attr-defined]
 
     def __run(self):
         self.update_parameters_from_controls()
