@@ -30,6 +30,8 @@ Select the backend with the `gui=` argument of `@interactive_pipeline` (or `@int
 | Panels with sliders | ✅ | ✅ | ➖ | ➖ | ✅ |
 | Detached panels | ✅ | ✅ | ➖ | ➖ | ➖ |
 | Tables | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Image viewer (fit / zoom / pan / pixel readout) | ✅ | ➖ fit only | ➖ | ➖ | ➖ |
+| Status line (timings, errors) | ✅ | ✅ | ➖ | ➖ | ➖ |
 
 Controls degrade gracefully: for example a [`KeyboardControl`](../guide/keyboard.md) maps back to a regular slider on the gradio and notebook backends, and a `CircularControl` falls back to a straight slider outside Qt and Dear PyGui.
 
