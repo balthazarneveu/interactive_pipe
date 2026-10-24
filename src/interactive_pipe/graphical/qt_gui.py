@@ -1,5 +1,6 @@
 import logging
 import sys
+import threading
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -51,6 +52,7 @@ from interactive_pipe.graphical.qt_image import (
     update_table_cell,
 )
 from interactive_pipe.graphical.qt_panels import QtPanelBuilder
+from interactive_pipe.graphical.qt_runner import PipelineRunner
 from interactive_pipe.graphical.qt_viewer import ImageView, ViewSync
 
 # Re-exported: interactive_pipe.graphical.qt_gui.CollapsibleBox etc. are public paths
@@ -83,7 +85,9 @@ def _format_pixel_value(value) -> str:
 
 
 class InteractivePipeQT(InteractivePipeGUI):
-    def init_app(self, **kwargs):
+    def init_app(self, threaded: bool = False, **kwargs):
+        """`threaded=True` runs the pipeline in a worker thread (widgets stay
+        live during slow runs, results are displayed when ready)."""
         if not QApplication.instance():
             self.app = QApplication(sys.argv)
         else:
@@ -99,6 +103,8 @@ class InteractivePipeQT(InteractivePipeGUI):
         )
         self.set_default_key_bindings()
         self.build_menu_bar()
+        if threaded:
+            self.window.start_threaded_runs()
 
         if self.audio:
             # AudioBindings defaults are no-ops, so the pipeline can run
@@ -112,6 +118,7 @@ class InteractivePipeQT(InteractivePipeGUI):
         self.window.refresh()
         if self.app is not None:
             self.app.exec()
+        self.window.stop_threaded_runs()
         self.custom_end()
         results = self.pipeline.results
         if results is None:
@@ -289,6 +296,11 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         self.last_error: Optional[FilterError] = None
         self._run_status = ""
         self.on_pixel_hover = self._status_pixel_hover
+        # threaded runs (opt-in): a worker thread + a lock serializing every run
+        self._run_lock = threading.Lock()
+        self._run_seq = 0  # incremented by each run; stale worker results are dropped
+        self._displayed_seq = 0
+        self._runner: Optional[PipelineRunner] = None
 
         # Create main vertical layout (replaces QFormLayout)
         main_layout = QVBoxLayout()
@@ -525,10 +537,41 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         values while the pipeline runs yields a single run with the latest
         values instead of one queued run per tick.
         """
+        if self._runner is not None:
+            self._runner.request()
+            self.set_status(f"{self._run_status} · running…" if self._run_status else "running…")
+            return
         if self._refresh_pending:
             return
         self._refresh_pending = True
         QTimer.singleShot(0, self._flush_refresh)
+
+    # --- threaded runs (InteractivePipeQT(threaded=True)) ---
+    @property
+    def threaded(self) -> bool:
+        return self._runner is not None
+
+    def start_threaded_runs(self):
+        """Run widget-triggered refreshes in a worker thread (latest wins)."""
+        if self._runner is not None:
+            return
+        self._runner = PipelineRunner(self._run_pipeline, self._run_lock)
+        self._runner.run_finished.connect(self._on_threaded_run_finished)
+        self._runner.start()
+
+    def stop_threaded_runs(self):
+        """Stop the worker thread (lets the current run finish). Idempotent."""
+        runner, self._runner = self._runner, None
+        if runner is not None:
+            runner.stop()
+
+    def _on_threaded_run_finished(self, result):
+        seq, out, error, report = result
+        if seq < self._displayed_seq:
+            return  # a synchronous refresh already displayed newer results
+        self._display_run(seq, out, error, report)
+        if self._runner is not None and self._runner.busy:
+            self.set_status(f"{self._run_status} · running…")
 
     def _flush_refresh(self):
         try:
@@ -738,15 +781,30 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         self._refresh_pending = False
         if self.pipeline is None:
             return
+        with self._run_lock:  # waits for a background run in threaded mode
+            result = self._run_pipeline()
+        self._display_run(*result)
+
+    def _run_pipeline(self):
+        """Run the pipeline (caller holds _run_lock): (seq, out, error, report)."""
+        self._run_seq += 1
+        seq = self._run_seq
+        out, error = None, None
         try:
-            out = self.pipeline.run()
-        except FilterError as error:
+            out = self.pipeline.run()  # type: ignore[reportOptionalMemberAccess]
+        except FilterError as exc:
+            error = exc
+        return seq, out, error, self.pipeline.last_run_report  # type: ignore[reportOptionalMemberAccess]
+
+    def _display_run(self, seq, out, error: Optional[FilterError], report):
+        self._displayed_seq = seq
+        if error is not None:
             self.show_error(error)
             return
         self._clear_error_style()
         self.last_error = None
         self.refresh_display(out)
-        self._run_status = format_run_status(self.pipeline.last_run_report)
+        self._run_status = format_run_status(report)
         self.set_status(self._run_status)
 
     def show_error(self, error: FilterError):
@@ -783,6 +841,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
 
     def closeEvent(self, event):
         """Handle main window close event - close all detached windows."""
+        self.stop_threaded_runs()
         # Close all detached panel windows
         for detached_window in self.detached_windows:
             detached_window.close()
