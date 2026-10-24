@@ -183,3 +183,55 @@ def test_save_images_uses_the_chosen_path(tmp_path, monkeypatch):
     monkeypatch.setattr(gui, "ask_path", lambda *_a, **_k: tmp_path / "shot")
     gui.save_images()
     assert saved["path"] == tmp_path / "shot.png"  # default extension added
+
+
+def test_context_event_overrides_default_key(monkeypatch, caplog):
+    """A user context event on a default key replaces the built-in shortcut."""
+    calls = []
+    monkeypatch.setattr(DummyGUI, "print_timings", lambda self: calls.append("timings"))
+    gui = build_dummy()
+    with caplog.at_level("INFO"):
+        gui.bind_key_to_context("t", "my_event", "my user event")
+    assert "t" not in gui.key_bindings
+    assert any("default shortcut dropped" in rec.message for rec in caplog.records)
+    triggered = []
+    monkeypatch.setattr(gui.pipeline, "invalidate_event_readers", lambda events: triggered.extend(events))
+    gui.on_press("t")
+    assert calls == []
+    assert triggered == ["my_event"]
+    # re-binding the defaults (backend re-init) does not bring the shortcut back
+    gui.set_default_key_bindings()
+    gui.on_press("t")
+    assert calls == []
+    help_lines = gui.show_help()
+    t_lines = [line for line in help_lines if line.startswith("[t]")]
+    assert len(t_lines) == 1 and "my_event" in t_lines[0]
+
+
+def test_default_action_skipped_when_key_has_context_event(monkeypatch):
+    """on_press skips a default action whose key also carries a context event."""
+    calls = []
+    monkeypatch.setattr(DummyGUI, "reset_parameters", lambda self: calls.append("reset"))
+    gui = build_dummy()
+    gui.bind_key_to_context("r", "my_event", "my user event")
+    gui.key_bindings["r"] = gui.reset_parameters  # e.g. re-added behind our back
+    monkeypatch.setattr(gui.pipeline, "invalidate_event_readers", lambda events: None)
+    gui.on_press("r")
+    assert calls == []
+
+
+def test_user_bind_key_kept_when_context_event_bound():
+    """Only default shortcuts are dropped: explicit bind_key bindings stay."""
+    gui = build_dummy()
+    calls = []
+
+    def custom():
+        """my custom action"""
+        calls.append("custom")
+
+    gui.bind_key("t", custom)
+    gui.bind_key_to_context("t", "my_event", "my user event")
+    assert gui.key_bindings["t"] is custom
+    gui.pipeline.invalidate_event_readers = lambda events: None
+    gui.on_press("t")
+    assert calls == ["custom"]
