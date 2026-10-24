@@ -1,8 +1,8 @@
 import logging
 
-from matplotlib.widgets import CheckButtons, RadioButtons, Slider, TextBox
+from matplotlib.widgets import CheckButtons, RadioButtons, RangeSlider, Slider, TextBox
 
-from interactive_pipe.headless.control import Control
+from interactive_pipe.headless.control import Control, RangeControl
 
 
 class BaseControl:
@@ -59,6 +59,31 @@ class FloatSliderMatplotlibControl(SliderMatplotlibControl):
     def check_control_type(self):
         if self.ctrl._type is not float:
             raise TypeError(f"Expected float control type, got {self.ctrl._type}")
+
+
+class RangeSliderMatplotlibControl(BaseControl):
+    """matplotlib's native two-handle RangeSlider for a RangeControl."""
+
+    def check_control_type(self):
+        if not isinstance(self.ctrl, RangeControl):
+            raise TypeError(f"Expected a RangeControl, got {type(self.ctrl)}")
+
+    def create(self):
+        if self.ax_control is None:
+            raise ValueError("ax_control must be provided for RangeSliderMatplotlibControl")
+        value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
+        lo, hi = self.ctrl.value
+        slider = RangeSlider(
+            self.ax_control,
+            self.name,
+            float(value_min),
+            float(value_max),
+            valinit=(float(lo), float(hi)),
+            valstep=self.ctrl.step,
+        )
+        # RangeSlider hands a numpy array: the control turns it into a (lo, hi) tuple
+        slider.on_changed(lambda val: self.update_func(self.name, (float(val[0]), float(val[1]))))
+        return slider
 
 
 class BoolCheckButtonMatplotlibControl(BaseControl):
@@ -177,6 +202,8 @@ class ControlFactory:
         # Return None for single-value controls (don't show anything)
         if control_type is str and control.value_range is not None and len(control.value_range) == 1:
             return None
+        if isinstance(control, RangeControl):
+            return RangeSliderMatplotlibControl(name, control, update_func, ax_control)
 
         control_class_map = {
             bool: BoolCheckButtonMatplotlibControl,
