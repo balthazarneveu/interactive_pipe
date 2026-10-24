@@ -1,6 +1,6 @@
 import logging
 
-from interactive_pipe.headless.control import Control
+from interactive_pipe.headless.control import Control, RangeControl
 
 try:
     import gradio as gr
@@ -39,6 +39,8 @@ class ControlFactory:
         # Return None for single-value controls (don't show anything)
         if control_type is str and control.value_range is not None and len(control.value_range) == 1:
             return None
+        if isinstance(control, RangeControl):
+            return RangeTextControl(name, control, update_func)
 
         control_class_map = {
             bool: TickBoxControl,
@@ -109,6 +111,29 @@ class FloatSliderControl(BaseControl):
             info=self.ctrl.tooltip,
         )
 
+        return self.control_widget
+
+
+class RangeTextControl(BaseControl):
+    """Fallback for RangeControl: Gradio has no built-in two-handle slider.
+
+    A text box holding ``"lo, hi"``; RangeControl parses, sorts and clamps
+    it, so the filter still receives a ``(lo, hi)`` tuple.
+    """
+
+    def check_control_type(self):
+        if not isinstance(self.ctrl, RangeControl):
+            raise TypeError(f"Expected a RangeControl, got {type(self.ctrl)}")
+
+    def create(self) -> "gr.Textbox":  # type: ignore[reportInvalidTypeForm]
+        if gr is None:
+            raise ModuleNotFoundError("gradio is required for Gradio controls")
+        value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
+        lo, hi = self.ctrl.value
+        info = f"lo, hi within [{value_min}, {value_max}]"
+        if self.ctrl.tooltip:
+            info = f"{self.ctrl.tooltip} ({info})"
+        self.control_widget = gr.Textbox(value=f"{lo}, {hi}", label=self.name, info=info)
         return self.control_widget
 
 
