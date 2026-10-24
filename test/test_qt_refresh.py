@@ -348,3 +348,21 @@ def test_reset_runs_synchronously_once_when_not_threaded():
     gui.reset_parameters()
     flush_events()
     assert SPY_CALLS == [pytest.approx(0.5, abs=0.01)]
+
+
+def test_window_still_grows_after_a_failing_first_run(monkeypatch):
+    gui = build_gui(failing_pipeline)
+    window = gui.window
+    fits = []
+    monkeypatch.setattr(window, "_fit_window_to_images", lambda: fits.append(True))
+    window.ctrl["fail"].update(True)
+    window.refresh()
+    flush_events()
+    failing_cell = window.image_canvas[0][0]
+    assert failing_cell.get("fit_window") is True  # not consumed by the error
+    fits.clear()
+    window.ctrl["fail"].update(False)
+    window.refresh()
+    flush_events()
+    assert "fit_window" not in failing_cell
+    assert fits == [True]
