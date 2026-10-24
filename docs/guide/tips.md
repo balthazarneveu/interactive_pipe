@@ -80,6 +80,10 @@ report = pipeline.last_run_report  # RunReport
 print(report.total, report.timings, report.cached)  # seconds, {filter: seconds}, {cached filter names}
 ```
 
+### Slow pipelines: threaded runs (Qt)
+
+Slider moves are already coalesced (one run per event-loop pass with the latest values). For pipelines taking hundreds of milliseconds, `@interactive_pipeline(gui="qt", threaded=True)` also moves the runs to a worker thread: the window stays responsive, the status line shows `running…`, and changes made during a run collapse into a single follow-up run. Filters then run outside the GUI thread, so they must not touch Qt widgets themselves.
+
 ## Export / import tuning
 
 Press ++e++ in the GUI to export the current parameters to YAML and ++o++ to load them back; headless pipelines expose the same via `export_tuning()` / `load_tuning()`. Press ++g++ to export a graphviz diagram of the pipeline.
