@@ -33,7 +33,7 @@ Select the backend with the `gui=` argument of `@interactive_pipeline` (or `@int
 | Image viewer (fit / zoom / pan / pixel readout) | ✅ | ➖ fit only | ➖ | ➖ | ➖ |
 | Status line (timings, errors) | ✅ | ✅ | ➖ | ➖ | ➖ |
 
-Controls degrade gracefully: for example a [`KeyboardControl`](../guide/keyboard.md) maps back to a regular slider on the gradio and notebook backends, and a `CircularControl` falls back to a straight slider outside Qt and Dear PyGui.
+Controls degrade gracefully: for example a [`KeyboardControl`](../guide/keyboard.md) maps back to a regular slider on the gradio and notebook backends, and a `CircularControl` falls back to a straight slider outside Qt and Dear PyGui. A [`RangeControl`](../guide/controls.md#range-control) gets a two-handle slider everywhere except gradio, where it becomes a `lo, hi` text box.
 
 ## Dear PyGui
 
