@@ -393,6 +393,24 @@ def test_curve_without_data_does_not_shift_the_series():
     assert on_axis == [series[0]["item"]]
 
 
+def test_curve_refresh_keeps_zoom_unless_the_data_extent_changes(monkeypatch):
+    cell = _plot_cell()
+    fits = []
+    real_fit = dpg.fit_axis_data
+    monkeypatch.setattr(dpg, "fit_axis_data", lambda axis: (fits.append(axis), real_fit(axis)))
+    data = np.linspace(0.0, 1.0, 5)
+    dpg_image.update_curve_cell(cell, Curve([SingleCurve(y=data)]))
+    assert len(fits) == 2  # created: both axes fitted
+    dpg_image.update_curve_cell(cell, Curve([SingleCurve(y=data.copy())]))
+    assert len(fits) == 2  # same extent: zoom & pan left alone
+    dpg_image.update_curve_cell(cell, Curve([SingleCurve(y=data * 2.0)]))
+    assert fits[2:] == [cell["plot"]["y_axis"]]  # only the y extent changed
+    dpg_image.update_curve_cell(cell, Curve([SingleCurve(y=data * 2.0)], xlim=(0, 3)))
+    assert len(fits) == 3  # fixed x limits are applied, not fitted
+    dpg_image.update_curve_cell(cell, Curve([SingleCurve(y=data * 2.0)]))
+    assert fits[3:] == [cell["plot"]["x_axis"]]  # back to auto: refit x
+
+
 def test_1d_output_displays_as_curve_fallback(caplog):
     gui = build_gui(signal_pipeline)
     with caplog.at_level(logging.WARNING):
