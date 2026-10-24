@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Optional
 import numpy as np
 
 from interactive_pipe.core.engine import FilterError
+from interactive_pipe.data_objects.image import Image
 from interactive_pipe.graphical.actions import Action
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.qt_audio import QtAudioPlayer
@@ -88,6 +89,9 @@ class InteractivePipeQT(InteractivePipeGUI):
     def init_app(self, threaded: bool = False, **kwargs):
         """`threaded=True` runs the pipeline in a worker thread (widgets stay
         live during slow runs, results are displayed when ready)."""
+        if threaded and self.audio:
+            # filters would drive the QMediaPlayer from the worker thread
+            raise ValueError("threaded=True does not support audio=True: run the audio pipeline without threaded")
         if not QApplication.instance():
             self.app = QApplication(sys.argv)
         else:
@@ -189,6 +193,26 @@ class InteractivePipeQT(InteractivePipeGUI):
         # HeadlessPipeline.parameters (set by import_tuning) writes the loaded
         # values back into the connected controls; the widgets just need syncing.
         self.window.reset_sliders()
+
+    def save_images(self):
+        """save images to disk
+
+        Saving runs the pipeline on the GUI thread: it takes the run lock (so
+        it waits for an in-flight background run) and reads the controls
+        first, so the saved images match the current parameters.
+        """
+        extensions = self._file_extensions(Image)
+
+        def save_now(path: Path):
+            self.pipeline.update_parameters_from_controls()
+            self.pipeline.save(path, data_wrapper_fn=lambda im: Image(im), save_entire_buffer=True)
+
+        def save(path: Path):
+            path = Image.check_path(path, load=False, extensions=extensions)
+            self.window.run_synchronously(lambda: save_now(path))
+
+        default_name = f"{self._default_file_stem()}{extensions[0]}"
+        self._with_path("Save images", True, extensions, default_name, save)
 
     def print_message(self, message_list: List[str]):
         print("\n".join(message_list))
@@ -293,7 +317,8 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         self.timer: Optional[QTimer] = None
         # coalesced refresh (request_refresh) and in-window error display
         self._refresh_pending = False
-        self.last_error: Optional[FilterError] = None
+        self._suppress_refresh_requests = False
+        self.last_error: Optional[Exception] = None
         self._run_status = ""
         self.on_pixel_hover = self._status_pixel_hover
         # threaded runs (opt-in): a worker thread + a lock serializing every run
@@ -301,6 +326,9 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         self._run_seq = 0  # incremented by each run; stale worker results are dropped
         self._displayed_seq = 0
         self._runner: Optional[PipelineRunner] = None
+        # (outputs, output_styles) captured by the worker with the run being
+        # displayed: the next run may already be changing the live ones
+        self._display_layout: Optional[tuple] = None
 
         # Create main vertical layout (replaces QFormLayout)
         main_layout = QVBoxLayout()
@@ -537,6 +565,8 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         values while the pipeline runs yields a single run with the latest
         values instead of one queued run per tick.
         """
+        if self._suppress_refresh_requests:
+            return  # reset_sliders runs once after syncing every widget
         if self._runner is not None:
             self._runner.request()
             self.set_status(f"{self._run_status} · running…" if self._run_status else "running…")
@@ -555,7 +585,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         """Run widget-triggered refreshes in a worker thread (latest wins)."""
         if self._runner is not None:
             return
-        self._runner = PipelineRunner(self._run_pipeline, self._run_lock)
+        self._runner = PipelineRunner(self._run_pipeline_in_worker, self._run_lock)
         self._runner.run_finished.connect(self._on_threaded_run_finished)
         self._runner.start()
 
@@ -566,10 +596,14 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             runner.stop()
 
     def _on_threaded_run_finished(self, result):
-        seq, out, error, report = result
+        seq, out, error, report, display_layout = result
         if seq < self._displayed_seq:
             return  # a synchronous refresh already displayed newer results
-        self._display_run(seq, out, error, report)
+        self._display_layout = display_layout
+        try:
+            self._display_run(seq, out, error, report)
+        finally:
+            self._display_layout = None
         if self._runner is not None and self._runner.busy:
             self.set_status(f"{self._run_status} · running…")
 
@@ -633,10 +667,10 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         self._sync_zoom(False)
 
     def _sync_zoom(self, zoom_in: bool):
-        views = self._view_sync().views
+        # zoom around the center of a view showing an image: the state is shared anyway
+        views = [view for view in self._view_sync().views if view.has_image()]
         if not views:
             return
-        # zoom around the center of the first view: the state is shared anyway
         views[0].zoom_in() if zoom_in else views[0].zoom_out()
 
     def reset_view(self):
@@ -758,7 +792,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         elif MPL_SUPPORT and FigureCanvas is not None and isinstance(image_array_original, Table):
             update_table_cell(cell, self.image_grid_layout, row, col, image_array_original)
         elif isinstance(image_array_original, str):
-            cell.pop("fit_window", None)
+            # keep "fit_window": the window grows when an image shows up later
             cell["image"].setText(image_array_original)
         else:
             logging.warning(f"Unsupported output type for display: {type(image_array_original)}")
@@ -785,6 +819,15 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             result = self._run_pipeline()
         self._display_run(*result)
 
+    def run_synchronously(self, fn: Callable[[], Any]) -> Any:
+        """Call `fn` on this thread while no pipeline run is in progress.
+
+        Use it for anything running the pipeline from the GUI thread (saving
+        images...): in threaded mode it waits for the in-flight background run.
+        """
+        with self._run_lock:
+            return fn()
+
     def _run_pipeline(self):
         """Run the pipeline (caller holds _run_lock): (seq, out, error, report)."""
         self._run_seq += 1
@@ -796,10 +839,67 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             error = exc
         return seq, out, error, self.pipeline.last_run_report  # type: ignore[reportOptionalMemberAccess]
 
-    def _display_run(self, seq, out, error: Optional[FilterError], report):
+    def _run_pipeline_in_worker(self):
+        """_run_pipeline for the worker thread: any other exception becomes a
+        failed result too, so the GUI thread shows it instead of "running…"."""
+        try:
+            result = self._run_pipeline()
+        except Exception as exc:  # broad on purpose: report it in the window
+            logging.exception("Background pipeline run failed")
+            result = self._run_seq, None, exc, None
+        return (*result, self._snapshot_layout())
+
+    def _snapshot_layout(self) -> tuple:
+        """Copy of the output names grid and styles (taken in the worker)."""
+        outputs = self.pipeline.outputs  # type: ignore[reportOptionalMemberAccess]
+        if outputs is not None:
+            outputs = [list(row) if isinstance(row, (list, tuple)) else row for row in outputs]
+        styles = self.pipeline.framework_state.output_styles  # type: ignore[reportOptionalMemberAccess]
+        return outputs, {name: dict(style) for name, style in styles.items()}
+
+    def get_current_style(self, row, col):
+        if self._display_layout is None:
+            return super().get_current_style(row, col)
+        outputs, styles = self._display_layout
+        name = outputs[row][col]
+        return styles.get(name, {"title": name})
+
+    def error_cell_positions(self, error):
+        if self._display_layout is None:
+            return super().error_cell_positions(error)
+        # same as InteractivePipeWindow.error_cell_positions, on the snapshot
+        outputs = self._display_layout[0]
+        if self.image_canvas is None and outputs:
+            self.set_image_canvas(outputs)
+        positions = [
+            (row, col)
+            for row, cells in enumerate(self.image_canvas or [])
+            for col, cell in enumerate(cells)
+            if cell is not None
+        ]
+        failing_outputs = set()
+        for filt in getattr(self.pipeline, "filters", None) or []:
+            if filt.name == error.filter_name:
+                failing_outputs = set(filt.outputs or [])
+        matching = []
+        for row, col in positions:
+            try:
+                name = outputs[row][col]
+            except (IndexError, TypeError):
+                continue
+            if name in failing_outputs:
+                matching.append((row, col))
+        return matching or positions[:1]
+
+    def _display_run(self, seq, out, error: Optional[Exception], report):
         self._displayed_seq = seq
-        if error is not None:
+        if isinstance(error, FilterError):
             self.show_error(error)
+            return
+        if error is not None:  # raised outside the filters (threaded runs only)
+            self.last_error = error
+            self._run_status = "error"
+            self.set_status(f"error: {type(error).__name__}: {error}")
             return
         self._clear_error_style()
         self.last_error = None
@@ -817,7 +917,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             if cell.get("kind") in ("curve", "table"):
                 self._reset_cell_widget(cell, cell["row"], cell["col"], "text")
             cell["kind"] = "text"
-            cell.pop("fit_window", None)
+            # keep "fit_window": the window grows once the error is fixed
             cell["image"].setText(message)
             cell["image"].setWordWrap(True)
             cell["image"].setStyleSheet(self.ERROR_STYLE)
@@ -833,11 +933,24 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
                     cell["image"].setWordWrap(False)
 
     def reset_sliders(self):
-        for widget_idx, ctrl in self.ctrl.items():
-            if widget_idx in self.widget_list.keys():
-                self.widget_list[widget_idx].reset()
-            self.update_label(widget_idx)
-        self.refresh()
+        """Sync every widget with its control value, then run once.
+
+        The widgets emit a value change each; those refresh requests are
+        dropped: a single run follows (in the worker when threaded, so a reset
+        or an import does not block the GUI thread on the run lock).
+        """
+        self._suppress_refresh_requests = True
+        try:
+            for widget_idx, ctrl in self.ctrl.items():
+                if widget_idx in self.widget_list.keys():
+                    self.widget_list[widget_idx].reset()
+                self.update_label(widget_idx)
+        finally:
+            self._suppress_refresh_requests = False
+        if self.threaded:
+            self.request_refresh()
+        else:
+            self.refresh()
 
     def closeEvent(self, event):
         """Handle main window close event - close all detached windows."""

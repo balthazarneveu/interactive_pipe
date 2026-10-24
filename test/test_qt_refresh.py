@@ -5,6 +5,7 @@ Never open modal dialogs here: print_message is monkeypatched.
 """
 
 import os
+import threading
 import time
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -14,7 +15,7 @@ import pytest  # noqa: E402
 
 qt_gui = pytest.importorskip("interactive_pipe.graphical.qt_gui")
 
-from interactive_pipe import interactive  # noqa: E402
+from interactive_pipe import interactive, layout  # noqa: E402
 from interactive_pipe.core.engine import FilterError  # noqa: E402
 from interactive_pipe.graphical.qt_backend import QApplication  # noqa: E402
 from interactive_pipe.headless.pipeline import HeadlessPipeline  # noqa: E402
@@ -51,6 +52,38 @@ def slow_gain_filter(img, slow_gain=0.5, slow_fail=False):
     if slow_fail:
         raise ValueError("bad input")
     return img * slow_gain
+
+
+RUN_STARTED = threading.Event()
+SLEEPY_ACTIVE = []  # one entry per sleepy_gain_filter call in progress
+SLEEPY_OVERLAPS = []
+
+
+@interactive(sleepy_gain=(0.5, [0.0, 1.0]))
+def sleepy_gain_filter(img, sleepy_gain=0.5):
+    SLEEPY_ACTIVE.append(sleepy_gain)
+    if len(SLEEPY_ACTIVE) > 1:
+        SLEEPY_OVERLAPS.append(list(SLEEPY_ACTIVE))
+    RUN_STARTED.set()
+    time.sleep(0.2)
+    SLEEPY_ACTIVE.pop()
+    return img * sleepy_gain
+
+
+def sleepy_pipeline(img):
+    out = sleepy_gain_filter(img)
+    return out
+
+
+@interactive(title_gain=(0.5, [0.0, 1.0]))
+def titled_gain(img, title_gain=0.5):
+    layout.style("titled", title=f"gain={title_gain:.1f}")
+    return img * title_gain
+
+
+def titled_pipeline(img):
+    titled = titled_gain(img)
+    return titled
 
 
 def slow_pipeline(img):
@@ -226,3 +259,145 @@ def test_threaded_full_run_exec_and_quit_stops_the_worker():
     results = gui(INPUT_IMAGE.copy())
     assert isinstance(results, list)
     assert not gui.window.threaded and not runner.isRunning()
+
+
+def test_threaded_save_waits_for_the_run_and_uses_the_latest_values(tmp_path, monkeypatch):
+    from interactive_pipe.data_objects.image import Image
+
+    gui = build_gui(sleepy_pipeline, threaded=True)
+    window = gui.window
+    try:
+        window.refresh()
+        window.update_parameter("sleepy_gain", 0.7)
+        assert wait_for_idle(window)
+        target = tmp_path / "saved.png"
+        monkeypatch.setattr(gui, "ask_path", lambda *_a, **_k: target)
+        RUN_STARTED.clear()
+        SLEEPY_OVERLAPS.clear()
+        window.update_parameter("sleepy_gain", 0.3)  # a background run starts
+        assert RUN_STARTED.wait(5.0)
+        gui.save_images()  # same thread as the GUI, while the run is in flight
+        assert SLEEPY_OVERLAPS == []  # the save waited for the background run
+        maxima = [int(Image.load_image(path).max() * 255 + 0.5) for path in tmp_path.glob("saved_*.png")]
+        assert any(abs(value - 77) <= 2 for value in maxima), maxima  # 0.3 * 255
+        assert not any(abs(value - 178) <= 2 for value in maxima), maxima  # stale 0.7
+        assert "0.3" in (tmp_path / "saved.yaml").read_text()
+        assert wait_for_idle(window)
+    finally:
+        window.stop_threaded_runs()
+
+
+def test_reading_the_controls_does_not_revert_a_concurrent_change(monkeypatch):
+    from interactive_pipe.core.pipeline import PipelineCore
+
+    gui = build_gui(spy_pipeline)
+    control = gui.window.ctrl["gain"]
+    control.update(0.3)
+    original = PipelineCore.parameters
+
+    def set_while_the_gui_changes_the_control(pipeline, new_parameters):
+        control.update(0.9)  # GUI thread tick between the read and the assignment
+        original.fset(pipeline, new_parameters)
+
+    monkeypatch.setattr(PipelineCore, "parameters", property(original.fget, set_while_the_gui_changes_the_control))
+    gui.pipeline.update_parameters_from_controls()
+    assert control.value == pytest.approx(0.9)
+    assert gui.pipeline.parameters["spy_gain"]["gain"] == pytest.approx(0.3)
+
+
+def test_threaded_error_outside_the_filters_is_shown(monkeypatch):
+    gui = build_gui(slow_pipeline, threaded=True)
+    window = gui.window
+    try:
+        window.ctrl["slow_fail"].update(False)  # controls are shared with other tests
+        window.refresh()
+
+        def broken_run():
+            raise KeyError("missing buffer")
+
+        monkeypatch.setattr(gui.pipeline, "run", broken_run)
+        window.update_parameter("slow_gain", 0.2)
+        assert wait_for_idle(window)
+        assert isinstance(window.last_error, KeyError)
+        assert "running" not in window.status_label.text()
+        assert "KeyError" in window.status_label.text()
+        monkeypatch.undo()
+        window.update_parameter("slow_gain", 0.4)
+        assert wait_for_idle(window)
+        assert window.last_error is None
+        assert "ms" in window.status_label.text()
+    finally:
+        window.stop_threaded_runs()
+
+
+def test_threaded_reset_runs_once_in_the_worker():
+    gui = build_gui(slow_pipeline, threaded=True)
+    window = gui.window
+    try:
+        window.ctrl["slow_fail"].update(False)  # controls are shared with other tests
+        window.refresh()
+        window.update_parameter("slow_gain", 0.9)
+        assert wait_for_idle(window)
+        SLOW_CALLS.clear()
+        gui.reset_parameters()
+        assert SLOW_CALLS == []  # nothing ran on the GUI thread
+        assert wait_for_idle(window)
+        assert SLOW_CALLS == [pytest.approx(0.5, abs=0.01)]
+        assert window.ctrl["slow_gain"].value == pytest.approx(0.5, abs=0.01)
+        assert window.result_label["slow_gain"].text() == f"{window.ctrl['slow_gain'].value:.3e}"
+    finally:
+        window.stop_threaded_runs()
+
+
+def test_reset_runs_synchronously_once_when_not_threaded():
+    gui = build_gui(spy_pipeline)
+    window = gui.window
+    window.refresh()
+    window.update_parameter("gain", 0.9)
+    flush_events()
+    SPY_CALLS.clear()
+    gui.reset_parameters()
+    flush_events()
+    assert SPY_CALLS == [pytest.approx(0.5, abs=0.01)]
+
+
+def test_window_still_grows_after_a_failing_first_run(monkeypatch):
+    gui = build_gui(failing_pipeline)
+    window = gui.window
+    fits = []
+    monkeypatch.setattr(window, "_fit_window_to_images", lambda: fits.append(True))
+    window.ctrl["fail"].update(True)
+    window.refresh()
+    flush_events()
+    failing_cell = window.image_canvas[0][0]
+    assert failing_cell.get("fit_window") is True  # not consumed by the error
+    fits.clear()
+    window.ctrl["fail"].update(False)
+    window.refresh()
+    flush_events()
+    assert "fit_window" not in failing_cell
+    assert fits == [True]
+
+
+def test_threaded_audio_is_refused():
+    with pytest.raises(ValueError, match="audio"):
+        build_gui(spy_pipeline, threaded=True, audio=True)
+
+
+def test_threaded_display_uses_the_styles_of_its_own_run():
+    gui = build_gui(titled_pipeline, threaded=True)
+    window = gui.window
+    try:
+        window.refresh()
+        window.update_parameter("title_gain", 0.2)
+        deadline = time.time() + 5.0
+        while window._runner.busy and time.time() < deadline:
+            time.sleep(0.005)  # the result is queued, not displayed yet
+        # the next run (worker) restyles the output before this one is displayed
+        gui.pipeline.framework_state.output_styles["titled"] = {"title": "next run"}
+        assert wait_for_idle(window)
+        assert window.image_canvas[0][0]["title"].text() == "gain=0.2"
+        window.refresh()  # synchronous path still reads the live styles
+        assert window.image_canvas[0][0]["title"].text() == "gain=0.2"
+    finally:
+        window.stop_threaded_runs()

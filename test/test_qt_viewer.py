@@ -52,6 +52,18 @@ def make_text(img):
     return f"mean={img.mean():.2f}"
 
 
+@interactive(as_curve=(False,))
+def image_or_curve(img, as_curve=False):
+    if as_curve:
+        return Curve([SingleCurve(y=img.mean(axis=0))], ylabel="mean")
+    return img
+
+
+def switching_pipeline(img):
+    out = image_or_curve(img)
+    return [out]
+
+
 def mixed_pipeline(img):
     gray = brighten(img)
     curve = make_curve(img)
@@ -229,3 +241,34 @@ def test_pixel_value_helper():
     assert pixel_value(RAMP, 3, 2) == pytest.approx(RAMP[2, 3])
     rgb = np.ones((2, 2, 3)) * 0.5
     assert pixel_value(rgb, 1, 1) == (0.5, 0.5, 0.5)
+
+
+def test_image_curve_switches_do_not_leak_synced_views():
+    window = build_window(switching_pipeline, image=RAMP[:8, :8])
+    sync = window._view_sync()
+    for _cycle in range(3):
+        window.ctrl["as_curve"].update(True)
+        window.refresh()
+        assert sync.views == []  # the replaced ImageView left the sync
+        window.ctrl["as_curve"].update(False)
+        window.refresh()
+    live_view = window.image_canvas[0][0]["image"]
+    assert isinstance(live_view, ImageView) and live_view.has_image()
+    assert sync.views == [live_view]
+    calls = []
+    live_view.zoom_in = lambda: calls.append("in")
+    window.zoom_in()  # zooms through the live view
+    assert calls == ["in"]
+
+
+def test_zoom_uses_a_view_showing_an_image():
+    window = build_window(mixed_pipeline, image=RAMP[:8, :8])
+    image_view = window.image_canvas[0][0]["image"]
+    sync = window._view_sync()
+    sync.views.remove(image_view)
+    sync.views.append(image_view)
+    assert not sync.views[0].has_image()  # the text cell view comes first
+    calls = []
+    image_view.zoom_out = lambda: calls.append("out")
+    window.zoom_out()
+    assert calls == ["out"]
