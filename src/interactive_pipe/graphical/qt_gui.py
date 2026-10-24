@@ -782,7 +782,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         elif MPL_SUPPORT and FigureCanvas is not None and isinstance(image_array_original, Table):
             update_table_cell(cell, self.image_grid_layout, row, col, image_array_original)
         elif isinstance(image_array_original, str):
-            cell.pop("fit_window", None)
+            # keep "fit_window": the window grows when an image shows up later
             cell["image"].setText(image_array_original)
         else:
             logging.warning(f"Unsupported output type for display: {type(image_array_original)}")
@@ -864,7 +864,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             if cell.get("kind") in ("curve", "table"):
                 self._reset_cell_widget(cell, cell["row"], cell["col"], "text")
             cell["kind"] = "text"
-            cell.pop("fit_window", None)
+            # keep "fit_window": the window grows once the error is fixed
             cell["image"].setText(message)
             cell["image"].setWordWrap(True)
             cell["image"].setStyleSheet(self.ERROR_STYLE)
