@@ -26,6 +26,33 @@ def display_kind(content: Any) -> Optional[str]:
     return None
 
 
+def format_run_status(report) -> str:
+    """One-line summary of a RunReport for the status line, e.g.
+    "run 12.3 ms · 3 filters · 1 cached" ("error in <filter>" when it failed)."""
+    if report is None:
+        return ""
+    if report.failed is not None:
+        return f"error in {report.failed}"
+    return f"run {report.total * 1000:.1f} ms · {report.num_filters} filters · {len(report.cached)} cached"
+
+
+def format_timings_table(report) -> List[str]:
+    """Per-filter timings of a RunReport as text lines (filter, ms, cached flag, total)."""
+    if report is None:
+        return ["No pipeline run yet."]
+    names = list(report.timings)
+    width = max([len("filter")] + [len(name) for name in names])
+    lines = [f"{'filter':<{width}}  {'ms':>9}  cached", "-" * (width + 19)]
+    for name in names:
+        cached = "yes" if name in report.cached else ""
+        lines.append(f"{name:<{width}}  {report.timings[name] * 1000:9.2f}  {cached}")
+    lines.append("-" * (width + 19))
+    lines.append(f"{'total':<{width}}  {report.total * 1000:9.2f}")
+    if report.failed is not None:
+        lines.append(f"(run aborted: {report.failed} raised)")
+    return lines
+
+
 class InteractivePipeWindow:
     """Display & refresh image results, hosts the sliders & allows refreshing layout grid.
 
