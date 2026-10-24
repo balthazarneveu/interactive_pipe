@@ -45,6 +45,7 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
                 self.window.fig.canvas.mpl_disconnect(handler_id)
         self.window.fig.canvas.mpl_connect("key_press_event", self.on_press)
         plt.show()
+        self.custom_end()
         results = self.pipeline.results
         if results is None:
             return []
