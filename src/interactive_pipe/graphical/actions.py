@@ -42,4 +42,12 @@ DEFAULT_ACTIONS: Tuple[Action, ...] = (
     Action("graph", "Show graph", "g", "Pipeline", "display_graph", "display the execution graph"),
     Action("profile", "Profile last run", "t", "Pipeline", "print_timings", "print per-filter timings of the last run"),
     Action("help", "Keyboard shortcuts", "f1", "Help", "show_help", "show this help"),
+    Action(
+        "clear_session",
+        "Clear saved session",
+        "k",
+        "Pipeline",
+        "clear_session",
+        "delete the saved session file and reset the sliders",
+    ),
 )

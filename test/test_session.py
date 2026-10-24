@@ -22,6 +22,7 @@ mpl_gui = pytest.importorskip("interactive_pipe.graphical.mpl_gui")
 
 from interactive_pipe import interactive  # noqa: E402
 from interactive_pipe.data_objects.parameters import Parameters  # noqa: E402
+from interactive_pipe.graphical.actions import DEFAULT_ACTIONS  # noqa: E402
 from interactive_pipe.graphical.gui import InteractivePipeGUI  # noqa: E402
 from interactive_pipe.headless.pipeline import HeadlessPipeline  # noqa: E402
 
@@ -176,6 +177,13 @@ def test_clear_session_deletes_file_and_resets(tmp_path, monkeypatch):
     assert _gain(gui) == pytest.approx(0.5)
     gui.clear_session()  # no file left: still fine
     gui.close()
+
+
+def test_clear_session_is_a_registry_action():
+    action = next(a for a in DEFAULT_ACTIONS if a.name == "clear_session")
+    assert action.method == "clear_session" and action.menu == "Pipeline"
+    assert action in InteractivePipeGUI.default_actions()
+    assert action in mpl_gui.InteractivePipeMatplotlib.default_actions()
 
 
 def test_default_session_path_uses_name_slug(tmp_path, monkeypatch):
