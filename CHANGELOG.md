@@ -12,6 +12,10 @@
 - **Errors shown in the window** (Qt, Dear PyGui, matplotlib): a filter raising during a refresh no longer escapes the GUI callback leaving a stale frame. The failing filter's cell shows `⚠ <filter> raised <ExcType>: <message>` in red, the other cells are kept, the status line reports the error, `window.last_error` holds the `FilterError`, and the next successful run restores the display. The compact error report is still printed to the terminal.
 
 ### Improvements & bug fixes
+- A filter that raised kept its previous output in cache, so changing only a downstream parameter showed that stale output as valid; the failing filter is now recomputed on the next run (`cache=True` and `cache="graph"`).
+- `bind_key_to_context` on a default shortcut key (e.g. `1`, `t`) also ran the built-in action; user context events now replace the default shortcut on that key (`bind_key` bindings are unchanged).
+- Dear PyGui: keyboard shortcuts no longer fire while typing a file name in the file dialog or while the message window is open.
+- The timings table (`t`) marks the failing filter of an aborted run and labels the total as measured until the error.
 - The `e` key (export tuning) silently did nothing (`export_tuning()` was called without a path); it now asks for a path and writes the yaml/json file.
 - `w` / `e` / `o` no longer freeze the GUI waiting for a path typed in the terminal: Qt and Dear PyGui open a native file dialog (cancel does nothing). Backends override `InteractivePipeGUI.ask_path`; matplotlib keeps the terminal prompt (empty input cancels).
 - A filter that changes its output type between frames (image one frame, text/curve/table the next) now rebuilds the display cell on Qt and matplotlib instead of feeding the new content to the previous widget; 1D signals update correctly on matplotlib.
