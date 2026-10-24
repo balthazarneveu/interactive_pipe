@@ -101,5 +101,21 @@ if __name__ == "__main__":
         default="qt",
         help="Backend to use: qt or gradio (default: qt)",
     )
+    parser.add_argument(
+        "--export",
+        type=str,
+        default=None,
+        help="Render 4 s of animation headlessly to this .gif (or PNG frames folder) instead of opening the GUI. "
+        "In the GUI, press 'v' (Pipeline > Export animation) to do the same.",
+    )
     args = parser.parse_args()
-    interactive_pipeline(gui=args.backend, cache=False)(pipeline)()
+    if args.export is not None:
+        # Headless usage: no window, frames rendered at t = k / fps
+        from interactive_pipe import export_animation
+        from interactive_pipe.headless.pipeline import HeadlessPipeline
+
+        headless = HeadlessPipeline.from_function(pipeline, cache=False)
+        headless.inputs = []
+        print(f"Animation written to {export_animation(headless, args.export, duration=4.0, fps=15, output=1)}")
+    else:
+        interactive_pipeline(gui=args.backend, cache=False)(pipeline)()
