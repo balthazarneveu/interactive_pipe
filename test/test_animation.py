@@ -10,6 +10,8 @@ from PIL import Image as PILImage
 
 from interactive_pipe import TimeControl, export_animation, interactive
 from interactive_pipe.data_objects.curves import Curve
+from interactive_pipe.graphical.actions import DEFAULT_ACTIONS
+from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 
 HEIGHT, WIDTH = 8, 12
@@ -181,3 +183,92 @@ def test_control_value_and_results_are_restored(tmp_path):
     assert ctrl.value == 0.25
     assert pipeline.parameters["anim_gradient"]["time"] == 0.25
     np.testing.assert_array_equal(pipeline.results[0], before[0])
+
+
+# ---------------------------------------------------------------------
+# GUI action
+
+
+class RecordingGUI(InteractivePipeGUI):
+    """Backend-free GUI recording messages and resync calls."""
+
+    def init_app(self, **kwargs):
+        self.messages = []
+        self.resynced = 0
+        self.set_default_key_bindings()
+
+    def print_message(self, message_list):
+        self.messages.append(message_list)
+
+    def on_parameters_loaded(self):
+        self.resynced += 1
+
+
+def build_gui(func):
+    return RecordingGUI(pipeline=build(func), name="anim gui")
+
+
+def test_action_is_registered_on_v():
+    action = next(a for a in DEFAULT_ACTIONS if a.name == "export_animation")
+    assert (action.key, action.menu, action.method) == ("v", "Pipeline", "export_animation")
+    gui = build_gui(anim_pipeline)
+    assert gui.key_bindings["v"] == gui.export_animation
+
+
+def test_gui_action_writes_the_gif(tmp_path, monkeypatch):
+    gui = build_gui(anim_pipeline)
+    target = tmp_path / "out.gif"
+    asked = {}
+
+    def fake_ask(title, save, extensions, default_name):
+        asked.update(title=title, save=save, extensions=extensions, default_name=default_name)
+        return target
+
+    monkeypatch.setattr(gui, "ask_path", fake_ask)
+    gui.export_animation()
+    assert asked == dict(title="Export animation", save=True, extensions=[".gif", ".png"], default_name="anim_gui.gif")
+    with PILImage.open(target) as gif:
+        assert gif.n_frames == 50  # defaults: 5 s at 10 fps
+    assert gui.resynced == 1
+    assert any(str(target) in " ".join(lines) for lines in gui.messages)
+
+
+def test_gui_action_cancelled_writes_nothing(tmp_path, monkeypatch):
+    gui = build_gui(anim_pipeline)
+    monkeypatch.setattr(gui, "ask_path", lambda *args: None)
+    gui.export_animation()
+    assert list(tmp_path.iterdir()) == []
+    assert gui.messages == []
+
+
+def test_gui_action_without_time_control_reports_and_does_not_raise(tmp_path, monkeypatch):
+    gui = build_gui(anim_static_pipeline)
+    monkeypatch.setattr(gui, "ask_path", lambda *args: tmp_path / "x.gif")
+    gui.export_animation()
+    assert not (tmp_path / "x.gif").exists()
+    assert any("No TimeControl in this pipeline" in " ".join(lines) for lines in gui.messages)
+
+
+def test_gui_action_reports_export_errors(tmp_path, monkeypatch):
+    gui = build_gui(anim_curve_pipeline)
+    monkeypatch.setattr(gui, "ask_path", lambda *args: tmp_path / "x.gif")
+    gui.export_animation()
+    assert any("image outputs" in " ".join(lines) for lines in gui.messages)
+
+
+def test_mpl_backend_action_writes_the_gif(tmp_path, monkeypatch):
+    matplotlib = pytest.importorskip("matplotlib")
+    matplotlib.use("Agg")
+    mpl_gui = pytest.importorskip("interactive_pipe.graphical.mpl_gui")
+    gui = mpl_gui.InteractivePipeMatplotlib(pipeline=build(anim_pipeline), name="mpl anim")
+    gui.window.refresh()
+    ctrl = time_ctrl(gui.pipeline)
+    ctrl.value = 1.5
+    messages = []
+    monkeypatch.setattr(gui, "print_message", messages.append)
+    monkeypatch.setattr(gui, "ask_path", lambda *args: tmp_path / "mpl.gif")
+    gui.key_bindings["v"]()
+    with PILImage.open(tmp_path / "mpl.gif") as gif:
+        assert gif.n_frames == 50
+    assert ctrl.value == 1.5
+    assert messages and "Animation exported" in messages[-1][0]
