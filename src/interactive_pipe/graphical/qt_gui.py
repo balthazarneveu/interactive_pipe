@@ -1,9 +1,11 @@
 import logging
 import sys
-from typing import List, Optional
+from pathlib import Path
+from typing import Dict, List, Optional
 
 import numpy as np
 
+from interactive_pipe.graphical.actions import Action
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.qt_audio import QtAudioPlayer
 
@@ -17,6 +19,7 @@ from interactive_pipe.graphical.qt_backend import (  # noqa: F401
     FigureCanvas,
     QApplication,
     QAudioOutput,
+    QFileDialog,
     QFrame,
     QGridLayout,
     QGroupBox,
@@ -25,6 +28,7 @@ from interactive_pipe.graphical.qt_backend import (  # noqa: F401
     QLabel,
     QMediaContent,
     QMediaPlayer,
+    QMenuBar,
     QMessageBox,
     QPixmap,
     QPushButton,
@@ -72,6 +76,7 @@ class InteractivePipeQT(InteractivePipeGUI):
             **kwargs,
         )
         self.set_default_key_bindings()
+        self.build_menu_bar()
 
         if self.audio:
             # AudioBindings defaults are no-ops, so the pipeline can run
@@ -92,6 +97,43 @@ class InteractivePipeQT(InteractivePipeGUI):
         if isinstance(results, tuple):
             return list(results)
         return results  # type: ignore[reportReturnType]
+
+    def build_menu_bar(self):
+        """File / View / Pipeline / Help menus built from the actions registry.
+
+        Entries show their key as shortcut text only (after a tab): real
+        QAction shortcuts would fire twice with MainWindow.keyPressEvent.
+        """
+        self.menu_bar = QMenuBar(self.window)
+        self.menu_actions: Dict[str, object] = {}
+        for group, actions in self.actions_by_menu().items():
+            menu = self.menu_bar.addMenu(group)
+            for action in actions:
+                qt_action = menu.addAction(f"{action.label}\t{action.key.upper()}")
+                qt_action.setToolTip(action.doc)
+                qt_action.setStatusTip(action.doc)
+                qt_action.triggered.connect(lambda _checked=False, act=action: self.trigger_menu_action(act))
+                self.menu_actions[action.name] = qt_action
+        self.window.layout().setMenuBar(self.menu_bar)
+
+    def trigger_menu_action(self, action: Action):
+        """Run a menu entry, then give the keyboard focus back to the window."""
+        self.run_action(action)
+        self.window.setFocus()
+
+    @staticmethod
+    def _file_filter(extensions: List[str]) -> str:
+        patterns = " ".join(f"*{ext}" for ext in extensions)
+        return f"Supported files ({patterns});;All files (*)"
+
+    def ask_path(self, title: str, save: bool, extensions: List[str], default_name: str) -> Optional[Path]:
+        """Native Qt file dialog; None when cancelled."""
+        dialog = QFileDialog.getSaveFileName if save else QFileDialog.getOpenFileName
+        path, _selected_filter = dialog(self.window, title, default_name, self._file_filter(extensions))
+        self.window.setFocus()
+        if not path:
+            return None
+        return Path(path)
 
     def close(self):
         """close GUI"""
