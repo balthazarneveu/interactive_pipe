@@ -55,7 +55,12 @@ from interactive_pipe.graphical.qt_viewer import ImageView, ViewSync
 
 # Re-exported: interactive_pipe.graphical.qt_gui.CollapsibleBox etc. are public paths
 from interactive_pipe.graphical.qt_widgets import CollapsibleBox, DetachedPanelWindow  # noqa: F401
-from interactive_pipe.graphical.window import InteractivePipeWindow, display_kind, format_run_status
+from interactive_pipe.graphical.window import (
+    InteractivePipeWindow,
+    display_kind,
+    format_error_message,
+    format_run_status,
+)
 from interactive_pipe.headless.control import Control, TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.panel import Panel
@@ -744,33 +749,13 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         self._run_status = format_run_status(self.pipeline.last_run_report)
         self.set_status(self._run_status)
 
-    def _error_cells(self, error: FilterError) -> List[dict]:
-        """Cells showing outputs of the failing filter (else the first cell)."""
-        if self.image_canvas is None and self.pipeline is not None and self.pipeline.outputs:
-            # the very first run failed: build the canvas from the output names
-            self.set_image_canvas(self.pipeline.outputs)
-        cells = [cell for row in (self.image_canvas or []) for cell in row if cell is not None]
-        failing_outputs = set()
-        for filt in getattr(self.pipeline, "filters", []):
-            if filt.name == error.filter_name:
-                failing_outputs = set(filt.outputs or [])
-        outputs = self.pipeline.outputs if self.pipeline is not None else []
-        matching = []
-        for cell in cells:
-            try:
-                name = outputs[cell["row"]][cell["col"]]
-            except (IndexError, TypeError):
-                continue
-            if name in failing_outputs:
-                matching.append(cell)
-        return matching or cells[:1]
-
     def show_error(self, error: FilterError):
         """Display a pipeline error in the window instead of raising."""
         self.last_error = error
         original = error.original_error
-        message = f"⚠ {error.filter_name} raised {type(original).__name__}: {original}"
-        for cell in self._error_cells(error):
+        message = format_error_message(error)
+        for row, col in self.error_cell_positions(error):
+            cell = self.image_canvas[row][col]  # type: ignore[index]
             if cell.get("kind") in ("curve", "table"):
                 self._reset_cell_widget(cell, cell["row"], cell["col"], "text")
             cell["kind"] = "text"

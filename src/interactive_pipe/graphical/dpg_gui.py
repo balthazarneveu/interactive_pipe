@@ -19,6 +19,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
+from interactive_pipe.core.engine import FilterError
 from interactive_pipe.data_objects.curves import Curve
 from interactive_pipe.data_objects.table import Table
 from interactive_pipe.graphical.actions import Action
@@ -41,7 +42,12 @@ from interactive_pipe.graphical.dpg_image import (
 )
 from interactive_pipe.graphical.dpg_panels import DpgPanelBuilder, DpgTimer  # noqa: F401
 from interactive_pipe.graphical.gui import InteractivePipeGUI
-from interactive_pipe.graphical.window import InteractivePipeWindow, display_kind
+from interactive_pipe.graphical.window import (
+    InteractivePipeWindow,
+    display_kind,
+    format_error_message,
+    format_run_status,
+)
 from interactive_pipe.headless.control import Control, TimeControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 
@@ -52,6 +58,9 @@ LAYOUT_MARGIN = 16  # window padding
 SIDE_PANEL_GAP = 8
 SIDE_PANEL_WIDTH = 320  # left/right panel columns
 MENU_BAR_HEIGHT = 22  # primary window menu bar
+STATUS_BAR_HEIGHT = 20  # status line at the bottom of the primary window
+STATUS_COLOR = (150, 150, 150, 255)
+ERROR_COLOR = (230, 80, 80, 255)
 FILE_DIALOG_SIZE = (640, 400)
 
 
@@ -199,6 +208,8 @@ class MainWindow(InteractivePipeWindow):
         self._file_dialog: Optional[Any] = None
         self._rows: Dict[int, Dict[str, Any]] = {}
         self._needs_layout = False
+        self._refresh_pending = False  # set by update_parameter, flushed once per frame
+        self.last_error: Optional[FilterError] = None
         self.scale_factor = 1.0
 
         self.texture_registry = dpg.add_texture_registry()
@@ -221,6 +232,8 @@ class MainWindow(InteractivePipeWindow):
         self.grid_vspacer = dpg.add_spacer(parent=self.grid_container, height=0)
         self.image_grid = dpg.add_group(parent=self.grid_container)
         self.bottom_container = dpg.add_group(parent=self.root)
+        # status line: last run timings / errors
+        self.status_text = dpg.add_text("", parent=self.root, color=STATUS_COLOR)
         self.window_size = size  # validated by the setter
         self.init_sliders(controls)
 
@@ -297,7 +310,7 @@ class MainWindow(InteractivePipeWindow):
         top_h = self._measured_height(self.top_container)
         bottom_h = self._measured_height(self.bottom_container)
         menu_h = MENU_BAR_HEIGHT if self.menu_bar is not None else 0
-        avail_h = max(80, client_h - menu_h - top_h - bottom_h - LAYOUT_MARGIN - 2 * GRID_SPACING)
+        avail_h = max(80, client_h - menu_h - STATUS_BAR_HEIGHT - top_h - bottom_h - LAYOUT_MARGIN - 2 * GRID_SPACING)
         dpg.configure_item(self.grid_container, width=avail_w, height=avail_h)
         for item in side_containers:
             dpg.configure_item(item, height=avail_h)
@@ -392,9 +405,21 @@ class MainWindow(InteractivePipeWindow):
         return any(dpg.does_item_exist(item) and dpg.is_item_focused(item) for item in self.prompt_widgets)
 
     def tick_timers(self):
+        """Called every frame: tick the timers, then run at most one pending refresh."""
         now = time.time()
         for timer in self.timers:
             timer.tick(now)
+        if self._refresh_pending:
+            self.refresh()
+
+    def request_refresh(self):
+        """Mark the pipeline dirty: the render loop (tick_timers) runs it once
+        per frame, however many widget callbacks fired in between."""
+        self._refresh_pending = True
+
+    def set_status(self, text: str):
+        """Show `text` in the status line at the bottom of the window."""
+        dpg.set_value(self.status_text, text)
 
     def update_label(self, idx):
         if idx in self.name_label:
@@ -404,7 +429,7 @@ class MainWindow(InteractivePipeWindow):
         """Apply a new value (expressed in the control's own domain) and refresh."""
         self.ctrl[idx].update(value)
         self.update_label(idx)
-        self.refresh()
+        self.request_refresh()
 
     def key_update_parameter(self, idx, down):
         """Required implementation for keyboard sliders update"""
@@ -414,7 +439,7 @@ class MainWindow(InteractivePipeWindow):
             self.ctrl[idx].on_key_up()
         if idx in self.widget_list:
             self.widget_list[idx].reset()
-        self.refresh()
+        self.request_refresh()
 
     def reset_sliders(self):
         for widget_idx in self.ctrl:
@@ -493,11 +518,47 @@ class MainWindow(InteractivePipeWindow):
         return out_im
 
     def refresh(self):
+        """Run the pipeline now and display the results.
+
+        A filter raising (FilterError) does not escape: the error is shown in
+        the window (cell + status line) and the next good run restores it.
+        """
+        self._refresh_pending = False
         if self.pipeline is not None:
-            out = self.pipeline.run()
-            self.refresh_display(out)
+            try:
+                out = self.pipeline.run()
+            except FilterError as error:
+                self.show_error(error)
+            else:
+                self._clear_error_cells()
+                self.last_error = None
+                self.refresh_display(out)
+                self.set_status(format_run_status(self.pipeline.last_run_report))
         if self._needs_layout:
             self.relayout()
+
+    def show_error(self, error: FilterError):
+        """Display a pipeline error in the window instead of raising."""
+        self.last_error = error
+        for row, col in self.error_cell_positions(error):
+            cell = self.image_canvas[row][col]  # type: ignore[index]
+            if cell.get("kind") != "text":
+                clear_cell_content(cell)
+            update_text_cell(cell, format_error_message(error))
+            dpg.configure_item(cell["content"], color=ERROR_COLOR)
+            cell["kind"] = "text"
+            cell["error"] = True
+            self._needs_layout = True
+        original = error.original_error
+        self.set_status(f"error in {error.filter_name}: {type(original).__name__}: {original}")
+
+    def _clear_error_cells(self):
+        """Drop the error texts: the next display rebuilds these cells."""
+        for row in self.image_canvas or []:
+            for cell in row:
+                if cell is not None and cell.pop("error", False):
+                    clear_cell_content(cell)
+                    self._needs_layout = True
 
     # ------------------------------------------------------- menu & dialogs
     def add_menu_bar(self, actions_by_menu: Dict[str, List[Action]], callback: Callable):

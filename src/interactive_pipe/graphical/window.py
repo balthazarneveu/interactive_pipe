@@ -1,5 +1,5 @@
 import logging
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
@@ -51,6 +51,12 @@ def format_timings_table(report) -> List[str]:
     if report.failed is not None:
         lines.append(f"(run aborted: {report.failed} raised)")
     return lines
+
+
+def format_error_message(error) -> str:
+    """In-window text for a FilterError: "⚠ <filter> raised <ExcType>: <msg>"."""
+    original = error.original_error
+    return f"⚠ {error.filter_name} raised {type(original).__name__}: {original}"
 
 
 class InteractivePipeWindow:
@@ -136,6 +142,35 @@ class InteractivePipeWindow:
                 if image_array is None:
                     continue
                 self.update_image(image_array, row, col)
+
+    def error_cell_positions(self, error) -> List[Tuple[int, int]]:
+        """(row, col) of the cells showing outputs of the filter that raised
+        (the first cell when none of them is displayed).
+
+        Builds the canvas from the output names when the very first run failed.
+        """
+        outputs = self.pipeline.outputs if self.pipeline is not None else None
+        if self.image_canvas is None and outputs:
+            self.set_image_canvas(outputs)
+        positions = [
+            (row, col)
+            for row, cells in enumerate(self.image_canvas or [])
+            for col, cell in enumerate(cells)
+            if cell is not None
+        ]
+        failing_outputs = set()
+        for filt in getattr(self.pipeline, "filters", None) or []:
+            if filt.name == error.filter_name:
+                failing_outputs = set(filt.outputs or [])
+        matching = []
+        for row, col in positions:
+            try:
+                name = outputs[row][col]  # type: ignore[index]
+            except (IndexError, TypeError):
+                continue
+            if name in failing_outputs:
+                matching.append((row, col))
+        return matching or positions[:1]
 
     def convert_image(self, img):
         """Convert image to backend-specific format. Must be implemented by subclasses."""
