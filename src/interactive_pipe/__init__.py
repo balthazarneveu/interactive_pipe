@@ -71,4 +71,5 @@ __all__ = [
     "interactive_pipeline",
     "block",
     "pipeline",
+    "export_animation",
 ]
