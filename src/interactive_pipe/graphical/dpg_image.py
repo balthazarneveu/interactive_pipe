@@ -255,9 +255,14 @@ def update_curve_cell(cell: Dict[str, Any], curve: Curve) -> bool:
 def update_table_cell(cell: Dict[str, Any], table: Table) -> bool:
     """Rebuild the native table of a Table output (cheap: tables are small). Returns True when created."""
     created = not _exists(cell.get("content"))
-    _delete(cell.get("content"))
     width, height = cell.get("natural_size") or DEFAULT_TABLE_SIZE
-    container = dpg.add_child_window(parent=cell["cell"], width=width, height=height, border=True)
+    display_size = (width, height)
+    if not created:
+        # keep the size applied by the last relayout (scale factor): the rebuild reports no layout change
+        config = dpg.get_item_configuration(cell["content"])
+        display_size = (config.get("width") or width, config.get("height") or height)
+    _delete(cell.get("content"))
+    container = dpg.add_child_window(parent=cell["cell"], width=display_size[0], height=display_size[1], border=True)
     has_headers = any(column != "" for column in table.columns)
     if table.title:
         dpg.add_text(table.title, parent=container)

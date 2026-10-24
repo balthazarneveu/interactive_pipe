@@ -470,6 +470,22 @@ def test_relayout_fits_grid_in_client_area_with_uniform_scale():
     assert dpg.get_item_configuration(window.grid_container)["width"] == 800 - dpg_gui.LAYOUT_MARGIN
 
 
+def test_table_refresh_keeps_the_relayout_size():
+    gui = build_gui(mixed_pipeline, size=(1600, 1200))
+    window = gui.window
+    window.refresh()
+    window.on_viewport_resize(None, [1600, 1200, 1600, 1160])
+    assert window.scale_factor != 1.0
+    natural_w, natural_h = dpg_image.DEFAULT_TABLE_SIZE
+    expected = (int(natural_w * window.scale_factor), int(natural_h * window.scale_factor))
+    for _ in range(2):
+        window.update_parameter("brightness", 0.3)  # any refresh rebuilds the table
+        table = window.image_canvas[1][0]
+        config = dpg.get_item_configuration(table["content"])
+        assert (config["width"], config["height"]) == expected
+        assert table["natural_size"] == (natural_w, natural_h)
+
+
 def test_relayout_reserves_side_panel_columns():
     gui = build_gui(panel_pipeline, size=(1000, 700))
     window = gui.window
