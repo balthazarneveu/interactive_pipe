@@ -97,6 +97,15 @@ def test_large_output_is_fitted_into_its_cell():
     assert window.width() < 6000 and window.height() < 4000
 
 
+def test_window_grows_once_to_show_new_images():
+    window = build_window(pair_pipeline, size=(300, 200))
+    # two 600x400 images: the window grows toward their preferred size
+    # (bounded by the screen), instead of staying at its minimum size
+    assert window.height() > 400
+    for view in views(window):
+        assert view.sizeHint().width() == W and view.sizeHint().height() == H
+
+
 def test_resizing_the_window_rescales_the_views():
     window = build_window(pair_pipeline)
     settle(window, (400, 250))

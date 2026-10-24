@@ -567,6 +567,13 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             cell["image"] = self._new_image_view(row, col)
         # image <-> text share the same ImageView (setText/set_image replace each other)
 
+    def _deferred_fit_window(self):
+        try:
+            self._fit_window_pending = False
+            self._fit_window_to_images()
+        except RuntimeError:  # the window was destroyed before the timer fired
+            pass
+
     def _fit_window_to_images(self):
         """Grow the window once so new image cells get their preferred size
         (views can shrink, so Qt no longer grows the window by itself)."""
@@ -574,6 +581,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             return
         layout = self.layout()
         if layout is not None:
+            layout.invalidate()  # drop cached size hints of the freshly filled views
             layout.activate()
         hint = self.sizeHint()
         width, height = max(self.width(), hint.width()), max(self.height(), hint.height())
@@ -599,7 +607,11 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
                 raw = shown
             cell["image"].set_image(numpy_to_pixmap(shown), raw)
             if cell.pop("fit_window", False):
-                self._fit_window_to_images()
+                # deferred: views added to a shown window only become visible
+                # (and count in the layout size hint) on the next event loop pass
+                if not getattr(self, "_fit_window_pending", False):
+                    self._fit_window_pending = True
+                    QTimer.singleShot(0, self._deferred_fit_window)
         elif MPL_SUPPORT and FigureCanvas is not None and isinstance(image_array_original, Curve):
             update_curve_cell(cell, self.image_grid_layout, row, col, image_array_original)
         elif MPL_SUPPORT and FigureCanvas is not None and isinstance(image_array_original, Table):
