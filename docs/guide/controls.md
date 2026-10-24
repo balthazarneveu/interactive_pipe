@@ -33,7 +33,7 @@ The same control can always be written as a **tuple shorthand** — great for pr
 !!! tip "Even shorter"
     A bare range works too: `@interactive(blend_coeff=[0., 1.])` creates a slider initialized to the middle of the range, and `@interactive(mode=["dark", "light"])` a dropdown defaulting to the first choice.
 
-Specialized widgets (keyboard, circular slider, timer) only exist as explicit objects.
+Specialized widgets (keyboard, circular slider, range slider, timer) only exist as explicit objects.
 
 ## Declaration patterns
 
@@ -49,9 +49,37 @@ Specialized widgets (keyboard, circular slider, timer) only exist as explicit ob
 | Grouped in a panel | `gain=(1.0, [0.5, 2.0], "gain", "Panel A")` | `gain=Control(1.0, [0.5, 2.0], group="Panel A")` |
 | Key-driven value ([Keyboard](keyboard.md)) | — | `idx=KeyboardControl(0, [0, 2], keydown="pagedown", keyup="pageup", modulo=True)` |
 | Circular slider (Qt, Dear PyGui) | — | `angle=CircularControl(90, [0, 360], modulo=True)` |
+| Min/max range ([below](#range-control)) | — | `window=RangeControl((0.2, 0.8), [0.0, 1.0])` |
 | Animated timer | — | `t=TimeControl(update_interval_ms=50)` |
 
 See the [Control API reference](../api/controls.md) for every argument.
+
+## Range control
+
+`RangeControl` picks an interval with two handles: the filter receives a `(lo, hi)` tuple, always sorted (`lo <= hi`) and within `value_range`.
+
+```python
+import numpy as np
+from interactive_pipe import interactive, RangeControl
+
+@interactive(levels=RangeControl((0.2, 0.8), [0.0, 1.0], name="input levels"))
+def stretch_levels(img, levels=(0.2, 0.8)):
+    lo, hi = levels
+    return np.clip((img - lo) / (hi - lo), 0.0, 1.0)
+```
+
+- Elements are ints when the default and the range are all ints (`RangeControl((2, 5), [0, 10])`), floats otherwise; `step` defaults to 1 or 1/100 of the range, like `Control`.
+- An invalid default (`lo > hi`, outside the range, not a pair) raises `ValueError`/`TypeError`; later updates are sorted and clamped instead.
+- Tuning files store the value as a 2-element list (`"levels": [0.2, 0.8]`); importing it gives the filter a tuple again.
+- When the decorator declares the control, the signature default (`levels=(0.2, 0.8)`) is just the plain value — it is not read as tuple shorthand.
+
+| Backend | Widget |
+|---|---|
+| Qt | two linked sliders (lo above, hi below) — dragging one past the other pushes it |
+| Dear PyGui | two linked sliders, same rule |
+| Matplotlib | native `matplotlib.widgets.RangeSlider` |
+| Notebook | `ipywidgets` `IntRangeSlider` / `FloatRangeSlider` |
+| Gradio | text box holding `lo, hi` (no built-in range slider) |
 
 ## Image buttons (Qt, Dear PyGui)
 
