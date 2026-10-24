@@ -8,6 +8,7 @@ from interactive_pipe.data_objects.data import Data
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.parameters import Parameters
 from interactive_pipe.graphical.actions import DEFAULT_ACTIONS, MENU_GROUPS, Action
+from interactive_pipe.graphical.window import format_timings_table
 from interactive_pipe.headless.control import TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
@@ -314,6 +315,12 @@ class InteractivePipeGUI:
     def print_parameters(self):
         """print parameters dictionary in the console"""
         print(self.pipeline.__repr__())
+
+    def print_timings(self) -> List[str]:
+        """print per-filter timings of the last pipeline run"""
+        lines = format_timings_table(self.pipeline.last_run_report)
+        self.print_message(lines)
+        return lines
 
     def save_images(self):
         """save images to disk"""

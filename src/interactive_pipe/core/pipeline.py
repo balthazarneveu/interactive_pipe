@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from interactive_pipe.core.context import REMOVED_CONTEXT_ALIASES, _set_user_context
 from interactive_pipe.core.context_tracking import GRAPH_CACHE_MODES, ContextTracker
-from interactive_pipe.core.engine import PipelineEngine
+from interactive_pipe.core.engine import PipelineEngine, RunReport
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.framework_state import FrameworkState
 
@@ -147,6 +147,11 @@ class PipelineCore:
         for filt in self.filters:
             # link each filter to global params
             filt.global_params = new_global_params
+
+    @property
+    def last_run_report(self) -> Optional[RunReport]:
+        """Per-filter timings of the last run (None before the first run)."""
+        return self.engine.last_run_report
 
     def run(self) -> dict:
         """Useful for standalone python access without gui or disk write"""
