@@ -69,7 +69,7 @@ def test_load_parameters_syncs_controls(tmp_path, monkeypatch):
     gui.window.refresh()
     tuning_path = tmp_path / "tuning.json"
     Parameters({"mpl_adjust": {"mpl_gain": 0.1}}).save(tuning_path)
-    monkeypatch.setattr(Parameters, "prompt_file", staticmethod(lambda *_a, **_k: str(tuning_path)))
+    monkeypatch.setattr(gui, "ask_path", lambda *_a, **_k: tuning_path)
     gui.load_parameters()
     assert gui.window.ctrl["mpl_gain"].value == pytest.approx(0.1)
     assert gui.pipeline.parameters["mpl_adjust"]["mpl_gain"] == pytest.approx(0.1)
@@ -140,4 +140,15 @@ def test_output_type_change_between_frames_rebuilds_the_axes():
             assert len(ax.lines) == 1 and len(ax.images) == 0
         elif kind == "text":
             assert len(ax.images) == 0 and len(ax.lines) == 0 and cell["data"].get_text() == "hello"
+    gui.close()
+
+
+def test_key_bindings_follow_registry_without_full_screen():
+    from interactive_pipe.graphical.actions import DEFAULT_ACTIONS
+
+    pipeline = HeadlessPipeline.from_function(mpl_pipeline, inputs=["img"])
+    gui = mpl_gui.InteractivePipeMatplotlib(pipeline=pipeline, name="mpl keys")
+    expected = {action.key for action in DEFAULT_ACTIONS if action.name != "full_screen"}
+    assert set(gui.key_bindings) == expected
+    assert "f11" not in gui.key_bindings
     gui.close()

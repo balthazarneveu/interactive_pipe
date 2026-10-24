@@ -72,22 +72,6 @@ class InteractivePipeDPG(InteractivePipeGUI):
         if self.audio:
             logging.warning("Audio playback is not supported by the dpg backend (use gui='qt' or gui='gradio').")
 
-    def set_default_key_bindings(self):
-        self.key_bindings = {
-            **{
-                "f1": self.show_help,
-                "f11": self.toggle_full_screen,
-                "r": self.reset_parameters,
-                "w": self.save_images,
-                "o": self.load_parameters,
-                "e": self.save_parameters,
-                "i": self.print_parameters,
-                "q": self.close,
-                "g": self.display_graph,
-            },
-            **self.key_bindings,
-        }
-
     # ----------------------------------------------------------------- running
     def run(self) -> list:
         if not self.pipeline._PipelineCore__initialized_inputs:  # type: ignore[attr-defined]
@@ -144,11 +128,10 @@ class InteractivePipeDPG(InteractivePipeGUI):
             ctrl.value = ctrl.value_default
         self.window.reset_sliders()
 
-    def load_parameters(self):
-        """import parameters dictionary from a yaml/json file on disk"""
+    def on_parameters_loaded(self):
+        """sync the widgets with the imported parameters"""
         # HeadlessPipeline.parameters (set by import_tuning) writes the loaded
         # values back into the connected controls; the widgets just need syncing.
-        super().load_parameters()
         self.window.reset_sliders()
 
     def toggle_full_screen(self):

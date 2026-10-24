@@ -93,22 +93,6 @@ class InteractivePipeQT(InteractivePipeGUI):
             return list(results)
         return results  # type: ignore[reportReturnType]
 
-    def set_default_key_bindings(self):
-        self.key_bindings = {
-            **{
-                "f1": self.show_help,
-                "f11": self.toggle_full_screen,
-                "r": self.reset_parameters,
-                "w": self.save_images,
-                "o": self.load_parameters,
-                "e": self.save_parameters,
-                "i": self.print_parameters,
-                "q": self.close,
-                "g": self.display_graph,
-            },
-            **self.key_bindings,
-        }
-
     def close(self):
         """close GUI"""
         if self.app is not None:
@@ -125,11 +109,10 @@ class InteractivePipeQT(InteractivePipeGUI):
             ctrl.value = ctrl.value_default
         self.window.reset_sliders()
 
-    def load_parameters(self):
-        """import parameters dictionary from a yaml/json file on disk"""
+    def on_parameters_loaded(self):
+        """sync the widgets with the imported parameters"""
         # HeadlessPipeline.parameters (set by import_tuning) writes the loaded
         # values back into the connected controls; the widgets just need syncing.
-        super().load_parameters()
         self.window.reset_sliders()
 
     def print_message(self, message_list: List[str]):

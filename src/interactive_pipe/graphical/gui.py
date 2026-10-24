@@ -2,10 +2,12 @@ import logging
 import time
 from functools import partial
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import Callable, Dict, List, Optional
 
+from interactive_pipe.data_objects.data import Data
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.parameters import Parameters
+from interactive_pipe.graphical.actions import DEFAULT_ACTIONS, MENU_GROUPS, Action
 from interactive_pipe.headless.control import TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
@@ -26,7 +28,10 @@ class InteractivePipeGUI:
     `reset_parameters`, `close`,
     `save_parameters`, `load_parameters`, `print_parameters`
     `display_graph`, `show_help`
-    Docstring of these methods will be used in the "F1" help descriptions
+    The default actions (keys, menu entries, help lines) come from the
+    registry in `interactive_pipe.graphical.actions`.
+    - `ask_path` asks the user for a file path (terminal by default,
+      native file dialogs on Qt and Dear PyGui).
     - Redefining `print_message` will allow a window popup for instance.
 
     Do not re-implement the init function!
@@ -205,6 +210,65 @@ class InteractivePipeGUI:
         return update_func
 
     # ---------------------------------------------------------------------
+    # Actions registry
+
+    @classmethod
+    def default_actions(cls) -> List[Action]:
+        """Registry actions this backend implements (e.g. no fullscreen on mpl)."""
+        return [action for action in DEFAULT_ACTIONS if callable(getattr(cls, action.method, None))]
+
+    @classmethod
+    def actions_by_menu(cls) -> Dict[str, List[Action]]:
+        """Default actions grouped by menu, in menu bar order (empty menus skipped)."""
+        grouped: Dict[str, List[Action]] = {group: [] for group in MENU_GROUPS}
+        for action in cls.default_actions():
+            grouped[action.menu].append(action)
+        return {group: actions for group, actions in grouped.items() if actions}
+
+    def run_action(self, action: Action):
+        """Run an action's method (menu entries call this, keys go through on_press)."""
+        return getattr(self, action.method)()
+
+    def set_default_key_bindings(self):
+        """Bind the registry keys; bindings already set by the user win."""
+        defaults = {action.key: getattr(self, action.method) for action in self.default_actions()}
+        self.key_bindings = {**defaults, **self.key_bindings}
+
+    # ---------------------------------------------------------------------
+    # File paths
+
+    def ask_path(self, title: str, save: bool, extensions: List[str], default_name: str) -> Optional[Path]:
+        """Ask the user for a file path; None means cancelled.
+
+        The base implementation prompts in the terminal (empty input cancels).
+        Backends override it with a native file dialog.
+        """
+        answer = Data.prompt_file(f"{title} [{default_name}] (empty to cancel): ").strip()
+        if not answer:
+            return None
+        return Path(answer)
+
+    def _with_path(
+        self,
+        title: str,
+        save: bool,
+        extensions: List[str],
+        default_name: str,
+        on_path: Callable[[Path], None],
+    ):
+        """Ask for a path and run `on_path(path)` unless the user cancelled.
+
+        Callback based so that backends with asynchronous file dialogs
+        (Dear PyGui) can run `on_path` later from the dialog callback.
+        """
+        path = self.ask_path(title, save, extensions, default_name)
+        if path is not None:
+            on_path(path)
+
+    def _default_file_stem(self) -> str:
+        return self.name.replace(" ", "_") if self.name else "pipeline"
+
+    # ---------------------------------------------------------------------
 
     def reset_parameters(self):
         """reset parameters"""
@@ -216,12 +280,29 @@ class InteractivePipeGUI:
 
     def save_parameters(self):
         """export parameters dictionary to a yaml/json file"""
-        self.pipeline.export_tuning()
+        extensions = Parameters(None).file_extensions
+
+        def export(path: Path):
+            path = Parameters.check_path(path, load=False, extensions=extensions)
+            self.pipeline.export_tuning(path, override=True)
+            logging.info(f"Exported tuning to {path}")
+
+        default_name = f"{self._default_file_stem()}_tuning{extensions[-1]}"
+        self._with_path("Export tuning", True, extensions, default_name, export)
 
     def load_parameters(self):
         """import parameters dictionary from a yaml/json file on disk"""
-        pth = Parameters.check_path(Path(Parameters.prompt_file()))
-        self.pipeline.import_tuning(pth)
+        extensions = Parameters(None).file_extensions
+
+        def load(path: Path):
+            self.pipeline.import_tuning(path)
+            self.on_parameters_loaded()
+
+        default_name = f"{self._default_file_stem()}_tuning{extensions[-1]}"
+        self._with_path("Import tuning", False, extensions, default_name, load)
+
+    def on_parameters_loaded(self):
+        """Sync the widgets after `load_parameters` (backends override this)."""
 
     def print_parameters(self):
         """print parameters dictionary in the console"""
@@ -229,8 +310,14 @@ class InteractivePipeGUI:
 
     def save_images(self):
         """save images to disk"""
-        pth = Image.check_path(Path(Image.prompt_file()), load=False)
-        self.pipeline.save(pth, data_wrapper_fn=lambda im: Image(im), save_entire_buffer=True)
+        extensions = Image(None).file_extensions
+
+        def save(path: Path):
+            path = Image.check_path(path, load=False, extensions=extensions)
+            self.pipeline.save(path, data_wrapper_fn=lambda im: Image(im), save_entire_buffer=True)
+
+        default_name = f"{self._default_file_stem()}{extensions[0]}"
+        self._with_path("Save images", True, extensions, default_name, save)
 
     def graph_representation(self, path=None, ortho=True, view=False):
         """Generate graph representation of the pipeline"""
@@ -282,8 +369,12 @@ class InteractivePipeGUI:
     def show_help(self) -> List[str]:
         """print this help in the console"""
         help_lines = []
+        action_by_key = {action.key: action for action in self.default_actions()}
         for key, func in self.key_bindings.items():
-            if func.__doc__ is not None:
+            action = action_by_key.get(key)
+            if action is not None and func == getattr(self, action.method):
+                help_lines.append(f"[{self._format_key_for_help(key)}]    : {action.label}")
+            elif func.__doc__ is not None:
                 if func.__doc__.startswith("["):
                     formatted_doc = self._format_docstring_for_help(func.__doc__)
                     help_lines.append(f"{formatted_doc}")

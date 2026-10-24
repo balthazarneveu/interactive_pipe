@@ -23,21 +23,6 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
         )
         self.set_default_key_bindings()
 
-    def set_default_key_bindings(self):
-        self.key_bindings = {
-            **{
-                "f1": self.show_help,
-                "r": self.reset_parameters,
-                "w": self.save_images,
-                "o": self.load_parameters,
-                "e": self.save_parameters,
-                "i": self.print_parameters,
-                "q": self.close,
-                "g": self.display_graph,
-            },
-            **self.key_bindings,
-        }
-
     def run(self) -> list:
         # Access private attribute for checking initialization state
         if not self.pipeline._PipelineCore__initialized_inputs:  # type: ignore[attr-defined]
@@ -67,11 +52,10 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
             return list(results)
         return results if isinstance(results, list) else []
 
-    def load_parameters(self):
-        """import parameters dictionary from a yaml/json file on disk"""
+    def on_parameters_loaded(self):
+        """sync the widgets with the imported parameters"""
         # HeadlessPipeline.parameters (set by import_tuning) writes the loaded
         # values back into the connected controls; the widgets just need rebuilding.
-        super().load_parameters()
         self.window.need_redraw = True
         self.window.reset_sliders()
 
