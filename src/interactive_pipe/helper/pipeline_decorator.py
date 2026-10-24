@@ -1,6 +1,7 @@
 import functools
 from typing import Any, Callable, Optional, Union
 
+from interactive_pipe.cli import resolve_gui, size_from_env
 from interactive_pipe.core.backend import Backend
 from interactive_pipe.core.context import REMOVED_CONTEXT_ALIASES
 from interactive_pipe.headless.pipeline import HeadlessPipeline
@@ -71,7 +72,15 @@ def interactive_pipeline(
             it (e.g. Gradio).
         name: Window/application title. Defaults to the function name.
         **kwargs_gui: Extra options forwarded to the GUI backend,
-            e.g. ``size``.
+            e.g. ``size`` (``(w, h)``, ``"fullscreen"`` or ``"maximized"``).
+
+    Environment overrides (read when the decorator is applied):
+        ``INTERACTIVE_PIPE_GUI`` (auto/qt/dpg/mpl/nb/gradio/headless/none)
+        replaces ``gui`` when it is ``"auto"`` (the default), and
+        ``INTERACTIVE_PIPE_SIZE`` ("fullscreen", "maximized" or "WxH")
+        provides ``size`` when none is given. Explicit arguments win over
+        the environment; ``interactive_pipe.cli.parse_gui_args`` values are
+        explicit arguments, so the command line wins over both.
 
     Returns:
         A decorator. Applied to a pipeline function it returns either a
@@ -109,15 +118,22 @@ def interactive_pipeline(
             readonly_inputs=readonly_inputs,
             context=context,
         )
-        if gui is None or gui == "headless":
+        # Environment overrides (INTERACTIVE_PIPE_GUI / INTERACTIVE_PIPE_SIZE), see interactive_pipe.cli
+        selected_gui = resolve_gui(gui)
+        if selected_gui is None or selected_gui == "headless":
             return headless_pipeline
         else:
-            InteractivePipeGui = get_interactive_pipeline_class(gui)
+            gui_options = dict(kwargs_gui)
+            if gui_options.get("size") is None:
+                env_size = size_from_env()
+                if env_size is not None:
+                    gui_options["size"] = env_size
+            InteractivePipeGui = get_interactive_pipeline_class(selected_gui)
             gui_pipeline = InteractivePipeGui(
                 pipeline=headless_pipeline,
                 markdown_description=markdown_description,
                 name=name if name is not None else pipeline_function.__name__,
-                **kwargs_gui,
+                **gui_options,
             )
 
         @functools.wraps(pipeline_function)
