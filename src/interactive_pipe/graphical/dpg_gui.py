@@ -93,26 +93,30 @@ class InteractivePipeDPG(InteractivePipeGUI):
         if not self.pipeline._PipelineCore__initialized_inputs:  # type: ignore[attr-defined]
             raise RuntimeError("Did you forget to initialize the pipeline inputs?")
         width, height = self.window.viewport_size
-        dpg.create_viewport(title=self.name or "interactive_pipe", width=width, height=height)
-        dpg.set_viewport_resize_callback(self.window.on_viewport_resize)
-        dpg.setup_dearpygui()
-        requested = self.window.window_size
-        maximized = isinstance(requested, str) and "max" in requested.lower()
-        dpg.show_viewport(maximized=maximized)
-        self._viewport_shown = True
-        if isinstance(requested, str) and "full" in requested.lower():
-            self.full_screen_toggle = True
-            dpg.toggle_viewport_fullscreen()
-        self.window.viewport_ready = True
-        self.window.refresh()
-        # sizes measured on the first frame drive the layout of the second one
-        dpg.set_frame_callback(2, lambda *_args: self.window.relayout())
-        while dpg.is_dearpygui_running():
-            self.window.tick_timers()
-            dpg.render_dearpygui_frame()
-        destroy_context()
-        self._viewport_shown = False
-        self.window.viewport_ready = False
+        try:
+            dpg.create_viewport(title=self.name or "interactive_pipe", width=width, height=height)
+            dpg.set_viewport_resize_callback(self.window.on_viewport_resize)
+            dpg.setup_dearpygui()
+            requested = self.window.window_size
+            maximized = isinstance(requested, str) and "max" in requested.lower()
+            dpg.show_viewport(maximized=maximized)
+            self._viewport_shown = True
+            if isinstance(requested, str) and "full" in requested.lower():
+                self.full_screen_toggle = True
+                dpg.toggle_viewport_fullscreen()
+            self.window.viewport_ready = True
+            self.window.refresh()
+            # sizes measured on the first frame drive the layout of the second one
+            dpg.set_frame_callback(2, lambda *_args: self.window.relayout())
+            while dpg.is_dearpygui_running():
+                self.window.tick_timers()
+                dpg.render_dearpygui_frame()
+        finally:
+            # always release the context and viewport, even when a filter raised from a timer tick,
+            # so that a later run() can create a new viewport
+            destroy_context()
+            self._viewport_shown = False
+            self.window.viewport_ready = False
         self.custom_end()
         results = self.pipeline.results
         if results is None:

@@ -642,6 +642,33 @@ def test_close_and_full_screen_after_run_do_not_touch_a_dead_context(monkeypatch
     assert not dpg_backend.context_alive()
 
 
+class _TickError(RuntimeError):
+    pass
+
+
+def test_run_tears_down_the_context_when_a_timer_tick_raises(monkeypatch):
+    gui = build_gui(basic_pipeline)
+    # no display here: stub the viewport calls, keep the real widget tree
+    for name in ("create_viewport", "set_viewport_resize_callback", "setup_dearpygui", "show_viewport"):
+        monkeypatch.setattr(dpg, name, lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(dpg, "set_frame_callback", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(dpg, "is_dearpygui_running", lambda: True)
+    monkeypatch.setattr(dpg, "render_dearpygui_frame", lambda: None)
+    monkeypatch.setattr(dpg, "get_viewport_client_width", lambda: 800)
+    monkeypatch.setattr(dpg, "get_viewport_client_height", lambda: 600)
+    monkeypatch.setattr(gui, "custom_end", lambda: None)
+
+    def failing_tick():
+        raise _TickError("filter failed")
+
+    monkeypatch.setattr(gui.window, "tick_timers", failing_tick)
+    with pytest.raises(_TickError):
+        gui.run()
+    assert not dpg_backend.context_alive()
+    assert gui._viewport_shown is False and gui.window.viewport_ready is False
+    gui.close()  # no crash on a dead context
+
+
 def test_window_size_validation():
     with pytest.raises(ValueError):
         build_gui(basic_pipeline, size="tiny")
