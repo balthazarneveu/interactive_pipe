@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from copy import copy, deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, List, Optional, Union
+from typing import TYPE_CHECKING, Callable, List, Optional, Tuple, Union
 
 from interactive_pipe.core.filter import FilterCore
 
@@ -305,6 +305,136 @@ class CircularControl(Control):
 
     def __repr__(self) -> str:
         return super().__repr__() + f"| modulo:{self.modulo}"
+
+
+class RangeControl(Control):
+    """Two-handle (min / max) slider bound to a ``(lo, hi)`` keyword argument.
+
+    The filter receives a tuple ``(lo, hi)`` with ``lo <= hi``, both within
+    ``value_range``. The element type (int or float) is inferred from
+    ``value_default`` and ``value_range``: all ints give an int range slider,
+    anything else a float one.
+
+    Invalid defaults raise ``ValueError``; later updates (GUI, tuning files)
+    are sanitized instead: the bounds are swapped if needed and clamped into
+    ``value_range``. Values round-trip through json/yaml tuning files as a
+    2-element list.
+
+    Args:
+        value_default: Initial ``(lo, hi)`` (tuple or list).
+        value_range: ``[min, max]`` allowed for both handles.
+        name: Label displayed next to the widget. Auto-generated if omitted.
+        step: Slider increment. Defaults to 1 for int and 1/100 of the range
+            for float.
+        group: ``Panel`` instance or panel name used to group controls.
+        tooltip: Hover text displayed on the widget.
+
+    Example:
+        ```python
+        @interactive(window=RangeControl((0.2, 0.8), [0.0, 1.0]))
+        def crop(img, window=(0.2, 0.8)):
+            lo, hi = window
+            ...
+        ```
+    """
+
+    _range_ready = False
+
+    def __init__(
+        self,
+        value_default: Union[Tuple[Union[int, float], Union[int, float]], List[Union[int, float]]],
+        value_range: List[Union[int, float]],
+        step: Optional[Union[int, float]] = None,
+        name: Optional[str] = None,
+        tooltip: Optional[str] = None,
+        group: Optional[Union[str, Panel]] = None,
+        filter_to_connect: Optional[FilterCore] = None,
+        parameter_name_to_connect: Optional[str] = None,
+    ) -> None:
+        bounds = self._validate_pair(value_range, "value_range")
+        default = self._validate_pair(value_default, "value_default")
+        if bounds[0] >= bounds[1]:
+            raise ValueError(f"value_range {value_range} must satisfy min < max")
+        if default[0] > default[1]:
+            raise ValueError(f"value_default {value_default} must satisfy lo <= hi")
+        if not (bounds[0] <= default[0] and default[1] <= bounds[1]):
+            raise ValueError(f"value_default {value_default} must be within value_range {value_range}")
+        is_int = all(isinstance(v, int) for v in (*default, *bounds))
+        elem_type = int if is_int else float
+        super().__init__(
+            value_default=elem_type(default[0]),
+            value_range=[elem_type(bounds[0]), elem_type(bounds[1])],
+            name=name,
+            step=step,
+            filter_to_connect=None,
+            parameter_name_to_connect=None,
+            icons=None,
+            group=group,
+            tooltip=tooltip,
+        )
+        self.value_default = (elem_type(default[0]), elem_type(default[1]))
+        self._range_ready = True
+        self.value = None  # reset to the (lo, hi) default
+        if filter_to_connect is not None:
+            if parameter_name_to_connect is None:
+                raise ValueError("parameter_name_to_connect is required when filter_to_connect is provided")
+            self.connect_filter(filter_to_connect, parameter_name_to_connect)
+
+    @staticmethod
+    def _validate_pair(pair, label: str) -> Tuple[Union[int, float], Union[int, float]]:
+        if not isinstance(pair, (list, tuple)):
+            raise TypeError(f"{label} must be a 2-element list or tuple, got {type(pair)}")
+        if len(pair) != 2:
+            raise ValueError(f"{label} must have exactly 2 elements, got {len(pair)}")
+        for element in pair:
+            if isinstance(element, bool) or not isinstance(element, (int, float)):
+                raise TypeError(f"{label} elements must be int or float, got {type(element)}")
+        return pair[0], pair[1]
+
+    def _coerce_element(self, element):
+        if isinstance(element, bool):
+            raise TypeError(f"Range bounds must be numbers, got {type(element)}")
+        try:
+            number = float(element)  # also accepts numpy scalars from widgets
+        except (TypeError, ValueError):
+            raise TypeError(f"Range bounds must be numbers, got {type(element)}") from None
+        return int(round(number)) if self._type is int else number
+
+    def check_value(self, value):
+        """Sanitize a new ``(lo, hi)``: sort the bounds and clamp them into ``value_range``.
+
+        Accepts a tuple, a list (json/yaml tuning files), any 2-element
+        sequence (numpy array from matplotlib) or a ``"lo, hi"`` string
+        (text-based frontends).
+        """
+        if not self._range_ready:
+            # scalar bootstrap value set by Control.__init__
+            return super().check_value(value)
+        if isinstance(value, str):
+            parts = value.strip().strip("()[]").split(",")
+            if len(parts) != 2:
+                raise ValueError(f"Cannot parse {value!r} as 'lo, hi'")
+            try:
+                value = [float(part) for part in parts]
+            except ValueError:
+                raise ValueError(f"Cannot parse {value!r} as 'lo, hi'") from None
+        try:
+            elements = list(value)
+        except TypeError:
+            raise TypeError(f"RangeControl value must be a (lo, hi) pair, got {type(value)}") from None
+        if len(elements) != 2:
+            raise ValueError(f"RangeControl value must have exactly 2 elements, got {len(elements)}")
+        lo, hi = sorted(self._coerce_element(element) for element in elements)
+        value_min, value_max = self.value_range  # type: ignore[misc]
+        lo = max(value_min, min(lo, value_max))
+        hi = max(value_min, min(hi, value_max))
+        return (lo, hi)
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.name} | {self.value} - RANGE in {self.value_range} "
+            f"default = {self.value_default} type: {self._type} - step={self.step}"
+        )
 
 
 class TextPrompt(Control):

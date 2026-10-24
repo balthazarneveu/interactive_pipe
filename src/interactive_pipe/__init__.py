@@ -23,6 +23,7 @@ from interactive_pipe.data_objects.table import Table
 from interactive_pipe.headless.control import (
     CircularControl,
     Control,
+    RangeControl,
     TextPrompt,
     TimeControl,
 )
@@ -57,6 +58,7 @@ __all__ = [
     "Table",
     "Control",
     "CircularControl",
+    "RangeControl",
     "TextPrompt",
     "TimeControl",
     "KeyboardControl",
