@@ -122,4 +122,4 @@ The parameters are saved when the window closes and applied at the next launch. 
 - A corrupt session, or values the controls reject, logs a warning and the GUI starts with the defaults. Saved entries for filters or parameters that no longer exist are ignored, so renaming a slider is safe.
 - Keyword arguments given at launch (`my_pipeline(img, gain=0.3)`) override the restored values.
 - Press ++k++ (Pipeline menu, *Clear saved session*) to delete the file and reset the sliders.
-- The session is saved when the backend's event loop exits (Qt, Dear PyGui, and Gradio once its server stops). The matplotlib and notebook backends do not save on exit yet; call `my_pipeline.pipeline.save_session()` yourself there.
+- The session is saved when the backend's event loop exits (Qt, Dear PyGui, matplotlib, and Gradio once its server stops). The notebook backend has no exit; call `my_pipeline.pipeline.save_session()` yourself there.
