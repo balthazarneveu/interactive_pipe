@@ -351,7 +351,7 @@ def test_output_type_change_between_frames_rebuilds_the_cell():
             if window.image_grid_layout.getItemPosition(i)[:2] == (1, 0)
         ]
         assert len(occupants) == 1 and occupants[0] is cell["image"]
-    assert canvas_widget_types["text"] == "QLabel" and canvas_widget_types["image"] == "QLabel"
+    assert canvas_widget_types["text"] == "ImageView" and canvas_widget_types["image"] == "ImageView"
     assert canvas_widget_types["curve"] != "QLabel" and canvas_widget_types["table"] != "QLabel"
     assert window.image_canvas[0][0]["image"].text() == "hello"
 

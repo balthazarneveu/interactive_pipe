@@ -1,6 +1,6 @@
 import logging
 import sys
-from typing import List, Optional
+from typing import Any, Callable, List, Optional
 
 import numpy as np
 
@@ -46,6 +46,7 @@ from interactive_pipe.graphical.qt_image import (
     update_table_cell,
 )
 from interactive_pipe.graphical.qt_panels import QtPanelBuilder
+from interactive_pipe.graphical.qt_viewer import ImageView, ViewSync
 
 # Re-exported: interactive_pipe.graphical.qt_gui.CollapsibleBox etc. are public paths
 from interactive_pipe.graphical.qt_widgets import CollapsibleBox, DetachedPanelWindow  # noqa: F401
@@ -54,6 +55,21 @@ from interactive_pipe.headless.control import Control, TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.panel import Panel
 from interactive_pipe.headless.pipeline import HeadlessPipeline
+
+
+def _normalize_output_grid(_out):
+    """Same [row][col] layout as InteractivePipeWindow.refresh_display builds."""
+    if _out is None:
+        return None
+    if isinstance(_out, tuple):
+        _out = [list(_out)]
+    return [list(row) if isinstance(row, list) else [row] for row in _out]
+
+
+def _format_pixel_value(value) -> str:
+    if isinstance(value, tuple):
+        return "(" + ", ".join(f"{v:.4g}" for v in value) + ")"
+    return f"{value:.4g}"
 
 
 class InteractivePipeQT(InteractivePipeGUI):
@@ -186,6 +202,9 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         Qt.Key.Key_F12: "f12",
         Qt.Key.Key_Space: KeyboardControl.KEY_SPACEBAR,
     }
+    # (row, col, x, y, value) when the mouse hovers an image cell; value is the
+    # raw pipeline output at that pixel (None outside). None -> tooltip readout.
+    on_pixel_hover: Optional[Callable[[int, int, int, int, Any], None]] = None
 
     def __init__(
         self,
@@ -433,23 +452,97 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         # self.update_label(idx)
         self.refresh()
 
+    # --- image grid: ImageView cells (fit / synced zoom & pan / pixel readout) ---
+    def _view_sync(self) -> ViewSync:
+        sync = getattr(self, "_image_view_sync", None)
+        if sync is None:
+            sync = ViewSync()
+            self._image_view_sync = sync
+        return sync
+
+    def _new_image_view(self, row, col) -> ImageView:
+        view = ImageView(self, sync=self._view_sync())
+        view.hover_callback = lambda x, y, value: self._on_view_hover(view, row, col, x, y, value)
+        self.image_grid_layout.addWidget(view, 2 * row + 1, col)
+        return view
+
+    def _on_view_hover(self, view, row, col, x, y, value):
+        if self.on_pixel_hover is not None:
+            self.on_pixel_hover(row, col, x, y, value)
+        else:
+            view.setToolTip("" if value is None else f"({x}, {y}): {_format_pixel_value(value)}")
+
+    def _expand_image_grid(self):
+        """Give the image grid all the spare room (it is wrapped in centering
+        stretches): image views then fit the window as the user resizes it."""
+        child = self.image_grid_layout
+        parent = child.parent()
+        while isinstance(parent, (QHBoxLayout, QVBoxLayout)):
+            parent.setStretchFactor(child, 1)
+            child, parent = parent, parent.parent()
+
+    def set_view_mode(self, mode: str):
+        """ "fit" (default) or "1:1" for every image cell (zoom/pan reset)."""
+        self._view_sync().set_mode(mode)
+
+    def zoom_in(self):
+        self._sync_zoom(True)
+
+    def zoom_out(self):
+        self._sync_zoom(False)
+
+    def _sync_zoom(self, zoom_in: bool):
+        views = self._view_sync().views
+        if not views:
+            return
+        # zoom around the center of the first view: the state is shared anyway
+        views[0].zoom_in() if zoom_in else views[0].zoom_out()
+
+    def reset_view(self):
+        self._view_sync().reset()
+
+    def refresh_display(self, _out) -> None:
+        # Keep the raw (float) outputs so the views report true pixel values;
+        # convert_image only produces the 8-bit display copy.
+        self._raw_outputs = _normalize_output_grid(_out)
+        super().refresh_display(_out)
+
+    def _raw_output(self, row, col) -> Any:
+        grid = getattr(self, "_raw_outputs", None)
+        try:
+            return grid[row][col] if grid is not None else None
+        except (IndexError, TypeError):
+            return None
+
     def add_image_placeholder(self, row, col):
         ax_placeholder = None
-        image_label = QLabel(self)
         text_label = QLabel(text=f"{row} {col}")
+        self.image_grid_layout.addWidget(text_label, 2 * row, col, alignment=Qt.AlignmentFlag.AlignCenter)
+        image_view = self._new_image_view(row, col)
         self.image_canvas[row][col] = {  # type: ignore[reportOptionalSubscript]
-            "image": image_label,
+            "image": image_view,
             "title": text_label,
             "ax_placeholder": ax_placeholder,
+            "row": row,
+            "col": col,
+            "fit_window": True,
         }
-        self.image_grid_layout.addWidget(text_label, 2 * row, col, alignment=Qt.AlignmentFlag.AlignCenter)
-        self.image_grid_layout.addWidget(image_label, 2 * row + 1, col, alignment=Qt.AlignmentFlag.AlignCenter)
+        # cells share the window evenly; title rows keep their natural height
+        self.image_grid_layout.setRowStretch(2 * row + 1, 1)
+        self.image_grid_layout.setColumnStretch(col, 1)
+        self._expand_image_grid()
 
     def delete_image_placeholder(self, img_widget_dict):
         for key in ("image", "title"):
             widget = img_widget_dict.get(key)
+            if isinstance(widget, ImageView):
+                widget.detach()
             if widget is not None:
                 widget.setParent(None)
+        row, col = img_widget_dict.get("row"), img_widget_dict.get("col")
+        if row is not None and col is not None:
+            self.image_grid_layout.setRowStretch(2 * row + 1, 0)
+            self.image_grid_layout.setColumnStretch(col, 0)
         img_widget_dict["plot_object"] = None
         img_widget_dict["ax_placeholder"] = None
 
@@ -464,15 +557,32 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             cell["plot_object"] = None
             return
         if previous_kind in mpl_kinds or new_kind in mpl_kinds:
-            # FigureCanvas <-> QLabel: drop the current widget, a fresh QLabel is
+            # FigureCanvas <-> ImageView: drop the current widget, a fresh view is
             # created here and the canvas helpers recreate theirs on demand
+            if isinstance(cell["image"], ImageView):
+                cell["image"].detach()
             cell["image"].setParent(None)
             cell["plot_object"] = None
             cell["ax_placeholder"] = None
-            label = QLabel(self)
-            cell["image"] = label
-            self.image_grid_layout.addWidget(label, 2 * row + 1, col, alignment=Qt.AlignmentFlag.AlignCenter)
-        # image <-> text share the same QLabel (setText/setPixmap replace each other)
+            cell["image"] = self._new_image_view(row, col)
+        # image <-> text share the same ImageView (setText/set_image replace each other)
+
+    def _fit_window_to_images(self):
+        """Grow the window once so new image cells get their preferred size
+        (views can shrink, so Qt no longer grows the window by itself)."""
+        if self.full_screen_flag or self.isMaximized() or self.isFullScreen():
+            return
+        layout = self.layout()
+        if layout is not None:
+            layout.activate()
+        hint = self.sizeHint()
+        width, height = max(self.width(), hint.width()), max(self.height(), hint.height())
+        screen = self.screen() if hasattr(self, "screen") else None
+        if screen is not None:
+            available = screen.availableGeometry()
+            width, height = min(width, available.width()), min(height, available.height())
+        if (width, height) != (self.width(), self.height()):
+            self.resize(width, height)
 
     def update_image(self, image_array_original, row, col):
         cell = self.image_canvas[row][col]  # type: ignore[reportOptionalSubscript]
@@ -483,12 +593,19 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             self._reset_cell_widget(cell, row, col, kind)
         cell["kind"] = kind
         if isinstance(image_array_original, np.ndarray):
-            cell["image"].setPixmap(numpy_to_pixmap(image_array_original))
+            shown: np.ndarray = image_array_original
+            raw = self._raw_output(row, col)
+            if not isinstance(raw, np.ndarray) or raw.shape[:2] != shown.shape[:2]:
+                raw = shown
+            cell["image"].set_image(numpy_to_pixmap(shown), raw)
+            if cell.pop("fit_window", False):
+                self._fit_window_to_images()
         elif MPL_SUPPORT and FigureCanvas is not None and isinstance(image_array_original, Curve):
             update_curve_cell(cell, self.image_grid_layout, row, col, image_array_original)
         elif MPL_SUPPORT and FigureCanvas is not None and isinstance(image_array_original, Table):
             update_table_cell(cell, self.image_grid_layout, row, col, image_array_original)
         elif isinstance(image_array_original, str):
+            cell.pop("fit_window", None)
             cell["image"].setText(image_array_original)
         else:
             logging.warning(f"Unsupported output type for display: {type(image_array_original)}")
