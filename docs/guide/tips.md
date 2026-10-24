@@ -82,7 +82,7 @@ print(report.total, report.timings, report.cached)  # seconds, {filter: seconds}
 
 ### Slow pipelines: threaded runs (Qt)
 
-Slider moves are already coalesced (one run per event-loop pass with the latest values). For pipelines taking hundreds of milliseconds, `@interactive_pipeline(gui="qt", threaded=True)` also moves the runs to a worker thread: the window stays responsive, the status line shows `running…`, and changes made during a run collapse into a single follow-up run. Filters then run outside the GUI thread, so they must not touch Qt widgets themselves.
+Slider moves are already coalesced (one run per event-loop pass with the latest values). For pipelines taking hundreds of milliseconds, `@interactive_pipeline(gui="qt", threaded=True)` also moves the runs to a worker thread: the window stays responsive, the status line shows `running…`, and changes made during a run collapse into a single follow-up run. Filters then run outside the GUI thread, so they must not touch Qt widgets themselves. Live audio (`audio=True`) is not supported with `threaded=True` (`ValueError`): the player must be driven from the GUI thread. Saving images waits for the in-flight run.
 
 ## Export / import tuning
 

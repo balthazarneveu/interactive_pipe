@@ -366,3 +366,8 @@ def test_window_still_grows_after_a_failing_first_run(monkeypatch):
     flush_events()
     assert "fit_window" not in failing_cell
     assert fits == [True]
+
+
+def test_threaded_audio_is_refused():
+    with pytest.raises(ValueError, match="audio"):
+        build_gui(spy_pipeline, threaded=True, audio=True)
