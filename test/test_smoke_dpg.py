@@ -627,6 +627,21 @@ def test_close_before_run_destroys_context():
     assert not dpg_backend.context_alive()
 
 
+def test_close_and_full_screen_after_run_do_not_touch_a_dead_context(monkeypatch):
+    gui = build_gui(basic_pipeline)
+    stopped = []
+    toggled = []
+    monkeypatch.setattr(dpg, "stop_dearpygui", lambda: stopped.append(True))
+    monkeypatch.setattr(dpg, "toggle_viewport_fullscreen", lambda: toggled.append(True))
+    # state left by run() once the render loop exits: viewport was shown, context destroyed
+    gui._viewport_shown = True
+    dpg_backend.destroy_context()
+    gui.close()  # e.g. from custom_end or caller cleanup
+    gui.toggle_full_screen()
+    assert stopped == [] and toggled == []
+    assert not dpg_backend.context_alive()
+
+
 def test_window_size_validation():
     with pytest.raises(ValueError):
         build_gui(basic_pipeline, size="tiny")

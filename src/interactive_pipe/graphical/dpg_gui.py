@@ -111,6 +111,8 @@ class InteractivePipeDPG(InteractivePipeGUI):
             self.window.tick_timers()
             dpg.render_dearpygui_frame()
         destroy_context()
+        self._viewport_shown = False
+        self.window.viewport_ready = False
         self.custom_end()
         results = self.pipeline.results
         if results is None:
@@ -121,9 +123,11 @@ class InteractivePipeDPG(InteractivePipeGUI):
 
     def close(self):
         """close GUI"""
+        if not context_alive():
+            return  # already torn down (e.g. close() called again after run() returned)
         if self._viewport_shown:
             dpg.stop_dearpygui()
-        elif context_alive():
+        else:
             destroy_context()
 
     def _on_key_press(self, _sender, key_code, _user_data):
@@ -154,7 +158,7 @@ class InteractivePipeDPG(InteractivePipeGUI):
     def toggle_full_screen(self):
         """toggle full screen"""
         self.full_screen_toggle = not self.full_screen_toggle
-        if self._viewport_shown:
+        if self._viewport_shown and context_alive():
             dpg.toggle_viewport_fullscreen()
 
     def print_message(self, message_list: List[str]):
