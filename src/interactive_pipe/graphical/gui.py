@@ -116,6 +116,10 @@ class InteractivePipeGUI:
 
     def bind_key_to_context(self, key: str, context_param_name: str, doc: str):
         self.context_key_bindings[key] = {"param_name": context_param_name, "doc": doc}
+        if self._is_default_binding(key, self.key_bindings.get(key)):
+            # user events win over the built-in shortcuts (bind_key bindings are kept)
+            logging.info(f"Key {key} now triggers event '{context_param_name}': default shortcut dropped")
+            del self.key_bindings[key]
         # Not triggered!
         self.pipeline.framework_state.events[context_param_name] = False
 
@@ -126,6 +130,8 @@ class InteractivePipeGUI:
     def on_press(self, key_pressed, refresh_func=None):
         for key, func in self.key_bindings.items():
             if key_pressed == key:
+                if key in self.context_key_bindings and self._is_default_binding(key, func):
+                    continue  # a user context event overrides the default shortcut
                 func()  # a GUI level function like reset parameters or export images
         triggered_events = []
         for key, event_dict in self.context_key_bindings.items():
@@ -230,9 +236,21 @@ class InteractivePipeGUI:
         """Run an action's method (menu entries call this, keys go through on_press)."""
         return getattr(self, action.method)()
 
+    def _is_default_binding(self, key: str, func: Optional[Callable]) -> bool:
+        """Whether func is the registry action bound by default to key."""
+        if func is None:
+            return False
+        return any(
+            action.key == key and func == getattr(self, action.method, None) for action in self.default_actions()
+        )
+
     def set_default_key_bindings(self):
         """Bind the registry keys; bindings already set by the user win."""
-        defaults = {action.key: getattr(self, action.method) for action in self.default_actions()}
+        defaults = {
+            action.key: getattr(self, action.method)
+            for action in self.default_actions()
+            if action.key not in self.context_key_bindings  # user context events win
+        }
         self.key_bindings = {**defaults, **self.key_bindings}
 
     # ---------------------------------------------------------------------
@@ -387,6 +405,8 @@ class InteractivePipeGUI:
         for key, func in self.key_bindings.items():
             action = action_by_key.get(key)
             if action is not None and func == getattr(self, action.method):
+                if key in self.context_key_bindings:
+                    continue  # overridden by a user context event (listed below)
                 help_lines.append(f"[{self._format_key_for_help(key)}]    : {action.label}")
             elif func.__doc__ is not None:
                 if func.__doc__.startswith("["):
