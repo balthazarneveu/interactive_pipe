@@ -106,3 +106,20 @@ def show(img, gain=1.0):
 Handy in notebooks and throwaway scripts; for anything reusable, prefer `@interactive` + `@interactive_pipeline` ([decorators guide](decorators.md)).
 
 ::: interactive_pipe.interact
+
+## Remembering slider values between runs
+
+Pass `restore_session=True` to reopen the GUI where you left it:
+
+```python
+@interactive_pipeline(gui="qt", restore_session=True)
+def my_pipeline(img):
+    ...
+```
+
+The parameters are saved when the window closes and applied at the next launch. The file lives in `~/.interactive_pipe/sessions/<name>.yaml` (`.json` without PyYAML), where `<name>` is the pipeline name with every non-alphanumeric character replaced by `_`; pass `session_path=Path(...)` to choose another file. It is a regular tuning file, so ++o++ (import tuning) can load it too.
+
+- A corrupt session, or values the controls reject, logs a warning and the GUI starts with the defaults. Saved entries for filters or parameters that no longer exist are ignored, so renaming a slider is safe.
+- Keyword arguments given at launch (`my_pipeline(img, gain=0.3)`) override the restored values.
+- Press ++k++ (Pipeline menu, *Clear saved session*) to delete the file and reset the sliders.
+- The session is saved when the backend's event loop exits (Qt, Dear PyGui, and Gradio once its server stops). The matplotlib and notebook backends do not save on exit yet; call `my_pipeline.pipeline.save_session()` yourself there.
