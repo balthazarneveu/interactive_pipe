@@ -274,3 +274,21 @@ def test_threaded_save_waits_for_the_run_and_uses_the_latest_values(tmp_path, mo
         assert wait_for_idle(window)
     finally:
         window.stop_threaded_runs()
+
+
+def test_reading_the_controls_does_not_revert_a_concurrent_change(monkeypatch):
+    from interactive_pipe.core.pipeline import PipelineCore
+
+    gui = build_gui(spy_pipeline)
+    control = gui.window.ctrl["gain"]
+    control.update(0.3)
+    original = PipelineCore.parameters
+
+    def set_while_the_gui_changes_the_control(pipeline, new_parameters):
+        control.update(0.9)  # GUI thread tick between the read and the assignment
+        original.fset(pipeline, new_parameters)
+
+    monkeypatch.setattr(PipelineCore, "parameters", property(original.fget, set_while_the_gui_changes_the_control))
+    gui.pipeline.update_parameters_from_controls()
+    assert control.value == pytest.approx(0.9)
+    assert gui.pipeline.parameters["spy_gain"]["gain"] == pytest.approx(0.3)
