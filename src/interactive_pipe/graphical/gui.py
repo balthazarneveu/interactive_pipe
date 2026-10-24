@@ -2,7 +2,7 @@ import logging
 import time
 from functools import partial
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Type
 
 from interactive_pipe.data_objects.data import Data
 from interactive_pipe.data_objects.image import Image
@@ -265,6 +265,13 @@ class InteractivePipeGUI:
         if path is not None:
             on_path(path)
 
+    @staticmethod
+    def _file_extensions(data_class: Type[Data]) -> List[str]:
+        """File extensions a Data subclass supports, without building a data object."""
+        probe = data_class.__new__(data_class)
+        probe._set_file_extensions()
+        return list(probe.file_extensions)
+
     def _default_file_stem(self) -> str:
         return self.name.replace(" ", "_") if self.name else "pipeline"
 
@@ -280,7 +287,7 @@ class InteractivePipeGUI:
 
     def save_parameters(self):
         """export parameters dictionary to a yaml/json file"""
-        extensions = Parameters(None).file_extensions
+        extensions = self._file_extensions(Parameters)
 
         def export(path: Path):
             path = Parameters.check_path(path, load=False, extensions=extensions)
@@ -292,7 +299,7 @@ class InteractivePipeGUI:
 
     def load_parameters(self):
         """import parameters dictionary from a yaml/json file on disk"""
-        extensions = Parameters(None).file_extensions
+        extensions = self._file_extensions(Parameters)
 
         def load(path: Path):
             self.pipeline.import_tuning(path)
@@ -310,7 +317,7 @@ class InteractivePipeGUI:
 
     def save_images(self):
         """save images to disk"""
-        extensions = Image(None).file_extensions
+        extensions = self._file_extensions(Image)
 
         def save(path: Path):
             path = Image.check_path(path, load=False, extensions=extensions)

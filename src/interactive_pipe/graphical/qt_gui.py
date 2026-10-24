@@ -108,13 +108,17 @@ class InteractivePipeQT(InteractivePipeGUI):
         self.menu_actions: Dict[str, object] = {}
         for group, actions in self.actions_by_menu().items():
             menu = self.menu_bar.addMenu(group)
+            if menu is None:
+                raise RuntimeError(f"Cannot create the {group} menu")
             for action in actions:
                 qt_action = menu.addAction(f"{action.label}\t{action.key.upper()}")
+                if qt_action is None:
+                    raise RuntimeError(f"Cannot create the {action.label} menu entry")
                 qt_action.setToolTip(action.doc)
                 qt_action.setStatusTip(action.doc)
                 qt_action.triggered.connect(lambda _checked=False, act=action: self.trigger_menu_action(act))
                 self.menu_actions[action.name] = qt_action
-        self.window.layout().setMenuBar(self.menu_bar)
+        self.window.layout().setMenuBar(self.menu_bar)  # pyright: ignore[reportOptionalMemberAccess]
 
     def trigger_menu_action(self, action: Action):
         """Run a menu entry, then give the keyboard focus back to the window."""
