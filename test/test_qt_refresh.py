@@ -5,6 +5,7 @@ Never open modal dialogs here: print_message is monkeypatched.
 """
 
 import os
+import threading
 import time
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -51,6 +52,27 @@ def slow_gain_filter(img, slow_gain=0.5, slow_fail=False):
     if slow_fail:
         raise ValueError("bad input")
     return img * slow_gain
+
+
+RUN_STARTED = threading.Event()
+SLEEPY_ACTIVE = []  # one entry per sleepy_gain_filter call in progress
+SLEEPY_OVERLAPS = []
+
+
+@interactive(sleepy_gain=(0.5, [0.0, 1.0]))
+def sleepy_gain_filter(img, sleepy_gain=0.5):
+    SLEEPY_ACTIVE.append(sleepy_gain)
+    if len(SLEEPY_ACTIVE) > 1:
+        SLEEPY_OVERLAPS.append(list(SLEEPY_ACTIVE))
+    RUN_STARTED.set()
+    time.sleep(0.2)
+    SLEEPY_ACTIVE.pop()
+    return img * sleepy_gain
+
+
+def sleepy_pipeline(img):
+    out = sleepy_gain_filter(img)
+    return out
 
 
 def slow_pipeline(img):
@@ -226,3 +248,29 @@ def test_threaded_full_run_exec_and_quit_stops_the_worker():
     results = gui(INPUT_IMAGE.copy())
     assert isinstance(results, list)
     assert not gui.window.threaded and not runner.isRunning()
+
+
+def test_threaded_save_waits_for_the_run_and_uses_the_latest_values(tmp_path, monkeypatch):
+    from interactive_pipe.data_objects.image import Image
+
+    gui = build_gui(sleepy_pipeline, threaded=True)
+    window = gui.window
+    try:
+        window.refresh()
+        window.update_parameter("sleepy_gain", 0.7)
+        assert wait_for_idle(window)
+        target = tmp_path / "saved.png"
+        monkeypatch.setattr(gui, "ask_path", lambda *_a, **_k: target)
+        RUN_STARTED.clear()
+        SLEEPY_OVERLAPS.clear()
+        window.update_parameter("sleepy_gain", 0.3)  # a background run starts
+        assert RUN_STARTED.wait(5.0)
+        gui.save_images()  # same thread as the GUI, while the run is in flight
+        assert SLEEPY_OVERLAPS == []  # the save waited for the background run
+        maxima = [int(Image.load_image(path).max() * 255 + 0.5) for path in tmp_path.glob("saved_*.png")]
+        assert any(abs(value - 77) <= 2 for value in maxima), maxima  # 0.3 * 255
+        assert not any(abs(value - 178) <= 2 for value in maxima), maxima  # stale 0.7
+        assert "0.3" in (tmp_path / "saved.yaml").read_text()
+        assert wait_for_idle(window)
+    finally:
+        window.stop_threaded_runs()
