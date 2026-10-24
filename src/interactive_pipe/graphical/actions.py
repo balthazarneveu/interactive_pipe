@@ -45,4 +45,12 @@ DEFAULT_ACTIONS: Tuple[Action, ...] = (
     Action(
         "export_animation", "Export animation", "v", "Pipeline", "export_animation", "render the time control to a GIF"
     ),
+    Action(
+        "clear_session",
+        "Clear saved session",
+        "k",
+        "Pipeline",
+        "clear_session",
+        "delete the saved session file and reset the sliders",
+    ),
 )
