@@ -16,7 +16,7 @@ import logging
 from pathlib import Path
 from typing import Any, List, Optional, cast
 
-from interactive_pipe.headless.control import CircularControl, Control
+from interactive_pipe.headless.control import CircularControl, Control, RangeControl
 
 try:
     from interactive_pipe.graphical.dpg_backend import INSTALL_HINT, dpg
@@ -80,7 +80,9 @@ class ControlFactory:
         # single-choice dropdowns have nothing to show
         if control_type is str and control.value_range is not None and len(control.value_range) == 1:
             return None
-        if control_type is bool:
+        if isinstance(control, RangeControl):
+            control_class = RangeSliderControl
+        elif control_type is bool:
             control_class = TickBoxControl
         elif control_type in (int, float):
             if control.value_range is None:
@@ -175,6 +177,81 @@ class FloatSliderControl(BaseControl):
 
     def reset(self):
         dpg.set_value(self.control_widget, float(self.ctrl.value))
+
+
+class RangeSliderControl(BaseControl):
+    """Two stacked sliders (lo, hi) for a RangeControl: Dear PyGui has no range slider.
+
+    Dragging one handle past the other pushes it along so ``lo <= hi``
+    always holds; ``update_func`` receives the ``(lo, hi)`` tuple.
+    """
+
+    def check_control_type(self):
+        if not isinstance(self.ctrl, RangeControl):
+            raise TypeError(f"Expected a RangeControl, got {type(self.ctrl)}")
+
+    def _cast(self, value):
+        return int(value) if self.ctrl._type is int else float(value)
+
+    def create(self, parent):
+        value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
+        lo, hi = self.ctrl.value
+        add_slider = dpg.add_slider_int if self.ctrl._type is int else dpg.add_slider_float
+        extra = {} if self.ctrl._type is int else {"format": "%.4g"}
+        self.control_widget = dpg.add_group(parent=parent)
+        self.lo_widget = add_slider(
+            parent=self.control_widget,
+            default_value=self._cast(lo),
+            min_value=self._cast(value_min),
+            max_value=self._cast(value_max),
+            clamped=True,
+            width=-1,
+            callback=self._on_lo_change,
+            **extra,
+        )
+        self.hi_widget = add_slider(
+            parent=self.control_widget,
+            default_value=self._cast(hi),
+            min_value=self._cast(value_min),
+            max_value=self._cast(value_max),
+            clamped=True,
+            width=-1,
+            callback=self._on_hi_change,
+            **extra,
+        )
+        self._add_tooltip(self.lo_widget)
+        self._add_tooltip(self.hi_widget)
+        return self.control_widget
+
+    def _snapped(self, value):
+        value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
+        snapped = _snap(value, value_min, self.ctrl.step)
+        snapped = self._cast(min(max(snapped, value_min), value_max))
+        return snapped if self.ctrl._type is int else round(snapped, 12)
+
+    def _on_lo_change(self, _sender, app_data, _user_data):
+        lo = self._snapped(app_data)
+        hi = self._snapped(dpg.get_value(self.hi_widget))
+        if lo > hi:
+            hi = lo
+        self._apply(lo, hi)
+
+    def _on_hi_change(self, _sender, app_data, _user_data):
+        hi = self._snapped(app_data)
+        lo = self._snapped(dpg.get_value(self.lo_widget))
+        if hi < lo:
+            lo = hi
+        self._apply(lo, hi)
+
+    def _apply(self, lo, hi):
+        dpg.set_value(self.lo_widget, lo)
+        dpg.set_value(self.hi_widget, hi)
+        self._emit((lo, hi))
+
+    def reset(self):
+        lo, hi = self.ctrl.value
+        dpg.set_value(self.lo_widget, self._cast(lo))
+        dpg.set_value(self.hi_widget, self._cast(hi))
 
 
 class KnobControl(BaseControl):
