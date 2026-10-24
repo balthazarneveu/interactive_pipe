@@ -51,15 +51,23 @@ def numpy_to_pixmap(image_array_original: np.ndarray) -> QPixmap:
     return QPixmap.fromImage(image)
 
 
+_signal_warning_emitted = False
+
+
 def signal_to_curve(signal_1d: np.ndarray) -> "Curve":
-    """Wrap a 1D signal as a Curve so it can at least be displayed."""
-    logging.warning(
-        "Audio playback not supported with 1D signal"
-        + "\nuse live audio instead while using Qt!"
-        + "\nuse instead: from interactive_pipe import audio; audio.set(audio_track)"
-        + "\nSee example here: https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/jukebox.py"
-    )
-    logging.warning("We'll try to display the audio signal as an image instead")
+    """Wrap a 1D signal as a Curve so it can at least be displayed (warns once per process)."""
+    global _signal_warning_emitted
+    if _signal_warning_emitted:
+        logging.debug("1D signal displayed as a curve (audio playback not supported)")
+    else:
+        _signal_warning_emitted = True
+        logging.warning(
+            "Audio playback not supported with 1D signal"
+            + "\nuse live audio instead while using Qt!"
+            + "\nuse instead: from interactive_pipe import audio; audio.set(audio_track)"
+            + "\nSee example here: https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/jukebox.py"
+        )
+        logging.warning("We'll try to display the audio signal as an image instead")
     return Curve(
         cast(
             List[Union[SingleCurve, list, tuple, dict, np.ndarray]],

@@ -411,13 +411,19 @@ def test_curve_refresh_keeps_zoom_unless_the_data_extent_changes(monkeypatch):
     assert fits[3:] == [cell["plot"]["x_axis"]]  # back to auto: refit x
 
 
-def test_1d_output_displays_as_curve_fallback(caplog):
+def test_1d_output_displays_as_curve_fallback(caplog, monkeypatch):
+    monkeypatch.setattr(dpg_image, "_signal_warning_emitted", False)
     gui = build_gui(signal_pipeline)
     with caplog.at_level(logging.WARNING):
         gui.window.refresh()
     cell = gui.window.image_canvas[0][0]
     assert cell["kind"] == "curve" and cell["plot"] is not None
     assert "not supported by the dpg backend" in caplog.text
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        gui.window.refresh()
+        gui.window.refresh()
+    assert caplog.records == []  # warned once, not on every frame
 
 
 def test_output_type_change_between_frames_rebuilds_the_cell():
