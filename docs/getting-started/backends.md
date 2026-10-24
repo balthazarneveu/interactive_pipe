@@ -42,3 +42,48 @@ Controls degrade gracefully: for example a [`KeyboardControl`](../guide/keyboard
 ## Headless
 
 `gui=None` (or `"headless"`) skips the GUI entirely and returns a `HeadlessPipeline`: the same pipeline code serves interactive tuning and batch processing, and it is what you want in unit tests. See the [Quickstart](quickstart.md#headless-mode-same-code-no-gui).
+
+## Choosing the backend from the command line or the environment
+
+Switch backend or window size without editing your script.
+
+### Command line: `interactive_pipe.cli`
+
+`parse_gui_args()` adds `--gui {auto,qt,dpg,mpl,nb,gradio,headless}`, `--fullscreen`, `--maximized`, `--size WxH` and `--name` to an `argparse` parser and returns the parsed arguments together with the keyword arguments for `interactive_pipeline`. Only the options actually given end up in those kwargs, so with no flags you get `interactive_pipeline()` with all its defaults.
+
+```python
+from interactive_pipe import interactive_pipeline
+from interactive_pipe.cli import parse_gui_args
+
+args, gui_kwargs = parse_gui_args()
+demo = interactive_pipeline(**gui_kwargs)(my_pipeline)  # gui="auto" unless --gui given
+demo(img)
+```
+
+```bash
+python my_script.py --gui dpg --size 1280x800
+python my_script.py --fullscreen --name "Exposure tuning"
+python my_script.py --gui headless     # gui=None: returns a HeadlessPipeline
+```
+
+To mix in your own options, pass your parser (`parse_gui_args(parser=my_parser)`), or call `add_gui_arguments(my_parser, defaults={"gui": "qt"})` then `gui_kwargs_from_args(my_parser.parse_args())`. `--fullscreen`, `--maximized` and `--size` are mutually exclusive; an invalid `--size` exits with a usage error.
+
+### Environment variables
+
+| Variable | Values | Effect |
+|---|---|---|
+| `INTERACTIVE_PIPE_GUI` | `auto`, `qt`, `dpg`, `mpl`, `nb`, `gradio`, `headless` / `none` | Replaces `gui` when the decorator uses `gui="auto"` (the default). `headless`/`none` returns a `HeadlessPipeline`. |
+| `INTERACTIVE_PIPE_SIZE` | `fullscreen`, `maximized`, `WxH` (e.g. `1280x800`) | Window size when the decorator was not given a `size`. |
+
+```bash
+INTERACTIVE_PIPE_GUI=mpl INTERACTIVE_PIPE_SIZE=maximized python my_script.py
+```
+
+The variables are read when `interactive_pipeline` decorates the function. An invalid value raises `ValueError`. `INTERACTIVE_PIPE_GUI` also applies to `@interact`, except `headless`, which `@interact` ignores. `INTERACTIVE_PIPE_SIZE` is not applied to `@interact`. Not every backend accepts every size: the notebook backend only takes `(w, h)`, and Matplotlib has no `maximized`.
+
+### Precedence
+
+1. Command-line helper values: they are passed to the decorator as explicit arguments.
+2. Explicit decorator arguments: any `gui` other than `"auto"` (including `gui=None`), and any `size`.
+3. Environment variables.
+4. Defaults: automatic backend selection, backend-specific window size.
