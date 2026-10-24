@@ -71,7 +71,10 @@ def interactive_pipeline(
             it (e.g. Gradio).
         name: Window/application title. Defaults to the function name.
         **kwargs_gui: Extra options forwarded to the GUI backend,
-            e.g. ``size``.
+            e.g. ``size``, or ``restore_session=True`` to remember the
+            slider values between launches (saved on exit to
+            ``~/.interactive_pipe/sessions/<name>.yaml`` unless
+            ``session_path`` is given).
 
     Returns:
         A decorator. Applied to a pipeline function it returns either a
