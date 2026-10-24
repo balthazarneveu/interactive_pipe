@@ -278,7 +278,7 @@ def test_load_parameters_syncs_controls_and_widgets(tmp_path, monkeypatch):
     saved["adjust"]["brightness"] = 0.25
     saved["adjust"]["mode"] = "max"
     Parameters(saved).save(tuning_path, override=True)
-    monkeypatch.setattr(Parameters, "prompt_file", staticmethod(lambda *_a, **_k: str(tuning_path)))
+    monkeypatch.setattr(gui, "ask_path", lambda *_a, **_k: tuning_path)
     gui.load_parameters()
     assert gui.window.ctrl["brightness"].value == pytest.approx(0.25)
     assert gui.window.ctrl["mode"].value == "max"
