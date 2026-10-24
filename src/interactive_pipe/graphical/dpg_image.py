@@ -71,9 +71,19 @@ def numpy_to_rgba(image: np.ndarray) -> np.ndarray:
     return np.ascontiguousarray(rgba)
 
 
+_signal_warning_emitted = False
+
+
 def signal_to_curve(signal_1d: np.ndarray) -> Curve:
-    """Wrap a 1D signal as a Curve so it can at least be displayed."""
-    logging.warning("Audio playback is not supported by the dpg backend; the 1D signal is displayed as a curve instead")
+    """Wrap a 1D signal as a Curve so it can at least be displayed (warns once per process)."""
+    global _signal_warning_emitted
+    if _signal_warning_emitted:
+        logging.debug("1D signal displayed as a curve (audio playback not supported by the dpg backend)")
+    else:
+        _signal_warning_emitted = True
+        logging.warning(
+            "Audio playback is not supported by the dpg backend; the 1D signal is displayed as a curve instead"
+        )
     return Curve([SingleCurve(y=signal_1d)], ylabel="Amplitude")
 
 
