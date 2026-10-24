@@ -346,6 +346,11 @@ class PipelineEngine:
                     # invalidates their readers
                     for trk in trackers:
                         trk.report_aborted_run(changed_keys[id(trk)])
+                    if prc.cache_mem is not None:
+                        # has_changed() already recorded the failing parameters: without
+                        # this, the next run would serve the result computed with the
+                        # previous parameters as if it matched the failing ones
+                        prc.cache_mem.force_change = True
                     # Broad on purpose: prc.run executes arbitrary user filter
                     # code; wrap whatever it raises in FilterError and re-raise.
                     # Create a clean, user-friendly error

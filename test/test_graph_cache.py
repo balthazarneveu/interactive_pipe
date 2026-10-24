@@ -509,3 +509,56 @@ def test_graph_cache_global_params_replacement_resets_cache():
     # engine tracker follows the replacement and filters are relinked
     assert pip.engine.global_params_tracker is pip.global_params
     assert filt_r.global_params is pip.global_params
+
+
+def _make_failing_chain(counters, cache):
+    """fa (raises when x > 5) -> fb(y)."""
+
+    def fa(img, x=1.0):
+        counters["fa"] += 1
+        if x > 5:
+            raise ValueError("x too large")
+        return [img * x]
+
+    def fb(img, y=1.0):
+        counters["fb"] += 1
+        return [img + y]
+
+    filt_a = FilterCore(apply_fn=fa, inputs=[0], outputs=[1])
+    filt_b = FilterCore(apply_fn=fb, inputs=[1], outputs=[2])
+    pip = PipelineCore(filters=[filt_a, filt_b], inputs=[0], outputs=[2], cache=cache)
+    pip.inputs = [input_image]
+    return pip
+
+
+@pytest.mark.parametrize("cache", [True, "graph"])
+def test_failed_filter_cache_not_served_stale(cache):
+    """After a filter raised, changing only a downstream parameter must not serve
+    the failing filter's previous (stale) output from cache."""
+    counters = {"fa": 0, "fb": 0}
+    pip = _make_failing_chain(counters, cache)
+    res = pip.run()
+    assert np.allclose(res[2], input_image + 1.0)
+
+    pip.parameters = {"fa": {"x": 10.0}}
+    with pytest.raises(FilterError):
+        pip.run()
+    assert pip.last_run_report.failed == "fa"
+
+    # only the downstream slider changes: fa must be recomputed and raise again
+    pip.parameters = {"fb": {"y": 2.0}}
+    with pytest.raises(FilterError):
+        pip.run()
+    assert pip.last_run_report.failed == "fa"
+    assert counters["fa"] == 3
+
+    # back to a valid value: recomputed with the right parameters
+    pip.parameters = {"fa": {"x": 2.0}}
+    res = pip.run()
+    assert pip.last_run_report.failed is None
+    assert np.allclose(res[2], input_image * 2.0 + 2.0)
+    assert counters["fa"] == 4
+
+    # nothing changed: served from cache again
+    pip.run()
+    assert counters["fa"] == 4
