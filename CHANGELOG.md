@@ -12,6 +12,8 @@
 - **Errors shown in the window** (Qt, Dear PyGui, matplotlib): a filter raising during a refresh no longer escapes the GUI callback leaving a stale frame. The failing filter's cell shows `⚠ <filter> raised <ExcType>: <message>` in red, the other cells are kept, the status line reports the error, `window.last_error` holds the `FilterError`, and the next successful run restores the display. The compact error report is still printed to the terminal.
 
 ### Improvements & bug fixes
+- Qt `threaded=True`: saving images waits for the run in progress and uses the current parameters; a slider change made during a run is no longer reverted; errors raised outside filters are shown instead of leaving the status on "running…"; reset and import run the pipeline once in the worker without freezing the window; results are displayed with the titles and layout of their own run; `audio=True` is refused with a `ValueError`.
+- Qt: switching a cell between image and curve/table no longer leaks views in the zoom sync (zoom +/- uses the right view), and the window still grows to fit the images when the very first run failed.
 - A filter that raised kept its previous output in cache, so changing only a downstream parameter showed that stale output as valid; the failing filter is now recomputed on the next run (`cache=True` and `cache="graph"`).
 - `bind_key_to_context` on a default shortcut key (e.g. `1`, `t`) also ran the built-in action; user context events now replace the default shortcut on that key (`bind_key` bindings are unchanged).
 - Dear PyGui: keyboard shortcuts no longer fire while typing a file name in the file dialog or while the message window is open.
