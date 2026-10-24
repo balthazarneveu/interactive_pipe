@@ -317,3 +317,34 @@ def test_threaded_error_outside_the_filters_is_shown(monkeypatch):
         assert "ms" in window.status_label.text()
     finally:
         window.stop_threaded_runs()
+
+
+def test_threaded_reset_runs_once_in_the_worker():
+    gui = build_gui(slow_pipeline, threaded=True)
+    window = gui.window
+    try:
+        window.ctrl["slow_fail"].update(False)  # controls are shared with other tests
+        window.refresh()
+        window.update_parameter("slow_gain", 0.9)
+        assert wait_for_idle(window)
+        SLOW_CALLS.clear()
+        gui.reset_parameters()
+        assert SLOW_CALLS == []  # nothing ran on the GUI thread
+        assert wait_for_idle(window)
+        assert SLOW_CALLS == [pytest.approx(0.5, abs=0.01)]
+        assert window.ctrl["slow_gain"].value == pytest.approx(0.5, abs=0.01)
+        assert window.result_label["slow_gain"].text() == f"{window.ctrl['slow_gain'].value:.3e}"
+    finally:
+        window.stop_threaded_runs()
+
+
+def test_reset_runs_synchronously_once_when_not_threaded():
+    gui = build_gui(spy_pipeline)
+    window = gui.window
+    window.refresh()
+    window.update_parameter("gain", 0.9)
+    flush_events()
+    SPY_CALLS.clear()
+    gui.reset_parameters()
+    flush_events()
+    assert SPY_CALLS == [pytest.approx(0.5, abs=0.01)]
