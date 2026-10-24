@@ -182,6 +182,24 @@ class InteractivePipeQT(InteractivePipeGUI):
         print("\n".join(message_list))
         QMessageBox.about(self.window, self.name, "\n".join(message_list))
 
+    # ---------------------------- VIEW (image viewer) ---------------------------------
+    def fit_view(self):
+        """fit the images to their cells"""
+        self.window.set_view_mode("fit")
+        self.window.reset_view()
+
+    def actual_size_view(self):
+        """show the images at their actual size (1:1)"""
+        self.window.set_view_mode("1:1")
+
+    def zoom_in(self):
+        """zoom in (all image cells)"""
+        self.window.zoom_in()
+
+    def zoom_out(self):
+        """zoom out (all image cells)"""
+        self.window.zoom_out()
+
     def toggle_full_screen(self):
         """toggle full screen"""
         if not hasattr(self, "full_screen_toggle"):

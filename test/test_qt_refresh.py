@@ -132,6 +132,24 @@ def test_hover_updates_the_status_line():
     assert window.status_label.text() == "custom"
 
 
+def test_view_menu_entries_call_the_window(monkeypatch):
+    gui = build_gui(spy_pipeline)
+    view_labels = [action.label for action in gui.actions_by_menu()["View"]]
+    assert view_labels[0] == "Toggle full screen"
+    assert view_labels[1:] == ["Fit to window", "Actual size 1:1", "Zoom in", "Zoom out"]
+    calls = []
+    monkeypatch.setattr(gui.window, "set_view_mode", lambda mode: calls.append(("mode", mode)))
+    monkeypatch.setattr(gui.window, "reset_view", lambda: calls.append("reset"))
+    monkeypatch.setattr(gui.window, "zoom_in", lambda: calls.append("in"))
+    monkeypatch.setattr(gui.window, "zoom_out", lambda: calls.append("out"))
+    for name in ("fit_view", "actual_size", "zoom_in", "zoom_out"):
+        gui.menu_actions[name].trigger()
+    assert calls == [("mode", "fit"), "reset", ("mode", "1:1"), "in", "out"]
+    for key in ("0", "1", "+", "-"):
+        gui.on_press(key)
+    assert calls[5:] == [("mode", "fit"), "reset", ("mode", "1:1"), "in", "out"]
+
+
 def test_t_key_prints_timings(monkeypatch):
     gui = build_gui(spy_pipeline)
     gui.window.refresh()

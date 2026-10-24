@@ -79,6 +79,9 @@ def test_every_backend_action_maps_to_a_method(gui_class):
     expected = {a.name for a in DEFAULT_ACTIONS}
     if not hasattr(gui_class, "toggle_full_screen"):
         expected.discard("full_screen")
+    if gui_class.__name__ != "InteractivePipeQT":
+        # the zoomable image viewer only exists on Qt
+        expected -= {"fit_view", "actual_size", "zoom_in", "zoom_out"}
     assert {a.name for a in actions} == expected
 
 

@@ -148,7 +148,8 @@ def test_key_bindings_follow_registry_without_full_screen():
 
     pipeline = HeadlessPipeline.from_function(mpl_pipeline, inputs=["img"])
     gui = mpl_gui.InteractivePipeMatplotlib(pipeline=pipeline, name="mpl keys")
-    expected = {action.key for action in DEFAULT_ACTIONS if action.name != "full_screen"}
+    # no full screen and no zoomable image viewer on matplotlib
+    expected = {action.key for action in DEFAULT_ACTIONS if action.menu != "View"}
     assert set(gui.key_bindings) == expected
     assert "f11" not in gui.key_bindings
     gui.close()
