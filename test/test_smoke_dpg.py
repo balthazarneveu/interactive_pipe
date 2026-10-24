@@ -22,7 +22,7 @@ from interactive_pipe import Backend, events, interactive, layout  # noqa: E402
 from interactive_pipe.data_objects.curves import Curve, SingleCurve  # noqa: E402
 from interactive_pipe.data_objects.image import Image  # noqa: E402
 from interactive_pipe.data_objects.table import Table  # noqa: E402
-from interactive_pipe.graphical import dpg_backend, dpg_control  # noqa: E402
+from interactive_pipe.graphical import dpg_backend, dpg_control, dpg_image  # noqa: E402
 from interactive_pipe.graphical.dpg_panels import DpgTimer  # noqa: E402
 from interactive_pipe.headless.control import CircularControl, Control, TextPrompt, TimeControl  # noqa: E402
 from interactive_pipe.headless.keyboard import KeyboardControl  # noqa: E402
@@ -371,6 +371,26 @@ def test_update_image_all_branches_create_and_update():
     window.update_parameter("ncurves", 1)
     assert len(plot_state["series"]) == 2
     assert all(dpg.does_item_exist(entry["item"]) for entry in plot_state["series"])
+
+
+def _plot_cell():
+    dpg_backend.create_context()
+    with dpg.window() as window:
+        group = dpg.add_group(parent=window)
+    return {"cell": group, "content": None, "plot": None, "kind": None, "natural_size": None}
+
+
+def test_curve_without_data_does_not_shift_the_series():
+    cell = _plot_cell()
+    data = np.linspace(0.0, 1.0, 5)
+    curve = Curve([SingleCurve(x=None, y=None), SingleCurve(y=data, label="b")])
+    dpg_image.update_curve_cell(cell, curve)
+    dpg_image.update_curve_cell(cell, curve)
+    series = cell["plot"]["series"]
+    assert len(series) == 1 and dpg.does_item_exist(series[0]["item"])
+    assert dpg.get_item_configuration(series[0]["item"])["label"] == "b"
+    on_axis = dpg.get_item_children(cell["plot"]["y_axis"], 1)
+    assert on_axis == [series[0]["item"]]
 
 
 def test_1d_output_displays_as_curve_fallback(caplog):
