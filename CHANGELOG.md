@@ -20,6 +20,7 @@
 - Qt: loading a tuning file (`o` key) no longer fails when the file omits a control or when two filters share a parameter name; the Qt6 audio volume is set on the correct scale; widgets hand the window values in the control's own domain (no more monkeypatching of `Control` objects).
 - `PipelineCore.parameters` returns copies, so mutating the returned dicts no longer silently alters filter state.
 - Per-frame diagnostics (engine timings, control updates, grid sizes) moved from INFO to DEBUG; output buffers are no longer deep-copied on every GUI refresh.
+- Dear PyGui: `close()` / full-screen toggle after `run()` no longer segfault, a filter error during the render loop still releases the context, plot zoom & pan survive refreshes (axes refit only when the data extent changes), curves with `y=None` no longer leave stale series, scaled tables keep their size, and unreadable icons raise `FileNotFoundError`; the 1D-signal "audio not supported" warning (dpg and Qt) is logged once instead of every frame.
 
 ## 0.9.1 (July 2026)
 
