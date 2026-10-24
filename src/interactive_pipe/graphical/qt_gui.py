@@ -326,6 +326,9 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         self._run_seq = 0  # incremented by each run; stale worker results are dropped
         self._displayed_seq = 0
         self._runner: Optional[PipelineRunner] = None
+        # (outputs, output_styles) captured by the worker with the run being
+        # displayed: the next run may already be changing the live ones
+        self._display_layout: Optional[tuple] = None
 
         # Create main vertical layout (replaces QFormLayout)
         main_layout = QVBoxLayout()
@@ -593,10 +596,14 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             runner.stop()
 
     def _on_threaded_run_finished(self, result):
-        seq, out, error, report = result
+        seq, out, error, report, display_layout = result
         if seq < self._displayed_seq:
             return  # a synchronous refresh already displayed newer results
-        self._display_run(seq, out, error, report)
+        self._display_layout = display_layout
+        try:
+            self._display_run(seq, out, error, report)
+        finally:
+            self._display_layout = None
         if self._runner is not None and self._runner.busy:
             self.set_status(f"{self._run_status} · running…")
 
@@ -836,10 +843,53 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         """_run_pipeline for the worker thread: any other exception becomes a
         failed result too, so the GUI thread shows it instead of "running…"."""
         try:
-            return self._run_pipeline()
+            result = self._run_pipeline()
         except Exception as exc:  # broad on purpose: report it in the window
             logging.exception("Background pipeline run failed")
-            return self._run_seq, None, exc, None
+            result = self._run_seq, None, exc, None
+        return (*result, self._snapshot_layout())
+
+    def _snapshot_layout(self) -> tuple:
+        """Copy of the output names grid and styles (taken in the worker)."""
+        outputs = self.pipeline.outputs  # type: ignore[reportOptionalMemberAccess]
+        if outputs is not None:
+            outputs = [list(row) if isinstance(row, (list, tuple)) else row for row in outputs]
+        styles = self.pipeline.framework_state.output_styles  # type: ignore[reportOptionalMemberAccess]
+        return outputs, {name: dict(style) for name, style in styles.items()}
+
+    def get_current_style(self, row, col):
+        if self._display_layout is None:
+            return super().get_current_style(row, col)
+        outputs, styles = self._display_layout
+        name = outputs[row][col]
+        return styles.get(name, {"title": name})
+
+    def error_cell_positions(self, error):
+        if self._display_layout is None:
+            return super().error_cell_positions(error)
+        # same as InteractivePipeWindow.error_cell_positions, on the snapshot
+        outputs = self._display_layout[0]
+        if self.image_canvas is None and outputs:
+            self.set_image_canvas(outputs)
+        positions = [
+            (row, col)
+            for row, cells in enumerate(self.image_canvas or [])
+            for col, cell in enumerate(cells)
+            if cell is not None
+        ]
+        failing_outputs = set()
+        for filt in getattr(self.pipeline, "filters", None) or []:
+            if filt.name == error.filter_name:
+                failing_outputs = set(filt.outputs or [])
+        matching = []
+        for row, col in positions:
+            try:
+                name = outputs[row][col]
+            except (IndexError, TypeError):
+                continue
+            if name in failing_outputs:
+                matching.append((row, col))
+        return matching or positions[:1]
 
     def _display_run(self, seq, out, error: Optional[Exception], report):
         self._displayed_seq = seq

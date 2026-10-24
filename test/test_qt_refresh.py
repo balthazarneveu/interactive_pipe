@@ -15,7 +15,7 @@ import pytest  # noqa: E402
 
 qt_gui = pytest.importorskip("interactive_pipe.graphical.qt_gui")
 
-from interactive_pipe import interactive  # noqa: E402
+from interactive_pipe import interactive, layout  # noqa: E402
 from interactive_pipe.core.engine import FilterError  # noqa: E402
 from interactive_pipe.graphical.qt_backend import QApplication  # noqa: E402
 from interactive_pipe.headless.pipeline import HeadlessPipeline  # noqa: E402
@@ -73,6 +73,17 @@ def sleepy_gain_filter(img, sleepy_gain=0.5):
 def sleepy_pipeline(img):
     out = sleepy_gain_filter(img)
     return out
+
+
+@interactive(title_gain=(0.5, [0.0, 1.0]))
+def titled_gain(img, title_gain=0.5):
+    layout.style("titled", title=f"gain={title_gain:.1f}")
+    return img * title_gain
+
+
+def titled_pipeline(img):
+    titled = titled_gain(img)
+    return titled
 
 
 def slow_pipeline(img):
@@ -371,3 +382,22 @@ def test_window_still_grows_after_a_failing_first_run(monkeypatch):
 def test_threaded_audio_is_refused():
     with pytest.raises(ValueError, match="audio"):
         build_gui(spy_pipeline, threaded=True, audio=True)
+
+
+def test_threaded_display_uses_the_styles_of_its_own_run():
+    gui = build_gui(titled_pipeline, threaded=True)
+    window = gui.window
+    try:
+        window.refresh()
+        window.update_parameter("title_gain", 0.2)
+        deadline = time.time() + 5.0
+        while window._runner.busy and time.time() < deadline:
+            time.sleep(0.005)  # the result is queued, not displayed yet
+        # the next run (worker) restyles the output before this one is displayed
+        gui.pipeline.framework_state.output_styles["titled"] = {"title": "next run"}
+        assert wait_for_idle(window)
+        assert window.image_canvas[0][0]["title"].text() == "gain=0.2"
+        window.refresh()  # synchronous path still reads the live styles
+        assert window.image_canvas[0][0]["title"].text() == "gain=0.2"
+    finally:
+        window.stop_threaded_runs()
