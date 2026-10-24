@@ -133,8 +133,9 @@ class InteractivePipeDPG(InteractivePipeGUI):
             destroy_context()
 
     def _on_key_press(self, _sender, key_code, _user_data):
-        if self.window.text_entry_focused():
-            return  # typing in a prompt: never trigger shortcuts
+        if self.window.text_entry_focused() or self.window.modal_shown():
+            # typing in a prompt or in the file dialog's filename field: never trigger shortcuts
+            return
         key = self._key_codes.get(key_code)
         if key is None:
             return
@@ -411,6 +412,13 @@ class MainWindow(InteractivePipeWindow):
 
     def text_entry_focused(self) -> bool:
         return any(dpg.does_item_exist(item) and dpg.is_item_focused(item) for item in self.prompt_widgets)
+
+    def modal_shown(self) -> bool:
+        """Whether the file dialog or the message window is open (both are modal)."""
+        return any(
+            item is not None and dpg.does_item_exist(item) and dpg.is_item_shown(item)
+            for item in (self._file_dialog, self._message_window)
+        )
 
     def tick_timers(self):
         """Called every frame: tick the timers, then run at most one pending refresh."""
