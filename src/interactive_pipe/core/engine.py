@@ -4,7 +4,8 @@ import sys
 import time
 import traceback
 from copy import deepcopy
-from typing import List, Optional, Set, Union
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Set, Union
 
 from interactive_pipe.core.context_tracking import GRAPH_CACHE_MODES, ContextTracker
 from interactive_pipe.core.filter import FilterCore
@@ -174,6 +175,26 @@ def _build_dependency_indexes(filters: List[FilterCore]) -> List[Set[int]]:
     return dependencies
 
 
+@dataclass
+class RunReport:
+    """Per-filter timings of the last pipeline run.
+
+    - timings: filter name -> seconds spent (cached filters cost ~0 and are listed in `cached`)
+    - cached: names of the filters whose outputs were loaded from the cache
+    - total: wall-clock seconds of the whole run
+    - failed: name of the filter that raised (None when the run completed)
+    """
+
+    timings: Dict[str, float] = field(default_factory=dict)
+    cached: Set[str] = field(default_factory=set)
+    total: float = 0.0
+    failed: Optional[str] = None
+
+    @property
+    def num_filters(self) -> int:
+        return len(self.timings)
+
+
 class PipelineEngine:
     """Executes a list of filters sequentially, with several cache modes:
 
@@ -217,6 +238,8 @@ class PipelineEngine:
         #   by class-based filters
         self.context_tracker: Optional[ContextTracker] = None
         self.global_params_tracker: Optional[ContextTracker] = None
+        # timings of the last run (see RunReport), None before the first run
+        self.last_run_report: Optional[RunReport] = None
 
     def _prepare_input(self, buffer):
         """Deep copy an input buffer unless it is already protected (see class docstring)."""
@@ -230,6 +253,9 @@ class PipelineEngine:
 
     def run(self, filters: List[FilterCore], imglst=None):
         performances = []
+        run_start = time.perf_counter()
+        report = RunReport()
+        self.last_run_report = report
         logging.debug(100 * "-")
         result: dict = {}
         if isinstance(imglst, list):
@@ -276,6 +302,7 @@ class PipelineEngine:
                     raise RuntimeError(f"Cache memory is None for filter {prc.name}")
                 out = prc.cache_mem.result
                 previous_calculation = False
+                report.cached.add(prc.name)
             else:
                 logging.debug(("... " if previous_calculation else "!!! ") + f"Calculating {prc.name}")
                 for trk in trackers:
@@ -324,6 +351,9 @@ class PipelineEngine:
                     # Create a clean, user-friendly error
                     _, _, tb = sys.exc_info()
                     filter_error = FilterError(prc.name, e, tb)
+                    report.failed = prc.name
+                    report.timings[prc.name] = time.perf_counter() - tic
+                    report.total = time.perf_counter() - run_start
                     filter_error.print_compact()
                     raise filter_error from None  # 'from None' suppresses the chained traceback
                 finally:
@@ -346,6 +376,7 @@ class PipelineEngine:
                     else:
                         result[ido] = out
             toc = time.perf_counter()
+            report.timings[prc.name] = 0.0 if prc.name in report.cached else toc - tic
             performances.append(f"{prc.name}: {toc - tic:0.4f} seconds")
 
         if run_writes:
@@ -368,6 +399,7 @@ class PipelineEngine:
                             )
                             reader_cache.force_change = True
 
+        report.total = time.perf_counter() - run_start
         # Limit result using self.numfigs but with indices pointed by last filter
         logging.debug("\n".join(performances))
         logging.debug(f"Full buffer: {len(result)}")
