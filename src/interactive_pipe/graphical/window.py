@@ -44,12 +44,15 @@ def format_timings_table(report) -> List[str]:
     width = max([len("filter")] + [len(name) for name in names])
     lines = [f"{'filter':<{width}}  {'ms':>9}  cached", "-" * (width + 19)]
     for name in names:
-        cached = "yes" if name in report.cached else ""
-        lines.append(f"{name:<{width}}  {report.timings[name] * 1000:9.2f}  {cached}")
+        flag = "FAILED" if name == report.failed else ("yes" if name in report.cached else "")
+        lines.append(f"{name:<{width}}  {report.timings[name] * 1000:9.2f}  {flag}")
     lines.append("-" * (width + 19))
-    lines.append(f"{'total':<{width}}  {report.total * 1000:9.2f}")
     if report.failed is not None:
-        lines.append(f"(run aborted: {report.failed} raised)")
+        # the filters after the failing one never ran: not a full-run total
+        lines.append(f"{'total':<{width}}  {report.total * 1000:9.2f}  (until the error)")
+        lines.append(f"Run failed at {report.failed}: later filters did not run.")
+    else:
+        lines.append(f"{'total':<{width}}  {report.total * 1000:9.2f}")
     return lines
 
 

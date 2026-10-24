@@ -71,6 +71,10 @@ def test_report_flags_the_failing_filter():
         pipeline.run()
     assert pipeline.last_run_report.failed == "report_maybe_fail"
     assert format_run_status(pipeline.last_run_report) == "error in report_maybe_fail"
+    lines = format_timings_table(pipeline.last_run_report)
+    assert any(line.startswith("report_maybe_fail") and line.rstrip().endswith("FAILED") for line in lines)
+    assert any(line.startswith("total") and "until the error" in line for line in lines)
+    assert lines[-1] == "Run failed at report_maybe_fail: later filters did not run."
 
 
 def test_status_and_table_formatting():
