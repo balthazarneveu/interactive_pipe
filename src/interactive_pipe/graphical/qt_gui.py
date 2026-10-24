@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Optional
 import numpy as np
 
 from interactive_pipe.core.engine import FilterError
+from interactive_pipe.data_objects.image import Image
 from interactive_pipe.graphical.actions import Action
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.qt_audio import QtAudioPlayer
@@ -189,6 +190,26 @@ class InteractivePipeQT(InteractivePipeGUI):
         # HeadlessPipeline.parameters (set by import_tuning) writes the loaded
         # values back into the connected controls; the widgets just need syncing.
         self.window.reset_sliders()
+
+    def save_images(self):
+        """save images to disk
+
+        Saving runs the pipeline on the GUI thread: it takes the run lock (so
+        it waits for an in-flight background run) and reads the controls
+        first, so the saved images match the current parameters.
+        """
+        extensions = self._file_extensions(Image)
+
+        def save_now(path: Path):
+            self.pipeline.update_parameters_from_controls()
+            self.pipeline.save(path, data_wrapper_fn=lambda im: Image(im), save_entire_buffer=True)
+
+        def save(path: Path):
+            path = Image.check_path(path, load=False, extensions=extensions)
+            self.window.run_synchronously(lambda: save_now(path))
+
+        default_name = f"{self._default_file_stem()}{extensions[0]}"
+        self._with_path("Save images", True, extensions, default_name, save)
 
     def print_message(self, message_list: List[str]):
         print("\n".join(message_list))
@@ -784,6 +805,15 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         with self._run_lock:  # waits for a background run in threaded mode
             result = self._run_pipeline()
         self._display_run(*result)
+
+    def run_synchronously(self, fn: Callable[[], Any]) -> Any:
+        """Call `fn` on this thread while no pipeline run is in progress.
+
+        Use it for anything running the pipeline from the GUI thread (saving
+        images...): in threaded mode it waits for the in-flight background run.
+        """
+        with self._run_lock:
+            return fn()
 
     def _run_pipeline(self):
         """Run the pipeline (caller holds _run_lock): (seq, out, error, report)."""
