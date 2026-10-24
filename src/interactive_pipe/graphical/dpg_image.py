@@ -183,9 +183,9 @@ def update_curve_cell(cell: Dict[str, Any], curve: Curve) -> bool:
     plot_state = _ensure_plot(cell, curve)
     series_items: List[Dict[str, Any]] = plot_state["series"]
     legend = False
-    for index, single_curve in enumerate(curve.curves):
-        if single_curve.y is None:
-            continue
+    # curves without data emit no series: index the series by their own running count
+    drawn = [(index, single_curve) for index, single_curve in enumerate(curve.curves) if single_curve.y is not None]
+    for series_index, (index, single_curve) in enumerate(drawn):
         x_data, y_data = _series_data(single_curve)
         color, has_line, has_marker = _parse_style(single_curve.style)
         scatter = has_marker and not has_line
@@ -194,26 +194,26 @@ def update_curve_cell(cell: Dict[str, Any], curve: Curve) -> bool:
         alpha = single_curve.alpha
         if color is not None and alpha is not None:
             color = (*color[:3], int(255 * float(alpha)))
-        if index < len(series_items) and series_items[index]["scatter"] == scatter:
-            entry = series_items[index]
+        if series_index < len(series_items) and series_items[series_index]["scatter"] == scatter:
+            entry = series_items[series_index]
             dpg.set_value(entry["item"], [x_data, y_data])
             dpg.configure_item(entry["item"], label=label)
         else:
-            if index < len(series_items):
-                _delete(series_items[index]["item"])
+            if series_index < len(series_items):
+                _delete(series_items[series_index]["item"])
             adder = dpg.add_scatter_series if scatter else dpg.add_line_series
             item = adder(x_data, y_data, label=label, parent=plot_state["y_axis"])
             entry = {"item": item, "scatter": scatter, "color": None}
-            if index < len(series_items):
-                series_items[index] = entry
+            if series_index < len(series_items):
+                series_items[series_index] = entry
             else:
                 series_items.append(entry)
         if color is not None and entry["color"] != color:
             dpg.bind_item_theme(entry["item"], _series_theme(color, scatter))
             entry["color"] = color
-    for entry in series_items[len(curve.curves) :]:
+    for entry in series_items[len(drawn) :]:
         _delete(entry["item"])
-    del series_items[len(curve.curves) :]
+    del series_items[len(drawn) :]
 
     dpg.configure_item(plot_state["x_axis"], label=curve.xlabel or "", no_gridlines=curve.grid is False)
     dpg.configure_item(plot_state["y_axis"], label=curve.ylabel or "", no_gridlines=curve.grid is False)
