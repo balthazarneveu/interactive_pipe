@@ -377,3 +377,95 @@ def test_icon_buttons_show_and_reset_selection(tmp_path):
     ctrl.value = "a"
     widget.reset()
     assert [btn.isChecked() for btn in widget.control_widgets] == [True, False]
+
+
+# ---------------------------------------------------------------------------
+# Menu bar and file dialogs (never opened: ask_path / QFileDialog are patched)
+# ---------------------------------------------------------------------------
+def test_menu_bar_has_an_entry_for_every_action():
+    gui = build_gui(basic_pipeline)
+    menus = [menu_action.text() for menu_action in gui.menu_bar.actions()]
+    assert menus == ["File", "View", "Pipeline", "Help"]
+    assert gui.window.layout().menuBar() is gui.menu_bar
+    for action in gui.default_actions():
+        qt_action = gui.menu_actions[action.name]
+        assert qt_action.text() == f"{action.label}\t{action.key.upper()}"
+        # no real shortcut: keyPressEvent alone handles the keys
+        assert qt_action.shortcut().isEmpty()
+    file_menu = gui.menu_bar.actions()[0].menu()
+    assert [a.text().split("\t")[0] for a in file_menu.actions()] == [
+        "Save images",
+        "Export tuning",
+        "Import tuning",
+        "Quit",
+    ]
+
+
+def test_menu_entry_triggers_the_bound_method(monkeypatch):
+    gui = build_gui(basic_pipeline)
+    calls = []
+    for action in gui.default_actions():
+        monkeypatch.setattr(gui, action.method, lambda name=action.name: calls.append(name))
+    for action in gui.default_actions():
+        gui.menu_actions[action.name].trigger()
+    assert calls == [action.name for action in gui.default_actions()]
+
+
+def test_menu_reset_resets_like_the_key():
+    gui = build_gui(basic_pipeline)
+    gui.window.refresh()
+    gui.window.update_parameter("brightness", 0.9)
+    gui.menu_actions["reset"].trigger()
+    assert gui.window.ctrl["brightness"].value == pytest.approx(0.5)
+
+
+def test_save_parameters_writes_the_dialog_path(tmp_path, monkeypatch):
+    from interactive_pipe.data_objects.parameters import Parameters
+
+    gui = build_gui(basic_pipeline)
+    gui.window.refresh()
+    target = tmp_path / "exported.yaml"
+    monkeypatch.setattr(gui, "ask_path", lambda *_a, **_k: target)
+    gui.menu_actions["export_tuning"].trigger()
+    assert Parameters.from_file(target).data["adjust"]["brightness"] == pytest.approx(0.5)
+
+
+def test_save_parameters_cancelled_writes_nothing(tmp_path, monkeypatch):
+    gui = build_gui(basic_pipeline)
+    monkeypatch.setattr(qt_gui.QFileDialog, "getSaveFileName", staticmethod(lambda *_a, **_k: ("", "")))
+    monkeypatch.chdir(tmp_path)
+    gui.save_parameters()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_qt_ask_path_uses_save_and_open_dialogs(tmp_path, monkeypatch):
+    gui = build_gui(basic_pipeline)
+    seen = {}
+
+    def fake_save(parent, title, default_name, file_filter):
+        seen["save"] = (title, default_name, file_filter)
+        return str(tmp_path / "a.yaml"), file_filter
+
+    def fake_open(parent, title, default_name, file_filter):
+        seen["open"] = title
+        return str(tmp_path / "b.json"), file_filter
+
+    monkeypatch.setattr(qt_gui.QFileDialog, "getSaveFileName", staticmethod(fake_save))
+    monkeypatch.setattr(qt_gui.QFileDialog, "getOpenFileName", staticmethod(fake_open))
+    assert gui.ask_path("Export tuning", True, [".json", ".yaml"], "smoke_tuning.yaml") == tmp_path / "a.yaml"
+    assert seen["save"] == ("Export tuning", "smoke_tuning.yaml", "Supported files (*.json *.yaml);;All files (*)")
+    assert gui.ask_path("Import tuning", False, [".json"], "x.json") == tmp_path / "b.json"
+    assert seen["open"] == "Import tuning"
+
+
+def test_export_then_import_round_trip_through_ask_path(tmp_path, monkeypatch):
+    gui = build_gui(basic_pipeline)
+    gui.window.refresh()
+    target = tmp_path / "round.yaml"
+    monkeypatch.setattr(gui, "ask_path", lambda *_a, **_k: target)
+    gui.window.update_parameter("brightness", 0.75)
+    gui.save_parameters()
+    gui.reset_parameters()
+    assert gui.window.ctrl["brightness"].value == pytest.approx(0.5)
+    gui.load_parameters()
+    assert gui.window.ctrl["brightness"].value == pytest.approx(0.75)
