@@ -71,9 +71,19 @@ def numpy_to_rgba(image: np.ndarray) -> np.ndarray:
     return np.ascontiguousarray(rgba)
 
 
+_signal_warning_emitted = False
+
+
 def signal_to_curve(signal_1d: np.ndarray) -> Curve:
-    """Wrap a 1D signal as a Curve so it can at least be displayed."""
-    logging.warning("Audio playback is not supported by the dpg backend; the 1D signal is displayed as a curve instead")
+    """Wrap a 1D signal as a Curve so it can at least be displayed (warns once per process)."""
+    global _signal_warning_emitted
+    if _signal_warning_emitted:
+        logging.debug("1D signal displayed as a curve (audio playback not supported by the dpg backend)")
+    else:
+        _signal_warning_emitted = True
+        logging.warning(
+            "Audio playback is not supported by the dpg backend; the 1D signal is displayed as a curve instead"
+        )
     return Curve([SingleCurve(y=signal_1d)], ylabel="Amplitude")
 
 
@@ -160,6 +170,15 @@ def _series_data(single_curve: SingleCurve) -> Tuple[List[float], List[float]]:
     return x.tolist(), y.tolist()
 
 
+def _extent(values: List[List[float]]) -> Optional[Tuple[float, float]]:
+    """(min, max) over several series, None when there is no finite data."""
+    data = np.concatenate([np.asarray(v, dtype=np.float64) for v in values]) if values else np.empty(0)
+    data = data[np.isfinite(data)]
+    if data.size == 0:
+        return None
+    return float(data.min()), float(data.max())
+
+
 def _ensure_plot(cell: Dict[str, Any], curve: Curve) -> Dict[str, Any]:
     plot_state = cell.get("plot")
     if plot_state is not None and _exists(cell.get("content")):
@@ -172,7 +191,7 @@ def _ensure_plot(cell: Dict[str, Any], curve: Curve) -> Dict[str, Any]:
     y_axis = dpg.add_plot_axis(dpg.mvYAxis, parent=plot)
     cell["content"] = plot
     cell["natural_size"] = (width, height)
-    plot_state = {"plot": plot, "x_axis": x_axis, "y_axis": y_axis, "series": []}
+    plot_state = {"plot": plot, "x_axis": x_axis, "y_axis": y_axis, "series": [], "fitted": {}}
     cell["plot"] = plot_state
     return plot_state
 
@@ -183,10 +202,14 @@ def update_curve_cell(cell: Dict[str, Any], curve: Curve) -> bool:
     plot_state = _ensure_plot(cell, curve)
     series_items: List[Dict[str, Any]] = plot_state["series"]
     legend = False
-    for index, single_curve in enumerate(curve.curves):
-        if single_curve.y is None:
-            continue
+    all_x: List[List[float]] = []
+    all_y: List[List[float]] = []
+    # curves without data emit no series: index the series by their own running count
+    drawn = [(index, single_curve) for index, single_curve in enumerate(curve.curves) if single_curve.y is not None]
+    for series_index, (index, single_curve) in enumerate(drawn):
         x_data, y_data = _series_data(single_curve)
+        all_x.append(x_data)
+        all_y.append(y_data)
         color, has_line, has_marker = _parse_style(single_curve.style)
         scatter = has_marker and not has_line
         label = single_curve.label if single_curve.label is not None else f"curve {index}"
@@ -194,36 +217,42 @@ def update_curve_cell(cell: Dict[str, Any], curve: Curve) -> bool:
         alpha = single_curve.alpha
         if color is not None and alpha is not None:
             color = (*color[:3], int(255 * float(alpha)))
-        if index < len(series_items) and series_items[index]["scatter"] == scatter:
-            entry = series_items[index]
+        if series_index < len(series_items) and series_items[series_index]["scatter"] == scatter:
+            entry = series_items[series_index]
             dpg.set_value(entry["item"], [x_data, y_data])
             dpg.configure_item(entry["item"], label=label)
         else:
-            if index < len(series_items):
-                _delete(series_items[index]["item"])
+            if series_index < len(series_items):
+                _delete(series_items[series_index]["item"])
             adder = dpg.add_scatter_series if scatter else dpg.add_line_series
             item = adder(x_data, y_data, label=label, parent=plot_state["y_axis"])
             entry = {"item": item, "scatter": scatter, "color": None}
-            if index < len(series_items):
-                series_items[index] = entry
+            if series_index < len(series_items):
+                series_items[series_index] = entry
             else:
                 series_items.append(entry)
         if color is not None and entry["color"] != color:
             dpg.bind_item_theme(entry["item"], _series_theme(color, scatter))
             entry["color"] = color
-    for entry in series_items[len(curve.curves) :]:
+    for entry in series_items[len(drawn) :]:
         _delete(entry["item"])
-    del series_items[len(curve.curves) :]
+    del series_items[len(drawn) :]
 
     dpg.configure_item(plot_state["x_axis"], label=curve.xlabel or "", no_gridlines=curve.grid is False)
     dpg.configure_item(plot_state["y_axis"], label=curve.ylabel or "", no_gridlines=curve.grid is False)
     dpg.configure_item(plot_state["plot"], label=curve.title or "", no_title=not curve.title)
-    for axis, limits in ((plot_state["x_axis"], curve.xlim), (plot_state["y_axis"], curve.ylim)):
+    # Fit auto axes only when the plot is created or the data extent changes, so that
+    # the user's zoom & pan survive refreshes of animated / live-updating curves.
+    fitted: Dict[str, Any] = plot_state.setdefault("fitted", {})
+    for key, limits, extent in (("x", curve.xlim, _extent(all_x)), ("y", curve.ylim, _extent(all_y))):
+        axis = plot_state[f"{key}_axis"]
         if limits is not None:
             dpg.set_axis_limits(axis, float(limits[0]), float(limits[1]))
-        else:
+            fitted[key] = "fixed"
+        elif created or key not in fitted or fitted[key] != extent:
             dpg.set_axis_limits_auto(axis)
             dpg.fit_axis_data(axis)
+            fitted[key] = extent
     legend_items = dpg.get_item_children(plot_state["plot"], 0) or []
     for legend_item in legend_items:
         dpg.configure_item(legend_item, show=legend)
@@ -236,9 +265,14 @@ def update_curve_cell(cell: Dict[str, Any], curve: Curve) -> bool:
 def update_table_cell(cell: Dict[str, Any], table: Table) -> bool:
     """Rebuild the native table of a Table output (cheap: tables are small). Returns True when created."""
     created = not _exists(cell.get("content"))
-    _delete(cell.get("content"))
     width, height = cell.get("natural_size") or DEFAULT_TABLE_SIZE
-    container = dpg.add_child_window(parent=cell["cell"], width=width, height=height, border=True)
+    display_size = (width, height)
+    if not created:
+        # keep the size applied by the last relayout (scale factor): the rebuild reports no layout change
+        config = dpg.get_item_configuration(cell["content"])
+        display_size = (config.get("width") or width, config.get("height") or height)
+    _delete(cell.get("content"))
+    container = dpg.add_child_window(parent=cell["cell"], width=display_size[0], height=display_size[1], border=True)
     has_headers = any(column != "" for column in table.columns)
     if table.title:
         dpg.add_text(table.title, parent=container)

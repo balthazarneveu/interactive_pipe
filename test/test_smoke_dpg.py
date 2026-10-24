@@ -22,7 +22,7 @@ from interactive_pipe import Backend, events, interactive, layout  # noqa: E402
 from interactive_pipe.data_objects.curves import Curve, SingleCurve  # noqa: E402
 from interactive_pipe.data_objects.image import Image  # noqa: E402
 from interactive_pipe.data_objects.table import Table  # noqa: E402
-from interactive_pipe.graphical import dpg_backend, dpg_control  # noqa: E402
+from interactive_pipe.graphical import dpg_backend, dpg_control, dpg_image  # noqa: E402
 from interactive_pipe.graphical.dpg_panels import DpgTimer  # noqa: E402
 from interactive_pipe.headless.control import CircularControl, Control, TextPrompt, TimeControl  # noqa: E402
 from interactive_pipe.headless.keyboard import KeyboardControl  # noqa: E402
@@ -393,13 +393,57 @@ def test_update_image_all_branches_create_and_update():
     assert all(dpg.does_item_exist(entry["item"]) for entry in plot_state["series"])
 
 
-def test_1d_output_displays_as_curve_fallback(caplog):
+def _plot_cell():
+    dpg_backend.create_context()
+    with dpg.window() as window:
+        group = dpg.add_group(parent=window)
+    return {"cell": group, "content": None, "plot": None, "kind": None, "natural_size": None}
+
+
+def test_curve_without_data_does_not_shift_the_series():
+    cell = _plot_cell()
+    data = np.linspace(0.0, 1.0, 5)
+    curve = Curve([SingleCurve(x=None, y=None), SingleCurve(y=data, label="b")])
+    dpg_image.update_curve_cell(cell, curve)
+    dpg_image.update_curve_cell(cell, curve)
+    series = cell["plot"]["series"]
+    assert len(series) == 1 and dpg.does_item_exist(series[0]["item"])
+    assert dpg.get_item_configuration(series[0]["item"])["label"] == "b"
+    on_axis = dpg.get_item_children(cell["plot"]["y_axis"], 1)
+    assert on_axis == [series[0]["item"]]
+
+
+def test_curve_refresh_keeps_zoom_unless_the_data_extent_changes(monkeypatch):
+    cell = _plot_cell()
+    fits = []
+    real_fit = dpg.fit_axis_data
+    monkeypatch.setattr(dpg, "fit_axis_data", lambda axis: (fits.append(axis), real_fit(axis)))
+    data = np.linspace(0.0, 1.0, 5)
+    dpg_image.update_curve_cell(cell, Curve([SingleCurve(y=data)]))
+    assert len(fits) == 2  # created: both axes fitted
+    dpg_image.update_curve_cell(cell, Curve([SingleCurve(y=data.copy())]))
+    assert len(fits) == 2  # same extent: zoom & pan left alone
+    dpg_image.update_curve_cell(cell, Curve([SingleCurve(y=data * 2.0)]))
+    assert fits[2:] == [cell["plot"]["y_axis"]]  # only the y extent changed
+    dpg_image.update_curve_cell(cell, Curve([SingleCurve(y=data * 2.0)], xlim=(0, 3)))
+    assert len(fits) == 3  # fixed x limits are applied, not fitted
+    dpg_image.update_curve_cell(cell, Curve([SingleCurve(y=data * 2.0)]))
+    assert fits[3:] == [cell["plot"]["x_axis"]]  # back to auto: refit x
+
+
+def test_1d_output_displays_as_curve_fallback(caplog, monkeypatch):
+    monkeypatch.setattr(dpg_image, "_signal_warning_emitted", False)
     gui = build_gui(signal_pipeline)
     with caplog.at_level(logging.WARNING):
         gui.window.refresh()
     cell = gui.window.image_canvas[0][0]
     assert cell["kind"] == "curve" and cell["plot"] is not None
     assert "not supported by the dpg backend" in caplog.text
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        gui.window.refresh()
+        gui.window.refresh()
+    assert caplog.records == []  # warned once, not on every frame
 
 
 def test_output_type_change_between_frames_rebuilds_the_cell():
@@ -453,6 +497,22 @@ def test_relayout_fits_grid_in_client_area_with_uniform_scale():
     assert dpg.get_item_configuration(window._rows[0]["spacer"])["width"] >= 0
     assert dpg.get_item_configuration(window.grid_container)["height"] <= 560
     assert dpg.get_item_configuration(window.grid_container)["width"] == 800 - dpg_gui.LAYOUT_MARGIN
+
+
+def test_table_refresh_keeps_the_relayout_size():
+    gui = build_gui(mixed_pipeline, size=(1600, 1200))
+    window = gui.window
+    window.refresh()
+    window.on_viewport_resize(None, [1600, 1200, 1600, 1160])
+    assert window.scale_factor != 1.0
+    natural_w, natural_h = dpg_image.DEFAULT_TABLE_SIZE
+    expected = (int(natural_w * window.scale_factor), int(natural_h * window.scale_factor))
+    for _ in range(2):
+        window.update_parameter("brightness", 0.3)  # any refresh rebuilds the table
+        table = window.image_canvas[1][0]
+        config = dpg.get_item_configuration(table["content"])
+        assert (config["width"], config["height"]) == expected
+        assert table["natural_size"] == (natural_w, natural_h)
 
 
 def test_relayout_reserves_side_panel_columns():
@@ -593,6 +653,18 @@ def test_icon_buttons_show_and_reset_selection(tmp_path):
     assert widget.selected_choice() == "a"
 
 
+def test_icon_buttons_unreadable_icon_raises_file_not_found(tmp_path):
+    dpg_backend.create_context()
+    registry = dpg.add_texture_registry()
+    broken = tmp_path / "broken.png"
+    broken.write_bytes(b"not an image")  # exists (Control accepts it) but dpg.load_image returns None
+    ctrl = Control("a", ["a", "b"], icons=[broken, broken], name="icon_ctrl")
+    widget = dpg_control.ControlFactory(texture_registry=registry).create_control(ctrl, lambda *_a: None)
+    with dpg.window() as window:
+        with pytest.raises(FileNotFoundError, match="broken.png"):
+            widget.create(window)
+
+
 def test_single_choice_dropdown_has_no_widget():
     dpg_backend.create_context()
     ctrl = Control("only", ["only"], name="single")
@@ -650,6 +722,48 @@ def test_close_before_run_destroys_context():
     assert dpg_backend.context_alive()
     gui.close()
     assert not dpg_backend.context_alive()
+
+
+def test_close_and_full_screen_after_run_do_not_touch_a_dead_context(monkeypatch):
+    gui = build_gui(basic_pipeline)
+    stopped = []
+    toggled = []
+    monkeypatch.setattr(dpg, "stop_dearpygui", lambda: stopped.append(True))
+    monkeypatch.setattr(dpg, "toggle_viewport_fullscreen", lambda: toggled.append(True))
+    # state left by run() once the render loop exits: viewport was shown, context destroyed
+    gui._viewport_shown = True
+    dpg_backend.destroy_context()
+    gui.close()  # e.g. from custom_end or caller cleanup
+    gui.toggle_full_screen()
+    assert stopped == [] and toggled == []
+    assert not dpg_backend.context_alive()
+
+
+class _TickError(RuntimeError):
+    pass
+
+
+def test_run_tears_down_the_context_when_a_timer_tick_raises(monkeypatch):
+    gui = build_gui(basic_pipeline)
+    # no display here: stub the viewport calls, keep the real widget tree
+    for name in ("create_viewport", "set_viewport_resize_callback", "setup_dearpygui", "show_viewport"):
+        monkeypatch.setattr(dpg, name, lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(dpg, "set_frame_callback", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(dpg, "is_dearpygui_running", lambda: True)
+    monkeypatch.setattr(dpg, "render_dearpygui_frame", lambda: None)
+    monkeypatch.setattr(dpg, "get_viewport_client_width", lambda: 800)
+    monkeypatch.setattr(dpg, "get_viewport_client_height", lambda: 600)
+    monkeypatch.setattr(gui, "custom_end", lambda: None)
+
+    def failing_tick():
+        raise _TickError("filter failed")
+
+    monkeypatch.setattr(gui.window, "tick_timers", failing_tick)
+    with pytest.raises(_TickError):
+        gui.run()
+    assert not dpg_backend.context_alive()
+    assert gui._viewport_shown is False and gui.window.viewport_ready is False
+    gui.close()  # no crash on a dead context
 
 
 def test_window_size_validation():
