@@ -8,6 +8,7 @@ This demo demonstrates:
 - String dropdowns
 - TextPrompt (text input)
 - CircularControl (circular slider)
+- RangeControl (two-handle min/max slider)
 - KeyboardControl (keyboard shortcuts)
 - Multi-image layouts (1x3, 2x2, 3x1, etc.)
 """
@@ -23,6 +24,7 @@ from interactive_pipe import (
     Control,
     Image,
     KeyboardControl,
+    RangeControl,
     TextPrompt,
     context,
     interactive,
@@ -102,9 +104,15 @@ def set_layout_outputs():
 @interactive(
     brightness=(0.0, [-1.0, 1.0]),  # Float slider: -1 (dark) to +1 (bright)
     contrast=(0.0, [-1.0, 1.0]),  # Float slider: -1 (low) to +1 (high)
+    levels=RangeControl((0.0, 1.0), [0.0, 1.0], name="input levels"),  # Two-handle (lo, hi) slider
 )
-def adjust_brightness_contrast(img: np.ndarray, brightness: float = 0.0, contrast: float = 0.0) -> np.ndarray:
-    """Adjust brightness and contrast"""
+def adjust_brightness_contrast(
+    img: np.ndarray, brightness: float = 0.0, contrast: float = 0.0, levels=(0.0, 1.0)
+) -> np.ndarray:
+    """Adjust input levels, brightness and contrast"""
+    # Input levels: stretch [lo, hi] to [0, 1] (the filter receives a (lo, hi) tuple)
+    lo, hi = levels
+    img = np.clip((img - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
     # Apply brightness: add brightness value directly
     # brightness: -1.0 = very dark, 0.0 = no change, 1.0 = very bright
     bright_img = img + brightness
@@ -120,7 +128,7 @@ def adjust_brightness_contrast(img: np.ndarray, brightness: float = 0.0, contras
     # Clamp to valid range [0, 1]
     contrasted_img = np.clip(contrasted_img, 0.0, 1.0)
 
-    title = f"Brightness: {brightness:+.2f}, Contrast: {contrast:+.2f}"
+    title = f"Levels: [{lo:.2f}, {hi:.2f}], Brightness: {brightness:+.2f}, Contrast: {contrast:+.2f}"
     layout.style("adjusted", title=title)
     return contrasted_img
 
