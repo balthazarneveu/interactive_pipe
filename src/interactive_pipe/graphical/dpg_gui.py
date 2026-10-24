@@ -14,12 +14,14 @@ works without a display; the viewport is created in ``run()``.
 
 import logging
 import time
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
 from interactive_pipe.data_objects.curves import Curve
 from interactive_pipe.data_objects.table import Table
+from interactive_pipe.graphical.actions import Action
 from interactive_pipe.graphical.dpg_backend import (  # noqa: F401
     INSTALL_HINT,
     context_alive,
@@ -49,6 +51,8 @@ TITLE_HEIGHT = 22  # one text line above each cell
 LAYOUT_MARGIN = 16  # window padding
 SIDE_PANEL_GAP = 8
 SIDE_PANEL_WIDTH = 320  # left/right panel columns
+MENU_BAR_HEIGHT = 22  # primary window menu bar
+FILE_DIALOG_SIZE = (640, 400)
 
 
 class InteractivePipeDPG(InteractivePipeGUI):
@@ -65,6 +69,7 @@ class InteractivePipeDPG(InteractivePipeGUI):
             **kwargs,
         )
         self.set_default_key_bindings()
+        self.window.add_menu_bar(self.actions_by_menu(), self._on_menu_item)
         self._key_codes = key_code_table()
         dpg.add_key_press_handler(callback=self._on_key_press, parent=dpg.add_handler_registry())
         self.full_screen_toggle = False
@@ -118,6 +123,25 @@ class InteractivePipeDPG(InteractivePipeGUI):
             return
         self.on_press(key, refresh_func=self.window.refresh)
 
+    def _on_menu_item(self, _sender, _app_data, action: Action):
+        self.run_action(action)
+
+    def _with_path(
+        self,
+        title: str,
+        save: bool,
+        extensions: List[str],
+        default_name: str,
+        on_path: Callable[[Path], None],
+    ):
+        """Native Dear PyGui file dialog once the viewport is shown, terminal before.
+
+        The dialog is asynchronous: `on_path` runs from its callback.
+        """
+        if not self._viewport_shown:
+            return super()._with_path(title, save, extensions, default_name, on_path)
+        self.window.open_file_dialog(title, save, extensions, default_name, on_path)
+
     # ------------------------------------------------------------- key actions
     def reset_parameters(self):
         """reset sliders to default parameters"""
@@ -170,6 +194,9 @@ class MainWindow(InteractivePipeWindow):
         self.prompt_widgets: List[Any] = []
         self.sized_items: List[Tuple[Any, Callable[[], int]]] = []  # (item, width_fn) re-applied on relayout
         self._message_window: Optional[Any] = None
+        self.menu_bar: Optional[Any] = None
+        self.menu_items: Dict[str, Any] = {}
+        self._file_dialog: Optional[Any] = None
         self._rows: Dict[int, Dict[str, Any]] = {}
         self._needs_layout = False
         self.scale_factor = 1.0
@@ -269,7 +296,8 @@ class MainWindow(InteractivePipeWindow):
         avail_w = max(100, client_w - len(side_containers) * (SIDE_PANEL_WIDTH + SIDE_PANEL_GAP) - LAYOUT_MARGIN)
         top_h = self._measured_height(self.top_container)
         bottom_h = self._measured_height(self.bottom_container)
-        avail_h = max(80, client_h - top_h - bottom_h - LAYOUT_MARGIN - 2 * GRID_SPACING)
+        menu_h = MENU_BAR_HEIGHT if self.menu_bar is not None else 0
+        avail_h = max(80, client_h - menu_h - top_h - bottom_h - LAYOUT_MARGIN - 2 * GRID_SPACING)
         dpg.configure_item(self.grid_container, width=avail_w, height=avail_h)
         for item in side_containers:
             dpg.configure_item(item, height=avail_h)
@@ -470,6 +498,56 @@ class MainWindow(InteractivePipeWindow):
             self.refresh_display(out)
         if self._needs_layout:
             self.relayout()
+
+    # ------------------------------------------------------- menu & dialogs
+    def add_menu_bar(self, actions_by_menu: Dict[str, List[Action]], callback: Callable):
+        """Menu bar of the primary window; each item passes its Action as user_data."""
+        self.menu_bar = dpg.add_menu_bar(parent=self.root)
+        for group, actions in actions_by_menu.items():
+            menu = dpg.add_menu(label=group, parent=self.menu_bar)
+            for action in actions:
+                self.menu_items[action.name] = dpg.add_menu_item(
+                    label=action.label,
+                    shortcut=action.key.upper(),
+                    parent=menu,
+                    callback=callback,
+                    user_data=action,
+                )
+
+    def open_file_dialog(
+        self,
+        title: str,
+        save: bool,
+        extensions: List[str],
+        default_name: str,
+        on_path: Callable[[Path], None],
+    ):
+        """Modal file dialog; `on_path(path)` runs when a file is chosen (nothing on cancel)."""
+        if self._file_dialog is not None and dpg.does_item_exist(self._file_dialog):
+            dpg.delete_item(self._file_dialog)
+
+        def on_choice(_sender, app_data, _user_data):
+            dpg.configure_item(dialog, show=False)
+            chosen = app_data.get("file_path_name") if isinstance(app_data, dict) else None
+            if chosen:
+                on_path(Path(chosen))
+
+        width, height = FILE_DIALOG_SIZE
+        dialog = dpg.add_file_dialog(
+            label=title,
+            callback=on_choice,
+            cancel_callback=lambda *_args: dpg.configure_item(dialog, show=False),
+            modal=True,
+            directory_selector=False,
+            default_filename=Path(default_name).stem if save else "",
+            width=width,
+            height=height,
+            show=True,
+        )
+        for extension in extensions:
+            dpg.add_file_extension(extension, parent=dialog)
+        self._file_dialog = dialog
+        return dialog
 
     # --------------------------------------------------------------- messages
     def show_message(self, title: str, message_list: List[str]):
