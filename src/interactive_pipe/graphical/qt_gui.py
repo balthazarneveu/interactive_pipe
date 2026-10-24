@@ -89,6 +89,9 @@ class InteractivePipeQT(InteractivePipeGUI):
     def init_app(self, threaded: bool = False, **kwargs):
         """`threaded=True` runs the pipeline in a worker thread (widgets stay
         live during slow runs, results are displayed when ready)."""
+        if threaded and self.audio:
+            # filters would drive the QMediaPlayer from the worker thread
+            raise ValueError("threaded=True does not support audio=True: run the audio pipeline without threaded")
         if not QApplication.instance():
             self.app = QApplication(sys.argv)
         else:
