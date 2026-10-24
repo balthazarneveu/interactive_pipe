@@ -1,9 +1,20 @@
 import logging
 
-from interactive_pipe.headless.control import Control
+from interactive_pipe.headless.control import Control, RangeControl
 
 try:
-    from ipywidgets import Checkbox, Dropdown, FloatSlider, FloatText, IntSlider, IntText, Layout, Text
+    from ipywidgets import (
+        Checkbox,
+        Dropdown,
+        FloatRangeSlider,
+        FloatSlider,
+        FloatText,
+        IntRangeSlider,
+        IntSlider,
+        IntText,
+        Layout,
+        Text,
+    )
 
     IPYWIDGETS_AVAILABLE = True
 except ImportError:
@@ -11,6 +22,8 @@ except ImportError:
     # Create dummy classes to allow import even when ipywidgets is not available
     Dropdown = None
     FloatSlider = None
+    FloatRangeSlider = None
+    IntRangeSlider = None
     FloatText = None
     IntSlider = None
     IntText = None
@@ -83,6 +96,29 @@ class FloatSliderNotebookControl(BaseControl):
             min=self.ctrl.value_range[0],  # type: ignore[reportOptionalSubscript]
             max=self.ctrl.value_range[1],  # type: ignore[reportOptionalSubscript]
             value=self.ctrl.value_default,
+            step=self.ctrl.step,
+            style=style,
+            layout=self.layout,
+            tooltip=self.ctrl.tooltip,
+        )
+
+
+class RangeSliderNotebookControl(BaseControl):
+    """ipywidgets IntRangeSlider / FloatRangeSlider for a RangeControl (value is a (lo, hi) tuple)."""
+
+    def check_control_type(self):
+        if not isinstance(self.ctrl, RangeControl):
+            raise TypeError(f"Expected a RangeControl, got {type(self.ctrl)}")
+
+    def create(self):
+        widget_class = IntRangeSlider if self.ctrl._type is int else FloatRangeSlider
+        if widget_class is None:
+            raise ModuleNotFoundError("ipywidgets is required for notebook controls")
+        style = {"description_width": "initial"}
+        return widget_class(  # type: ignore[reportOptionalCall]
+            min=self.ctrl.value_range[0],  # type: ignore[reportOptionalSubscript]
+            max=self.ctrl.value_range[1],  # type: ignore[reportOptionalSubscript]
+            value=tuple(self.ctrl.value),
             step=self.ctrl.step,
             style=style,
             layout=self.layout,
@@ -179,6 +215,8 @@ class ControlFactory:
         # Return None for single-value controls (don't show anything)
         if control_type is str and control.value_range is not None and len(control.value_range) == 1:
             return None
+        if isinstance(control, RangeControl):
+            return RangeSliderNotebookControl(name, control)
 
         control_class_map = {
             bool: BoolCheckButtonNotebookControl,
