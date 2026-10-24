@@ -650,3 +650,74 @@ def test_numpy_to_rgba_conversions():
     assert rgba[..., 3].max() == 0.5
     with pytest.raises(NotImplementedError):
         numpy_to_rgba(np.zeros((2, 3, 5)))
+
+
+# ---------------------------------------------------------------------------
+# Menu bar and file dialogs
+# ---------------------------------------------------------------------------
+def test_menu_bar_lists_every_action_with_its_shortcut():
+    gui = build_gui(basic_pipeline)
+    window = gui.window
+    assert dpg.get_item_parent(window.menu_bar) == window.root
+    menus = dpg.get_item_children(window.menu_bar, 1)
+    assert [dpg.get_item_label(menu) for menu in menus] == ["File", "View", "Pipeline", "Help"]
+    for action in gui.default_actions():
+        item = window.menu_items[action.name]
+        assert dpg.get_item_label(item) == action.label
+        assert dpg.get_item_configuration(item)["shortcut"] == action.key.upper()
+    file_items = dpg.get_item_children(menus[0], 1)
+    assert [dpg.get_item_label(item) for item in file_items] == [
+        "Save images",
+        "Export tuning",
+        "Import tuning",
+        "Quit",
+    ]
+
+
+def test_menu_item_runs_the_action(monkeypatch):
+    gui = build_gui(basic_pipeline)
+    calls = []
+    monkeypatch.setattr(gui, "print_parameters", lambda: calls.append("print"))
+    item = gui.window.menu_items["print"]
+    dpg.get_item_callback(item)(item, None, dpg.get_item_user_data(item))
+    assert calls == ["print"]
+
+
+def test_file_dialog_runs_the_action_from_its_callback(tmp_path):
+    from interactive_pipe.data_objects.parameters import Parameters
+
+    gui = build_gui(basic_pipeline)
+    gui.window.refresh()
+    gui._viewport_shown = True  # dialogs only replace the terminal prompt once shown
+    gui.save_parameters()
+    dialog = gui.window._file_dialog
+    assert dpg.does_item_exist(dialog)
+    assert dpg.get_item_configuration(dialog)["modal"] is True
+    extensions = [dpg.get_item_configuration(ext)["extension"] for ext in dpg.get_item_children(dialog, 0)]
+    assert ".yaml" in extensions
+    target = tmp_path / "dialog.yaml"
+    assert not target.exists()
+    dpg.get_item_callback(dialog)(dialog, {"file_path_name": str(target)}, None)
+    assert "brightness" in Parameters.from_file(target).data["adjust"]
+    assert dpg.get_item_configuration(dialog)["show"] is False
+    gui._viewport_shown = False
+
+
+def test_file_dialog_without_a_choice_does_nothing(tmp_path, monkeypatch):
+    gui = build_gui(basic_pipeline)
+    gui._viewport_shown = True
+    monkeypatch.setattr(gui.pipeline, "import_tuning", lambda *_a: pytest.fail("import on cancel"))
+    gui.load_parameters()
+    dialog = gui.window._file_dialog
+    dpg.get_item_callback(dialog)(dialog, {"file_path_name": ""}, None)
+    assert dpg.get_item_configuration(dialog)["show"] is False
+    gui._viewport_shown = False
+
+
+def test_terminal_fallback_before_the_viewport_is_shown(tmp_path, monkeypatch):
+    gui = build_gui(basic_pipeline)
+    target = tmp_path / "terminal.yaml"
+    monkeypatch.setattr("builtins.input", lambda *_a: str(target))
+    gui.save_parameters()
+    assert target.exists()
+    assert gui.window._file_dialog is None
