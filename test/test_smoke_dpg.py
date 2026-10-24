@@ -568,6 +568,18 @@ def test_icon_buttons_show_and_reset_selection(tmp_path):
     assert widget.selected_choice() == "a"
 
 
+def test_icon_buttons_unreadable_icon_raises_file_not_found(tmp_path):
+    dpg_backend.create_context()
+    registry = dpg.add_texture_registry()
+    broken = tmp_path / "broken.png"
+    broken.write_bytes(b"not an image")  # exists (Control accepts it) but dpg.load_image returns None
+    ctrl = Control("a", ["a", "b"], icons=[broken, broken], name="icon_ctrl")
+    widget = dpg_control.ControlFactory(texture_registry=registry).create_control(ctrl, lambda *_a: None)
+    with dpg.window() as window:
+        with pytest.raises(FileNotFoundError, match="broken.png"):
+            widget.create(window)
+
+
 def test_single_choice_dropdown_has_no_widget():
     dpg_backend.create_context()
     ctrl = Control("only", ["only"], name="single")
