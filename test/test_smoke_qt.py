@@ -135,6 +135,11 @@ def event_pipeline(img):
     return out
 
 
+def flush_events():
+    """Run the refresh coalesced by update_parameter (scheduled on the event loop)."""
+    qt_gui.QApplication.processEvents()
+
+
 def build_gui(pipeline_function, **gui_kwargs):
     pipeline = HeadlessPipeline.from_function(pipeline_function, inputs=["img"])
     gui = InteractivePipeQT(pipeline=pipeline, name="smoke", **gui_kwargs)
@@ -170,7 +175,8 @@ def test_update_parameter_per_control_type():
     assert window.ctrl["inverted"].value is True
     window.widget_list["steps"].control_widget.setValue(3)
     assert window.ctrl["steps"].value == 3
-    # the refresh triggered by updates must propagate to the styled title
+    # the (coalesced) refresh triggered by updates must propagate to the styled title
+    flush_events()
     assert window.image_canvas[0][0]["title"].text() == "mode=max"
 
 
@@ -340,6 +346,7 @@ def test_output_type_change_between_frames_rebuilds_the_cell():
     canvas_widget_types = {}
     for kind in ["text", "curve", "table", "image", "signal", "text", "image", "curve", "text"]:
         window.update_parameter("out_kind", kind)
+        flush_events()
         cell = window.image_canvas[0][0]
         expected_kind = "curve" if kind == "signal" else kind
         assert cell["kind"] == expected_kind

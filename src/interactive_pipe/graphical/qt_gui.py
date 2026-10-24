@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 
+from interactive_pipe.core.engine import FilterError
 from interactive_pipe.graphical.actions import Action
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.qt_audio import QtAudioPlayer
@@ -54,7 +55,7 @@ from interactive_pipe.graphical.qt_viewer import ImageView, ViewSync
 
 # Re-exported: interactive_pipe.graphical.qt_gui.CollapsibleBox etc. are public paths
 from interactive_pipe.graphical.qt_widgets import CollapsibleBox, DetachedPanelWindow  # noqa: F401
-from interactive_pipe.graphical.window import InteractivePipeWindow, display_kind
+from interactive_pipe.graphical.window import InteractivePipeWindow, display_kind, format_run_status
 from interactive_pipe.headless.control import Control, TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.panel import Panel
@@ -232,8 +233,10 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         Qt.Key.Key_Space: KeyboardControl.KEY_SPACEBAR,
     }
     # (row, col, x, y, value) when the mouse hovers an image cell; value is the
-    # raw pipeline output at that pixel (None outside). None -> tooltip readout.
+    # raw pipeline output at that pixel (None outside). Defaults to the status
+    # line readout; replace it with your own callback, or None -> tooltip readout.
     on_pixel_hover: Optional[Callable[[int, int, int, int, Any], None]] = None
+    ERROR_STYLE = "color: #d32f2f; font-weight: bold;"
 
     def __init__(
         self,
@@ -258,6 +261,11 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         self.detached_windows = []
         # Set by QtPanelBuilder when a TimeControl widget is created
         self.timer: Optional[QTimer] = None
+        # coalesced refresh (request_refresh) and in-window error display
+        self._refresh_pending = False
+        self.last_error: Optional[FilterError] = None
+        self._run_status = ""
+        self.on_pixel_hover = self._status_pixel_hover
 
         # Create main vertical layout (replaces QFormLayout)
         main_layout = QVBoxLayout()
@@ -301,6 +309,12 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         main_layout.addLayout(self.top_panels_layout)
         main_layout.addLayout(middle_layout)
         main_layout.addLayout(self.bottom_panels_layout)
+
+        # Status line: last run timings / errors, pixel readout on hover
+        self.status_label = QLabel("")
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.status_label.setStyleSheet("font-family: monospace; font-size: 11px; color: gray;")
+        main_layout.addWidget(self.status_label)
 
         self.init_sliders(controls)
         # if self.pipeline._PipelineCore__initialized_inputs:
@@ -470,7 +484,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         """
         self.ctrl[idx].update(value)
         self.update_label(idx)
-        self.refresh()
+        self.request_refresh()
 
     def key_update_parameter(self, idx, down):
         """Required implementation for keyboard sliders update"""
@@ -479,6 +493,26 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         else:
             self.ctrl[idx].on_key_up()
         # self.update_label(idx)
+        self.request_refresh()
+
+    def request_refresh(self):
+        """Schedule one refresh on the next event loop pass.
+
+        Every widget event goes through here: a slider drag emitting many
+        values while the pipeline runs yields a single run with the latest
+        values instead of one queued run per tick.
+        """
+        if self._refresh_pending:
+            return
+        self._refresh_pending = True
+        QTimer.singleShot(0, self._flush_refresh)
+
+    def _flush_refresh(self):
+        try:
+            if not self._refresh_pending:
+                return  # a synchronous refresh() already ran in between
+        except RuntimeError:  # the window was destroyed before the timer fired
+            return
         self.refresh()
 
     # --- image grid: ImageView cells (fit / synced zoom & pan / pixel readout) ---
@@ -494,6 +528,18 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         view.hover_callback = lambda x, y, value: self._on_view_hover(view, row, col, x, y, value)
         self.image_grid_layout.addWidget(view, 2 * row + 1, col)
         return view
+
+    def set_status(self, text: str):
+        """Show `text` in the status line at the bottom of the window."""
+        self.status_label.setText(text)
+
+    def _status_pixel_hover(self, row, col, x, y, value):
+        """Default on_pixel_hover: pixel readout appended to the status line."""
+        if value is None:
+            self.set_status(self._run_status)
+        else:
+            separator = " · " if self._run_status else ""
+            self.set_status(f"{self._run_status}{separator}({x}, {y}) = {_format_pixel_value(value)}")
 
     def _on_view_hover(self, view, row, col, x, y, value):
         if self.on_pixel_hover is not None:
@@ -661,9 +707,69 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             return out_im
 
     def refresh(self):
-        if self.pipeline is not None:
+        """Run the pipeline now and display the results.
+
+        A filter raising (FilterError) does not escape: the error is shown in
+        the window (cells + status line) and the next good run restores it.
+        """
+        self._refresh_pending = False
+        if self.pipeline is None:
+            return
+        try:
             out = self.pipeline.run()
-            self.refresh_display(out)
+        except FilterError as error:
+            self.show_error(error)
+            return
+        self._clear_error_style()
+        self.last_error = None
+        self.refresh_display(out)
+        self._run_status = format_run_status(self.pipeline.last_run_report)
+        self.set_status(self._run_status)
+
+    def _error_cells(self, error: FilterError) -> List[dict]:
+        """Cells showing outputs of the failing filter (else the first cell)."""
+        if self.image_canvas is None and self.pipeline is not None and self.pipeline.outputs:
+            # the very first run failed: build the canvas from the output names
+            self.set_image_canvas(self.pipeline.outputs)
+        cells = [cell for row in (self.image_canvas or []) for cell in row if cell is not None]
+        failing_outputs = set()
+        for filt in getattr(self.pipeline, "filters", []):
+            if filt.name == error.filter_name:
+                failing_outputs = set(filt.outputs or [])
+        outputs = self.pipeline.outputs if self.pipeline is not None else []
+        matching = []
+        for cell in cells:
+            try:
+                name = outputs[cell["row"]][cell["col"]]
+            except (IndexError, TypeError):
+                continue
+            if name in failing_outputs:
+                matching.append(cell)
+        return matching or cells[:1]
+
+    def show_error(self, error: FilterError):
+        """Display a pipeline error in the window instead of raising."""
+        self.last_error = error
+        original = error.original_error
+        message = f"⚠ {error.filter_name} raised {type(original).__name__}: {original}"
+        for cell in self._error_cells(error):
+            if cell.get("kind") in ("curve", "table"):
+                self._reset_cell_widget(cell, cell["row"], cell["col"], "text")
+            cell["kind"] = "text"
+            cell.pop("fit_window", None)
+            cell["image"].setText(message)
+            cell["image"].setWordWrap(True)
+            cell["image"].setStyleSheet(self.ERROR_STYLE)
+            cell["error"] = True
+        self._run_status = f"error in {error.filter_name}"
+        self.set_status(f"{self._run_status}: {type(original).__name__}: {original}")
+
+    def _clear_error_style(self):
+        for row in self.image_canvas or []:
+            for cell in row:
+                if cell is not None and cell.pop("error", False):
+                    cell["image"].setStyleSheet("")
+                    cell["image"].setWordWrap(False)
 
     def reset_sliders(self):
         for widget_idx, ctrl in self.ctrl.items():
