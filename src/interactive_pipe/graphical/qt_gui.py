@@ -654,10 +654,10 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         self._sync_zoom(False)
 
     def _sync_zoom(self, zoom_in: bool):
-        views = self._view_sync().views
+        # zoom around the center of a view showing an image: the state is shared anyway
+        views = [view for view in self._view_sync().views if view.has_image()]
         if not views:
             return
-        # zoom around the center of the first view: the state is shared anyway
         views[0].zoom_in() if zoom_in else views[0].zoom_out()
 
     def reset_view(self):

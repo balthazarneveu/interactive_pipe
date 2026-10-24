@@ -84,6 +84,9 @@ def _ensure_mpl_cell(cell: dict, grid_layout, row: int, col: int):
         ax_placeholder = canvas.figure.subplots()
         previous_widget = cell.get("image")
         if previous_widget is not None and previous_widget is not canvas:
+            detach = getattr(previous_widget, "detach", None)
+            if callable(detach):  # an ImageView leaves the shared zoom sync
+                detach()
             previous_widget.setParent(None)  # the QLabel placeholder is replaced by the canvas
         cell["image"] = canvas
         grid_layout.addWidget(
