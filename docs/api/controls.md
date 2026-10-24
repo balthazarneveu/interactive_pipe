@@ -4,6 +4,8 @@
 
 ::: interactive_pipe.CircularControl
 
+::: interactive_pipe.RangeControl
+
 ::: interactive_pipe.TextPrompt
 
 ::: interactive_pipe.TimeControl
