@@ -216,3 +216,13 @@ def test_threaded_runs_coalesce_and_display_the_latest_values():
 def test_threaded_mode_is_off_by_default():
     gui = build_gui(spy_pipeline)
     assert not gui.window.threaded
+
+
+def test_threaded_full_run_exec_and_quit_stops_the_worker():
+    gui = build_gui(slow_pipeline, threaded=True)
+    runner = gui.window._runner
+    qt_gui.QTimer.singleShot(0, lambda: gui.window.update_parameter("slow_gain", 0.9))
+    qt_gui.QTimer.singleShot(100, gui.close)
+    results = gui(INPUT_IMAGE.copy())
+    assert isinstance(results, list)
+    assert not gui.window.threaded and not runner.isRunning()
