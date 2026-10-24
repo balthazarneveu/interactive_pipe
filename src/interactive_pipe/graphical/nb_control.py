@@ -1,6 +1,6 @@
 import logging
 
-from interactive_pipe.headless.control import Control, RangeControl
+from interactive_pipe.headless.control import Control, RangeControl, range_pair
 
 try:
     from ipywidgets import (
@@ -118,7 +118,7 @@ class RangeSliderNotebookControl(BaseControl):
         return widget_class(  # type: ignore[reportOptionalCall]
             min=self.ctrl.value_range[0],  # type: ignore[reportOptionalSubscript]
             max=self.ctrl.value_range[1],  # type: ignore[reportOptionalSubscript]
-            value=tuple(self.ctrl.value),
+            value=range_pair(self.ctrl),
             step=self.ctrl.step,
             style=style,
             layout=self.layout,

@@ -13,10 +13,11 @@ The module stays importable without dearpygui: the factory then raises
 """
 
 import logging
+from functools import partial
 from pathlib import Path
 from typing import Any, List, Optional, cast
 
-from interactive_pipe.headless.control import CircularControl, Control, RangeControl
+from interactive_pipe.headless.control import CircularControl, Control, RangeControl, range_pair
 
 try:
     from interactive_pipe.graphical.dpg_backend import INSTALL_HINT, dpg
@@ -195,9 +196,11 @@ class RangeSliderControl(BaseControl):
 
     def create(self, parent):
         value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
-        lo, hi = self.ctrl.value
-        add_slider = dpg.add_slider_int if self.ctrl._type is int else dpg.add_slider_float
-        extra = {} if self.ctrl._type is int else {"format": "%.4g"}
+        lo, hi = range_pair(self.ctrl)
+        if self.ctrl._type is int:
+            add_slider = partial(dpg.add_slider_int)
+        else:
+            add_slider = partial(dpg.add_slider_float, format="%.4g")
         self.control_widget = dpg.add_group(parent=parent)
         self.lo_widget = add_slider(
             parent=self.control_widget,
@@ -207,7 +210,6 @@ class RangeSliderControl(BaseControl):
             clamped=True,
             width=-1,
             callback=self._on_lo_change,
-            **extra,
         )
         self.hi_widget = add_slider(
             parent=self.control_widget,
@@ -217,7 +219,6 @@ class RangeSliderControl(BaseControl):
             clamped=True,
             width=-1,
             callback=self._on_hi_change,
-            **extra,
         )
         self._add_tooltip(self.lo_widget)
         self._add_tooltip(self.hi_widget)
@@ -249,7 +250,7 @@ class RangeSliderControl(BaseControl):
         self._emit((lo, hi))
 
     def reset(self):
-        lo, hi = self.ctrl.value
+        lo, hi = range_pair(self.ctrl)
         dpg.set_value(self.lo_widget, self._cast(lo))
         dpg.set_value(self.hi_widget, self._cast(hi))
 

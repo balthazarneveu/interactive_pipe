@@ -1,6 +1,6 @@
 import logging
 
-from interactive_pipe.headless.control import Control, RangeControl
+from interactive_pipe.headless.control import Control, RangeControl, range_pair
 
 try:
     import gradio as gr
@@ -129,7 +129,7 @@ class RangeTextControl(BaseControl):
         if gr is None:
             raise ModuleNotFoundError("gradio is required for Gradio controls")
         value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
-        lo, hi = self.ctrl.value
+        lo, hi = range_pair(self.ctrl)
         info = f"lo, hi within [{value_min}, {value_max}]"
         if self.ctrl.tooltip:
             info = f"{self.ctrl.tooltip} ({info})"
