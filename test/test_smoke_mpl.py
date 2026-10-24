@@ -153,3 +153,38 @@ def test_key_bindings_follow_registry_without_full_screen():
     assert set(gui.key_bindings) == expected
     assert "f11" not in gui.key_bindings
     gui.close()
+
+
+@interactive(mpl_fail=(False,))
+def mpl_maybe_fail(img, mpl_fail=False):
+    if mpl_fail:
+        raise ValueError("bad input")
+    return img
+
+
+def mpl_failing_pipeline(img):
+    failed = mpl_maybe_fail(img)
+    rgb = mpl_to_rgb(img)
+    return failed, rgb
+
+
+def test_filter_error_is_drawn_in_the_axes_and_recovers():
+    pipeline = HeadlessPipeline.from_function(mpl_failing_pipeline, inputs=["img"])
+    gui = mpl_gui.InteractivePipeMatplotlib(pipeline=pipeline, name="mpl errors")
+    gui.pipeline.inputs = [INPUT_IMAGE.copy()]
+    window = gui.window
+    window.refresh()
+    axis_was_on = window.image_canvas[0][0]["ax"].axison
+    window.ctrl["mpl_fail"].update(True)
+    window.refresh()  # must not raise
+    cell = window.image_canvas[0][0]
+    assert window.last_error is not None
+    assert "mpl_maybe_fail raised ValueError" in cell["data"].get_text()
+    assert cell["data"].get_color() == "red"
+    assert len(window.image_canvas[0][1]["ax"].images) == 1  # other axes kept
+    window.ctrl["mpl_fail"].update(False)
+    window.refresh()
+    assert window.last_error is None
+    assert cell["kind"] == "image" and len(cell["ax"].images) == 1
+    assert cell["ax"].axison == axis_was_on
+    gui.close()
