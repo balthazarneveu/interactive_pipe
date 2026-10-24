@@ -79,3 +79,34 @@ from interactive_pipe import interactive
 
 interactive(angle=(0., [-360., 360.]))(processing_block)
 ```
+
+## Exporting an animation
+
+A pipeline driven by a `TimeControl` can be rendered to an animated GIF or to a PNG frame sequence.
+Frame `k` is computed with the time control set to `k / fps` seconds.
+
+**From the GUI**: press `v` (or **Pipeline → Export animation** in the menu bar) and pick a `.gif` or `.png` path.
+The GUI renders 5 seconds at 10 fps; the result (or the error) is printed in the message area.
+
+**Headless**, with full control over the settings:
+
+```python
+from interactive_pipe import export_animation
+from interactive_pipe.headless.pipeline import HeadlessPipeline
+
+pipe = HeadlessPipeline.from_function(pipeline, cache=False)
+pipe.inputs = []  # the pipeline function inputs, if any
+export_animation(pipe, "waves.gif", duration=4.0, fps=20)          # animated GIF, loops forever
+export_animation(pipe, "frames/", duration=2.0, fps=25, output=1)  # frames/frames_0000.png, ...
+```
+
+- `path`: a `.gif` file writes an animated GIF (Pillow); a directory, a `.png` path or a path without suffix
+  writes numbered PNG frames `<stem>_0000.png`, `<stem>_0001.png`, ...
+- `duration` (seconds) and `fps` set the number of frames (`int(duration * fps)`).
+- `output`: which output to record — an index into the outputs, a `(row, col)` cell of a 2D layout,
+  or `None` (default) for the first non-empty output. Outputs must be images (float arrays in `[0, 1]`,
+  grayscale or RGB); curves, tables and text raise a `TypeError`.
+- `time_control`: the control name, needed only when the pipeline has several `TimeControl`s.
+- `loop`: GIF loop count (`0` = forever).
+
+The time control value is restored when the export is done, so the GUI state is unchanged.
