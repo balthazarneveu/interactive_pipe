@@ -2,7 +2,7 @@ import logging
 
 from matplotlib.widgets import CheckButtons, RadioButtons, RangeSlider, Slider, TextBox
 
-from interactive_pipe.headless.control import Control, RangeControl
+from interactive_pipe.headless.control import Control, RangeControl, range_pair
 
 
 class BaseControl:
@@ -72,7 +72,7 @@ class RangeSliderMatplotlibControl(BaseControl):
         if self.ax_control is None:
             raise ValueError("ax_control must be provided for RangeSliderMatplotlibControl")
         value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
-        lo, hi = self.ctrl.value
+        lo, hi = range_pair(self.ctrl)
         slider = RangeSlider(
             self.ax_control,
             self.name,

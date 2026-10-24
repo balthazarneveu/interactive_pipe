@@ -307,6 +307,18 @@ class CircularControl(Control):
         return super().__repr__() + f"| modulo:{self.modulo}"
 
 
+def range_pair(ctrl: "Control") -> Tuple[Union[int, float], Union[int, float]]:
+    """Return the (lo, hi) value of a RangeControl as a typed pair.
+
+    Widgets receive a plain Control reference; this helper validates and
+    narrows the value for them instead of unpacking an untyped `.value`.
+    """
+    value = ctrl.value
+    if not isinstance(value, (list, tuple)) or len(value) != 2:
+        raise TypeError(f"{ctrl.name}: expected a (lo, hi) pair, got {value!r}")
+    return (value[0], value[1])
+
+
 class RangeControl(Control):
     """Two-handle (min / max) slider bound to a ``(lo, hi)`` keyword argument.
 
