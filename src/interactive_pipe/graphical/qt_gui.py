@@ -314,6 +314,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         self.timer: Optional[QTimer] = None
         # coalesced refresh (request_refresh) and in-window error display
         self._refresh_pending = False
+        self._suppress_refresh_requests = False
         self.last_error: Optional[Exception] = None
         self._run_status = ""
         self.on_pixel_hover = self._status_pixel_hover
@@ -558,6 +559,8 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         values while the pipeline runs yields a single run with the latest
         values instead of one queued run per tick.
         """
+        if self._suppress_refresh_requests:
+            return  # reset_sliders runs once after syncing every widget
         if self._runner is not None:
             self._runner.request()
             self.set_status(f"{self._run_status} · running…" if self._run_status else "running…")
@@ -877,11 +880,24 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
                     cell["image"].setWordWrap(False)
 
     def reset_sliders(self):
-        for widget_idx, ctrl in self.ctrl.items():
-            if widget_idx in self.widget_list.keys():
-                self.widget_list[widget_idx].reset()
-            self.update_label(widget_idx)
-        self.refresh()
+        """Sync every widget with its control value, then run once.
+
+        The widgets emit a value change each; those refresh requests are
+        dropped: a single run follows (in the worker when threaded, so a reset
+        or an import does not block the GUI thread on the run lock).
+        """
+        self._suppress_refresh_requests = True
+        try:
+            for widget_idx, ctrl in self.ctrl.items():
+                if widget_idx in self.widget_list.keys():
+                    self.widget_list[widget_idx].reset()
+                self.update_label(widget_idx)
+        finally:
+            self._suppress_refresh_requests = False
+        if self.threaded:
+            self.request_refresh()
+        else:
+            self.refresh()
 
     def closeEvent(self, event):
         """Handle main window close event - close all detached windows."""
