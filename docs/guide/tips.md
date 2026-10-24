@@ -70,6 +70,16 @@ def my_pipeline(img):
 
 Use `cache="graph-strict"` to additionally receive `context` numpy arrays as read-only views, catching accidental in-place mutation of shared context data.
 
+## Profiling a pipeline
+
+The status line at the bottom of the Qt and Dear PyGui windows shows the duration of the last run, the number of filters and how many were served from the cache. Press ++t++ (or **Pipeline → Profile last run**) for a per-filter table in milliseconds, cached filters flagged. Without a GUI, read the same data from `pipeline.last_run_report` after `pipeline.run()`:
+
+```python
+pipeline.run()
+report = pipeline.last_run_report  # RunReport
+print(report.total, report.timings, report.cached)  # seconds, {filter: seconds}, {cached filter names}
+```
+
 ## Export / import tuning
 
 Press ++e++ in the GUI to export the current parameters to YAML and ++o++ to load them back; headless pipelines expose the same via `export_tuning()` / `load_tuning()`. Press ++g++ to export a graphviz diagram of the pipeline.
