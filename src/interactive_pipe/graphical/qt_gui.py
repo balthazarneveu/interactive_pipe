@@ -314,7 +314,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         self.timer: Optional[QTimer] = None
         # coalesced refresh (request_refresh) and in-window error display
         self._refresh_pending = False
-        self.last_error: Optional[FilterError] = None
+        self.last_error: Optional[Exception] = None
         self._run_status = ""
         self.on_pixel_hover = self._status_pixel_hover
         # threaded runs (opt-in): a worker thread + a lock serializing every run
@@ -576,7 +576,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         """Run widget-triggered refreshes in a worker thread (latest wins)."""
         if self._runner is not None:
             return
-        self._runner = PipelineRunner(self._run_pipeline, self._run_lock)
+        self._runner = PipelineRunner(self._run_pipeline_in_worker, self._run_lock)
         self._runner.run_finished.connect(self._on_threaded_run_finished)
         self._runner.start()
 
@@ -826,10 +826,24 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             error = exc
         return seq, out, error, self.pipeline.last_run_report  # type: ignore[reportOptionalMemberAccess]
 
-    def _display_run(self, seq, out, error: Optional[FilterError], report):
+    def _run_pipeline_in_worker(self):
+        """_run_pipeline for the worker thread: any other exception becomes a
+        failed result too, so the GUI thread shows it instead of "running…"."""
+        try:
+            return self._run_pipeline()
+        except Exception as exc:  # broad on purpose: report it in the window
+            logging.exception("Background pipeline run failed")
+            return self._run_seq, None, exc, None
+
+    def _display_run(self, seq, out, error: Optional[Exception], report):
         self._displayed_seq = seq
-        if error is not None:
+        if isinstance(error, FilterError):
             self.show_error(error)
+            return
+        if error is not None:  # raised outside the filters (threaded runs only)
+            self.last_error = error
+            self._run_status = "error"
+            self.set_status(f"error: {type(error).__name__}: {error}")
             return
         self._clear_error_style()
         self.last_error = None

@@ -292,3 +292,28 @@ def test_reading_the_controls_does_not_revert_a_concurrent_change(monkeypatch):
     gui.pipeline.update_parameters_from_controls()
     assert control.value == pytest.approx(0.9)
     assert gui.pipeline.parameters["spy_gain"]["gain"] == pytest.approx(0.3)
+
+
+def test_threaded_error_outside_the_filters_is_shown(monkeypatch):
+    gui = build_gui(slow_pipeline, threaded=True)
+    window = gui.window
+    try:
+        window.ctrl["slow_fail"].update(False)  # controls are shared with other tests
+        window.refresh()
+
+        def broken_run():
+            raise KeyError("missing buffer")
+
+        monkeypatch.setattr(gui.pipeline, "run", broken_run)
+        window.update_parameter("slow_gain", 0.2)
+        assert wait_for_idle(window)
+        assert isinstance(window.last_error, KeyError)
+        assert "running" not in window.status_label.text()
+        assert "KeyError" in window.status_label.text()
+        monkeypatch.undo()
+        window.update_parameter("slow_gain", 0.4)
+        assert wait_for_idle(window)
+        assert window.last_error is None
+        assert "ms" in window.status_label.text()
+    finally:
+        window.stop_threaded_runs()
