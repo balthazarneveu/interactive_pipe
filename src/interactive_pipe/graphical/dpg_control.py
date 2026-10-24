@@ -350,7 +350,10 @@ class IconButtonsControl(BaseControl):
         self.choices: List[str] = []
         group = dpg.add_group(horizontal=True, parent=parent)
         for choice, icon_path in zip(self.ctrl.value_range, self.ctrl.icons):  # type: ignore[arg-type]
-            width, height, _channels, data = dpg.load_image(str(Path(icon_path)))
+            loaded = dpg.load_image(str(Path(icon_path)))
+            if loaded is None:  # Dear PyGui returns None for a missing or unreadable image
+                raise FileNotFoundError(f"Could not load icon {icon_path!s} for control {self.name!r}")
+            width, height, _channels, data = loaded
             texture = dpg.add_static_texture(
                 width=width, height=height, default_value=data, parent=self.texture_registry
             )
