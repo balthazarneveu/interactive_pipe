@@ -51,7 +51,7 @@ def fake_module(name, attr_names):
     return mod
 
 pyside6 = fake_module("PySide6", [])
-pyside6.QtCore = fake_module("PySide6.QtCore", ["QSize", "Qt", "QTimer", "QUrl"])
+pyside6.QtCore = fake_module("PySide6.QtCore", ["QSize", "Qt", "QThread", "QTimer", "QUrl", "Signal"])
 pyside6.QtGui = fake_module("PySide6.QtGui", ["QIcon", "QImage", "QPixmap"])
 pyside6.QtMultimedia = fake_module("PySide6.QtMultimedia", ["QAudioOutput", "QMediaPlayer"])
 pyside6.QtWidgets = fake_module(
