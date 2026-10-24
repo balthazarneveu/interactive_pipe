@@ -6,9 +6,10 @@ import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
+from interactive_pipe.core.engine import FilterError
 from interactive_pipe.data_objects.curves import Curve
 from interactive_pipe.data_objects.table import Table
-from interactive_pipe.graphical.window import InteractivePipeWindow, display_kind
+from interactive_pipe.graphical.window import InteractivePipeWindow, display_kind, format_error_message
 
 
 class MatplotlibWindow(InteractivePipeWindow):
@@ -38,6 +39,7 @@ class MatplotlibWindow(InteractivePipeWindow):
         """
         super().__init__(size=size, pipeline=pipeline, name=name)
         self.controls = controls
+        self.last_error: Optional[FilterError] = None
         self.fig: Optional[Figure] = None  # Will be set by subclasses like MainWindow
         if style is not None:
             plt.style.use(style)
@@ -113,11 +115,31 @@ class MatplotlibWindow(InteractivePipeWindow):
         if not hasattr(self, "need_redraw"):
             self.need_redraw = False
         if self.pipeline is not None:
-            out = self.pipeline.run()
-            self.refresh_display(out)
+            try:
+                out = self.pipeline.run()
+            except FilterError as error:
+                self.show_error(error)
+            else:
+                self.last_error = None
+                self.refresh_display(out)
         if self.need_redraw:
             plt.draw()
         self.need_redraw = False
+
+    def show_error(self, error: FilterError):
+        """Draw a pipeline error in red in the failing filter's axes (or the first ones)."""
+        self.last_error = error
+        for row, col in self.error_cell_positions(error):
+            ax_dict = self.image_canvas[row][col]  # type: ignore[index]
+            ax = ax_dict["ax"]
+            ax.clear()
+            ax.set_axis_off()
+            ax_dict["data"] = ax.text(
+                0.5, 0.5, format_error_message(error), color="red", ha="center", va="center", wrap=True, fontsize=10
+            )
+            # not a display kind: the next good output starts from clean axes
+            ax_dict["kind"] = "error"
+        self.need_redraw = True
 
     def convert_image(self, img):
         if isinstance(img, np.ndarray) and len(img.shape) > 1:
