@@ -64,6 +64,11 @@ def get_controls_from_decorated_function_declaration(func: Callable, decorator_c
     # def func(img1, img2, param_1=Control(...))
 
     for param_name, unknown_keyword_arg in keyword_args.items():
+        if param_name in decorator_controls:
+            # The decorator wins: the signature default is then a plain value
+            # (e.g. ``window=(0.2, 0.8)`` next to ``window=RangeControl(...)``),
+            # not a tuple shorthand to turn into a second control.
+            continue
         chosen_control = __create_control_from_keyword_argument(param_name, unknown_keyword_arg, seen_control_names)
         if chosen_control is not None:
             controls[param_name] = chosen_control
