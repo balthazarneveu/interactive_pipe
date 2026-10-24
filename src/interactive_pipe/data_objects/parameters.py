@@ -14,6 +14,15 @@ except ImportError:
     logging.warning(YAML_NOT_DETECTED_MESSAGE)
 
 
+def _tuples_to_lists(data):
+    """Tuples (e.g. RangeControl values) as plain lists so SafeLoader can read them back."""
+    if isinstance(data, dict):
+        return {key: _tuples_to_lists(value) for key, value in data.items()}
+    if isinstance(data, (list, tuple)):
+        return [_tuples_to_lists(value) for value in data]
+    return data
+
+
 class Parameters(Data):
     def _set_file_extensions(self):
         self.file_extensions = [".json"]
@@ -56,7 +65,7 @@ class Parameters(Data):
         if not YAML_SUPPORT:
             raise RuntimeError(YAML_NOT_DETECTED_MESSAGE)
         with open(path, "w") as outfile:
-            yaml.dump(data, outfile, **kwargs)
+            yaml.dump(_tuples_to_lists(data), outfile, **kwargs)
 
     @staticmethod
     def load_json(
