@@ -160,6 +160,15 @@ def _series_data(single_curve: SingleCurve) -> Tuple[List[float], List[float]]:
     return x.tolist(), y.tolist()
 
 
+def _extent(values: List[List[float]]) -> Optional[Tuple[float, float]]:
+    """(min, max) over several series, None when there is no finite data."""
+    data = np.concatenate([np.asarray(v, dtype=np.float64) for v in values]) if values else np.empty(0)
+    data = data[np.isfinite(data)]
+    if data.size == 0:
+        return None
+    return float(data.min()), float(data.max())
+
+
 def _ensure_plot(cell: Dict[str, Any], curve: Curve) -> Dict[str, Any]:
     plot_state = cell.get("plot")
     if plot_state is not None and _exists(cell.get("content")):
@@ -172,7 +181,7 @@ def _ensure_plot(cell: Dict[str, Any], curve: Curve) -> Dict[str, Any]:
     y_axis = dpg.add_plot_axis(dpg.mvYAxis, parent=plot)
     cell["content"] = plot
     cell["natural_size"] = (width, height)
-    plot_state = {"plot": plot, "x_axis": x_axis, "y_axis": y_axis, "series": []}
+    plot_state = {"plot": plot, "x_axis": x_axis, "y_axis": y_axis, "series": [], "fitted": {}}
     cell["plot"] = plot_state
     return plot_state
 
@@ -183,10 +192,14 @@ def update_curve_cell(cell: Dict[str, Any], curve: Curve) -> bool:
     plot_state = _ensure_plot(cell, curve)
     series_items: List[Dict[str, Any]] = plot_state["series"]
     legend = False
+    all_x: List[List[float]] = []
+    all_y: List[List[float]] = []
     # curves without data emit no series: index the series by their own running count
     drawn = [(index, single_curve) for index, single_curve in enumerate(curve.curves) if single_curve.y is not None]
     for series_index, (index, single_curve) in enumerate(drawn):
         x_data, y_data = _series_data(single_curve)
+        all_x.append(x_data)
+        all_y.append(y_data)
         color, has_line, has_marker = _parse_style(single_curve.style)
         scatter = has_marker and not has_line
         label = single_curve.label if single_curve.label is not None else f"curve {index}"
@@ -218,12 +231,18 @@ def update_curve_cell(cell: Dict[str, Any], curve: Curve) -> bool:
     dpg.configure_item(plot_state["x_axis"], label=curve.xlabel or "", no_gridlines=curve.grid is False)
     dpg.configure_item(plot_state["y_axis"], label=curve.ylabel or "", no_gridlines=curve.grid is False)
     dpg.configure_item(plot_state["plot"], label=curve.title or "", no_title=not curve.title)
-    for axis, limits in ((plot_state["x_axis"], curve.xlim), (plot_state["y_axis"], curve.ylim)):
+    # Fit auto axes only when the plot is created or the data extent changes, so that
+    # the user's zoom & pan survive refreshes of animated / live-updating curves.
+    fitted: Dict[str, Any] = plot_state.setdefault("fitted", {})
+    for key, limits, extent in (("x", curve.xlim, _extent(all_x)), ("y", curve.ylim, _extent(all_y))):
+        axis = plot_state[f"{key}_axis"]
         if limits is not None:
             dpg.set_axis_limits(axis, float(limits[0]), float(limits[1]))
-        else:
+            fitted[key] = "fixed"
+        elif created or key not in fitted or fitted[key] != extent:
             dpg.set_axis_limits_auto(axis)
             dpg.fit_axis_data(axis)
+            fitted[key] = extent
     legend_items = dpg.get_item_children(plot_state["plot"], 0) or []
     for legend_item in legend_items:
         dpg.configure_item(legend_item, show=legend)
