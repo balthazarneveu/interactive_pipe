@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from functools import partial
 from pathlib import Path
@@ -46,6 +47,8 @@ class InteractivePipeGUI:
         custom_end: Callable = lambda: None,
         audio: bool = False,
         size=None,
+        restore_session: bool = False,
+        session_path: Optional[Path] = None,
         **kwargs,
     ) -> None:
         if controls is None:
@@ -53,7 +56,12 @@ class InteractivePipeGUI:
         if pipeline is None:
             raise ValueError("pipeline must be provided")
         self.pipeline = pipeline
-        self.custom_end = custom_end
+        self.restore_session = restore_session
+        self._session_path = None if session_path is None else Path(session_path)
+        # every backend calls custom_end() once its event loop has exited:
+        # wrap it so the session is saved there without touching the backends
+        self.custom_end = self._end_with_session(custom_end)
+        self._session_sync_pending = False
         self.audio = audio
         self.name = name
         self.size = size
@@ -73,6 +81,9 @@ class InteractivePipeGUI:
         self.context_key_bindings = {}
         self.init_app(**kwargs)
         self.reset_context_events()
+        if self.restore_session:
+            self.load_session()
+            self.run = self._run_with_session(self.run)
 
     def init_app(self):
         """Init the app
@@ -329,6 +340,114 @@ class InteractivePipeGUI:
 
     def on_parameters_loaded(self):
         """Sync the widgets after `load_parameters` (backends override this)."""
+
+    # ---------------------------------------------------------------------
+    # Session restore (remember the slider values between launches)
+
+    @property
+    def session_file(self) -> Path:
+        """Where the session is saved: `session_path` or a per-pipeline default.
+
+        Default: ~/.interactive_pipe/sessions/<name slug>.yaml (.json without yaml).
+        """
+        if self._session_path is not None:
+            return self._session_path
+        slug = re.sub(r"[^A-Za-z0-9]", "_", self.name) if self.name else "pipeline"
+        extension = self._file_extensions(Parameters)[-1]
+        return Path.home() / ".interactive_pipe" / "sessions" / f"{slug}{extension}"
+
+    def _end_with_session(self, custom_end: Callable) -> Callable:
+        """Wrap the user's custom_end so that leaving the GUI saves the session."""
+
+        def end_with_session():
+            if self.restore_session:
+                self.save_session()
+            return custom_end()
+
+        return end_with_session
+
+    def _run_with_session(self, backend_run: Callable) -> Callable:
+        """Wrap the backend's run: sync the widgets with a session restored before the inputs were set."""
+
+        def run_with_session(*args, **kwargs):
+            if self._session_sync_pending and self._inputs_ready():
+                self._session_sync_pending = False
+                self._sync_restored_session()
+            return backend_run(*args, **kwargs)
+
+        return run_with_session
+
+    def _inputs_ready(self) -> bool:
+        return bool(getattr(self.pipeline, "_PipelineCore__initialized_inputs", False))
+
+    def _sync_restored_session(self):
+        try:
+            self.on_parameters_loaded()
+        except Exception as exc:
+            # Broad on purpose: the values are restored, only the widgets may lag behind
+            logging.warning(f"Cannot sync the widgets with the restored session: {exc}")
+
+    def save_session(self) -> Optional[Path]:
+        """Save the current parameters to `session_file`; None if it failed."""
+        path = self.session_file
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self.pipeline.export_tuning(path, override=True)
+        except Exception as exc:
+            # Broad on purpose: called when the GUI closes, must never crash the exit
+            logging.warning(f"Cannot save the session to {path}: {exc}")
+            return None
+        logging.info(f"Saved session to {path}")
+        return path
+
+    def load_session(self) -> bool:
+        """Restore the parameters saved in `session_file` and sync the widgets.
+
+        The widgets are synced (`on_parameters_loaded`) right away when the
+        pipeline inputs are set, otherwise when `run()` starts.
+
+        A missing file keeps the defaults silently; a corrupt one (or values
+        that no longer fit the pipeline) logs a warning and keeps the defaults.
+        Entries for filters or parameters which no longer exist are ignored.
+        Returns whether a session was restored.
+        """
+        path = self.session_file
+        if not path.is_file():
+            return False
+        previous = self.pipeline.parameters
+        try:
+            saved = Parameters.from_file(path).data
+            if not isinstance(saved, dict):
+                raise TypeError(f"expected a dictionary, got {type(saved).__name__}")
+            restored = {
+                filter_name: {key: value for key, value in values.items() if key in previous[filter_name]}
+                for filter_name, values in saved.items()
+                if filter_name in previous and isinstance(values, dict)
+            }
+            self.pipeline.parameters = restored
+        except Exception as exc:
+            # Broad on purpose: a stale or corrupt session must not prevent the GUI from starting
+            logging.warning(f"Cannot restore the session from {path}, using the default values: {exc}")
+            self.pipeline.parameters = previous  # roll back values the controls rejected
+            return False
+        logging.info(f"Restored session from {path}")
+        if self._inputs_ready():
+            self._sync_restored_session()
+        else:
+            # at construction the inputs are not set yet and the widgets
+            # cannot refresh: sync them when run() starts
+            self._session_sync_pending = True
+        return True
+
+    def clear_session(self):
+        """delete the saved session file and reset the sliders"""
+        path = self.session_file
+        if path.is_file():
+            path.unlink()
+            logging.info(f"Deleted session file {path}")
+        self.reset_parameters()
+
+    # ---------------------------------------------------------------------
 
     def print_parameters(self):
         """print parameters dictionary in the console"""

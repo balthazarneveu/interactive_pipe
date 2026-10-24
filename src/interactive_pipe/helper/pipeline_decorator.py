@@ -72,7 +72,11 @@ def interactive_pipeline(
             it (e.g. Gradio).
         name: Window/application title. Defaults to the function name.
         **kwargs_gui: Extra options forwarded to the GUI backend,
-            e.g. ``size`` (``(w, h)``, ``"fullscreen"`` or ``"maximized"``).
+            e.g. ``size`` (``(w, h)``, ``"fullscreen"`` or ``"maximized"``),
+            or ``restore_session=True`` to remember the slider values
+            between launches (saved on exit to
+            ``~/.interactive_pipe/sessions/<name>.yaml`` unless
+            ``session_path`` is given).
 
     Environment overrides (read when the decorator is applied):
         ``INTERACTIVE_PIPE_GUI`` (auto/qt/dpg/mpl/nb/gradio/headless/none)
