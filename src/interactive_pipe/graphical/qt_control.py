@@ -1,7 +1,7 @@
 import logging
 from functools import partial
 
-from interactive_pipe.headless.control import Control, RangeControl
+from interactive_pipe.headless.control import Control, RangeControl, range_pair
 
 # Qt symbols come from the shared binding cascade in qt_backend; unlike the GUI
 # modules this one stays importable without any Qt binding (the factory then
@@ -563,6 +563,6 @@ class RangeSliderControl(BaseControl):
         self.update_func(self.name, (self.to_value(self.lo_slider.value()), self.to_value(self.hi_slider.value())))
 
     def reset(self):
-        lo, hi = self.ctrl.value
+        lo, hi = range_pair(self.ctrl)
         self._set_silently(self.lo_slider, self.to_position(lo))
         self._set_silently(self.hi_slider, self.to_position(hi))
