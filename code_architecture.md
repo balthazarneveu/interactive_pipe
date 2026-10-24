@@ -202,7 +202,7 @@ Note: `InteractivePipeGUI` & `InteractivePipeWindow` have to be defined for each
     `reset_parameters`, `close`,
     `save_parameters`, `load_parameters`, `print_parameters`
     `display_graph`, `help`.
-    Docstring of these methods will be used in the "F1" help descriptions
+    - The default actions (key, menu entry, F1 help line) come from the registry in [`actions.py`](/src/interactive_pipe/graphical/actions.py): `set_default_key_bindings`, `show_help` and the Qt / Dear PyGui menu bars are all built from it; `ask_path` is the hook backends override to ask for a file path (native dialog or terminal).
     - 📋 Redefining `print_message` will allow a window popup for instance.
     
 

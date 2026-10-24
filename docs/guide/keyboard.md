@@ -12,6 +12,20 @@ Built-in shortcuts while using the GUI (Qt, Dear PyGui and matplotlib backends):
 - ++e++ export parameters dictionary to a yaml file
 - ++o++ import parameters dictionary from a yaml file (sliders update)
 - ++g++ export a pipeline diagram (requires graphviz)
+- ++q++ quit
+
+++e++, ++o++ and ++w++ ask for the file path with a native file dialog on Qt and Dear PyGui (cancel does nothing); matplotlib asks in the terminal (empty input cancels). ++e++ suggests `<name>_tuning.yaml`.
+
+## Menu bar
+
+Qt and Dear PyGui expose every action above in a menu bar, with the shortcut shown next to each entry:
+
+- **File**: save images (++w++), export tuning (++e++), import tuning (++o++), quit (++q++)
+- **View**: toggle fullscreen (++f11++)
+- **Pipeline**: reset parameters (++r++), print parameters (++i++), show graph (++g++)
+- **Help**: keyboard shortcuts (++f1++)
+
+Menu entries and keys run the same action, so rebinding a key (`bind_key`) never changes what a menu entry does. Matplotlib has no menu bar and keeps the shortcuts. Keys, menus and the ++f1++ help are all generated from one table in `interactive_pipe/graphical/actions.py`.
 
 ## KeyboardControl
 

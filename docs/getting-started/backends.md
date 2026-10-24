@@ -21,6 +21,7 @@ Select the backend with the `gui=` argument of `@interactive_pipeline` (or `@int
 | Plot curves | ✅ | ✅ (zoom & pan) | ✅ | ✅ | ✅ |
 | Change layout | ✅ | ✅ | ✅ | ✅ | ➖ |
 | Keyboard shortcuts / fullscreen | ✅ | ✅ | ✅ | ➖ | ➖ |
+| Menu bar | ✅ | ✅ | ➖ | ➖ | ➖ |
 | Audio support | ✅ | ➖ | ➖ | ➖ | ✅ |
 | Image buttons | ✅ | ✅ | ➖ | ➖ | ➖ |
 | Circular slider | ✅ | ✅ (knob) | ➖ | ➖ | ➖ |

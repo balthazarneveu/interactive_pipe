@@ -4,8 +4,11 @@
 
 ### New features
 - **Dear PyGui backend (`gui="dpg"`)**: a GPU-rendered window built on [Dear PyGui](https://github.com/hoffstadt/DearPyGui) (`pip install "interactive-pipe[dpg]"`). Same declarative feature set as Qt — sliders, checkboxes, dropdowns, text prompts, rangeless numeric inputs, image buttons, knobs for `CircularControl`, panels at any position (nested, collapsible, detached), keyboard shortcuts and `KeyboardControl`, `TimeControl` animations, live layout changes — with images uploaded as raw float textures, native zoomable plots for `Curve` outputs and native tables. The `auto` backend picks it after Qt and before matplotlib. No audio playback.
+- **Menu bar** (Qt and Dear PyGui): File / View / Pipeline / Help menus expose every GUI action (save images, export/import tuning, quit, fullscreen, reset, print parameters, graph, help) with its shortcut shown next to the entry. Keys, menu entries and the F1 help come from a single actions registry (`interactive_pipe.graphical.actions`).
 
 ### Improvements & bug fixes
+- The `e` key (export tuning) silently did nothing (`export_tuning()` was called without a path); it now asks for a path and writes the yaml/json file.
+- `w` / `e` / `o` no longer freeze the GUI waiting for a path typed in the terminal: Qt and Dear PyGui open a native file dialog (cancel does nothing). Backends override `InteractivePipeGUI.ask_path`; matplotlib keeps the terminal prompt (empty input cancels).
 - A filter that changes its output type between frames (image one frame, text/curve/table the next) now rebuilds the display cell on Qt and matplotlib instead of feeding the new content to the previous widget; 1D signals update correctly on matplotlib.
 - Pipeline inputs are no longer deep-copied on every run when the read-only input views already protect them (`safe_input_buffer_deepcopy=None`, the new default, copies only unprotected objects; pass `True` to force the previous behavior).
 - A key-bound event (`bind_key_to_context`) only re-runs the filters that read it through `events` (and what depends on them) instead of resetting the whole cache.
