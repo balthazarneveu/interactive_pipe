@@ -384,6 +384,31 @@ class InteractivePipeGUI:
                 ]
             )
 
+    def export_animation(self):
+        """render the time control to a GIF (5 s at 10 fps) or PNG frames"""
+        # Local import: keeps this module's import block untouched
+        from interactive_pipe.headless.animation import export_animation, find_time_control
+
+        try:
+            find_time_control(self.pipeline)
+        except ValueError as exc:
+            # No (or several) TimeControl: nothing to animate, do not ask for a path
+            self.print_message([str(exc)])
+            return
+
+        def on_path(path: Path):
+            try:
+                written = export_animation(self.pipeline, path, duration=5.0, fps=10.0)
+            except Exception as exc:
+                # Broad on purpose: an action triggered by a key must never crash the GUI
+                self.print_message([f"Animation export failed: {exc}"])
+            else:
+                self.print_message([f"Animation exported to {written}"])
+            finally:
+                self.on_parameters_loaded()
+
+        self._with_path("Export animation", True, [".gif", ".png"], f"{self._default_file_stem()}.gif", on_path)
+
     def _format_key_for_help(self, key: str) -> str:
         """Format a key string for display in help text.
 
