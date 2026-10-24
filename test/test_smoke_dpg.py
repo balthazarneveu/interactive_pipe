@@ -223,6 +223,22 @@ def time_pipeline(img):
     return out
 
 
+DPG_SPY_CALLS = []
+
+
+@interactive(gain=(0.5, [0.0, 1.0]), fail=(False,))
+def dpg_spy(img, gain=0.5, fail=False):
+    DPG_SPY_CALLS.append(gain)
+    if fail:
+        raise ValueError("bad input")
+    return img * gain
+
+
+def dpg_spy_pipeline(img):
+    out = dpg_spy(img)
+    return out
+
+
 def build_gui(pipeline_function, **gui_kwargs):
     pipeline = HeadlessPipeline.from_function(pipeline_function, inputs=["img"])
     gui = InteractivePipeDPG(pipeline=pipeline, name="smoke", **gui_kwargs)
@@ -266,6 +282,7 @@ def test_second_refresh_reuses_the_texture_buffer():
     cell = window.image_canvas[0][0]
     texture, buffer = cell["texture"], cell["buffer"]
     window.update_parameter("brightness", 1.0)
+    window.tick_timers()  # flush the refresh coalesced by update_parameter
     assert cell["texture"] == texture and cell["buffer"] is buffer  # same size: pixels copied in place
     assert buffer[..., 0].max() == pytest.approx(1.0)
     assert buffer[..., 3].min() == 1.0
@@ -290,6 +307,7 @@ def test_update_parameter_per_control_type_through_widget_callbacks():
     widgets["steps"]._on_change(None, 3, None)
     assert window.ctrl["steps"].value == 3
     # the refresh triggered by updates must propagate to the styled title
+    window.tick_timers()  # flush the refresh coalesced by update_parameter
     assert dpg.get_value(window.image_canvas[0][0]["title"]) == "mode=max"
     assert gui.pipeline.parameters["adjust"]["mode"] == "max"
 
@@ -367,8 +385,10 @@ def test_update_image_all_branches_create_and_update():
     assert len(dpg.get_item_children(table_item, 1)) == 2  # rows
     # series count follows the Curve between frames
     window.update_parameter("ncurves", 3)
+    window.tick_timers()  # flush the refresh coalesced by update_parameter
     assert len(plot_state["series"]) == 4
     window.update_parameter("ncurves", 1)
+    window.tick_timers()  # flush the refresh coalesced by update_parameter
     assert len(plot_state["series"]) == 2
     assert all(dpg.does_item_exist(entry["item"]) for entry in plot_state["series"])
 
@@ -388,6 +408,7 @@ def test_output_type_change_between_frames_rebuilds_the_cell():
     window.refresh()
     for kind in ["text", "curve", "table", "image", "signal", "text", "image", "curve", "text"]:
         window.update_parameter("out_kind", kind)
+        window.tick_timers()  # flush the refresh coalesced by update_parameter
         cell = window.image_canvas[0][0]
         expected_kind = "curve" if kind == "signal" else kind
         assert cell["kind"] == expected_kind
@@ -406,10 +427,12 @@ def test_layout_grid_change_rebuilds_rows():
     assert len(window._rows) == 1
     first_row_group = window._rows[0]["group"]
     window.update_parameter("grid", "square")
+    window.tick_timers()  # flush the refresh coalesced by update_parameter
     assert (len(window.image_canvas), len(window.image_canvas[0])) == (2, 2)
     assert len(window._rows) == 2 and not dpg.does_item_exist(first_row_group)
     assert len(dpg.get_item_children(window.image_grid, 1)) == 4  # 2 rows + 2 spacers
     window.update_parameter("grid", "row")
+    window.tick_timers()  # flush the refresh coalesced by update_parameter
     assert (len(window.image_canvas), len(window.image_canvas[0])) == (1, 4)
 
 
@@ -450,6 +473,7 @@ def test_key_press_dispatch_and_keyboard_control():
     assert "level" not in window.widget_list  # keyboard controls have no widget
     gui._on_key_press(None, dpg.mvKey_K, None)
     assert window.ctrl["level"].value == 2
+    window.tick_timers()  # keyboard sliders refresh on the next frame too
     assert dpg.get_value(window.image_canvas[0][0]["title"]) == "level=2"
     gui._on_key_press(None, dpg.mvKey_J, None)
     gui._on_key_press(None, dpg.mvKey_J, None)
@@ -532,6 +556,7 @@ def test_rangeless_knob_and_prompt_controls():
     widgets["free_float"]._on_change(None, 2.25, None)
     widgets["angle"]._on_change(None, 180.0, None)
     widgets["txt"]._emit("typed")
+    window.tick_timers()  # flush the refresh coalesced by update_parameter
     assert window.ctrl["free_int"].value == 7 and window.ctrl["free_float"].value == pytest.approx(2.25)
     assert window.ctrl["angle"].value == pytest.approx(180.0)
     assert dpg.get_value(window.image_canvas[0][0]["title"]) == "typed"
@@ -721,3 +746,45 @@ def test_terminal_fallback_before_the_viewport_is_shown(tmp_path, monkeypatch):
     gui.save_parameters()
     assert target.exists()
     assert gui.window._file_dialog is None
+
+
+def test_parameter_updates_are_flushed_once_per_frame():
+    gui = build_gui(dpg_spy_pipeline)
+    window = gui.window
+    window.refresh()
+    DPG_SPY_CALLS.clear()
+    for value in (0.1, 0.2, 0.3):
+        window.update_parameter("gain", value)
+    assert DPG_SPY_CALLS == [] and window._refresh_pending
+    window.tick_timers()
+    assert DPG_SPY_CALLS == [pytest.approx(0.3)]
+    window.tick_timers()  # nothing pending: no extra run
+    assert len(DPG_SPY_CALLS) == 1
+
+
+def test_status_line_and_error_display():
+    gui = build_gui(dpg_spy_pipeline)
+    window = gui.window
+    assert dpg.does_item_exist(window.status_text)
+    window.refresh()
+    assert "ms" in dpg.get_value(window.status_text)
+    assert window.image_canvas[0][0]["kind"] == "image"
+    window.ctrl["fail"].update(True)
+    window.refresh()  # must not raise
+    cell = window.image_canvas[0][0]
+    assert window.last_error is not None
+    assert cell["kind"] == "text" and "dpg_spy raised ValueError" in dpg.get_value(cell["content"])
+    assert "error in dpg_spy" in dpg.get_value(window.status_text)
+    window.ctrl["fail"].update(False)
+    window.refresh()
+    assert window.last_error is None
+    assert cell["kind"] == "image" and cell["texture"] is not None
+    assert "error" not in dpg.get_value(window.status_text)
+
+
+def test_first_run_failure_builds_the_canvas():
+    gui = build_gui(dpg_spy_pipeline)
+    window = gui.window
+    window.ctrl["fail"].update(True)
+    window.refresh()
+    assert "dpg_spy" in dpg.get_value(window.image_canvas[0][0]["content"])
