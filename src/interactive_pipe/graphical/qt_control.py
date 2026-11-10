@@ -143,21 +143,27 @@ else:
     SilentSlider = None  # type: ignore[reportAssignmentType]
 
 
-def _dial_offset(span):
-    """Dial position of the range minimum.
+def _dial_reference(value_min, value_max):
+    """Value shown at north: 0 when the range contains it (0-360, -180-180), else the minimum."""
+    return 0 if value_min <= 0 <= value_max else value_min
+
+
+def _dial_offset(span, reference):
+    """Shift between a value's offset from the minimum and its dial position.
 
     QDial puts its minimum at the bottom and increases clockwise, so half a
-    turn further is the top: a 0-360 dial then points north at 0.
+    turn further is the top. ``reference`` is the offset (from the minimum) of
+    the value that should point north.
     """
-    return round(span / 2)
+    return round(span / 2 - reference) % span
 
 
-def _to_dial(offset_from_min, span):
-    return (offset_from_min + _dial_offset(span)) % span if span else 0
+def _to_dial(offset_from_min, span, reference):
+    return (offset_from_min + _dial_offset(span, reference)) % span if span else 0
 
 
-def _from_dial(position, span):
-    return (position - _dial_offset(span)) % span if span else 0
+def _from_dial(position, span, reference):
+    return (position - _dial_offset(span, reference)) % span if span else 0
 
 
 class IntSliderControl(BaseControl):
@@ -214,11 +220,13 @@ class IntSliderControl(BaseControl):
         if not self._dial:
             return value
         valmin, valmax = self.ctrl.value_range[0], self.ctrl.value_range[1]  # type: ignore[reportOptionalSubscript]
-        return valmin + _to_dial(value - valmin, valmax - valmin)
+        return valmin + _to_dial(value - valmin, valmax - valmin, _dial_reference(valmin, valmax) - valmin)
 
     def _on_value_changed(self, valmin, step, value):
         if self._dial:
-            value = valmin + _from_dial(value - valmin, self.ctrl.value_range[1] - valmin)  # type: ignore[reportOptionalSubscript]
+            valmax = self.ctrl.value_range[1]  # type: ignore[reportOptionalSubscript]
+            reference = _dial_reference(valmin, valmax) - valmin
+            value = valmin + _from_dial(value - valmin, valmax - valmin, reference)
         snapped = valmin + round((value - valmin) / step) * step
         self.update_func(self.name, snapped)
 
@@ -305,11 +313,15 @@ class FloatSliderControl(BaseControl):
     def _position(self, value):
         """Integer widget position of a control value (the dial is rotated, see _dial_offset)."""
         position = self.convert_value_to_int(value)
-        return _to_dial(position, 1000) if self._dial else position
+        return _to_dial(position, 1000, self._dial_reference_position()) if self._dial else position
+
+    def _dial_reference_position(self) -> int:
+        value_min, value_max = self.ctrl.value_range  # type: ignore[reportOptionalSubscript,reportGeneralTypeIssues]
+        return self.convert_value_to_int(_dial_reference(value_min, value_max))
 
     def _on_value_changed(self, slider_position: int):
         if self._dial:
-            slider_position = _from_dial(slider_position, 1000)
+            slider_position = _from_dial(slider_position, 1000, self._dial_reference_position())
         self.update_func(self.name, self.convert_int_to_value(slider_position))
 
     def reset(self):

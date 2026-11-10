@@ -13,6 +13,7 @@ The module stays importable without dearpygui: the factory then raises
 """
 
 import logging
+import math
 from pathlib import Path
 from typing import Any, List, Optional, cast
 
@@ -88,7 +89,7 @@ class ControlFactory:
             if control.value_range is None:
                 control_class = IntInputControl if control_type is int else FloatInputControl
             elif isinstance(control, CircularControl):
-                control_class = KnobControl
+                control_class = DialControl if control.modulo else KnobControl
             else:
                 control_class = IntSliderControl if control_type is int else FloatSliderControl
         elif control_type is str:
@@ -354,6 +355,108 @@ class KnobControl(BaseControl):
 
     def reset(self):
         dpg.set_value(self.control_widget, float(self.ctrl.value))
+
+
+class DialControl(KnobControl):
+    """Full-circle wrapping dial for a CircularControl with ``modulo=True``.
+
+    ImGui's knob has a fixed 270 degree arc starting bottom-left and cannot
+    wrap, so the dial is drawn by hand (like ``RangeSliderControl``): the range
+    minimum points north and values increase clockwise, as on the Qt dial.
+    Press or drag anywhere on it to point the needle at the mouse.
+    """
+
+    SIZE = 56
+    LABEL_WIDTH = 64  # room on the right for the numerical value
+    RADIUS = 24
+    RING = (90, 90, 96, 255)
+    NEEDLE = (66, 150, 250, 255)
+    HUB = (230, 230, 235, 255)
+
+    def create(self, parent):
+        self.value = self._cast(self.ctrl.value)
+        self._dragging = False
+        self.control_widget = dpg.add_child_window(
+            parent=parent, width=self.SIZE + self.LABEL_WIDTH, height=self.SIZE, border=False, no_scrollbar=True
+        )
+        self.drawlist = dpg.add_drawlist(
+            width=self.SIZE + self.LABEL_WIDTH, height=self.SIZE, parent=self.control_widget
+        )
+        self._mouse = dpg.add_handler_registry()
+        dpg.add_mouse_down_handler(button=dpg.mvMouseButton_Left, callback=self._on_mouse_down, parent=self._mouse)
+        dpg.add_mouse_release_handler(
+            button=dpg.mvMouseButton_Left, callback=self._on_mouse_release, parent=self._mouse
+        )
+        self._add_tooltip(self.control_widget)
+        self._redraw()
+        return self.control_widget
+
+    def _cast(self, value):
+        return int(round(float(value))) if self.ctrl._type is int else float(value)
+
+    def _bounds(self):
+        value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
+        return float(value_min), float(value_max)
+
+    def _north(self) -> float:
+        """Value pointing north: 0 when the range contains it (0-360, -180-180), else the minimum."""
+        value_min, value_max = self._bounds()
+        return 0.0 if value_min <= 0 <= value_max else value_min
+
+    def _angle_of(self, value) -> float:
+        """Clockwise angle from north, in radians."""
+        value_min, value_max = self._bounds()
+        return 2 * math.pi * (float(value) - self._north()) / (value_max - value_min)
+
+    def _value_at(self, dx: float, dy: float):
+        """Value pointed at by the offset (dx, dy) from the dial centre (screen axes)."""
+        value_min, value_max = self._bounds()
+        fraction = (math.atan2(dx, -dy) % (2 * math.pi)) / (2 * math.pi)
+        value = self._north() + fraction * (value_max - value_min)
+        if value > value_max:  # past the seam: wrap to the lower half (e.g. 270 -> -90)
+            value -= value_max - value_min
+        value = _snap(value, value_min, self.ctrl.step)
+        return self._cast(min(max(value, value_min), value_max))
+
+    def _redraw(self):
+        dpg.delete_item(self.drawlist, children_only=True)
+        centre = self.SIZE / 2
+        dpg.draw_circle((centre, centre), self.RADIUS, color=self.RING, thickness=3, parent=self.drawlist)
+        angle = self._angle_of(self.value)
+        tip = (centre + self.RADIUS * math.sin(angle), centre - self.RADIUS * math.cos(angle))
+        dpg.draw_line((centre, centre), tip, color=self.NEEDLE, thickness=4, parent=self.drawlist)
+        dpg.draw_circle((centre, centre), 4, color=self.HUB, fill=self.HUB, parent=self.drawlist)
+        dpg.draw_text((self.SIZE + 6, centre - 8), self._label(), size=16, parent=self.drawlist)
+
+    def _label(self) -> str:
+        if self.ctrl._type is int:
+            return str(self.value)
+        return f"{self.value:.2f}".rstrip("0").rstrip(".")
+
+    def _set(self, value):
+        if value != self.value:
+            self.value = value
+            self._emit(value)
+        self._redraw()
+
+    def _on_mouse_down(self, _sender=None, _app_data=None, _user_data=None):
+        if not self._dragging:
+            if not dpg.is_item_hovered(self.control_widget):
+                return
+            self._dragging = True
+        x0, y0 = dpg.get_item_rect_min(self.drawlist)
+        mouse_x, mouse_y = dpg.get_mouse_pos(local=False)
+        self._set(self._value_at(mouse_x - x0 - self.SIZE / 2, mouse_y - y0 - self.SIZE / 2))
+
+    def _on_mouse_release(self, _sender=None, _app_data=None, _user_data=None):
+        self._dragging = False
+
+    def _on_change(self, _sender, app_data, _user_data):
+        self._set(self._cast(app_data))
+
+    def reset(self):
+        self.value = self._cast(self.ctrl.value)
+        self._redraw()
 
 
 class _InputControl(BaseControl):

@@ -12,6 +12,7 @@ Skipped entirely when dearpygui is not installed. Never call
 """
 
 import logging
+import math
 
 import numpy as np
 import pytest
@@ -634,6 +635,29 @@ def test_load_parameters_syncs_controls_and_widgets(tmp_path, monkeypatch):
     assert dpg.get_value(gui.window.image_canvas[0][0]["title"]) == "mode=max"
 
 
+def test_dial_points_north_at_range_minimum_and_wraps_clockwise():
+    gui = build_gui(free_pipeline)
+    dial = gui.window.widget_list["angle"]
+    assert isinstance(dial, dpg_control.DialControl)
+    # screen axes: x right, y down; offsets from the dial centre
+    assert dial._value_at(0, -10) == pytest.approx(0.0)  # north
+    assert dial._value_at(10, 0) == pytest.approx(90.0)  # east
+    assert dial._value_at(0, 10) == pytest.approx(180.0)  # south
+    assert dial._value_at(-10, 0) == pytest.approx(270.0)  # west
+    assert dial._angle_of(90.0) == pytest.approx(math.pi / 2)
+    assert dial._label() == "90"  # float value, trailing zeros trimmed
+
+
+def test_dial_symmetric_range_points_north_at_zero():
+    ctrl = CircularControl(0.0, [-180.0, 180.0], name="a")
+    dial = dpg_control.DialControl("a", ctrl, lambda *_: None)
+    assert dial._angle_of(0.0) == pytest.approx(0.0)  # 0 is north
+    assert dial._angle_of(90.0) == pytest.approx(math.pi / 2)
+    assert dial._value_at(10, 0) == pytest.approx(90.0)  # east
+    assert dial._value_at(0, 10) in (-180.0, 180.0)  # south is the seam
+    assert dial._value_at(-10, 0) == pytest.approx(-90.0)  # west wraps to the negative half
+
+
 def test_rangeless_knob_and_prompt_controls():
     gui = build_gui(free_pipeline)
     window = gui.window
@@ -655,7 +679,7 @@ def test_rangeless_knob_and_prompt_controls():
     gui.reset_parameters()
     assert dpg.get_value(widgets["free_int"].control_widget) == 3
     assert dpg.get_value(widgets["free_float"].control_widget) == pytest.approx(0.5)
-    assert dpg.get_value(widgets["angle"].control_widget) == pytest.approx(90.0)
+    assert widgets["angle"].value == pytest.approx(90.0)
     assert dpg.get_value(widgets["txt"].control_widget) == "hi"
 
 
