@@ -12,6 +12,30 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Check tag matches pyproject version
+        run: |
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match pyproject version $VERSION"; exit 1
+          fi
+      - name: Promote [full] extra to core dependencies (official PyPI release)
+        # The repo keeps minimal deps (pip install from git stays light);
+        # the PyPI wheel ships with every backend, like the old full.patch did.
+        run: |
+          python - <<'EOF'
+          import re, tomllib
+          path = "pyproject.toml"
+          text = open(path).read()
+          data = tomllib.loads(text)
+          core = data["project"]["dependencies"]
+          extra = [d for d in data["project"]["optional-dependencies"]["full"] if d not in core]
+          block = re.search(r"^dependencies = \[\n(.*?)^\]", text, re.S | re.M)
+          new = block.group(0)[:-1] + "".join(f'  "{d}",\n' for d in extra) + "]"
+          text = text[: block.start()] + new + text[block.end():]
+          assert tomllib.loads(text)["project"]["dependencies"] == core + extra
+          open(path, "w").write(text)
+          print("dependencies:", core + extra)
+          EOF
       - name: Build sdist and wheel
         run: |
           pip install build
