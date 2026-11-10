@@ -72,3 +72,16 @@ def test_qt_elided_label_shortens_and_sets_tooltip():
     assert label.displayed_text() == long_title
     assert label.toolTip() == ""
     label.close()
+
+
+def test_qt_elided_label_at_its_size_hint_shows_the_full_text():
+    qt_widgets = pytest.importorskip("interactive_pipe.graphical.qt_widgets")
+    from interactive_pipe.graphical.qt_backend import QApplication
+
+    _app = QApplication.instance() or QApplication([])
+    label = qt_widgets.ElidedLabel("Original: elephant")
+    label.show()
+    label.resize(label.sizeHint())
+    assert label.displayed_text() == "Original: elephant"
+    assert label.toolTip() == ""
+    label.close()
