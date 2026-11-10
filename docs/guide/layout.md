@@ -55,7 +55,7 @@ On the Qt and Dear PyGui backends every image cell is a small image viewer, so l
 - **Double-click** resets the view to fit.
 - **Synced across cells**: zoom and pan are shared by all the images of the window, so a before/after comparison stays aligned while you inspect details.
 - **Pixel values on hover** (Qt only): hovering an image shows the pixel coordinates and the value of the raw pipeline output (a float per channel for RGB, a scalar for grayscale) in the status line at the bottom of the window, not the 8-bit display value. Set `window.on_pixel_hover` to your own `(row, col, x, y, value)` callback, or to `None` to get the readout as a tooltip instead.
-- **View menu / keys**: fit to window (++0++), actual size 1:1 (++1++), zoom in (++plus++), zoom out (++minus++). On Dear PyGui, 1:1 lays the cells out at the native image size and the sliders move to make room for them (the window scrolls when everything does not fit); on Qt the cells keep their size and show the 1:1 view of their center.
+- **View menu / keys**: fit to window (++0++), actual size 1:1 (++1++), zoom in (++plus++), zoom out (++minus++). 1:1 grows the window so the images show whole at their native size (on Dear PyGui the sliders also move up when the images are smaller than their fitted size); going back to fit restores the previous window size. When the screen is too small for the images and the controls, the window stops at the screen size and the cells show a 1:1 crop you can pan: the controls never scroll out of view. Full-screen and maximized windows are not resized.
 
 On Qt, zoomed-in pixels are drawn crisp (no interpolation) for pixel peeping; Dear PyGui interpolates them. Saving images (`w`) always writes the full-resolution results, whatever the current zoom.
 

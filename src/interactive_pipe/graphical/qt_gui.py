@@ -669,8 +669,22 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             child, parent = parent, parent.parent()
 
     def set_view_mode(self, mode: str):
-        """ "fit" (default) or "1:1" for every image cell (zoom/pan reset)."""
-        self._view_sync().set_mode(mode)
+        """ "fit" (default) or "1:1" for every image cell (zoom/pan reset).
+
+        1:1 grows the window so the images show whole at their native size
+        (within the screen); going back to fit restores the previous size.
+        """
+        sync = self._view_sync()
+        was_absolute = sync.absolute
+        sync.set_mode(mode)
+        if sync.absolute and not was_absolute:
+            self._size_before_actual = (self.width(), self.height())
+            self._fit_window_to_images()
+        elif not sync.absolute:
+            previous = getattr(self, "_size_before_actual", None)
+            self._size_before_actual = None
+            if previous is not None and not (self.full_screen_flag or self.isMaximized() or self.isFullScreen()):
+                self.resize(*previous)
 
     def zoom_in(self):
         self._sync_zoom(True)

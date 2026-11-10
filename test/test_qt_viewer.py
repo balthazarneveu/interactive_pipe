@@ -272,3 +272,17 @@ def test_zoom_uses_a_view_showing_an_image():
     image_view.zoom_out = lambda: calls.append("out")
     window.zoom_out()
     assert calls == ["out"]
+
+
+def test_actual_size_grows_the_window_and_fit_restores_it():
+    window = build_window(pair_pipeline)
+    settle(window, (400, 300))
+    before = (window.width(), window.height())
+    window.set_view_mode("1:1")
+    settle(window)
+    for view in views(window):
+        assert (view.sizeHint().width(), view.sizeHint().height()) == (W, H)  # native, not the capped hint
+    assert window.width() > before[0] and window.height() > before[1]
+    window.set_view_mode("fit")
+    settle(window)
+    assert (window.width(), window.height()) == before
