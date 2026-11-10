@@ -996,16 +996,20 @@ def test_view_keys_zoom_all_cells_and_fit_back():
         assert _drawn_rect(cell)[2] == pytest.approx(before[2] * dpg_gui.ZOOM_STEP)
     gui._on_key_press(None, dpg.mvKey_Subtract, None)
     assert window.view.zoom == pytest.approx(1.0)
+    fit_grid_h = dpg.get_item_configuration(window.grid_container)["height"]
     gui._on_key_press(None, dpg.mvKey_1, None)  # 1:1: cells at native size, whole image shown
     assert window.view.mode == "1:1" and window.scale_factor == 1.0
     for cell in cells:
         assert dpg_image.image_box(cell) == (4, 4)
         assert _drawn_rect(cell) == pytest.approx((0, 0, 4, 4))
-    assert not dpg.get_item_configuration(window.grid_container)["no_scrollbar"]
+    # the grid shrinks to the native cells (the panels move), it never scrolls
+    grid = dpg.get_item_configuration(window.grid_container)
+    assert grid["height"] == 4 + dpg_gui.TITLE_HEIGHT + dpg_gui.LAYOUT_MARGIN < fit_grid_h
+    assert grid["no_scrollbar"]
     gui._on_key_press(None, dpg.mvKey_0, None)
     assert window.view.mode == "fit" and window.scale_factor > 1.0
     assert [_drawn_rect(cell) for cell in cells] == fit
-    assert dpg.get_item_configuration(window.grid_container)["no_scrollbar"]
+    assert dpg.get_item_configuration(window.grid_container)["height"] == fit_grid_h
 
 
 def test_wheel_zooms_around_the_cursor_drag_pans_double_click_fits(monkeypatch):

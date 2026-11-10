@@ -247,6 +247,7 @@ class MainWindow(InteractivePipeWindow):
         self.last_error: Optional[FilterError] = None
         self.scale_factor = 1.0
         self.view = ViewState()  # zoom/pan shared by every image cell
+        self._wheel_locked = False  # primary window wheel scroll disabled while over the grid
         self._drag: Optional[Tuple[Dict[str, Any], Tuple[float, float]]] = None  # (cell, last mouse pos)
 
         self.texture_registry = dpg.add_texture_registry()
@@ -265,7 +266,7 @@ class MainWindow(InteractivePipeWindow):
         # side containers are created by init_sliders only when a panel sits there
         self.left_container: Optional[Any] = None
         self.right_container: Optional[Any] = None
-        # the wheel zooms the images: it never scrolls the grid (scrollbars only show at 1:1)
+        # the grid never scrolls: it is sized to its cells (and the wheel zooms the images)
         self.grid_container = dpg.add_child_window(
             parent=self.middle_container, border=False, no_scrollbar=True, no_scroll_with_mouse=True
         )
@@ -340,7 +341,12 @@ class MainWindow(InteractivePipeWindow):
         return col_widths, row_heights
 
     def relayout(self):
-        """Fit the image grid in the space left by the panels (uniform scale, centered)."""
+        """Fit the image grid in the space left by the panels (uniform scale, centered).
+
+        In the 1:1 view family the cells take their native size instead and the
+        grid grows or shrinks to them, pushing the panels around (the primary
+        window scrolls when everything does not fit the viewport).
+        """
         self._needs_layout = False
         if not self.image_canvas:
             return
@@ -351,27 +357,29 @@ class MainWindow(InteractivePipeWindow):
         bottom_h = self._measured_height(self.bottom_container)
         menu_h = MENU_BAR_HEIGHT if self.menu_bar is not None else 0
         avail_h = max(80, client_h - menu_h - STATUS_BAR_HEIGHT - top_h - bottom_h - LAYOUT_MARGIN - 2 * GRID_SPACING)
+        col_widths, row_heights = self.natural_grid_size()
+        total_w = sum(col_widths) + GRID_SPACING * max(0, len(col_widths) - 1)
+        total_h = sum(row_heights) + GRID_SPACING * max(0, len(row_heights) - 1)
+        too_wide = False
+        if self.view.absolute and total_w > 0 and total_h > 0:
+            # 1:1 family: cells at native size, the grid takes exactly the room they need
+            too_wide = total_w > avail_w
+            avail_w = max(avail_w, total_w)
+            avail_h = total_h + LAYOUT_MARGIN
         dpg.configure_item(self.grid_container, width=avail_w, height=avail_h)
+        dpg.configure_item(self.root, horizontal_scrollbar=too_wide)
         for item in side_containers:
             dpg.configure_item(item, height=avail_h)
         for item, width_fn in self.sized_items:
             if dpg.does_item_exist(item):
                 dpg.configure_item(item, width=width_fn())
-
-        col_widths, row_heights = self.natural_grid_size()
-        total_w = sum(col_widths) + GRID_SPACING * max(0, len(col_widths) - 1)
-        total_h = sum(row_heights) + GRID_SPACING * max(0, len(row_heights) - 1)
         if total_w <= 0 or total_h <= 0:
             return
         if self.view.absolute:
-            # 1:1 family: cells at native size, the grid scrolls when they do not fit
             scale = 1.0
         else:
             scale = min(avail_w / total_w, (avail_h - LAYOUT_MARGIN) / total_h)
         self.scale_factor = scale
-        dpg.configure_item(
-            self.grid_container, no_scrollbar=not self.view.absolute, horizontal_scrollbar=self.view.absolute
-        )
         for r, row in enumerate(self.image_canvas):
             # a title may use its cell's share of the row, even when the (scaled) image is narrower
             title_share = (avail_w - GRID_SPACING * max(0, len(row) - 1)) // max(1, len(row))
@@ -434,7 +442,7 @@ class MainWindow(InteractivePipeWindow):
     def image_cell_at(self, pos) -> Optional[Tuple[Dict[str, Any], Tuple[float, float]]]:
         """(cell, position in cell coordinates) of the image cell under `pos` (viewport coordinates)."""
         if not dpg.is_item_hovered(self.grid_container):
-            # outside the grid: cells scrolled out of view (1:1), or covered by a detached panel
+            # outside the grid, or the cell is covered by a detached panel
             return None
         for cell in self.image_cells():
             item = cell["content"]
@@ -572,8 +580,17 @@ class MainWindow(InteractivePipeWindow):
         now = time.time()
         for timer in self.timers:
             timer.tick(now)
+        self._lock_wheel_scroll()
         if self._refresh_pending:
             self.refresh()
+
+    def _lock_wheel_scroll(self):
+        """The wheel zooms over the image grid: keep it from also scrolling the
+        primary window (it overflows at 1:1 with large images)."""
+        over_grid = bool(dpg.is_item_hovered(self.grid_container))
+        if over_grid != self._wheel_locked:
+            dpg.configure_item(self.root, no_scroll_with_mouse=over_grid)
+            self._wheel_locked = over_grid
 
     def request_refresh(self):
         """Mark the pipeline dirty: the render loop (tick_timers) runs it once
