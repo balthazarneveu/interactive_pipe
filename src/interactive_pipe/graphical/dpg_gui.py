@@ -265,7 +265,10 @@ class MainWindow(InteractivePipeWindow):
         # side containers are created by init_sliders only when a panel sits there
         self.left_container: Optional[Any] = None
         self.right_container: Optional[Any] = None
-        self.grid_container = dpg.add_child_window(parent=self.middle_container, border=False, no_scrollbar=True)
+        # the wheel zooms the images: it never scrolls the grid (scrollbars only show at 1:1)
+        self.grid_container = dpg.add_child_window(
+            parent=self.middle_container, border=False, no_scrollbar=True, no_scroll_with_mouse=True
+        )
         self.grid_vspacer = dpg.add_spacer(parent=self.grid_container, height=0)
         self.image_grid = dpg.add_group(parent=self.grid_container)
         self.bottom_container = dpg.add_group(parent=self.root)
@@ -360,8 +363,15 @@ class MainWindow(InteractivePipeWindow):
         total_h = sum(row_heights) + GRID_SPACING * max(0, len(row_heights) - 1)
         if total_w <= 0 or total_h <= 0:
             return
-        scale = min(avail_w / total_w, (avail_h - LAYOUT_MARGIN) / total_h)
+        if self.view.absolute:
+            # 1:1 family: cells at native size, the grid scrolls when they do not fit
+            scale = 1.0
+        else:
+            scale = min(avail_w / total_w, (avail_h - LAYOUT_MARGIN) / total_h)
         self.scale_factor = scale
+        dpg.configure_item(
+            self.grid_container, no_scrollbar=not self.view.absolute, horizontal_scrollbar=self.view.absolute
+        )
         for r, row in enumerate(self.image_canvas):
             # a title may use its cell's share of the row, even when the (scaled) image is narrower
             title_share = (avail_w - GRID_SPACING * max(0, len(row) - 1)) // max(1, len(row))
@@ -403,8 +413,9 @@ class MainWindow(InteractivePipeWindow):
             place_image(cell, self.view)
 
     def set_view_mode(self, mode: str):
-        """ "fit" (default) or "1:1" for every image cell (zoom/pan reset)."""
+        """ "fit" (default) or "1:1" (cells at native image size) for every image cell (zoom/pan reset)."""
         self.view.set_mode(mode)
+        self.relayout()  # the cell sizes depend on the mode
         self.apply_view()
 
     def reset_view(self):
@@ -422,6 +433,8 @@ class MainWindow(InteractivePipeWindow):
 
     def image_cell_at(self, pos) -> Optional[Tuple[Dict[str, Any], Tuple[float, float]]]:
         """(cell, position in cell coordinates) of the image cell under `pos` (viewport coordinates)."""
+        if not self._in_rect(pos, self.grid_container):
+            return None  # cells scrolled out of the grid (1:1) are hidden
         for cell in self.image_cells():
             item = cell["content"]
             if not dpg.is_item_visible(item):
@@ -432,6 +445,14 @@ class MainWindow(InteractivePipeWindow):
             if 0 <= local[0] < width and 0 <= local[1] < height:
                 return cell, local
         return None
+
+    @staticmethod
+    def _in_rect(pos, item) -> bool:
+        x0, y0 = dpg.get_item_rect_min(item)[:2]
+        width, height = dpg.get_item_rect_size(item)[:2]
+        if width <= 0 or height <= 0:
+            return True  # not rendered yet: no clipping information
+        return x0 <= pos[0] < x0 + width and y0 <= pos[1] < y0 + height
 
     def _mouse_target(self):
         if self.modal_shown():
