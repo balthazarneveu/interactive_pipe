@@ -77,6 +77,17 @@ def signal_to_curve(signal_1d: np.ndarray) -> "Curve":
     )
 
 
+def discard_widget(widget) -> None:
+    """Remove `widget` from its layout without it ever reappearing as a window.
+
+    Adding a widget to a layout of a visible window queues a deferred show;
+    detaching it with setParent(None) before that event runs would turn it
+    into a stray top-level window. An explicit hide() cancels the queued show.
+    """
+    widget.hide()
+    widget.setParent(None)
+
+
 def _ensure_mpl_cell(cell: dict, grid_layout, row: int, col: int):
     """Create the FigureCanvas + axes for a canvas cell once; return the axes."""
     if cell["ax_placeholder"] is None:
@@ -87,7 +98,7 @@ def _ensure_mpl_cell(cell: dict, grid_layout, row: int, col: int):
             detach = getattr(previous_widget, "detach", None)
             if callable(detach):  # an ImageView leaves the shared zoom sync
                 detach()
-            previous_widget.setParent(None)  # the QLabel placeholder is replaced by the canvas
+            discard_widget(previous_widget)  # the placeholder view is replaced by the canvas
         cell["image"] = canvas
         grid_layout.addWidget(
             canvas,
