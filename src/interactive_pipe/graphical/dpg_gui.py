@@ -387,18 +387,17 @@ class MainWindow(InteractivePipeWindow):
         col_widths, row_heights = self.natural_grid_size()
         total_w = sum(col_widths) + GRID_SPACING * max(0, len(col_widths) - 1)
         total_h = sum(row_heights) + GRID_SPACING * max(0, len(row_heights) - 1)
-        absolute_scale = (1.0, 1.0)  # (width, height) cell scales in the 1:1 family
         if self.view.absolute and total_w > 0 and total_h > 0:
             # 1:1 family: cells at native size, the grid takes exactly the room they need
-            # and the viewport grows to show it whole. When the screen cannot fit it, the
-            # cells take the room left in each direction (never more than native): a 1:1 crop,
-            # the panels stay visible.
+            # and the viewport grows to show it whole. When the window manager does not grant
+            # that size (screen limit), the images still show whole and the panels below
+            # overflow the viewport (the primary window scrolls to reach them).
             slack_w, slack_h = self._grid_slack[0], LAYOUT_MARGIN + self._grid_slack[1]
             self._grow_viewport(
                 client_w + max(0, total_w + slack_w - avail_w), client_h + max(0, total_h + slack_h - avail_h)
             )
-            absolute_scale = (min(1.0, (avail_w - slack_w) / total_w), min(1.0, (avail_h - slack_h) / total_h))
-            avail_h = min(avail_h, int(total_h * absolute_scale[1]) + slack_h)
+            avail_w = max(avail_w, total_w + slack_w)
+            avail_h = total_h + slack_h
         dpg.configure_item(self.grid_container, width=avail_w, height=avail_h)
         for item in side_containers:
             dpg.configure_item(item, height=avail_h)
@@ -408,7 +407,7 @@ class MainWindow(InteractivePipeWindow):
         if total_w <= 0 or total_h <= 0:
             return
         if self.view.absolute:
-            scale, scale_h = absolute_scale
+            scale = scale_h = 1.0
         else:
             scale = scale_h = min(avail_w / total_w, (avail_h - LAYOUT_MARGIN) / total_h)
         self.scale_factor = min(scale, scale_h)
