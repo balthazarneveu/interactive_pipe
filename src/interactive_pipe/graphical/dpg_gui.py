@@ -654,6 +654,10 @@ class MainWindow(InteractivePipeWindow):
             builder.build_panel(panel, self.bottom_container, full_width)
         for panel in detached_panels:
             builder.build_detached_window(panel)
+        for container in (self.top_container, self.bottom_container):
+            # ImGui quirk: an empty group grows (by the scroll offset) once the window scrolls,
+            # pushing everything below away and the bottom of the window out of reach
+            dpg.configure_item(container, show=bool(dpg.get_item_children(container, 1)))
 
     def on_detached_closed(self, sender, *_args):
         if sender in self.detached_windows:
