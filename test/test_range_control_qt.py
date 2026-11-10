@@ -1,4 +1,4 @@
-"""RangeControl Qt widget (offscreen): two linked sliders producing (lo, hi)."""
+"""RangeControl Qt widget (offscreen): one two-handle slider producing (lo, hi)."""
 
 import os
 
@@ -41,20 +41,24 @@ def test_factory_picks_range_slider():
     gui = build_gui()
     widget = gui.window.widget_list["qt_window"]
     assert isinstance(widget, RangeSliderControl)
-    assert widget.lo_slider.value() == 20 and widget.hi_slider.value() == 80
+    assert (widget.range_slider.low(), widget.range_slider.high()) == (20, 80)
     int_widget = gui.window.widget_list["qt_bins"]
-    assert (int_widget.lo_slider.maximum(), int_widget.lo_slider.value(), int_widget.hi_slider.value()) == (10, 2, 5)
+    assert (int_widget.range_slider.maximum(), int_widget.range_slider.low(), int_widget.range_slider.high()) == (
+        10,
+        2,
+        5,
+    )
 
 
 def test_moving_lo_above_hi_pushes_hi_and_back():
     gui = build_gui()
     window = gui.window
     widget = window.widget_list["qt_window"]
-    widget.lo_slider.setValue(90)
-    assert widget.hi_slider.value() == 90
+    widget.range_slider._move("low", 90)
+    assert widget.range_slider.high() == 90
     assert window.ctrl["qt_window"].value == pytest.approx((0.9, 0.9))
-    widget.hi_slider.setValue(30)
-    assert widget.lo_slider.value() == 30
+    widget.range_slider._move("high", 30)
+    assert widget.range_slider.low() == 30
     assert window.ctrl["qt_window"].value == pytest.approx((0.3, 0.3))
     qt_gui.QApplication.processEvents()
     assert gui.pipeline.parameters["qt_range_clip"]["qt_window"] == pytest.approx((0.3, 0.3))
@@ -65,8 +69,8 @@ def test_update_func_receives_tuple():
     ctrl = RangeControl((1, 4), [0, 8], name="standalone")
     widget = ControlFactory.create_control(ctrl, lambda name, value: received.append((name, value)))
     widget.create()
-    widget.hi_slider.setValue(6)
-    widget.lo_slider.setValue(3)
+    widget.range_slider._move("high", 6)
+    widget.range_slider._move("low", 3)
     assert received == [("standalone", (1, 6)), ("standalone", (3, 6))]
     assert all(type(v) is int for v in received[-1][1])
 
@@ -75,9 +79,38 @@ def test_reset_restores_default():
     gui = build_gui()
     window = gui.window
     widget = window.widget_list["qt_window"]
-    widget.lo_slider.setValue(50)
-    widget.hi_slider.setValue(60)
+    widget.range_slider._move("low", 50)
+    widget.range_slider._move("high", 60)
     assert window.ctrl["qt_window"].value == pytest.approx((0.5, 0.6))
     gui.reset_parameters()
     assert window.ctrl["qt_window"].value == (0.2, 0.8)
-    assert (widget.lo_slider.value(), widget.hi_slider.value()) == (20, 80)
+    assert (widget.range_slider.low(), widget.range_slider.high()) == (20, 80)
+
+
+def test_mouse_drag_moves_nearest_handle():
+    from PyQt6.QtCore import QEvent, QPointF
+    from PyQt6.QtGui import QMouseEvent
+
+    from interactive_pipe.graphical.qt_backend import QSize, Qt  # noqa: F401
+
+    ctrl = RangeControl((0.2, 0.8), [0.0, 1.0], name="mouse")
+    received = []
+    widget = ControlFactory.create_control(ctrl, lambda name, value: received.append(value))
+    slider = widget.create()
+    slider.resize(200, 30)
+
+    def send(kind, x):
+        pos = QPointF(x, 15)
+        btn = Qt.MouseButton.LeftButton
+        event = QMouseEvent(kind, pos, pos, btn, btn, Qt.KeyboardModifier.NoModifier)
+        {
+            QEvent.Type.MouseButtonPress: slider.mousePressEvent,
+            QEvent.Type.MouseMove: slider.mouseMoveEvent,
+            QEvent.Type.MouseButtonRelease: slider.mouseReleaseEvent,
+        }[kind](event)
+
+    send(QEvent.Type.MouseButtonPress, slider._x_of(slider.high()) + 1)  # grab the hi handle
+    send(QEvent.Type.MouseMove, slider._x_of(100))
+    send(QEvent.Type.MouseButtonRelease, slider._x_of(100))
+    assert (slider.low(), slider.high()) == (20, 100)
+    assert received[-1] == pytest.approx((0.2, 1.0))

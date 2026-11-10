@@ -13,7 +13,6 @@ The module stays importable without dearpygui: the factory then raises
 """
 
 import logging
-from functools import partial
 from pathlib import Path
 from typing import Any, List, Optional, cast
 
@@ -181,11 +180,21 @@ class FloatSliderControl(BaseControl):
 
 
 class RangeSliderControl(BaseControl):
-    """Two stacked sliders (lo, hi) for a RangeControl: Dear PyGui has no range slider.
+    """Single-track two-handle slider for a RangeControl, drawn on a drawlist.
 
-    Dragging one handle past the other pushes it along so ``lo <= hi``
-    always holds; ``update_func`` receives the ``(lo, hi)`` tuple.
+    Dear PyGui has no range slider, so the track and handles are drawn by hand
+    and driven by mouse handlers (grab the nearest handle, drag, release).
+    The drawlist is re-laid out to the available width whenever the cell is
+    resized. Dragging one handle past the other pushes it along so
+    ``lo <= hi`` always holds; ``update_func`` receives the ``(lo, hi)`` tuple.
     """
+
+    HEIGHT = 26
+    MARGIN = 10  # handle radius + 1
+    GROOVE = (90, 90, 96, 255)
+    FILL = (66, 150, 250, 255)
+    HANDLE = (230, 230, 235, 255)
+    HANDLE_ACTIVE = (255, 255, 255, 255)
 
     def check_control_type(self):
         if not isinstance(self.ctrl, RangeControl):
@@ -194,65 +203,124 @@ class RangeSliderControl(BaseControl):
     def _cast(self, value):
         return int(value) if self.ctrl._type is int else float(value)
 
-    def create(self, parent):
-        value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
-        lo, hi = range_pair(self.ctrl)
-        if self.ctrl._type is int:
-            add_slider = partial(dpg.add_slider_int)
-        else:
-            add_slider = partial(dpg.add_slider_float, format="%.4g")
-        self.control_widget = dpg.add_group(parent=parent)
-        self.lo_widget = add_slider(
-            parent=self.control_widget,
-            default_value=self._cast(lo),
-            min_value=self._cast(value_min),
-            max_value=self._cast(value_max),
-            clamped=True,
-            width=-1,
-            callback=self._on_lo_change,
-        )
-        self.hi_widget = add_slider(
-            parent=self.control_widget,
-            default_value=self._cast(hi),
-            min_value=self._cast(value_min),
-            max_value=self._cast(value_max),
-            clamped=True,
-            width=-1,
-            callback=self._on_hi_change,
-        )
-        self._add_tooltip(self.lo_widget)
-        self._add_tooltip(self.hi_widget)
-        return self.control_widget
-
     def _snapped(self, value):
         value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
         snapped = _snap(value, value_min, self.ctrl.step)
         snapped = self._cast(min(max(snapped, value_min), value_max))
         return snapped if self.ctrl._type is int else round(snapped, 12)
 
-    def _on_lo_change(self, _sender, app_data, _user_data):
-        lo = self._snapped(app_data)
-        hi = self._snapped(dpg.get_value(self.hi_widget))
-        if lo > hi:
-            hi = lo
-        self._apply(lo, hi)
+    def create(self, parent):
+        self.lo, self.hi = (self._cast(v) for v in range_pair(self.ctrl))
+        self._width = 300
+        self._drag = None  # "lo" / "hi" while a handle is held
+        self._last_handle = "hi"
+        self.control_widget = dpg.add_child_window(
+            parent=parent, width=-1, height=self.HEIGHT, border=False, no_scrollbar=True
+        )
+        self.drawlist = dpg.add_drawlist(width=self._width, height=self.HEIGHT, parent=self.control_widget)
+        self._handlers = dpg.add_item_handler_registry()
+        dpg.add_item_resize_handler(callback=self._on_resize, parent=self._handlers)
+        dpg.bind_item_handler_registry(self.control_widget, self._handlers)
+        self._mouse = dpg.add_handler_registry()
+        dpg.add_mouse_down_handler(button=dpg.mvMouseButton_Left, callback=self._on_mouse_down, parent=self._mouse)
+        dpg.add_mouse_release_handler(
+            button=dpg.mvMouseButton_Left, callback=self._on_mouse_release, parent=self._mouse
+        )
+        self._add_tooltip(self.control_widget)
+        self._redraw()
+        return self.control_widget
 
-    def _on_hi_change(self, _sender, app_data, _user_data):
-        hi = self._snapped(app_data)
-        lo = self._snapped(dpg.get_value(self.lo_widget))
-        if hi < lo:
-            lo = hi
-        self._apply(lo, hi)
+    # -- geometry -----------------------------------------------------------
+    def _bounds(self):
+        value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
+        return float(value_min), float(value_max)
 
-    def _apply(self, lo, hi):
-        dpg.set_value(self.lo_widget, lo)
-        dpg.set_value(self.hi_widget, hi)
-        self._emit((lo, hi))
+    def _x_of(self, value) -> float:
+        value_min, value_max = self._bounds()
+        usable = max(1.0, self._width - 2 * self.MARGIN)
+        return self.MARGIN + usable * (value - value_min) / (value_max - value_min)
+
+    def _value_at(self, x: float):
+        value_min, value_max = self._bounds()
+        usable = max(1.0, self._width - 2 * self.MARGIN)
+        fraction = min(max((x - self.MARGIN) / usable, 0.0), 1.0)
+        return self._snapped(value_min + fraction * (value_max - value_min))
+
+    def _redraw(self):
+        dpg.delete_item(self.drawlist, children_only=True)
+        cy = self.HEIGHT / 2
+        x_lo, x_hi = self._x_of(self.lo), self._x_of(self.hi)
+        value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
+        dpg.draw_line(
+            (self._x_of(value_min), cy),
+            (self._x_of(value_max), cy),
+            color=self.GROOVE,
+            thickness=4,
+            parent=self.drawlist,
+        )
+        dpg.draw_line((x_lo, cy), (x_hi, cy), color=self.FILL, thickness=4, parent=self.drawlist)
+        for which, x in (("lo", x_lo), ("hi", x_hi)):
+            held = self._drag == which
+            dpg.draw_circle(
+                (x, cy),
+                self.MARGIN - 2,
+                color=self.FILL,
+                fill=self.HANDLE_ACTIVE if held else self.HANDLE,
+                thickness=2,
+                parent=self.drawlist,
+            )
+
+    def _on_resize(self, _sender=None, _app_data=None, _user_data=None):
+        width = int(dpg.get_item_rect_size(self.control_widget)[0]) - 4
+        if width > 4 * self.MARGIN and width != self._width:
+            self._width = width
+            dpg.configure_item(self.drawlist, width=width)
+            self._redraw()
+
+    # -- interaction (local x = pixels from the left edge of the track) -----
+    def _local_x(self) -> float:
+        return dpg.get_mouse_pos(local=False)[0] - dpg.get_item_rect_min(self.drawlist)[0]
+
+    def _on_mouse_down(self, _sender=None, _app_data=None, _user_data=None):
+        if self._drag is None:
+            if not dpg.is_item_hovered(self.control_widget):
+                return
+            self._press(self._local_x())
+        else:
+            self._move(self._drag, self._value_at(self._local_x()))
+
+    def _on_mouse_release(self, _sender=None, _app_data=None, _user_data=None):
+        self._release()
+
+    def _press(self, x: float):
+        d_lo, d_hi = abs(x - self._x_of(self.lo)), abs(x - self._x_of(self.hi))
+        if d_lo == d_hi:  # stacked handles: pick the one that can move toward the click
+            which = "lo" if x < self._x_of(self.lo) else "hi"
+        else:
+            which = "lo" if d_lo < d_hi else "hi"
+        self._drag = which
+        self._move(which, self._value_at(x))
+
+    def _release(self):
+        if self._drag is not None:
+            self._last_handle = self._drag
+            self._drag = None
+            self._redraw()
+
+    def _move(self, which: str, value):
+        lo, hi = self.lo, self.hi
+        if which == "lo":
+            lo, hi = value, max(hi, value)
+        else:
+            lo, hi = min(lo, value), value
+        if (lo, hi) != (self.lo, self.hi):
+            self.lo, self.hi = lo, hi
+            self._emit((lo, hi))
+        self._redraw()
 
     def reset(self):
-        lo, hi = range_pair(self.ctrl)
-        dpg.set_value(self.lo_widget, self._cast(lo))
-        dpg.set_value(self.hi_widget, self._cast(hi))
+        self.lo, self.hi = (self._cast(v) for v in range_pair(self.ctrl))
+        self._redraw()
 
 
 class KnobControl(BaseControl):

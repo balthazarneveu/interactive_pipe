@@ -1,4 +1,4 @@
-"""RangeControl Dear PyGui widget (no viewport): two linked sliders producing (lo, hi)."""
+"""RangeControl Dear PyGui widget (no viewport): one drawn two-handle slider producing (lo, hi)."""
 
 import numpy as np
 import pytest
@@ -45,36 +45,50 @@ def test_items_exist_with_default_values():
     gui = build_gui()
     widget = gui.window.widget_list["dpg_window"]
     assert isinstance(widget, dpg_control.RangeSliderControl)
-    assert dpg.does_item_exist(widget.lo_widget) and dpg.does_item_exist(widget.hi_widget)
-    assert dpg.get_value(widget.lo_widget) == pytest.approx(0.2)
-    assert dpg.get_value(widget.hi_widget) == pytest.approx(0.8)
+    assert dpg.does_item_exist(widget.drawlist)
+    assert (widget.lo, widget.hi) == pytest.approx((0.2, 0.8))
     int_widget = gui.window.widget_list["dpg_bins"]
-    assert (dpg.get_value(int_widget.lo_widget), dpg.get_value(int_widget.hi_widget)) == (2, 5)
+    assert (int_widget.lo, int_widget.hi) == (2, 5)
 
 
-def test_callbacks_produce_tuple_and_keep_order():
+def test_drag_produces_tuple_and_keeps_order():
     gui = build_gui()
     window = gui.window
     widget = window.widget_list["dpg_window"]
-    widget._on_lo_change(None, 0.9, None)  # lo above hi pushes hi
+    widget._move("lo", 0.9)  # lo above hi pushes hi
     assert window.ctrl["dpg_window"].value == pytest.approx((0.9, 0.9))
-    assert dpg.get_value(widget.hi_widget) == pytest.approx(0.9)
-    widget._on_hi_change(None, 0.3, None)  # hi below lo pushes lo
+    assert widget.hi == pytest.approx(0.9)
+    widget._move("hi", 0.3)  # hi below lo pushes lo
     assert window.ctrl["dpg_window"].value == pytest.approx((0.3, 0.3))
     int_widget = window.widget_list["dpg_bins"]
-    int_widget._on_hi_change(None, 7, None)
+    int_widget._move("hi", 7)
     assert window.ctrl["dpg_bins"].value == (2, 7)
     assert all(type(v) is int for v in window.ctrl["dpg_bins"].value)
+
+
+def test_press_grabs_nearest_handle_and_snaps():
+    gui = build_gui()
+    gui.reset_parameters()  # the decorated control keeps state across tests
+    window = gui.window
+    widget = window.widget_list["dpg_window"]
+    widget._press(widget._x_of(0.85))  # nearest to hi (0.8)
+    assert widget._drag == "hi"
+    widget._move("hi", widget._value_at(widget._x_of(1.0)))
+    widget._release()
+    assert widget._drag is None
+    assert window.ctrl["dpg_window"].value == pytest.approx((0.2, 1.0))
+    widget._press(widget._x_of(0.1))  # nearest to lo (0.2)
+    assert widget._drag == "lo"
+    widget._release()
 
 
 def test_reset_restores_default():
     gui = build_gui()
     window = gui.window
     widget = window.widget_list["dpg_window"]
-    widget._on_lo_change(None, 0.5, None)
+    widget._move("lo", 0.5)
     window.reset_sliders()
-    assert dpg.get_value(widget.lo_widget) == pytest.approx(0.5)  # reset_sliders follows the control
+    assert widget.lo == pytest.approx(0.5)  # reset_sliders follows the control
     gui.reset_parameters()
     assert window.ctrl["dpg_window"].value == (0.2, 0.8)
-    assert dpg.get_value(widget.lo_widget) == pytest.approx(0.2)
-    assert dpg.get_value(widget.hi_widget) == pytest.approx(0.8)
+    assert (widget.lo, widget.hi) == pytest.approx((0.2, 0.8))
