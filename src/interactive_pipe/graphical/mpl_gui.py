@@ -122,6 +122,15 @@ class MainWindow(MatplotlibWindow):
         self.refresh()
 
     def __wipe_sliders(self):
+        # Disconnect the old widgets' canvas callbacks before removing their axes:
+        # the canvas only holds weak references, but a widget kept alive by a
+        # reference cycle until the next GC pass would otherwise still receive
+        # draw events with an axes detached from the figure (AttributeError).
+        for widget in getattr(self, "sliders_list", {}).values():
+            disconnect = getattr(widget, "disconnect_events", None)
+            if disconnect is not None:
+                disconnect()
+        self.sliders_list = {}
         for ax in self.axes_controls:
             ax.remove()
 
