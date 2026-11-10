@@ -456,9 +456,9 @@ def test_output_type_change_between_frames_rebuilds_the_cell():
         cell = window.image_canvas[0][0]
         expected_kind = "curve" if kind == "signal" else kind
         assert cell["kind"] == expected_kind
-        # the cell group holds exactly the title and one content item
+        # the cell group holds exactly the title (+ its hover tooltip) and one content item
         children = cell_children(window, 0, 0)
-        assert children == [cell["title"], cell["content"]]
+        assert children == [cell["title"], cell["title_tooltip"], cell["content"]]
         assert (cell["texture"] is not None) == (expected_kind == "image")
     assert dpg.get_value(window.image_canvas[0][0]["content"]) == "hello"
 

@@ -8,7 +8,10 @@ from typing import TYPE_CHECKING
 
 from interactive_pipe.graphical.qt_backend import (
     QFrame,
+    QLabel,
     QPushButton,
+    QSize,
+    Qt,
     QtFrameBase,
     QtWidgetBase,
     QVBoxLayout,
@@ -19,6 +22,54 @@ from interactive_pipe.headless.panel import Panel
 
 if TYPE_CHECKING:
     from interactive_pipe.graphical.qt_gui import MainWindow
+
+
+class ElidedLabel(QLabel):  # type: ignore[reportGeneralTypeIssues]
+    """Label that shortens its lines with "…" instead of being cut or widening its column.
+
+    The full text is shown as a tooltip on hover whenever it had to be elided.
+    ``text()`` returns the text that was set; ``displayed_text()`` what is drawn.
+    """
+
+    def __init__(self, text: str = "", parent=None):
+        super().__init__(parent)
+        self._full_text = ""
+        self.setText(text)
+
+    def text(self) -> str:
+        return self._full_text
+
+    def displayed_text(self) -> str:
+        return super().text()
+
+    def setText(self, text) -> None:  # noqa: N802 (Qt API)
+        self._full_text = "" if text is None else str(text)
+        self._refresh()
+        self.updateGeometry()
+
+    def sizeHint(self):  # noqa: N802 (Qt API)
+        metrics = self.fontMetrics()
+        lines = self._full_text.split("\n") or [""]
+        margins = self.contentsMargins()
+        width = max(metrics.horizontalAdvance(line) for line in lines) + margins.left() + margins.right()
+        height = metrics.lineSpacing() * len(lines) + margins.top() + margins.bottom()
+        return QSize(width, height)
+
+    def minimumSizeHint(self):  # noqa: N802 (Qt API)
+        # any width is fine (the text gets elided), keep the height of the full text
+        return QSize(0, self.sizeHint().height())
+
+    def resizeEvent(self, event):  # noqa: N802 (Qt API)
+        super().resizeEvent(event)
+        self._refresh()
+
+    def _refresh(self) -> None:
+        width = self.contentsRect().width()
+        metrics = self.fontMetrics()
+        lines = [metrics.elidedText(line, Qt.TextElideMode.ElideRight, width) for line in self._full_text.split("\n")]
+        shown = "\n".join(lines)
+        super().setText(shown)
+        self.setToolTip(self._full_text if shown != self._full_text else "")
 
 
 class CollapsibleBox(QtFrameBase):  # type: ignore[reportGeneralTypeIssues]

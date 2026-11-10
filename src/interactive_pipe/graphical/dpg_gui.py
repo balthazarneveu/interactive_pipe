@@ -34,6 +34,7 @@ from interactive_pipe.graphical.dpg_backend import (  # noqa: F401
 from interactive_pipe.graphical.dpg_control import ControlFactory
 from interactive_pipe.graphical.dpg_image import (
     clear_cell_content,
+    set_cell_title,
     signal_to_curve,
     update_curve_cell,
     update_image_cell,
@@ -335,10 +336,16 @@ class MainWindow(InteractivePipeWindow):
         scale = min(avail_w / total_w, (avail_h - LAYOUT_MARGIN) / total_h)
         self.scale_factor = scale
         for r, row in enumerate(self.image_canvas):
-            for cell in row:
+            # a title may use its cell's share of the row, even when the (scaled) image is narrower
+            title_share = (avail_w - GRID_SPACING * max(0, len(row) - 1)) // max(1, len(row))
+            cell_widths = [int(w * scale) for w in col_widths[: len(row)]]
+            for c, cell in enumerate(row):
                 if cell is None or cell.get("natural_size") is None or cell.get("content") is None:
                     continue
                 width, height = cell["natural_size"]
+                cell["title_width"] = max(40, int(width * scale), title_share)
+                title_w = set_cell_title(cell)
+                cell_widths[c] = max(cell_widths[c], int(title_w))
                 kind = cell.get("kind")
                 if kind == "text":
                     dpg.configure_item(cell["content"], wrap=max(40, int(width * scale)))
@@ -348,7 +355,7 @@ class MainWindow(InteractivePipeWindow):
                     )
             row_items = self._rows.get(r)
             if row_items is not None:
-                row_w = sum(int(w * scale) for w in col_widths[: len(row)]) + GRID_SPACING * max(0, len(row) - 1)
+                row_w = sum(cell_widths) + GRID_SPACING * max(0, len(row) - 1)
                 dpg.configure_item(row_items["spacer"], width=max(0, (avail_w - row_w) // 2))
         dpg.configure_item(self.grid_vspacer, height=max(0, (avail_h - int(total_h * scale) - LAYOUT_MARGIN) // 2))
 
@@ -488,9 +495,15 @@ class MainWindow(InteractivePipeWindow):
     def add_image_placeholder(self, row, col):
         cell_group = dpg.add_group(parent=self._row_group(row))
         title = dpg.add_text("", parent=cell_group)
+        tooltip = dpg.add_tooltip(parent=title, show=False)  # full title, shown only when it is elided
+        tooltip_text = dpg.add_text("", parent=tooltip)
         self.image_canvas[row][col] = {  # type: ignore[index]
             "cell": cell_group,
             "title": title,
+            "title_tooltip": tooltip,
+            "title_tooltip_text": tooltip_text,
+            "full_title": "",
+            "title_width": None,
             "content": None,
             "texture": None,
             "buffer": None,
@@ -525,7 +538,7 @@ class MainWindow(InteractivePipeWindow):
             changed = False
         cell["kind"] = kind
         self._needs_layout = self._needs_layout or changed
-        dpg.set_value(cell["title"], self.get_current_style(row, col).get("title", ""))
+        set_cell_title(cell, self.get_current_style(row, col).get("title", ""))
 
     @staticmethod
     def convert_image(out_im):

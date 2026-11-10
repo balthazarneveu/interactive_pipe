@@ -58,7 +58,7 @@ from interactive_pipe.graphical.qt_runner import PipelineRunner
 from interactive_pipe.graphical.qt_viewer import ImageView, ViewSync
 
 # Re-exported: interactive_pipe.graphical.qt_gui.CollapsibleBox etc. are public paths
-from interactive_pipe.graphical.qt_widgets import CollapsibleBox, DetachedPanelWindow  # noqa: F401
+from interactive_pipe.graphical.qt_widgets import CollapsibleBox, DetachedPanelWindow, ElidedLabel  # noqa: F401
 from interactive_pipe.graphical.window import (
     InteractivePipeWindow,
     display_kind,
@@ -692,7 +692,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
 
     def add_image_placeholder(self, row, col):
         ax_placeholder = None
-        text_label = QLabel(text=f"{row} {col}")
+        text_label = ElidedLabel(f"{row} {col}")  # long titles get "…" + a hover tooltip
         self.image_grid_layout.addWidget(text_label, 2 * row, col, alignment=Qt.AlignmentFlag.AlignCenter)
         image_view = self._new_image_view(row, col)
         self.image_canvas[row][col] = {  # type: ignore[reportOptionalSubscript]
