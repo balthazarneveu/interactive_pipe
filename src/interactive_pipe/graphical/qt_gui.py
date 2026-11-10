@@ -179,8 +179,9 @@ class InteractivePipeQT(InteractivePipeGUI):
             self.app.quit()
 
     def reset_parameters(self):
-        """reset sliders to default parameters"""
+        """reset sliders to default parameters and fit the images back to their cells"""
         super().reset_parameters()
+        self.fit_view()
         for widget_idx, ctrl in self.window.ctrl.items():
             if isinstance(ctrl, TimeControl):
                 # self.suspend_resume_timer(True)
@@ -311,9 +312,9 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         InteractivePipeWindow.__init__(self, name=name, pipeline=pipeline, size=size)
         self.main_gui = main_gui
         self.setWindowTitle(self.name)
-
         # tooltips (elided titles, control help) also when the window is not the active one
         self.setAttribute(Qt.WidgetAttribute.WA_AlwaysShowToolTips)
+
         # Track detached panel windows
         self.detached_windows = []
         # Set by QtPanelBuilder when a TimeControl widget is created
@@ -644,7 +645,6 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             separator = " · " if self._run_status else ""
             self.set_status(f"{self._run_status}{separator}({x}, {y}) = {_format_pixel_value(value)}")
 
-    def _on_view_hover(self, view, row, col, x, y, value):
     def _status_title_hover(self, title: Optional[str]):
         """Full text of an elided output title appended to the status line while it is hovered."""
         if title is None:
@@ -653,6 +653,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             separator = " · " if self._run_status else ""
             self.set_status(f"{self._run_status}{separator}{' — '.join(title.splitlines())}")
 
+    def _on_view_hover(self, view, row, col, x, y, value):
         if self.on_pixel_hover is not None:
             self.on_pixel_hover(row, col, x, y, value)
         else:
