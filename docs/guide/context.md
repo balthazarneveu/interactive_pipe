@@ -10,17 +10,19 @@ Filters share state with each other through the `context` proxy and react to GUI
 ```python
 from interactive_pipe import interactive, context
 
+
 @interactive(color_choice=["red", "green", "blue", "gray"])
 def generate_flat_colored_image(color_choice="red"):
     flat_array = COLOR_DICT[color_choice] * np.ones((64, 64, 3))
-    context["avg"] = np.average(flat_array)   # dict-style
-    context.avg = np.average(flat_array)      # or attribute-style
+    context["avg"] = np.average(flat_array)  # dict-style
+    context.avg = np.average(flat_array)  # or attribute-style
     return flat_array
+
 
 def special_image_slice(img):
     out_img = img.copy()
-    if context["avg"] > 0.4:                  # read what another filter stored
-        out_img[out_img.shape[0] // 2:, ...] = 0.
+    if context["avg"] > 0.4:  # read what another filter stored
+        out_img[out_img.shape[0] // 2 :, ...] = 0.0
     return out_img
 ```
 

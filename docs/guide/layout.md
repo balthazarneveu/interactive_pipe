@@ -11,7 +11,7 @@ def pipe(img):
     b = black_and_white(img)
     c = blend(a, b)
     d = compute_histo(c)
-    return [[a, b], [c, d]]   # 2x2 grid
+    return [[a, b], [c, d]]  # 2x2 grid
 ```
 
 - `return a, b, c` — one row of three.
@@ -26,6 +26,7 @@ For layouts that *change at runtime* — driven by a slider, a dropdown, or the 
 ```python
 from interactive_pipe import layout
 
+
 @interactive(layout_mode=["side_by_side", "grid2x2"])
 def change_layout(layout_mode: str = "side_by_side"):
     if layout_mode == "side_by_side":
@@ -33,6 +34,7 @@ def change_layout(layout_mode: str = "side_by_side"):
     if layout_mode == "grid2x2":
         layout.grid([["input", "processed"], ["histogram_graph", "result"]])
     layout.style("result", title="Final Result")
+
 
 def pipeline(input):
     processed = denoise(input)

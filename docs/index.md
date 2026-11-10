@@ -19,14 +19,17 @@ Decorate your processing functions with `@interactive()` to declare which keywor
 from interactive_pipe import interactive, interactive_pipeline
 import numpy as np
 
+
 @interactive(coeff=(1.0, [0.5, 2.0], "exposure"))
 def exposure(img, coeff=1.0):
     return img * coeff
+
 
 @interactive_pipeline(gui="qt")
 def my_pipeline(img):
     exposed = exposure(img)
     return exposed
+
 
 my_pipeline(np.array([0.0, 0.5, 0.8]) * np.ones((256, 512, 3)))
 ```

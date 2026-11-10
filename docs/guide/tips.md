@@ -8,7 +8,8 @@ Filters don't have to take image inputs — they can simply *generate* data:
 from interactive_pipe import interactive, context
 import numpy as np
 
-COLOR_DICT = {"red": [1., 0., 0.], "green": [0., 1., 0.], "blue": [0., 0., 1.], "gray": [0.5, 0.5, 0.5]}
+COLOR_DICT = {"red": [1.0, 0.0, 0.0], "green": [0.0, 1.0, 0.0], "blue": [0.0, 0.0, 1.0], "gray": [0.5, 0.5, 0.5]}
+
 
 @interactive(color_choice=["red", "green", "blue", "gray"])
 def generate_flat_colored_image(color_choice="red"):
@@ -23,6 +24,7 @@ The `color_choice` list becomes a dropdown menu; the default is the first elemen
 
 ```python
 from interactive_pipe import KeyboardControl
+
 
 @interactive(image_index=KeyboardControl(0, [0, 2], keydown="pagedown", keyup="pageup", modulo=True))
 def switch_image(img1, img2, img3, image_index=0):
@@ -62,8 +64,8 @@ For pipelines with **independent branches**, use `cache="graph"` instead: this d
 ```python
 @interactive_pipeline(gui="qt", cache="graph")
 def my_pipeline(img):
-    exposed = exposure(img)   # moving the exposure slider...
-    smooth = denoise(img)     # ...leaves denoise and annotate cached
+    exposed = exposure(img)  # moving the exposure slider...
+    smooth = denoise(img)  # ...leaves denoise and annotate cached
     tagged = annotate(smooth)
     return [exposed, tagged]
 ```
@@ -98,6 +100,7 @@ import numpy as np
 
 image = np.random.rand(256, 512, 3)
 
+
 @interact(image, gain=(1.0, [0.0, 3.0]))
 def show(img, gain=1.0):
     return img * gain
@@ -113,8 +116,7 @@ Pass `restore_session=True` to reopen the GUI where you left it:
 
 ```python
 @interactive_pipeline(gui="qt", restore_session=True)
-def my_pipeline(img):
-    ...
+def my_pipeline(img): ...
 ```
 
 The parameters are saved when the window closes and applied at the next launch. The file lives in `~/.interactive_pipe/sessions/<name>.yaml` (`.json` without PyYAML), where `<name>` is the pipeline name with every non-alphanumeric character replaced by `_`; pass `session_path=Path(...)` to choose another file. It is a regular tuning file, so ++o++ (import tuning) can load it too.

@@ -29,44 +29,43 @@ By decorating it with `@interactive_pipeline(gui="qt")`, calling this function w
 from interactive_pipe import interactive, interactive_pipeline
 import numpy as np
 
-@interactive(
-    coeff=(1., [0.5, 2.], "exposure"),
-    bias=(0., [-0.2, 0.2])
-)
-def exposure(img, coeff=1., bias=0.):
-    '''Applies a multiplication by coeff & adds a constant bias to the image'''
-    # In the GUI, the coeff will be labelled as "exposure". 
-    # As the default tuple provided to bias does not end up with a string, 
-    # the widget label will be "bias", simply named after the keyword arg. 
-    return img*coeff + bias
+
+@interactive(coeff=(1.0, [0.5, 2.0], "exposure"), bias=(0.0, [-0.2, 0.2]))
+def exposure(img, coeff=1.0, bias=0.0):
+    """Applies a multiplication by coeff & adds a constant bias to the image"""
+    # In the GUI, the coeff will be labelled as "exposure".
+    # As the default tuple provided to bias does not end up with a string,
+    # the widget label will be "bias", simply named after the keyword arg.
+    return img * coeff + bias
 
 
 @interactive(bnw=(True, "black and white"))
 def black_and_white(img, bnw=True):
-    '''Averages the 3 color channels (Black & White) if bnw=True
-    '''
+    """Averages the 3 color channels (Black & White) if bnw=True"""
     # Special mention for booleans: using a tuple like (True,) allows creating the tick box.
     return np.repeat(np.expand_dims(np.average(img, axis=-1), -1), img.shape[-1], axis=-1) if bnw else img
 
-@interactive(blend_coeff=(0.5, [0., 1.]))
+
+@interactive(blend_coeff=(0.5, [0.0, 1.0]))
 def blend(img0, img1, blend_coeff=0.5):
-    '''Blends between two images.
-    - when blend_coeff=0 -> image 0  [slider to the left ] 
-    - when blend_coeff=1 -> image 1   [slider to the right] 
-    '''
-    return  (1-blend_coeff)*img0+ blend_coeff*img1
+    """Blends between two images.
+    - when blend_coeff=0 -> image 0  [slider to the left ]
+    - when blend_coeff=1 -> image 1   [slider to the right]
+    """
+    return (1 - blend_coeff) * img0 + blend_coeff * img1
+
 
 @interactive_pipeline(gui="qt")
 def sample_pipeline(input_image):
     exposed = exposure(input_image)
     bnw_image = black_and_white(input_image)
-    blended  = blend(exposed, bnw_image)
+    blended = blend(exposed, bnw_image)
     return exposed, blended, bnw_image
 
-if __name__ == '__main__':
-    input_image = np.array([0., 0.5, 0.8])*np.ones((256, 512, 3))
-    sample_pipeline(input_image)
 
+if __name__ == "__main__":
+    input_image = np.array([0.0, 0.5, 0.8]) * np.ones((256, 512, 3))
+    sample_pipeline(input_image)
 ```
 ❤️ This code should display a GUI with three images. The middle one is the result of the blend.
 
@@ -90,44 +89,46 @@ import numpy as np
 
 
 @interactive(
-    coeff= Control(1., [0.5, 2.], name="exposure"),    # 1. is the default value, [0.5, 2.] is the range
-    bias= Control(0., [-0.2, 0.2], name="offset expo") # 0. is the default value, [-0.2, 0.2] is the slider range
+    coeff=Control(1.0, [0.5, 2.0], name="exposure"),  # 1. is the default value, [0.5, 2.] is the range
+    bias=Control(0.0, [-0.2, 0.2], name="offset expo"),  # 0. is the default value, [-0.2, 0.2] is the slider range
 )
-def exposure(img, coeff = 1., bias=0):
-    '''Applies a multiplication by coeff & adds a constant bias to the image'''
-    mad = img*coeff + bias
+def exposure(img, coeff=1.0, bias=0):
+    """Applies a multiplication by coeff & adds a constant bias to the image"""
+    mad = img * coeff + bias
     return mad
 
 
 @interactive(
-    bnw = Control(True, name="Black and White") # booleans will allow adding a tickbox
+    bnw=Control(True, name="Black and White")  # booleans will allow adding a tickbox
 )
 def black_and_white(img, bnw=True):
-    '''Averages the 3 color channels (Black & White) if bnw=True
-    '''
+    """Averages the 3 color channels (Black & White) if bnw=True"""
     return np.repeat(np.expand_dims(np.average(img, axis=-1), -1), img.shape[-1], axis=-1) if bnw else img
 
+
 @interactive(
-    blend_coeff= Control(0.5, [0., 1.], name="blend coefficient"),
+    blend_coeff=Control(0.5, [0.0, 1.0], name="blend coefficient"),
 )
-def blend(img0, img1, blend_coeff=0.): 
+def blend(img0, img1, blend_coeff=0.0):
     # please note that blend_coeff=0. will be replaced by the default 0.5 Control value
-    '''Blends between two images.
-    - when blend_coeff=0 -> image 0  [slider to the left ] 
-    - when blend_coeff=1 -> image 1   [slider to the right] 
-    '''
-    blended = (1-blend_coeff)*img0+ blend_coeff*img1
+    """Blends between two images.
+    - when blend_coeff=0 -> image 0  [slider to the left ]
+    - when blend_coeff=1 -> image 1   [slider to the right]
+    """
+    blended = (1 - blend_coeff) * img0 + blend_coeff * img1
     return blended
+
 
 @interactive_pipeline(gui="qt")
 def sample_pipeline(input_image):
     exposed = exposure(input_image)
     bnw_image = black_and_white(input_image)
-    blended  = blend(exposed, bnw_image)
+    blended = blend(exposed, bnw_image)
     return exposed, blended, bnw_image
 
-if __name__ == '__main__':
-    input_image = np.array([0., 0.5, 0.8])*np.ones((256, 512, 3))
+
+if __name__ == "__main__":
+    input_image = np.array([0.0, 0.5, 0.8]) * np.ones((256, 512, 3))
     sample_pipeline(input_image)
 ```
 
@@ -159,20 +160,23 @@ Let's create a first file `image_filters.py` , this is what you should consider 
 ```python
 import numpy as np
 
+
 # Applies a multiplication by coeff & adds a constant bias to the image
-def exposure(img, coeff = 1., bias=0):
+def exposure(img, coeff=1.0, bias=0):
     mad = coeff * img + bias
     return mad
+
 
 # Averages the 3 color channels (Black & White) if bnw=True
 def black_and_white(img, bnw=False):
     return np.repeat(np.expand_dims(np.average(img, axis=-1), -1), img.shape[-1], axis=-1) if bnw else img
 
+
 # Blends between two images img0 & img1
 # - when blend_coeff=0 -> image 0
-# - when blend_coeff=1 -> image 1 
-def blend(img0, img1, blend_coeff=0.):
-    blended = (1-blend_coeff)*img0+ blend_coeff*img1
+# - when blend_coeff=1 -> image 1
+def blend(img0, img1, blend_coeff=0.0):
+    blended = (1 - blend_coeff) * img0 + blend_coeff * img1
     return blended
 ```
 
@@ -188,31 +192,36 @@ Let's create another file `sample_pipeline.py`
 ```python
 import numpy as np
 from image_filters import exposure, black_and_white, blend
+
+
 def sample_pipeline(input_image):
     exposed = exposure(input_image)
     bnw_image = black_and_white(input_image)
-    blended  = blend(exposed, bnw_image)
+    blended = blend(exposed, bnw_image)
     return exposed, blended, bnw_image
 
-if __name__ == '__main__':
-    input_image = np.array([0., 0.5, 0.8])*np.ones((1, 2, 3)) # (w=2 x h=1) blue image
+
+if __name__ == "__main__":
+    input_image = np.array([0.0, 0.5, 0.8]) * np.ones((1, 2, 3))  # (w=2 x h=1) blue image
     exposed, blended, bnw_image = sample_pipeline(input_image)
     print(f"{blended=}")
-#blended=array([[[0. , 0.5, 0.8],
+# blended=array([[[0. , 0.5, 0.8],
 #        [0. , 0.5, 0.8]]])
 ```
 
 > If we want to change the parameters manually, we'll have to provide each keyword parameter to each function and the code will be much more difficult to read unfortunately
 ⚠️  Let's simply not do that, jump to the next section to see how interactive pipe will help you
 ```python
-# Do not do this! 
-# The code gets ugly 
+# Do not do this!
+# The code gets ugly
 # One of the nice aspect of the interactive_pipe is that you won't have to repeat all these parameters
-def ugly_verbose_pipeline(input_image, blend_coeff=0.5, bnw=True, coeff=0.8, bias=0.):
+def ugly_verbose_pipeline(input_image, blend_coeff=0.5, bnw=True, coeff=0.8, bias=0.0):
     exposed = exposure(input_image, coeff=coeff, bias=bias)
     bnw_image = black_and_white(input_image, bnw=bnw)
-    blended  = blend(exposed, bnw_image, blend_coeff=blend_coeff)
+    blended = blend(exposed, bnw_image, blend_coeff=blend_coeff)
     return exposed, blended, bnw_image
+
+
 # Now you can tweak your parameters as much as you want...
 exposed, blended, bnw_image = ugly_verbose_pipeline(input_image, blend_coeff=0.8, coeff=0.7, bias=-0.1, bnw=True)
 ```
@@ -222,12 +231,16 @@ exposed, blended, bnw_image = ugly_verbose_pipeline(input_image, blend_coeff=0.8
 Creating a `pipeline` by decorating our `sample_pipeline` function.
 ```python
 from interactive_pipe import pipeline
+
+
 @pipeline
 def sample_pipeline(input_image):
     exposed = exposure(input_image)
     bnw_image = black_and_white(input_image)
-    blended  = blend(exposed, bnw_image)
+    blended = blend(exposed, bnw_image)
     return exposed, blended, bnw_image
+
+
 print(sample_pipeline)
 
 
@@ -255,7 +268,7 @@ print(sample_pipeline.filters)
 
 So let's simply run the function again like you'd classically do.
 ```python
-input_image = np.array([0., 0.5, 0.8])*np.ones((1, 1, 3))
+input_image = np.array([0.0, 0.5, 0.8]) * np.ones((1, 1, 3))
 exposed, blended, bnw_image = sample_pipeline(input_image)
 print(blended)
 # [[[0.  0.5 0.8]]]
@@ -289,35 +302,29 @@ So obviously, you can modify this file & reload it `sample_pipeline.load_tuning(
 ### Step 3 : adding interactivity
 Let's simply decorate some more functions in `sample_pipeline.py`
 ```python
-
 import numpy as np
 from image_filters import exposure, black_and_white, blend
 from interactive_pipe import interactive, interactive_pipeline, Control
 
 # Let's make each of the three library filters interactive.
 # Please note that image_filters.py was kept the same since the beginning and does not depend on interactive_pipe
-interactive(
-    coeff= Control(1., [0.5, 2.], name="exposure"),
-    bias= Control(0, [-0.2, 0.2], name="offset expo")
-)(exposure)
+interactive(coeff=Control(1.0, [0.5, 2.0], name="exposure"), bias=Control(0, [-0.2, 0.2], name="offset expo"))(exposure)
 
-interactive(
-    bnw = Control(False, name="Black and White")
-)(black_and_white)
+interactive(bnw=Control(False, name="Black and White"))(black_and_white)
 
-interactive(
-    blend_coeff= Control(0., [0., 1.], name="blend coefficient")
-)(blend)
+interactive(blend_coeff=Control(0.0, [0.0, 1.0], name="blend coefficient"))(blend)
+
 
 # Now let's decorate the sample pipeline with a specific GUI
 @interactive_pipeline(gui="qt")
 def sample_pipeline(input_image):
     exposed = exposure(input_image)
     bnw_image = black_and_white(input_image)
-    blended  = blend(exposed, bnw_image)
+    blended = blend(exposed, bnw_image)
     return exposed, blended, bnw_image
 
-input_image = np.array([0., 0.5, 0.8])*np.ones((512, 256, 3))
+
+input_image = np.array([0.0, 0.5, 0.8]) * np.ones((512, 256, 3))
 sample_pipeline(input_image)
 ```
 You should see a GUI pop now!
