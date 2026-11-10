@@ -1,5 +1,6 @@
 import logging
 from functools import partial
+from typing import Optional
 
 from interactive_pipe.headless.control import Control, RangeControl, range_pair
 
@@ -17,7 +18,10 @@ try:
         QIcon,
         QLabel,
         QLineEdit,
+        QPainter,
+        QPen,
         QPushButton,
+        QRectF,
         QSize,
         QSlider,
         QSpinBox,
@@ -496,12 +500,145 @@ class FloatSpinBoxControl(_SpinBoxControl):
         spin_box.setSingleStep(self.ctrl.step if self.ctrl.step else 0.1)
 
 
-class RangeSliderControl(BaseControl):
-    """Two stacked sliders (lo on top, hi below) for a RangeControl.
+class TwoHandleSlider(QWidget if PYQT_AVAILABLE else object):  # type: ignore[reportGeneralTypeIssues]
+    """One track with two draggable handles (integer positions ``0..ticks``).
 
-    Both sliders work on the same integer grid (one tick per ``step``).
-    Dragging one handle past the other pushes it along, so ``lo <= hi``
-    always holds; ``update_func`` receives the ``(lo, hi)`` tuple.
+    The handle being dragged pushes the other one along, so ``low <= high``
+    always holds. ``on_change(low, high)`` fires on every user move.
+    Arrow keys / Home / End move the last used handle.
+    """
+
+    HANDLE_RADIUS = 8
+    GROOVE_HEIGHT = 4
+
+    def __init__(self, ticks: int, low: int = 0, high: Optional[int] = None, on_change=None, parent=None):
+        super().__init__(parent)  # type: ignore[call-arg]
+        self._ticks = max(1, int(ticks))
+        self._low = 0
+        self._high = self._ticks
+        self._active = "high"
+        self.on_change = on_change
+        self.setMinimumHeight(2 * self.HANDLE_RADIUS + 6)
+        self.setMinimumWidth(6 * self.HANDLE_RADIUS)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)  # type: ignore[union-attr]
+        self.set_values(low, self._ticks if high is None else high)
+
+    # -- values -------------------------------------------------------------
+    def low(self) -> int:
+        return self._low
+
+    def high(self) -> int:
+        return self._high
+
+    def maximum(self) -> int:
+        return self._ticks
+
+    def set_values(self, low: int, high: int) -> None:
+        """Set both handles without notifying ``on_change``."""
+        low, high = sorted((max(0, min(self._ticks, int(low))), max(0, min(self._ticks, int(high)))))
+        self._low, self._high = low, high
+        self.update()
+
+    def _move(self, which: str, position: int) -> None:
+        position = max(0, min(self._ticks, position))
+        low, high = self._low, self._high
+        if which == "low":
+            low, high = position, max(high, position)
+        else:
+            low, high = min(low, position), position
+        self._active = which
+        if (low, high) != (self._low, self._high):
+            self._low, self._high = low, high
+            self.update()
+            if self.on_change is not None:
+                self.on_change(low, high)
+
+    # -- geometry -----------------------------------------------------------
+    def _x_of(self, position: int) -> float:
+        margin = self.HANDLE_RADIUS + 1
+        return margin + (self.width() - 2 * margin) * position / self._ticks
+
+    def _position_at(self, x: float) -> int:
+        margin = self.HANDLE_RADIUS + 1
+        usable = max(1, self.width() - 2 * margin)
+        return int(round(self._ticks * (x - margin) / usable))
+
+    def sizeHint(self):
+        return QSize(160, 2 * self.HANDLE_RADIUS + 8)  # type: ignore[misc]
+
+    # -- events -------------------------------------------------------------
+    def _x_of_event(self, event) -> float:
+        return event.position().x() if hasattr(event, "position") else float(event.x())
+
+    def mousePressEvent(self, event):  # noqa: N802
+        x = self._x_of_event(event)
+        d_low, d_high = abs(x - self._x_of(self._low)), abs(x - self._x_of(self._high))
+        if d_low == d_high:  # stacked handles: pick the one that can move toward the click
+            which = "low" if x < self._x_of(self._low) else "high"
+        else:
+            which = "low" if d_low < d_high else "high"
+        self._drag = which
+        self.setFocus()
+        self._move(which, self._position_at(x))
+
+    def mouseMoveEvent(self, event):  # noqa: N802
+        which = getattr(self, "_drag", None)
+        if which is not None:
+            self._move(which, self._position_at(self._x_of_event(event)))
+
+    def mouseReleaseEvent(self, event):  # noqa: N802
+        self._drag = None
+
+    def keyPressEvent(self, event):  # noqa: N802
+        key = event.key()
+        current = self._low if self._active == "low" else self._high
+        K = Qt.Key  # type: ignore[union-attr]
+        if key in (K.Key_Left, K.Key_Down):
+            self._move(self._active, current - 1)
+        elif key in (K.Key_Right, K.Key_Up):
+            self._move(self._active, current + 1)
+        elif key == K.Key_Home:
+            self._move(self._active, 0)
+        elif key == K.Key_End:
+            self._move(self._active, self._ticks)
+        else:
+            super().keyPressEvent(event)  # type: ignore[misc]
+
+    def paintEvent(self, event):  # noqa: N802
+        painter = QPainter(self)  # type: ignore[misc]
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)  # type: ignore[union-attr]
+        palette = self.palette()
+        highlight = palette.highlight().color()
+        base = palette.base().color()
+        groove_color = palette.mid().color()
+        cy = self.height() / 2
+        x_low, x_high = self._x_of(self._low), self._x_of(self._high)
+        half = self.GROOVE_HEIGHT / 2
+        painter.setPen(Qt.PenStyle.NoPen)  # type: ignore[union-attr]
+        painter.setBrush(groove_color)
+        painter.drawRoundedRect(
+            QRectF(self._x_of(0), cy - half, self._x_of(self._ticks) - self._x_of(0), self.GROOVE_HEIGHT),  # type: ignore[misc]
+            half,
+            half,
+        )
+        painter.setBrush(highlight)
+        painter.drawRect(QRectF(x_low, cy - half, max(0.0, x_high - x_low), self.GROOVE_HEIGHT))  # type: ignore[misc]
+        for which, x in (("low", x_low), ("high", x_high)):
+            focused = self.hasFocus() and which == self._active
+            pen = QPen(highlight.lighter(130) if focused else highlight, 2)  # type: ignore[misc]
+            painter.setPen(pen)
+            painter.setBrush(base)
+            r = self.HANDLE_RADIUS - 1
+            painter.drawEllipse(QRectF(x - r, cy - r, 2 * r, 2 * r))  # type: ignore[misc]
+        painter.end()
+
+
+class RangeSliderControl(BaseControl):
+    """Single-track two-handle slider (``TwoHandleSlider``) for a RangeControl.
+
+    Positions live on an integer grid (one tick per ``step``). Dragging one
+    handle past the other pushes it along, so ``lo <= hi`` always holds;
+    ``update_func`` receives the ``(lo, hi)`` tuple.
     """
 
     def check_control_type(self):
@@ -522,47 +659,18 @@ class RangeSliderControl(BaseControl):
         return int(value) if self.ctrl._type is int else round(float(value), 12)
 
     def create(self):
-        if QWidget is None or QVBoxLayout is None or QSlider is None or Qt is None:
+        if QWidget is None:
             raise ModuleNotFoundError("PyQt is required for Qt controls")
-        container = QWidget(self)
-        vbox = QVBoxLayout()
-        vbox.setContentsMargins(0, 0, 0, 0)
-        vbox.setSpacing(2)
-        self.lo_slider = QSlider(Qt.Orientation.Horizontal, container)
-        self.hi_slider = QSlider(Qt.Orientation.Horizontal, container)
-        for slider in (self.lo_slider, self.hi_slider):
-            slider.setRange(0, self._ticks())
-            slider.setSingleStep(1)
-            slider.setPageStep(1)
-            if self.ctrl.tooltip:
-                slider.setToolTip(self.ctrl.tooltip)
-            vbox.addWidget(slider)
-        container.setLayout(vbox)
-        self.control_widget = container
+        self.range_slider = TwoHandleSlider(self._ticks(), on_change=self._on_changed, parent=self)
+        if self.ctrl.tooltip:
+            self.range_slider.setToolTip(self.ctrl.tooltip)
+        self.control_widget = self.range_slider
         self.reset()
-        self.lo_slider.valueChanged.connect(self._on_lo_changed)
-        self.hi_slider.valueChanged.connect(self._on_hi_changed)
-        return container
+        return self.range_slider
 
-    def _set_silently(self, slider, position: int):
-        slider.blockSignals(True)
-        slider.setValue(position)
-        slider.blockSignals(False)
-
-    def _on_lo_changed(self, position: int):
-        if position > self.hi_slider.value():
-            self._set_silently(self.hi_slider, position)
-        self._emit()
-
-    def _on_hi_changed(self, position: int):
-        if position < self.lo_slider.value():
-            self._set_silently(self.lo_slider, position)
-        self._emit()
-
-    def _emit(self):
-        self.update_func(self.name, (self.to_value(self.lo_slider.value()), self.to_value(self.hi_slider.value())))
+    def _on_changed(self, low: int, high: int):
+        self.update_func(self.name, (self.to_value(low), self.to_value(high)))
 
     def reset(self):
         lo, hi = range_pair(self.ctrl)
-        self._set_silently(self.lo_slider, self.to_position(lo))
-        self._set_silently(self.hi_slider, self.to_position(hi))
+        self.range_slider.set_values(self.to_position(lo), self.to_position(hi))

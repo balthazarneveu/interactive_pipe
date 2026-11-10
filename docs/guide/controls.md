@@ -78,11 +78,11 @@ def stretch_levels(img, levels=(0.2, 0.8)):
 
 | Backend | Widget |
 |---|---|
-| Qt | two linked sliders (lo above, hi below) — dragging one past the other pushes it |
-| Dear PyGui | two linked sliders, same rule |
+| Qt | custom single-track widget with two handles (arrow keys move the last used handle) — dragging one past the other pushes it |
+| Dear PyGui | drawn single-track two-handle slider, same rule; follows the cell width |
 | Matplotlib | native `matplotlib.widgets.RangeSlider` |
 | Notebook | `ipywidgets` `IntRangeSlider` / `FloatRangeSlider` |
-| Gradio | text box holding `lo, hi` (no built-in range slider) |
+| Gradio | two overlaid native range inputs on one track (a `gr.HTML` component; gradio has no built-in range slider) |
 
 ## Image buttons (Qt, Dear PyGui)
 

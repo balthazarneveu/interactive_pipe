@@ -1,4 +1,4 @@
-"""RangeControl Gradio fallback: a 'lo, hi' text box (no server launch)."""
+"""RangeControl Gradio widget: a two-handle slider drawn with gr.HTML (no server launch)."""
 
 import os
 
@@ -32,15 +32,15 @@ def gr_range_pipeline(img):
     return clipped
 
 
-def test_text_fallback_feeds_a_tuple():
+def test_html_range_slider_feeds_a_tuple():
     pipeline = HeadlessPipeline.from_function(gr_range_pipeline, inputs=["img"])
     gui = InteractivePipeGradio(pipeline=pipeline, name="gradio range")
     gui(INPUT_IMAGE.copy())
     window = gui.window
     (widget,) = window.widget_list
-    assert isinstance(widget, gr.Textbox)
-    assert widget.value == "0.2, 0.8"
-    window.run_fn("0.6, 0.3")
+    assert isinstance(widget, gr.HTML)
+    assert widget.value == [0.2, 0.8]
+    window.run_fn([0.6, 0.3])
     assert gui.pipeline.parameters["gr_range_clip"]["gr_window"] == pytest.approx((0.3, 0.6))
     window.run_fn(*window.default_values)  # initial load passes the tuple itself
     assert gui.pipeline.parameters["gr_range_clip"]["gr_window"] == (0.2, 0.8)
