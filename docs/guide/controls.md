@@ -11,6 +11,7 @@ The same control can always be written as a **tuple shorthand** — great for pr
     ```python
     from interactive_pipe import interactive
 
+
     @interactive(gain=(1.0, [0.5, 2.0], "exposure"))
     def exposure(img, gain=1.0):
         return img * gain
@@ -22,6 +23,7 @@ The same control can always be written as a **tuple shorthand** — great for pr
 
     ```python
     from interactive_pipe import interactive, Control
+
 
     @interactive(gain=Control(1.0, [0.5, 2.0], name="exposure"))
     def exposure(img, gain=1.0):
@@ -62,6 +64,7 @@ See the [Control API reference](../api/controls.md) for every argument.
 import numpy as np
 from interactive_pipe import interactive, RangeControl
 
+
 @interactive(levels=RangeControl((0.2, 0.8), [0.0, 1.0], name="input levels"))
 def stretch_levels(img, levels=(0.2, 0.8)):
     lo, hi = levels
@@ -87,8 +90,7 @@ A string dropdown can be rendered as image buttons by providing one icon per cho
 
 ```python
 @interactive(song=Control("song_a", ["song_a", "song_b"], icons=["a.png", "b.png"]))
-def choose_song(song="song_a"):
-    ...
+def choose_song(song="song_a"): ...
 ```
 
 This is how the [jukebox demo](https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/jukebox_demo.py) works.
@@ -105,7 +107,7 @@ Applying the decorator "from outside" keeps your library free of interactive_pip
 from core_filters import processing_block
 from interactive_pipe import interactive
 
-interactive(angle=(0., [-360., 360.]))(processing_block)
+interactive(angle=(0.0, [-360.0, 360.0]))(processing_block)
 ```
 
 ## Exporting an animation
@@ -124,7 +126,7 @@ from interactive_pipe.headless.pipeline import HeadlessPipeline
 
 pipe = HeadlessPipeline.from_function(pipeline, cache=False)
 pipe.inputs = []  # the pipeline function inputs, if any
-export_animation(pipe, "waves.gif", duration=4.0, fps=20)          # animated GIF, loops forever
+export_animation(pipe, "waves.gif", duration=4.0, fps=20)  # animated GIF, loops forever
 export_animation(pipe, "frames/", duration=2.0, fps=25, output=1)  # frames/frames_0000.png, ...
 ```
 

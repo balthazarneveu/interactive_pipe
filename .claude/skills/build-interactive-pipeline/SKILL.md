@@ -11,20 +11,24 @@ description: Build or modify an interactive_pipe GUI pipeline — filter functio
 from interactive_pipe import interactive, interactive_pipeline
 import numpy as np
 
+
 @interactive(gain=(1.0, [0.0, 3.0]), flip=(False,))
 def amplify(img, gain=1.0, flip=False):
     out = img * gain
     return out[::-1] if flip else out
 
+
 @interactive(blend_coeff=(0.5, [0.0, 1.0]))
 def blend(img0, img1, blend_coeff=0.5):
     return (1 - blend_coeff) * img0 + blend_coeff * img1
+
 
 @interactive_pipeline(gui="qt")
 def my_pipeline(img):
     amplified = amplify(img)
     blended = blend(img, amplified)
     return amplified, blended
+
 
 my_pipeline(np.random.rand(256, 512, 3))  # opens the GUI
 ```
@@ -79,11 +83,12 @@ For one-off single-filter GUIs there is also `@interact(input_img, gain=(1.0, [0
 ```python
 from interactive_pipe import context, layout, audio, events
 
+
 @interactive()
 def my_filter(img):
-    context["avg"] = float(img.mean())     # share data between filters
+    context["avg"] = float(img.mean())  # share data between filters
     layout.style("out", title="My image")  # "out" = variable name in the pipeline function
-    layout.grid([["input", "out"]])        # arrange the display
+    layout.grid([["input", "out"]])  # arrange the display
     return img
 ```
 

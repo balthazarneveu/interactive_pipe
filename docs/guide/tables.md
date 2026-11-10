@@ -5,6 +5,7 @@ Return a `Table` to display tabular data — handy for live statistics next to t
 ```python
 from interactive_pipe import Table, interactive
 
+
 @interactive()
 def compute_statistics(img) -> Table:
     channels = ["Red", "Green", "Blue"]

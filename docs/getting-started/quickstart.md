@@ -16,11 +16,9 @@ Finally, the glue combining the filters is the pipeline function. Decorating it 
 from interactive_pipe import interactive, interactive_pipeline
 import numpy as np
 
-@interactive(
-    coeff=(1., [0.5, 2.], "exposure"),
-    bias=(0., [-0.2, 0.2])
-)
-def exposure(img, coeff=1., bias=0.):
+
+@interactive(coeff=(1.0, [0.5, 2.0], "exposure"), bias=(0.0, [-0.2, 0.2]))
+def exposure(img, coeff=1.0, bias=0.0):
     """Multiplies by coeff & adds a constant bias to the image"""
     # In the GUI, coeff is labelled "exposure". The bias tuple has no
     # trailing string, so its widget is named after the keyword arg.
@@ -34,7 +32,7 @@ def black_and_white(img, bnw=True):
     return np.repeat(np.expand_dims(np.average(img, axis=-1), -1), img.shape[-1], axis=-1) if bnw else img
 
 
-@interactive(blend_coeff=(0.5, [0., 1.]))
+@interactive(blend_coeff=(0.5, [0.0, 1.0]))
 def blend(img0, img1, blend_coeff=0.5):
     """Blends between two images.
     - blend_coeff=0 -> image 0 [slider to the left ]
@@ -51,8 +49,9 @@ def sample_pipeline(input_image):
     blended = blend(exposed, bnw_image)
     return exposed, blended, bnw_image
 
-if __name__ == '__main__':
-    input_image = np.array([0., 0.5, 0.8]) * np.ones((256, 512, 3))
+
+if __name__ == "__main__":
+    input_image = np.array([0.0, 0.5, 0.8]) * np.ones((256, 512, 3))
     sample_pipeline(input_image)
 ```
 
@@ -75,13 +74,16 @@ You may not want interactive_pipe imported in your algorithm library at all. Kee
 # image_filters.py — your library, no interactive_pipe import
 import numpy as np
 
-def exposure(img, coeff=1., bias=0.):
+
+def exposure(img, coeff=1.0, bias=0.0):
     return coeff * img + bias
+
 
 def black_and_white(img, bnw=False):
     return np.repeat(np.expand_dims(np.average(img, axis=-1), -1), img.shape[-1], axis=-1) if bnw else img
 
-def blend(img0, img1, blend_coeff=0.):
+
+def blend(img0, img1, blend_coeff=0.0):
     return (1 - blend_coeff) * img0 + blend_coeff * img1
 ```
 
@@ -92,11 +94,12 @@ from image_filters import exposure, black_and_white, blend
 from interactive_pipe import interactive, interactive_pipeline, Control
 
 interactive(
-    coeff=Control(1., [0.5, 2.], name="exposure"),
-    bias=Control(0., [-0.2, 0.2], name="offset expo"),
+    coeff=Control(1.0, [0.5, 2.0], name="exposure"),
+    bias=Control(0.0, [-0.2, 0.2], name="offset expo"),
 )(exposure)
 interactive(bnw=Control(False, name="Black and White"))(black_and_white)
-interactive(blend_coeff=Control(0., [0., 1.], name="blend coefficient"))(blend)
+interactive(blend_coeff=Control(0.0, [0.0, 1.0], name="blend coefficient"))(blend)
+
 
 @interactive_pipeline(gui="qt")
 def sample_pipeline(input_image):
@@ -105,7 +108,8 @@ def sample_pipeline(input_image):
     blended = blend(exposed, bnw_image)
     return exposed, blended, bnw_image
 
-sample_pipeline(np.array([0., 0.5, 0.8]) * np.ones((512, 256, 3)))
+
+sample_pipeline(np.array([0.0, 0.5, 0.8]) * np.ones((512, 256, 3)))
 ```
 
 ## Headless mode: same code, no GUI
@@ -115,6 +119,7 @@ The engine underneath the GUI is a `HeadlessPipeline` — use it for batch proce
 ```python
 from interactive_pipe import pipeline  # alias of interactive_pipeline
 
+
 @interactive_pipeline(gui=None)  # or gui="headless"
 def sample_pipeline(input_image):
     exposed = exposure(input_image)
@@ -122,9 +127,10 @@ def sample_pipeline(input_image):
     blended = blend(exposed, bnw_image)
     return exposed, blended, bnw_image
 
+
 exposed, blended, bnw_image = sample_pipeline(input_image, bnw=True, blend_coeff=0.5)
 sample_pipeline.export_tuning("my_tuning.yaml")  # save parameters...
-sample_pipeline.load_tuning()                    # ...and reload them later
+sample_pipeline.load_tuning()  # ...and reload them later
 ```
 
 The exported YAML keeps one section per filter, so the parameters you tuned in the GUI feed your batch runs.

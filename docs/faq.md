@@ -7,6 +7,7 @@ Use the clean context API for direct access:
 ```python
 from interactive_pipe import context, layout, audio, get_context
 
+
 @interactive()
 def my_filter(img):
     context["shared_key"] = "shared_value"  # Direct dict-like access
@@ -29,6 +30,7 @@ No, don't worry — these map back to regular sliders.
 
 ```python
 from interactive_pipe import audio
+
 audio.set(audio_file)
 ```
 
@@ -37,17 +39,15 @@ audio.set(audio_file)
 If you use the `@` decoration style, your function won't be usable in a regular manner (which may be problematic in a serious development environment):
 
 ```python
-@interactive(angle=(0., [-360., 360.]))
-def processing_block(angle=0.):
-    ...
+@interactive(angle=(0.0, [-360.0, 360.0]))
+def processing_block(angle=0.0): ...
 ```
 
 An alternative is to decorate the processing block from outside — in a file dedicated to interactivity, for instance:
 
 ```python
 # core_filter.py
-def processing_block(angle=0.):
-    ...
+def processing_block(angle=0.0): ...
 ```
 
 ```python
@@ -55,7 +55,7 @@ def processing_block(angle=0.):
 from core_filter import processing_block
 from interactive_pipe import interactive
 
-interactive(angle=(0., [-360., 360.]))(processing_block)
+interactive(angle=(0.0, [-360.0, 360.0]))(processing_block)
 ```
 
 ### Can I call the pipeline in a command line/batch fashion?

@@ -10,6 +10,7 @@ The most compact form is a list of `[x, y, style, label]` entries (matplotlib-st
 from interactive_pipe import Curve, interactive
 import numpy as np
 
+
 @interactive(
     frequency=(2.0, [0.5, 10.0]),
     amplitude=(1.0, [0.1, 2.0]),
@@ -47,7 +48,7 @@ import numpy as np
 
 x = np.linspace(0, 1, 100)
 curve = Curve([[x, x**2, "g-", "parabola"]], grid=True, xlabel="x")
-curve.show()                    # opens a matplotlib figure
+curve.show()  # opens a matplotlib figure
 curve.show(figsize=(8, 4))
 
 SingleCurve(x, np.sin(x)).show(title="standalone single curve")

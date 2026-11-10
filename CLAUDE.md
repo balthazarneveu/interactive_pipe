@@ -63,6 +63,7 @@ def my_pipeline(img_list):
     processed = process_image(img)
     return [img, processed]
 
+
 # ❌ WRONG - contains if statement
 def my_pipeline(img_list):
     img = select_image(img_list)
@@ -80,16 +81,19 @@ The old `global_params={}` or `context={}` keyword argument pattern was removed 
 # ✅ CORRECT - using new context and layout API
 from interactive_pipe import interactive, context, layout
 
+
 @interactive()
 def my_filter(img, param=0.5):
     layout.style("my_img", title="My Image")
     context["shared_data"] = "value"  # Share data between filters
     return img * param
 
+
 # ✅ CORRECT - pipeline function (no context parameter needed)
 def my_pipeline(img_list):
     img = my_filter(img_list)
     return [img]
+
 
 # ❌ WRONG - removed global_params={} pattern (raises TypeError since 0.9.0)
 @interactive()

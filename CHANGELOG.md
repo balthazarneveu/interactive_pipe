@@ -70,16 +70,19 @@
 # OLD (removed in 0.9.0 - now raises TypeError at filter construction)
 from interactive_pipe import interactive
 
-@interactive(brightness=(0.5, [0., 1.]))
+
+@interactive(brightness=(0.5, [0.0, 1.0]))
 def apply_brightness(img: np.ndarray, brightness: float = 0.5, global_params={}):
     global_params["brightness"] = brightness  # Storing shared data
     global_params["__output_styles"]["output"] = {"title": "Brightened"}  # Setting layout
     return img * brightness
 
+
 # NEW (recommended) - using context and layout proxies
 from interactive_pipe import interactive, context, layout
 
-@interactive(brightness=(0.5, [0., 1.]))
+
+@interactive(brightness=(0.5, [0.0, 1.0]))
 def apply_brightness(img: np.ndarray, brightness: float = 0.5):
     context["brightness"] = brightness  # or: context.brightness = brightness
     layout.style("output", title="Brightened")

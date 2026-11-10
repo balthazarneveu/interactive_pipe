@@ -41,9 +41,8 @@ A `KeyboardControl` behaves exactly like a slider internally, but is driven by k
 ```python
 from interactive_pipe import interactive, KeyboardControl
 
-@interactive(
-    image_index=KeyboardControl(0, [0, 2], keydown="pagedown", keyup="pageup", modulo=True)
-)
+
+@interactive(image_index=KeyboardControl(0, [0, 2], keydown="pagedown", keyup="pageup", modulo=True))
 def switch_image(img1, img2, img3, image_index=0):
     return [img1, img2, img3][image_index]
 ```
@@ -62,11 +61,13 @@ For events that are not values — "trigger this on the next run" — bind a key
 ```python
 from interactive_pipe import events, interactive
 
+
 @interactive()
 def noise_burst(img):
     if events.get("noise_burst"):  # True only on the run following the key press
         return add_noise(img)
     return img
+
 
 demo = interactive_pipeline(gui="qt")(my_pipeline)
 demo.pipeline.bind_key_to_context("n", "noise_burst", "one-shot noise burst")

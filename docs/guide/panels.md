@@ -5,12 +5,12 @@ Panels group controls into visual sections. The simplest form is the `group=` ar
 ```python
 from interactive_pipe import interactive, Control
 
+
 @interactive(
     brightness=Control(1.0, [0.0, 2.0], group="Color Adjustments"),
     contrast=Control(1.0, [0.5, 1.5], group="Color Adjustments"),
 )
-def adjust(img, brightness=1.0, contrast=1.0):
-    ...
+def adjust(img, brightness=1.0, contrast=1.0): ...
 ```
 
 Controls sharing the same group name land in the same panel — even across different filters (same-named string groups share one panel process-wide).
@@ -30,13 +30,13 @@ effects_panel = Panel("Effects", collapsible=True, collapsed=False)
 main_panel = Panel("Processing Controls").add_elements(
     [
         [text_panel, color_panel],  # row 1
-        [effects_panel],            # row 2
+        [effects_panel],  # row 2
     ]
 )
 
+
 @interactive(font_size=Control(12, [6, 48], group=text_panel))
-def add_caption(img, font_size=12):
-    ...
+def add_caption(img, font_size=12): ...
 ```
 
 Features (Qt and Dear PyGui have the fullest support, gradio supports collapsible panels):

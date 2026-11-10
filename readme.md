@@ -33,19 +33,23 @@ pip install interactive-pipe
 from interactive_pipe import interactive, interactive_pipeline
 import numpy as np
 
+
 @interactive(coeff=(1.0, [0.5, 2.0], "exposure"), bias=(0.0, [-0.2, 0.2]))
 def exposure(img, coeff=1.0, bias=0.0):
     return img * coeff + bias
 
+
 @interactive(blend_coeff=(0.5, [0.0, 1.0]))
 def blend(img0, img1, blend_coeff=0.5):
     return (1 - blend_coeff) * img0 + blend_coeff * img1
+
 
 @interactive_pipeline(gui="qt")  # or "dpg" (Dear PyGui), "mpl", "nb" (Jupyter/Colab), "gradio"
 def pipe(img):
     exposed = exposure(img)
     blended = blend(img, exposed)
     return exposed, blended
+
 
 pipe(np.array([0.0, 0.5, 0.8]) * np.ones((256, 512, 3)))
 ```

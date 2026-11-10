@@ -5,6 +5,7 @@ Audio is not returned from filters — it is driven by the `audio` proxy as a si
 ```python
 from interactive_pipe import audio, interactive
 
+
 @interactive(song=(["silence", "elephant", "snail"]))
 def choose_song(img, song="silence"):
     if song == "silence":
