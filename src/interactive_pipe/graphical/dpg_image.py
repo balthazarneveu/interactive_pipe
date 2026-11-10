@@ -24,6 +24,8 @@ __all__ = [
     "DEFAULT_TABLE_SIZE",
     "DEFAULT_TEXT_SIZE",
     "clear_cell_content",
+    "elide_text",
+    "set_cell_title",
     "numpy_to_rgba",
     "signal_to_curve",
     "update_curve_cell",
@@ -47,8 +49,60 @@ _FMT_COLORS = {
     "k": (40, 40, 40, 255),
     "w": (240, 240, 240, 255),
 }
+TITLE_CHAR_WIDTH = 7  # fallback pixel width of one character (default font) before the first frame
+ELLIPSIS = "\u2026"
+
 _MARKER_CHARS = ".,ov^<>12348spP*hH+xXDd|_"
 _LINE_PATTERN = re.compile(r"(--|-\.|-|:)")
+
+
+def _text_width(text: str) -> float:
+    """Pixel width of ``text`` with the default font (character estimate before the first frame)."""
+    try:
+        size = dpg.get_text_size(text)
+    except Exception:
+        size = None
+    if size and size[0] > 0:
+        return float(size[0])
+    return float(TITLE_CHAR_WIDTH * len(text))
+
+
+def elide_text(text: str, max_width: Optional[float], measure=_text_width) -> str:
+    """Shorten each line of ``text`` with a trailing ellipsis so it fits in ``max_width`` pixels."""
+    if not text or max_width is None:
+        return text
+    lines = []
+    for line in text.split("\n"):
+        if measure(line) <= max_width:
+            lines.append(line)
+            continue
+        lo, hi = 0, len(line)  # longest prefix that fits together with the ellipsis
+        while lo < hi:
+            mid = (lo + hi + 1) // 2
+            if measure(line[:mid].rstrip() + ELLIPSIS) <= max_width:
+                lo = mid
+            else:
+                hi = mid - 1
+        lines.append(line[:lo].rstrip() + ELLIPSIS)
+    return "\n".join(lines)
+
+
+def set_cell_title(cell: Dict[str, Any], title: Optional[str] = None) -> float:
+    """Show the cell title, elided to ``cell["title_width"]``; the full text goes to a hover tooltip.
+
+    ``title=None`` re-applies the stored title (after a relayout changed the width).
+    Returns the pixel width of the displayed title.
+    """
+    if title is not None:
+        cell["full_title"] = title
+    full = cell.get("full_title", "")
+    shown = elide_text(full, cell.get("title_width"))
+    dpg.set_value(cell["title"], shown)
+    tooltip = cell.get("title_tooltip")
+    if tooltip is not None and dpg.does_item_exist(tooltip):
+        dpg.set_value(cell["title_tooltip_text"], full)
+        dpg.configure_item(tooltip, show=shown != full)
+    return max((_text_width(line) for line in shown.split("\n")), default=0.0)
 
 
 def numpy_to_rgba(image: np.ndarray) -> np.ndarray:
