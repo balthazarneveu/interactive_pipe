@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.2 (November 2026)
 
 ### New features
 - **`RangeControl((lo, hi), [min, max])`**, a two-handle min/max control (#60): the filter receives a sorted `(lo, hi)` tuple clamped into the range and tuning files store it as a list. One real two-handle slider on every backend: native on matplotlib and notebook, a custom single-track widget on Qt, Dear PyGui (drawn, resizes with its cell) and gradio (`gr.HTML`). A control declared in `@interactive` now takes precedence over a tuple default in the function signature instead of raising "already attributed".
