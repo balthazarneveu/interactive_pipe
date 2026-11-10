@@ -672,14 +672,15 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         """ "fit" (default) or "1:1" for every image cell (zoom/pan reset).
 
         1:1 grows the window so the images show whole at their native size
-        (within the screen); going back to fit restores the previous size.
+        (even past the screen edge); going back to fit restores the previous size.
         """
         sync = self._view_sync()
         was_absolute = sync.absolute
         sync.set_mode(mode)
         if sync.absolute and not was_absolute:
             self._size_before_actual = (self.width(), self.height())
-            self._fit_window_to_images()
+            # whole images even past the screen edge (the controls below may end up off-screen)
+            self._fit_window_to_images(clamp_to_screen=False)
         elif not sync.absolute:
             previous = getattr(self, "_size_before_actual", None)
             self._size_before_actual = None
@@ -776,9 +777,11 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         except RuntimeError:  # the window was destroyed before the timer fired
             pass
 
-    def _fit_window_to_images(self):
+    def _fit_window_to_images(self, clamp_to_screen: bool = True):
         """Grow the window once so new image cells get their preferred size
-        (views can shrink, so Qt no longer grows the window by itself)."""
+        (views can shrink, so Qt no longer grows the window by itself).
+
+        clamp_to_screen=False lets the window outgrow the screen (1:1 view)."""
         if self.full_screen_flag or self.isMaximized() or self.isFullScreen():
             return
         layout = self.layout()
@@ -788,7 +791,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         hint = self.sizeHint()
         width, height = max(self.width(), hint.width()), max(self.height(), hint.height())
         screen = self.screen() if hasattr(self, "screen") else None
-        if screen is not None:
+        if screen is not None and clamp_to_screen:
             available = screen.availableGeometry()
             width, height = min(width, available.width()), min(height, available.height())
         if (width, height) != (self.width(), self.height()):

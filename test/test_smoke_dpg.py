@@ -1121,7 +1121,7 @@ def test_actual_size_keeps_a_fullscreen_viewport(monkeypatch):
     assert viewport["size"] == [400, 300]
 
 
-def test_actual_size_crops_when_the_screen_is_too_small(monkeypatch):
+def test_actual_size_shows_whole_images_even_when_the_screen_is_too_small(monkeypatch):
     gui = build_gui(basic_pipeline, size=(400, 300))
     gui.pipeline.inputs = [np.zeros((600, 600))]
     window = gui.window
@@ -1129,11 +1129,6 @@ def test_actual_size_crops_when_the_screen_is_too_small(monkeypatch):
     viewport = _fake_viewport(monkeypatch, window, (400, 300), max_size=(500, 400))
     gui.actual_size_view()
     assert viewport["size"] == [500, 400]  # grown as far as the screen allows
-    client_w, client_h = window._client_size()
-    grid = dpg.get_item_configuration(window.grid_container)
-    assert grid["width"] <= client_w and grid["height"] <= client_h  # the panels stay in the window
     for cell in window.image_cells():
-        box = dpg_image.image_box(cell)
-        assert box[1] < 600  # short of height only: each direction keeps what it can
-        x, y, w, h = _drawn_rect(cell)
-        assert (w, h) == pytest.approx((600, 600)) and x < 0 and y < 0  # 1:1 pixels, centered crop
+        assert dpg_image.image_box(cell) == (600, 600)  # whole image at native size anyway
+        assert _drawn_rect(cell) == pytest.approx((0, 0, 600, 600))
