@@ -1015,6 +1015,8 @@ def test_wheel_zooms_around_the_cursor_drag_pans_double_click_fits(monkeypatch):
     box = dpg_image.image_box(cell)
     origin = (100.0, 50.0)
     mouse = {"pos": (origin[0] + box[0] / 4, origin[1] + box[1] / 4), "down": True}
+    over_grid = {"value": True}
+    monkeypatch.setattr(dpg, "is_item_hovered", lambda item: item == window.grid_container and over_grid["value"])
     monkeypatch.setattr(dpg, "is_item_visible", lambda item: item == cell["content"])
     monkeypatch.setattr(dpg, "get_item_rect_min", lambda item: list(origin))
     monkeypatch.setattr(dpg, "get_mouse_pos", lambda local=False: list(mouse["pos"]))
@@ -1041,6 +1043,11 @@ def test_wheel_zooms_around_the_cursor_drag_pans_double_click_fits(monkeypatch):
     assert window.view.mode == "fit"
 
     mouse["pos"] = (0.0, 0.0)  # outside every image cell: the wheel is ignored
+    window.on_mouse_wheel(None, 1)
+    assert window.view.mode == "fit"
+
+    mouse["pos"] = (origin[0] + 1, origin[1] + 1)  # on the cell, but the grid is not hovered
+    over_grid["value"] = False  # (scrolled out of view, or under a detached panel)
     window.on_mouse_wheel(None, 1)
     assert window.view.mode == "fit"
 
