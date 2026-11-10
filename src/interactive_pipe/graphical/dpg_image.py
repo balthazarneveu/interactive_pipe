@@ -5,8 +5,10 @@ PyGui items of one output: the vertical ``cell`` group, its ``title`` text and
 a ``content`` item (image, plot, table or text) plus the raw ``texture`` and
 its float32 RGBA ``buffer`` for images. The helpers below mutate that dict.
 
-Images are uploaded as raw float RGBA textures (zero-copy from numpy); curves
-use the native plot widget, tables the native table widget.
+Images are uploaded as raw float RGBA textures (zero-copy from numpy) and drawn
+in a drawlist (``content``, sized by the grid layout) by a ``drawn_image``
+item: zoom & pan only move that item (``place_image``), the drawlist clips it.
+Curves use the native plot widget, tables the native table widget.
 """
 
 import logging
@@ -18,6 +20,7 @@ import numpy as np
 from interactive_pipe.data_objects.curves import Curve, SingleCurve
 from interactive_pipe.data_objects.table import Table
 from interactive_pipe.graphical.dpg_backend import dpg
+from interactive_pipe.graphical.dpg_viewer import ViewState
 
 __all__ = [
     "DEFAULT_PLOT_SIZE",
@@ -25,8 +28,10 @@ __all__ = [
     "DEFAULT_TEXT_SIZE",
     "clear_cell_content",
     "elide_text",
+    "image_box",
     "set_cell_title",
     "numpy_to_rgba",
+    "place_image",
     "signal_to_curve",
     "update_curve_cell",
     "update_image_cell",
@@ -154,7 +159,7 @@ def clear_cell_content(cell: Dict[str, Any]) -> None:
     """Remove the content item (and texture) of a cell, keeping the group and title."""
     _delete(cell.get("content"))
     _delete(cell.get("texture"))
-    for key in ("content", "texture", "buffer", "plot", "kind"):
+    for key in ("content", "drawn_image", "texture", "buffer", "plot", "kind"):
         cell[key] = None
     cell["natural_size"] = None
 
@@ -180,9 +185,26 @@ def update_image_cell(cell: Dict[str, Any], image: np.ndarray, texture_registry)
     cell["texture"] = dpg.add_raw_texture(
         width, height, cast(Any, rgba), format=dpg.mvFormat_Float_rgba, parent=texture_registry
     )
-    cell["content"] = dpg.add_image(cell["texture"], parent=cell["cell"], width=width, height=height)
+    cell["content"] = dpg.add_drawlist(width=width, height=height, parent=cell["cell"])
+    cell["drawn_image"] = dpg.draw_image(cell["texture"], (0, 0), (width, height), parent=cell["content"])
     cell["natural_size"] = (width, height)
     return True
+
+
+def image_box(cell: Dict[str, Any]) -> Tuple[int, int]:
+    """Displayed (width, height) of an image cell: the size of its drawlist."""
+    config = dpg.get_item_configuration(cell["content"])
+    natural = cell.get("natural_size") or (1, 1)
+    return (config.get("width") or natural[0], config.get("height") or natural[1])
+
+
+def place_image(cell: Dict[str, Any], view: ViewState) -> None:
+    """Move the drawn image of an image cell to where the zoom/pan state puts it."""
+    if not _exists(cell.get("drawn_image")) or cell.get("natural_size") is None:
+        return
+    x, y, width, height = view.image_rect(image_box(cell), cell["natural_size"])
+    x, y = round(x), round(y)  # whole-pixel origin: no half-pixel blur at 1:1
+    dpg.configure_item(cell["drawn_image"], pmin=(x, y), pmax=(x + width, y + height))
 
 
 # ---------------------------------------------------------------------------
