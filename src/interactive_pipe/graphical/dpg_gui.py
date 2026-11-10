@@ -15,6 +15,7 @@ works without a display; the viewport is created in ``run()``.
 """
 
 import logging
+import math
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -68,6 +69,8 @@ STATUS_BAR_HEIGHT = 20  # status line at the bottom of the primary window
 STATUS_COLOR = (150, 150, 150, 255)
 ERROR_COLOR = (230, 80, 80, 255)
 FILE_DIALOG_SIZE = (640, 400)
+LAYOUT_SETTLE_FRAMES = 2  # a relayout shows up in the measured item states after this many frames
+GRID_SLACK = (2 * 8 + GRID_SPACING, 2 * 8)  # 1:1 grid size beyond its cells: child window padding, row spacer
 
 
 class InteractivePipeDPG(InteractivePipeGUI):
@@ -248,6 +251,12 @@ class MainWindow(InteractivePipeWindow):
         self.scale_factor = 1.0
         self.view = ViewState()  # zoom/pan shared by every image cell
         self._wheel_locked = False  # primary window wheel scroll disabled while over the grid
+        self._size_before_actual: Optional[Tuple[int, int]] = None  # viewport size restored when leaving 1:1
+        self._grow_request: Optional[Tuple[int, int]] = None  # last viewport size asked by a 1:1 growth
+        self._grid_slack = list(GRID_SLACK)  # 1:1 grid size beyond its cells (paddings), learnt from overflow
+        self._decoration = (0, 0)  # viewport outer size - client size
+        self._frames_to_settle = 0  # frames before the grid overflow reflects the last relayout
+        self._in_relayout = False
         self._drag: Optional[Tuple[Dict[str, Any], Tuple[float, float]]] = None  # (cell, last mouse pos)
 
         self.texture_registry = dpg.add_texture_registry()
@@ -314,6 +323,11 @@ class MainWindow(InteractivePipeWindow):
         """Viewport resize callback: app_data = [width, height, client_width, client_height]."""
         if app_data and len(app_data) >= 4:
             self._viewport_client = (int(app_data[2]), int(app_data[3]))
+            # consistent outer/client pair: title bar and borders around the client area
+            self._decoration = (
+                max(0, int(app_data[0]) - int(app_data[2])),
+                max(0, int(app_data[1]) - int(app_data[3])),
+            )
         self.relayout()
 
     @staticmethod
@@ -344,10 +358,23 @@ class MainWindow(InteractivePipeWindow):
         """Fit the image grid in the space left by the panels (uniform scale, centered).
 
         In the 1:1 view family the cells take their native size instead and the
-        grid grows or shrinks to them, pushing the panels around (the primary
-        window scrolls when everything does not fit the viewport).
+        grid grows or shrinks to them, pushing the panels around (the viewport
+        grows to fit them, within what the window manager grants).
         """
+        if self._in_relayout:
+            self._needs_layout = True  # e.g. a viewport resize callback fired by the growth below
+            return
+        self._in_relayout = True
+        try:
+            self._relayout()
+        finally:
+            self._in_relayout = False
+        if self._needs_layout:
+            self.relayout()
+
+    def _relayout(self):
         self._needs_layout = False
+        self._frames_to_settle = LAYOUT_SETTLE_FRAMES
         if not self.image_canvas:
             return
         client_w, client_h = self._client_size()
@@ -360,14 +387,19 @@ class MainWindow(InteractivePipeWindow):
         col_widths, row_heights = self.natural_grid_size()
         total_w = sum(col_widths) + GRID_SPACING * max(0, len(col_widths) - 1)
         total_h = sum(row_heights) + GRID_SPACING * max(0, len(row_heights) - 1)
-        too_wide = False
+        absolute_scale = (1.0, 1.0)  # (width, height) cell scales in the 1:1 family
         if self.view.absolute and total_w > 0 and total_h > 0:
             # 1:1 family: cells at native size, the grid takes exactly the room they need
-            too_wide = total_w > avail_w
-            avail_w = max(avail_w, total_w)
-            avail_h = total_h + LAYOUT_MARGIN
+            # and the viewport grows to show it whole. When the screen cannot fit it, the
+            # cells take the room left in each direction (never more than native): a 1:1 crop,
+            # the panels stay visible.
+            slack_w, slack_h = self._grid_slack[0], LAYOUT_MARGIN + self._grid_slack[1]
+            self._grow_viewport(
+                client_w + max(0, total_w + slack_w - avail_w), client_h + max(0, total_h + slack_h - avail_h)
+            )
+            absolute_scale = (min(1.0, (avail_w - slack_w) / total_w), min(1.0, (avail_h - slack_h) / total_h))
+            avail_h = min(avail_h, int(total_h * absolute_scale[1]) + slack_h)
         dpg.configure_item(self.grid_container, width=avail_w, height=avail_h)
-        dpg.configure_item(self.root, horizontal_scrollbar=too_wide)
         for item in side_containers:
             dpg.configure_item(item, height=avail_h)
         for item, width_fn in self.sized_items:
@@ -376,10 +408,10 @@ class MainWindow(InteractivePipeWindow):
         if total_w <= 0 or total_h <= 0:
             return
         if self.view.absolute:
-            scale = 1.0
+            scale, scale_h = absolute_scale
         else:
-            scale = min(avail_w / total_w, (avail_h - LAYOUT_MARGIN) / total_h)
-        self.scale_factor = scale
+            scale = scale_h = min(avail_w / total_w, (avail_h - LAYOUT_MARGIN) / total_h)
+        self.scale_factor = min(scale, scale_h)
         for r, row in enumerate(self.image_canvas):
             # a title may use its cell's share of the row, even when the (scaled) image is narrower
             title_share = (avail_w - GRID_SPACING * max(0, len(row) - 1)) // max(1, len(row))
@@ -396,7 +428,7 @@ class MainWindow(InteractivePipeWindow):
                     dpg.configure_item(cell["content"], wrap=max(40, int(width * scale)))
                 else:
                     dpg.configure_item(
-                        cell["content"], width=max(1, int(width * scale)), height=max(1, int(height * scale))
+                        cell["content"], width=max(1, int(width * scale)), height=max(1, int(height * scale_h))
                     )
                     if kind == "image":
                         place_image(cell, self.view)
@@ -404,7 +436,8 @@ class MainWindow(InteractivePipeWindow):
             if row_items is not None:
                 row_w = sum(cell_widths) + GRID_SPACING * max(0, len(row) - 1)
                 dpg.configure_item(row_items["spacer"], width=max(0, (avail_w - row_w) // 2))
-        dpg.configure_item(self.grid_vspacer, height=max(0, (avail_h - int(total_h * scale) - LAYOUT_MARGIN) // 2))
+        vertical_room = 0 if self.view.absolute else avail_h - int(total_h * scale_h) - LAYOUT_MARGIN
+        dpg.configure_item(self.grid_vspacer, height=max(0, vertical_room // 2))
 
     # ------------------------------------------------------ zoom & pan (images)
     def image_cells(self) -> List[Dict[str, Any]]:
@@ -421,10 +454,72 @@ class MainWindow(InteractivePipeWindow):
             place_image(cell, self.view)
 
     def set_view_mode(self, mode: str):
-        """ "fit" (default) or "1:1" (cells at native image size) for every image cell (zoom/pan reset)."""
+        """ "fit" (default) or "1:1" (cells at native image size) for every image cell (zoom/pan reset).
+
+        1:1 grows the viewport to fit the native-size images; going back to
+        fit restores the previous viewport size.
+        """
+        was_absolute = self.view.absolute
         self.view.set_mode(mode)
+        self._grow_request = None
+        self._grid_slack = list(GRID_SLACK)
+        if self.view.absolute and not was_absolute:
+            self._size_before_actual = self._viewport_outer_size()
+        elif not self.view.absolute and self._size_before_actual is not None:
+            previous, self._size_before_actual = self._size_before_actual, None
+            self._resize_viewport(*previous)
         self.relayout()  # the cell sizes depend on the mode
         self.apply_view()
+
+    def _can_resize_viewport(self) -> bool:
+        requested = self.window_size
+        full_or_max = isinstance(requested, str)  # "fullscreen" / "maximized"
+        full_screen = self.main_gui is not None and getattr(self.main_gui, "full_screen_toggle", False)
+        return self.viewport_ready and not full_or_max and not full_screen
+
+    def _viewport_outer_size(self) -> Optional[Tuple[int, int]]:
+        if not self._can_resize_viewport():
+            return None
+        return int(dpg.get_viewport_width()), int(dpg.get_viewport_height())
+
+    def _resize_viewport(self, width: int, height: int):
+        """Resize the viewport (outer size); the resize callback relays the layout out."""
+        if not self._can_resize_viewport():
+            return
+        dpg.set_viewport_width(int(width))
+        dpg.set_viewport_height(int(height))
+
+    def _grow_viewport(self, client_w: int, client_h: int):
+        """Grow (never shrink) the viewport so its client area is at least client_w x client_h.
+
+        Idempotent: the reported client size lags a resize by a few frames, so
+        the target only depends on the requested size, not on the current one.
+        """
+        if not self._can_resize_viewport():
+            return
+        width, height = int(dpg.get_viewport_width()), int(dpg.get_viewport_height())
+        target = (max(width, client_w + self._decoration[0]), max(height, client_h + self._decoration[1]))
+        if target == (width, height):
+            return
+        if self._grow_request is not None and (width, height) != self._grow_request:
+            return  # the window manager did not grant the last request (screen limit): keep the scrollbars
+        self._grow_request = target
+        self._resize_viewport(*target)
+
+    def _fit_grid_to_content(self):
+        """Called every frame at 1:1: enlarge the grid by what its cells still
+        overflow (child window paddings and item spacings the layout misses)."""
+        if not self.view.absolute or not self.viewport_ready:
+            return
+        if self._frames_to_settle > 0:
+            self._frames_to_settle -= 1  # the grid still shows (part of) the previous layout
+            return
+        scroll_max = dpg.get_item_state(self.grid_container).get("scroll_max") or (0, 0)
+        overflow = [math.ceil(value) for value in scroll_max[:2]]
+        if overflow[0] <= 0 and overflow[1] <= 0:
+            return
+        self._grid_slack = [slack + max(0, extra) for slack, extra in zip(self._grid_slack, overflow)]
+        self.relayout()
 
     def reset_view(self):
         self.set_view_mode("fit")
@@ -581,6 +676,7 @@ class MainWindow(InteractivePipeWindow):
         for timer in self.timers:
             timer.tick(now)
         self._lock_wheel_scroll()
+        self._fit_grid_to_content()
         if self._refresh_pending:
             self.refresh()
 

@@ -105,6 +105,8 @@ class ViewSync:
         self.absolute = mode == "1:1"
         self.zoom = 1.0
         self.center = (0.5, 0.5)
+        for view in self.views:
+            view.updateGeometry()  # the size hint depends on the mode
         self.changed()
 
     def reset(self) -> None:
@@ -213,6 +215,8 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         if not self.has_image():
             return super().sizeHint()
         w, h = self.image_size()
+        if self.sync.absolute:
+            return QSize(w, h)  # 1:1: room for the whole image at native size
         ratio = min(1.0, MAX_HINT.width() / w, MAX_HINT.height() / h)
         return QSize(max(1, int(w * ratio)), max(1, int(h * ratio)))
 

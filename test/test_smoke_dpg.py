@@ -1004,7 +1004,7 @@ def test_view_keys_zoom_all_cells_and_fit_back():
         assert _drawn_rect(cell) == pytest.approx((0, 0, 4, 4))
     # the grid shrinks to the native cells (the panels move), it never scrolls
     grid = dpg.get_item_configuration(window.grid_container)
-    assert grid["height"] == 4 + dpg_gui.TITLE_HEIGHT + dpg_gui.LAYOUT_MARGIN < fit_grid_h
+    assert grid["height"] == 4 + dpg_gui.TITLE_HEIGHT + dpg_gui.LAYOUT_MARGIN + dpg_gui.GRID_SLACK[1] < fit_grid_h
     assert grid["no_scrollbar"]
     gui._on_key_press(None, dpg.mvKey_0, None)
     assert window.view.mode == "fit" and window.scale_factor > 1.0
@@ -1069,3 +1069,71 @@ def test_plus_minus_and_keypad_keys_are_mapped():
     assert table[dpg.mvKey_Plus] == table[dpg.mvKey_Add] == "+"
     assert table[dpg.mvKey_Minus] == table[dpg.mvKey_Subtract] == "-"
     assert table[dpg.mvKey_NumPad0] == "0" and table[dpg.mvKey_NumPad1] == "1"
+
+
+def _fake_viewport(monkeypatch, window, size, max_size=(10_000, 10_000)):
+    viewport = {"size": list(size)}
+    monkeypatch.setattr(dpg, "get_viewport_width", lambda: viewport["size"][0])
+    monkeypatch.setattr(dpg, "get_viewport_height", lambda: viewport["size"][1])
+
+    def resize(index):
+        def setter(value):
+            viewport["size"][index] = min(value, max_size[index])  # the window manager clamps to the screen
+            window.on_viewport_resize(None, [*viewport["size"], *viewport["size"]])
+
+        return setter
+
+    monkeypatch.setattr(dpg, "set_viewport_width", resize(0))
+    monkeypatch.setattr(dpg, "set_viewport_height", resize(1))
+    window.viewport_ready = True
+    window.on_viewport_resize(None, [*size, *size])
+    return viewport
+
+
+@pytest.mark.parametrize(("side", "grows"), [(8, False), (600, True)])
+def test_actual_size_grows_the_viewport_and_fit_restores_it(monkeypatch, side, grows):
+    image = np.zeros((side, side, 3))
+    gui = build_gui(basic_pipeline, size=(400, 300))
+    gui.pipeline.inputs = [image[..., 0]]
+    window = gui.window
+    window.refresh()
+    viewport = _fake_viewport(monkeypatch, window, (400, 300))
+    gui.actual_size_view()
+    width, height = viewport["size"]
+    assert ((width, height) != (400, 300)) == grows
+    if grows:
+        grid = dpg.get_item_configuration(window.grid_container)
+        assert width >= 2 * side and grid["width"] <= width and height > side
+        for cell in window.image_cells():
+            assert dpg_image.image_box(cell) == (side, side)  # whole image, native size
+    gui.fit_view()
+    assert viewport["size"] == [400, 300]
+
+
+def test_actual_size_keeps_a_fullscreen_viewport(monkeypatch):
+    gui = build_gui(basic_pipeline, size="fullscreen")
+    gui.pipeline.inputs = [np.zeros((600, 600))]
+    window = gui.window
+    window.refresh()
+    viewport = _fake_viewport(monkeypatch, window, (400, 300))
+    gui.actual_size_view()
+    gui.fit_view()
+    assert viewport["size"] == [400, 300]
+
+
+def test_actual_size_crops_when_the_screen_is_too_small(monkeypatch):
+    gui = build_gui(basic_pipeline, size=(400, 300))
+    gui.pipeline.inputs = [np.zeros((600, 600))]
+    window = gui.window
+    window.refresh()
+    viewport = _fake_viewport(monkeypatch, window, (400, 300), max_size=(500, 400))
+    gui.actual_size_view()
+    assert viewport["size"] == [500, 400]  # grown as far as the screen allows
+    client_w, client_h = window._client_size()
+    grid = dpg.get_item_configuration(window.grid_container)
+    assert grid["width"] <= client_w and grid["height"] <= client_h  # the panels stay in the window
+    for cell in window.image_cells():
+        box = dpg_image.image_box(cell)
+        assert box[1] < 600  # short of height only: each direction keeps what it can
+        x, y, w, h = _drawn_rect(cell)
+        assert (w, h) == pytest.approx((600, 600)) and x < 0 and y < 0  # 1:1 pixels, centered crop

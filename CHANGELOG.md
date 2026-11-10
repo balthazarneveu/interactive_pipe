@@ -3,7 +3,8 @@
 ## Unreleased
 
 ### New features
-- Dear PyGui: image cells get the Qt image viewer controls. Mouse wheel zooms around the cursor, left-drag pans, double-click fits back, and the View menu / keys 0 (fit), 1 (1:1), + and - (main and keypad) work as on Qt. 1:1 shows the whole images at their native size instead of a crop: the cells are resized and the sliders move to make room for them. Zoom and pan are synced across cells; reset (`r`) also fits the view back. No pixel-value readout yet.
+- Qt: 1:1 (key `1`) grows the window so the images show whole at their native size (within the screen); fit (key `0`) restores the previous size.
+- Dear PyGui: image cells get the Qt image viewer controls. Mouse wheel zooms around the cursor, left-drag pans, double-click fits back, and the View menu / keys 0 (fit), 1 (1:1), + and - (main and keypad) work as on Qt. 1:1 shows the whole images at their native size: the cells are resized, the sliders move to make room for them and the window grows to fit (within the screen; beyond it the cells show a pannable 1:1 crop and the sliders stay visible). Fit restores the previous window size. Zoom and pan are synced across cells; reset (`r`) also fits the view back. No pixel-value readout yet.
 
 ## 0.9.3 (November 2026)
 
