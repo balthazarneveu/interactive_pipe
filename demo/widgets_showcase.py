@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import List
 
 import numpy as np
+from PIL import Image as PILImage
+from PIL import ImageDraw, ImageFont
 
 from interactive_pipe import (
     CircularControl,
@@ -133,6 +135,24 @@ def adjust_brightness_contrast(
     return contrasted_img
 
 
+def _box_blur_axis(img: np.ndarray, radius: int, axis: int) -> np.ndarray:
+    """Box blur of the given radius along one axis, averaging only over valid (in-image) pixels."""
+    radius = int(radius)
+    n = img.shape[axis]
+    csum = np.cumsum(img, axis=axis, dtype=np.float64)
+    zero_shape = list(img.shape)
+    zero_shape[axis] = 1
+    csum = np.concatenate([np.zeros(zero_shape), csum], axis=axis)  # csum[k] = sum of first k samples
+    idx = np.arange(n)
+    hi = np.minimum(idx + radius + 1, n)
+    lo = np.maximum(idx - radius, 0)
+    window_sum = np.take(csum, hi, axis=axis) - np.take(csum, lo, axis=axis)
+    count_shape = [1] * img.ndim
+    count_shape[axis] = n
+    counts = (hi - lo).reshape(count_shape)
+    return (window_sum / counts).astype(img.dtype)
+
+
 @interactive(
     blur_amount=CircularControl(3, [1, 15], modulo=True),  # CircularControl (int)
     enable_blur=(False,),  # Bool checkbox
@@ -143,23 +163,8 @@ def apply_blur(img: np.ndarray, blur_amount: int = 3, enable_blur: bool = False)
         layout.style("blurred", title="Blur: OFF")
         return img
 
-    # Simple box blur
-    h, w, c = img.shape
-    blurred = img.copy()
-
-    # Apply horizontal blur
-    for y in range(h):
-        for x in range(w):
-            x_start = max(0, x - blur_amount)
-            x_end = min(w, x + blur_amount + 1)
-            blurred[y, x] = img[y, x_start:x_end].mean(axis=0)
-
-    # Apply vertical blur
-    for y in range(h):
-        for x in range(w):
-            y_start = max(0, y - blur_amount)
-            y_end = min(h, y + blur_amount + 1)
-            blurred[y, x] = blurred[y_start:y_end, x].mean(axis=0)
+    # Separable box blur (vectorized): horizontal pass then vertical pass
+    blurred = _box_blur_axis(_box_blur_axis(img, blur_amount, axis=1), blur_amount, axis=0)
 
     title = f"Blur: ON (radius={blur_amount})"
     layout.style("blurred", title=title)
@@ -191,38 +196,16 @@ def apply_threshold(img: np.ndarray, threshold: float = 0.5, invert: bool = Fals
     scale=(1.0, [0.5, 2.0]),  # Float slider
 )
 def apply_transform(img: np.ndarray, rotation: float = 0.0, scale: float = 1.0) -> np.ndarray:
-    """Apply rotation and scale (simplified - just shows the concept)"""
-    # For demo purposes, we'll just apply scale visually
-    # Full rotation would require more complex image processing
+    """Rotate (around the center) and zoom the image, keeping the original size"""
     h, w = img.shape[:2]
-    new_h, new_w = int(h * scale), int(w * scale)
-
-    if scale != 1.0:
-        try:
-            import cv2
-
-            transformed = cv2.resize(img, (new_w, new_h))
-            # Center crop or pad to original size
-            if scale > 1.0:
-                # Crop center
-                start_y = (new_h - h) // 2
-                start_x = (new_w - w) // 2
-                transformed = transformed[start_y : start_y + h, start_x : start_x + w]
-            else:
-                # Pad center
-                pad_y = (h - new_h) // 2
-                pad_x = (w - new_w) // 2
-                transformed = np.pad(
-                    transformed,
-                    ((pad_y, h - new_h - pad_y), (pad_x, w - new_w - pad_x), (0, 0)),
-                    mode="constant",
-                    constant_values=0.5,
-                )
-        except ImportError:
-            # Fallback: just return original if cv2 not available
-            transformed = img.copy()
-    else:
-        transformed = img.copy()
+    pil = PILImage.fromarray((np.clip(img, 0.0, 1.0) * 255).astype(np.uint8))
+    # Zoom: resize then center crop (scale>1) or pad with mid-gray (scale<1)
+    new_w, new_h = max(1, int(w * scale)), max(1, int(h * scale))
+    pil = pil.resize((new_w, new_h), PILImage.BILINEAR)
+    canvas = PILImage.new("RGB", (w, h), (128, 128, 128))
+    canvas.paste(pil, ((w - new_w) // 2, (h - new_h) // 2))
+    canvas = canvas.rotate(rotation, resample=PILImage.BILINEAR, fillcolor=(128, 128, 128))
+    transformed = np.asarray(canvas).astype(np.float32) / 255.0
 
     title = f"Rotation: {rotation:.0f}°, Scale: {scale:.2f}"
     layout.style("transformed", title=title)
@@ -263,17 +246,24 @@ def add_text_overlay(
     custom_text: str = "Widget Showcase",
     text_size: int = 50,
 ) -> np.ndarray:
-    """Add text overlay (simplified - just shows the concept)"""
-    # For demo purposes, we'll create a simple overlay
-    # In a real implementation, you'd use PIL or OpenCV to draw text
-    result = img.copy()
+    """Draw the custom text at the bottom of the image"""
     h, w = img.shape[:2]
-
-    # Create a semi-transparent overlay at the bottom
-    overlay_height = min(60, h // 10)
-    overlay = result[-overlay_height:, :].copy()
-    overlay = overlay * 0.7 + 0.3  # Darken slightly
-    result[-overlay_height:, :] = overlay
+    pil = PILImage.fromarray((np.clip(img, 0.0, 1.0) * 255).astype(np.uint8))
+    draw = ImageDraw.Draw(pil)
+    try:
+        font = ImageFont.load_default(size=int(text_size))
+    except TypeError:  # old Pillow: fixed-size default font
+        font = ImageFont.load_default()
+    draw.text(
+        (w // 2, h - 10),
+        custom_text,
+        font=font,
+        anchor="mb",
+        fill=(255, 255, 255),
+        stroke_width=max(1, int(text_size) // 15),
+        stroke_fill=(0, 0, 0),
+    )
+    result = np.asarray(pil).astype(np.float32) / 255.0
 
     title = f"Text: '{custom_text}' (size: {text_size})"
     layout.style("text_overlay", title=title)
@@ -323,10 +313,10 @@ def widgets_showcase_pipeline(img_list: List[Path]):
     adjusted = adjust_brightness_contrast(original)
     blurred = apply_blur(adjusted)
     thresholded = apply_threshold(blurred)
-    transformed = apply_transform(original)
-    colored = apply_color_effect(original)
-    text_overlay = add_text_overlay(original)
-    noisy = add_noise(original)
+    transformed = apply_transform(blurred)
+    colored = apply_color_effect(transformed)
+    text_overlay = add_text_overlay(colored)
+    noisy = add_noise(text_overlay)
 
     # Set layout outputs based on layout_mode in context
     # This modifies pipeline.outputs to control the grid arrangement
