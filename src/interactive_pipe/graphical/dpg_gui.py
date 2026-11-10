@@ -7,6 +7,8 @@ textures, curves and tables use the native plot and table widgets.
 
 Keyboard shortcuts come from a global key-press handler (muted while a text
 entry has focus), ``TimeControl`` timers are ticked from the render loop.
+Image cells share one zoom/pan state (as on Qt): wheel zoom around the cursor,
+left-drag pan, double-click fit, keys 0 (fit) / 1 (1:1) / + / -.
 
 Construction (``InteractivePipeDPG(...)``) only needs a Dear PyGui context and
 works without a display; the viewport is created in ``run()``.
@@ -34,6 +36,8 @@ from interactive_pipe.graphical.dpg_backend import (  # noqa: F401
 from interactive_pipe.graphical.dpg_control import ControlFactory
 from interactive_pipe.graphical.dpg_image import (
     clear_cell_content,
+    image_box,
+    place_image,
     set_cell_title,
     signal_to_curve,
     update_curve_cell,
@@ -42,6 +46,7 @@ from interactive_pipe.graphical.dpg_image import (
     update_text_cell,
 )
 from interactive_pipe.graphical.dpg_panels import DpgPanelBuilder, DpgTimer  # noqa: F401
+from interactive_pipe.graphical.dpg_viewer import ZOOM_STEP, ViewState
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.window import (
     InteractivePipeWindow,
@@ -81,7 +86,9 @@ class InteractivePipeDPG(InteractivePipeGUI):
         self.set_default_key_bindings()
         self.window.add_menu_bar(self.actions_by_menu(), self._on_menu_item)
         self._key_codes = key_code_table()
-        dpg.add_key_press_handler(callback=self._on_key_press, parent=dpg.add_handler_registry())
+        handler_registry = dpg.add_handler_registry()
+        dpg.add_key_press_handler(callback=self._on_key_press, parent=handler_registry)
+        self.window.add_mouse_handlers(handler_registry)
         self.full_screen_toggle = False
         self._viewport_shown = False
         if self.audio:
@@ -163,8 +170,9 @@ class InteractivePipeDPG(InteractivePipeGUI):
 
     # ------------------------------------------------------------- key actions
     def reset_parameters(self):
-        """reset sliders to default parameters"""
+        """reset sliders to default parameters and fit the images back to their cells"""
         super().reset_parameters()
+        self.fit_view()
         for ctrl in self.window.ctrl.values():
             if isinstance(ctrl, TimeControl):
                 self.start_time = None  # Reset the timer
@@ -182,6 +190,23 @@ class InteractivePipeDPG(InteractivePipeGUI):
         self.full_screen_toggle = not self.full_screen_toggle
         if self._viewport_shown and context_alive():
             dpg.toggle_viewport_fullscreen()
+
+    # ---------------------------------------------------- VIEW (image viewer)
+    def fit_view(self):
+        """fit the images to their cells"""
+        self.window.set_view_mode("fit")
+
+    def actual_size_view(self):
+        """show the images at their actual size (1:1)"""
+        self.window.set_view_mode("1:1")
+
+    def zoom_in(self):
+        """zoom in (all image cells)"""
+        self.window.zoom_by(ZOOM_STEP)
+
+    def zoom_out(self):
+        """zoom out (all image cells)"""
+        self.window.zoom_by(1.0 / ZOOM_STEP)
 
     def print_message(self, message_list: List[str]):
         print("\n".join(message_list))
@@ -221,6 +246,8 @@ class MainWindow(InteractivePipeWindow):
         self._refresh_pending = False  # set by update_parameter, flushed once per frame
         self.last_error: Optional[FilterError] = None
         self.scale_factor = 1.0
+        self.view = ViewState()  # zoom/pan shared by every image cell
+        self._drag: Optional[Tuple[Dict[str, Any], Tuple[float, float]]] = None  # (cell, last mouse pos)
 
         self.texture_registry = dpg.add_texture_registry()
         self.root = dpg.add_window(
@@ -353,11 +380,110 @@ class MainWindow(InteractivePipeWindow):
                     dpg.configure_item(
                         cell["content"], width=max(1, int(width * scale)), height=max(1, int(height * scale))
                     )
+                    if kind == "image":
+                        place_image(cell, self.view)
             row_items = self._rows.get(r)
             if row_items is not None:
                 row_w = sum(cell_widths) + GRID_SPACING * max(0, len(row) - 1)
                 dpg.configure_item(row_items["spacer"], width=max(0, (avail_w - row_w) // 2))
         dpg.configure_item(self.grid_vspacer, height=max(0, (avail_h - int(total_h * scale) - LAYOUT_MARGIN) // 2))
+
+    # ------------------------------------------------------ zoom & pan (images)
+    def image_cells(self) -> List[Dict[str, Any]]:
+        return [
+            cell
+            for row in self.image_canvas or []
+            for cell in row
+            if cell is not None and cell.get("kind") == "image" and cell.get("drawn_image") is not None
+        ]
+
+    def apply_view(self):
+        """Redraw every image cell with the shared zoom/pan state."""
+        for cell in self.image_cells():
+            place_image(cell, self.view)
+
+    def set_view_mode(self, mode: str):
+        """ "fit" (default) or "1:1" for every image cell (zoom/pan reset)."""
+        self.view.set_mode(mode)
+        self.apply_view()
+
+    def reset_view(self):
+        self.set_view_mode("fit")
+
+    def zoom_by(self, factor: float, cell: Optional[Dict[str, Any]] = None, anchor=None):
+        """Zoom around `anchor` (cell coordinates, default: center) of `cell` (default: first image)."""
+        if cell is None:
+            cells = self.image_cells()
+            if not cells:
+                return
+            cell = cells[0]
+        self.view.zoom_by(factor, image_box(cell), cell["natural_size"], anchor)
+        self.apply_view()
+
+    def image_cell_at(self, pos) -> Optional[Tuple[Dict[str, Any], Tuple[float, float]]]:
+        """(cell, position in cell coordinates) of the image cell under `pos` (viewport coordinates)."""
+        for cell in self.image_cells():
+            item = cell["content"]
+            if not dpg.is_item_visible(item):
+                continue
+            x0, y0 = dpg.get_item_rect_min(item)
+            width, height = image_box(cell)
+            local = (pos[0] - x0, pos[1] - y0)
+            if 0 <= local[0] < width and 0 <= local[1] < height:
+                return cell, local
+        return None
+
+    def _mouse_target(self):
+        if self.modal_shown():
+            return None
+        return self.image_cell_at(dpg.get_mouse_pos(local=False))
+
+    def add_mouse_handlers(self, handler_registry):
+        """Wheel zoom, left-drag pan and double-click fit on the image cells."""
+        dpg.add_mouse_wheel_handler(callback=self.on_mouse_wheel, parent=handler_registry)
+        dpg.add_mouse_click_handler(
+            button=dpg.mvMouseButton_Left, callback=self.on_mouse_click, parent=handler_registry
+        )
+        dpg.add_mouse_move_handler(callback=self.on_mouse_move, parent=handler_registry)
+        dpg.add_mouse_release_handler(
+            button=dpg.mvMouseButton_Left, callback=self.on_mouse_release, parent=handler_registry
+        )
+        dpg.add_mouse_double_click_handler(
+            button=dpg.mvMouseButton_Left, callback=self.on_mouse_double_click, parent=handler_registry
+        )
+
+    def on_mouse_wheel(self, _sender, delta, *_args):
+        target = self._mouse_target()
+        if target is None or not delta:
+            return
+        cell, local = target
+        self.zoom_by(ZOOM_STEP ** float(delta), cell, local)
+
+    def on_mouse_click(self, *_args):
+        target = self._mouse_target()
+        if target is None:
+            self._drag = None
+            return
+        x, y = dpg.get_mouse_pos(local=False)[:2]
+        self._drag = (target[0], (float(x), float(y)))
+
+    def on_mouse_move(self, _sender, pos, *_args):
+        if self._drag is None:
+            return
+        cell, last = self._drag
+        if not dpg.is_mouse_button_down(dpg.mvMouseButton_Left) or not dpg.does_item_exist(cell["content"]):
+            self._drag = None
+            return
+        self.view.pan_by(pos[0] - last[0], pos[1] - last[1], image_box(cell), cell["natural_size"])
+        self._drag = (cell, (pos[0], pos[1]))
+        self.apply_view()
+
+    def on_mouse_release(self, *_args):
+        self._drag = None
+
+    def on_mouse_double_click(self, *_args):
+        if self._mouse_target() is not None:
+            self.reset_view()
 
     # --------------------------------------------------------------- controls
     def init_sliders(self, controls: List[Control]):

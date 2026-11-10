@@ -30,14 +30,14 @@ Select the backend with the `gui=` argument of `@interactive_pipeline` (or `@int
 | Panels with sliders | ✅ | ✅ | ➖ | ➖ | ✅ |
 | Detached panels | ✅ | ✅ | ➖ | ➖ | ➖ |
 | Tables | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Image viewer (fit / zoom / pan / pixel readout) | ✅ | ➖ fit only | ➖ | ➖ | ➖ |
+| Image viewer (fit / zoom / pan / pixel readout) | ✅ | ➖ no pixel readout | ➖ | ➖ | ➖ |
 | Status line (timings, errors) | ✅ | ✅ | ➖ | ➖ | ➖ |
 
 Controls degrade gracefully: for example a [`KeyboardControl`](../guide/keyboard.md) maps back to a regular slider on the gradio and notebook backends, and a `CircularControl` falls back to a straight slider outside Qt and Dear PyGui. A [`RangeControl`](../guide/controls.md#range-control) gets a two-handle slider on every backend.
 
 ## Dear PyGui
 
-`gui="dpg"` renders the window with [Dear PyGui](https://github.com/hoffstadt/DearPyGui) (`pip install "interactive-pipe[dpg]"`), an immediate-mode GPU toolkit that stays responsive with large images and fast refresh rates. It supports the same declarative features as Qt — panels at any position, collapsible and detached panels, keyboard shortcuts, `TimeControl` animations, image buttons and knobs for `CircularControl` — with native, zoomable plots for curve outputs and native tables. Images are scaled uniformly to fill the window (resize it to taste, or pass `size=(w, h)` / `"fullscreen"` / `"maximized"`). Audio playback is not available on this backend.
+`gui="dpg"` renders the window with [Dear PyGui](https://github.com/hoffstadt/DearPyGui) (`pip install "interactive-pipe[dpg]"`), an immediate-mode GPU toolkit that stays responsive with large images and fast refresh rates. It supports the same declarative features as Qt — panels at any position, collapsible and detached panels, keyboard shortcuts, `TimeControl` animations, image buttons and knobs for `CircularControl` — with native, zoomable plots for curve outputs and native tables. Images are scaled uniformly to fill the window (resize it to taste, or pass `size=(w, h)` / `"fullscreen"` / `"maximized"`); as on Qt, the mouse wheel zooms around the cursor, left-drag pans, double-click fits back, keys 0 / 1 / + / - switch to fit / 1:1 / zoom, and zoom & pan are synced across cells. Audio playback is not available on this backend.
 
 ## Headless
 

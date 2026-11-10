@@ -15,7 +15,7 @@ Built-in shortcuts while using the GUI (Qt, Dear PyGui and matplotlib backends):
 - ++t++ print the per-filter timings of the last run
 - ++q++ quit
 
-Qt image viewer only (see [Image viewer](layout.md#image-viewer-qt)):
+Qt and Dear PyGui image viewer (see [Image viewer](layout.md#image-viewer-qt-dear-pygui)):
 
 - ++0++ fit the images to their cells
 - ++1++ actual size (1:1)
@@ -28,7 +28,7 @@ Qt image viewer only (see [Image viewer](layout.md#image-viewer-qt)):
 Qt and Dear PyGui expose every action above in a menu bar, with the shortcut shown next to each entry:
 
 - **File**: save images (++w++), export tuning (++e++), import tuning (++o++), quit (++q++)
-- **View**: toggle fullscreen (++f11++); on Qt also fit to window (++0++), actual size 1:1 (++1++), zoom in (++plus++), zoom out (++minus++)
+- **View**: toggle fullscreen (++f11++), fit to window (++0++), actual size 1:1 (++1++), zoom in (++plus++), zoom out (++minus++)
 - **Pipeline**: reset parameters (++r++), print parameters (++i++), show graph (++g++), profile last run (++t++)
 - **Help**: keyboard shortcuts (++f1++)
 

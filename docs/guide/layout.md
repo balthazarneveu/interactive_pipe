@@ -46,18 +46,18 @@ def pipeline(input):
 
 Live layout switching (e.g. going from a side-by-side comparison to a 2x2 grid while the app runs) is supported on the Qt and Dear PyGui backends.
 
-## Image viewer (Qt)
+## Image viewer (Qt, Dear PyGui)
 
-On the Qt backend every image cell is a small image viewer, so large outputs stay usable:
+On the Qt and Dear PyGui backends every image cell is a small image viewer, so large outputs stay usable:
 
 - **Fit by default**: each image is scaled to its cell, keeping its aspect ratio, and rescales as you resize the window. Cells share the window space evenly, and the window can be shrunk below the native image size.
 - **Wheel zoom** around the mouse cursor, **left-drag** to pan.
 - **Double-click** resets the view to fit.
 - **Synced across cells**: zoom and pan are shared by all the images of the window, so a before/after comparison stays aligned while you inspect details.
-- **Pixel values on hover**: hovering an image shows the pixel coordinates and the value of the raw pipeline output (a float per channel for RGB, a scalar for grayscale) in the status line at the bottom of the window, not the 8-bit display value. Set `window.on_pixel_hover` to your own `(row, col, x, y, value)` callback, or to `None` to get the readout as a tooltip instead.
+- **Pixel values on hover** (Qt only): hovering an image shows the pixel coordinates and the value of the raw pipeline output (a float per channel for RGB, a scalar for grayscale) in the status line at the bottom of the window, not the 8-bit display value. Set `window.on_pixel_hover` to your own `(row, col, x, y, value)` callback, or to `None` to get the readout as a tooltip instead.
 - **View menu / keys**: fit to window (++0++), actual size 1:1 (++1++), zoom in (++plus++), zoom out (++minus++).
 
-Zoomed-in pixels are drawn crisp (no interpolation) for pixel peeping. Saving images (`w`) always writes the full-resolution results, whatever the current zoom.
+On Qt, zoomed-in pixels are drawn crisp (no interpolation) for pixel peeping; Dear PyGui interpolates them. Saving images (`w`) always writes the full-resolution results, whatever the current zoom.
 
 ## `layout` methods
 

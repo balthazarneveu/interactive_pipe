@@ -957,3 +957,101 @@ def test_first_run_failure_builds_the_canvas():
     window.ctrl["fail"].update(True)
     window.refresh()
     assert "dpg_spy" in dpg.get_value(window.image_canvas[0][0]["content"])
+
+
+# ---------------------------------------------------------------------------
+# Image zoom & pan (shared view state, as on Qt)
+# ---------------------------------------------------------------------------
+def _drawn_rect(cell):
+    config = dpg.get_item_configuration(cell["drawn_image"])
+    (x0, y0), (x1, y1) = config["pmin"][:2], config["pmax"][:2]
+    return x0, y0, x1 - x0, y1 - y0
+
+
+def _zoom_gui():
+    gui = build_gui(basic_pipeline, size=(800, 600))
+    gui.window.refresh()
+    gui.window.on_viewport_resize(None, [800, 600, 800, 560])
+    return gui
+
+
+def test_image_cells_are_drawn_fitted_in_a_drawlist():
+    gui = _zoom_gui()
+    for cell in gui.window.image_cells():
+        assert dpg.get_item_type(cell["content"]).endswith("mvDrawlist")
+        box = dpg_image.image_box(cell)
+        x, y, w, h = _drawn_rect(cell)
+        assert (x, y) == (0, 0) and w == pytest.approx(box[0]) and h == pytest.approx(box[1])
+
+
+def test_view_keys_zoom_all_cells_and_fit_back():
+    gui = _zoom_gui()
+    window = gui.window
+    cells = window.image_cells()
+    assert len(cells) == 2
+    fit = [_drawn_rect(cell) for cell in cells]
+    gui._on_key_press(None, dpg.mvKey_Plus, None)
+    assert window.view.zoom == pytest.approx(dpg_gui.ZOOM_STEP)
+    for cell, before in zip(cells, fit):
+        assert _drawn_rect(cell)[2] == pytest.approx(before[2] * dpg_gui.ZOOM_STEP)
+    gui._on_key_press(None, dpg.mvKey_Subtract, None)
+    assert window.view.zoom == pytest.approx(1.0)
+    gui._on_key_press(None, dpg.mvKey_1, None)  # 1:1: one screen pixel per image pixel
+    assert window.view.mode == "1:1"
+    for cell in cells:
+        assert _drawn_rect(cell)[2:] == pytest.approx((4, 4))
+    gui._on_key_press(None, dpg.mvKey_0, None)
+    assert window.view.mode == "fit"
+    assert [_drawn_rect(cell) for cell in cells] == fit
+
+
+def test_wheel_zooms_around_the_cursor_drag_pans_double_click_fits(monkeypatch):
+    gui = _zoom_gui()
+    window = gui.window
+    cell = window.image_cells()[1]
+    box = dpg_image.image_box(cell)
+    origin = (100.0, 50.0)
+    mouse = {"pos": (origin[0] + box[0] / 4, origin[1] + box[1] / 4), "down": True}
+    monkeypatch.setattr(dpg, "is_item_visible", lambda item: item == cell["content"])
+    monkeypatch.setattr(dpg, "get_item_rect_min", lambda item: list(origin))
+    monkeypatch.setattr(dpg, "get_mouse_pos", lambda local=False: list(mouse["pos"]))
+    monkeypatch.setattr(dpg, "is_mouse_button_down", lambda button: mouse["down"])
+
+    window.on_mouse_wheel(None, 1)
+    assert window.view.zoom == pytest.approx(dpg_gui.ZOOM_STEP)
+    # the image point under the cursor stays under the cursor
+    x, y, w, h = window.view.image_rect(box, cell["natural_size"])
+    assert (box[0] / 4 - x) / w == pytest.approx(0.25)
+    assert (box[1] / 4 - y) / h == pytest.approx(0.25)
+
+    before = window.view.center
+    window.on_mouse_click()
+    mouse["pos"] = (mouse["pos"][0] + 10, mouse["pos"][1])
+    window.on_mouse_move(None, mouse["pos"])
+    assert window.view.center[0] < before[0] and window.view.center[1] == pytest.approx(before[1])
+    window.on_mouse_release()
+    moved = window.view.center
+    window.on_mouse_move(None, (0, 0))  # no drag in progress: nothing moves
+    assert window.view.center == moved
+
+    window.on_mouse_double_click()
+    assert window.view.mode == "fit"
+
+    mouse["pos"] = (0.0, 0.0)  # outside every image cell: the wheel is ignored
+    window.on_mouse_wheel(None, 1)
+    assert window.view.mode == "fit"
+
+
+def test_reset_parameters_also_fits_the_view():
+    gui = _zoom_gui()
+    gui.zoom_in()
+    assert gui.window.view.mode == "custom"
+    gui.reset_parameters()
+    assert gui.window.view.mode == "fit"
+
+
+def test_plus_minus_and_keypad_keys_are_mapped():
+    table = dpg_backend.key_code_table()
+    assert table[dpg.mvKey_Plus] == table[dpg.mvKey_Add] == "+"
+    assert table[dpg.mvKey_Minus] == table[dpg.mvKey_Subtract] == "-"
+    assert table[dpg.mvKey_NumPad0] == "0" and table[dpg.mvKey_NumPad1] == "1"

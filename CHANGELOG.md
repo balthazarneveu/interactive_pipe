@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### New features
+- Dear PyGui: image cells get the Qt image viewer controls. Mouse wheel zooms around the cursor, left-drag pans, double-click fits back, and the View menu / keys 0 (fit), 1 (1:1), + and - (main and keypad) work as on Qt. Zoom and pan are synced across cells; reset (`r`) also fits the view back. No pixel-value readout yet.
+
 ## 0.9.3 (November 2026)
 
 ### Packaging

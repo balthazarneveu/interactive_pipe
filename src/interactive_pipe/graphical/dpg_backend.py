@@ -53,8 +53,8 @@ def key_code_table() -> Dict[int, str]:
     """Map Dear PyGui key codes to the key names used by InteractivePipeGUI.
 
     Letters map to their lowercase character, digits to the digit, the
-    special keys to the ``KeyboardControl`` names ("up", "pageup", " ", ...)
-    and the function keys to "f1".."f12".
+    special keys to the ``KeyboardControl`` names ("up", "pageup", " ", ...),
+    the function keys to "f1".."f12" and the +/- keys (main and keypad) to "+"/"-".
     """
     table: Dict[int, str] = {}
     for letter in "abcdefghijklmnopqrstuvwxyz":
@@ -72,6 +72,12 @@ def key_code_table() -> Dict[int, str]:
             dpg.mvKey_Prior: KeyboardControl.KEY_PAGEUP,
             dpg.mvKey_Next: KeyboardControl.KEY_PAGEDOWN,
             dpg.mvKey_Spacebar: KeyboardControl.KEY_SPACEBAR,
+            dpg.mvKey_Plus: "+",  # the "=/+" key
+            dpg.mvKey_Add: "+",  # keypad
+            dpg.mvKey_Minus: "-",
+            dpg.mvKey_Subtract: "-",  # keypad
+            dpg.mvKey_NumPad0: "0",
+            dpg.mvKey_NumPad1: "1",
         }
     )
     return table
