@@ -436,3 +436,12 @@ def test_grid_change_on_a_shown_window_opens_no_stray_window():
         stray = [w for w in QApplication.topLevelWidgets() if w.isVisible() and w is not window]
         assert stray == [], f"stray top-level windows after switching to {mode}: {stray}"
     window.close()
+
+
+def test_reset_parameters_also_fits_the_view(monkeypatch):
+    gui = build_gui(spy_pipeline)
+    calls = []
+    monkeypatch.setattr(gui.window, "set_view_mode", lambda mode: calls.append(("mode", mode)))
+    monkeypatch.setattr(gui.window, "reset_view", lambda: calls.append("reset"))
+    gui.reset_parameters()
+    assert calls == [("mode", "fit"), "reset"]
