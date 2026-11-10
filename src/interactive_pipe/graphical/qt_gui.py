@@ -645,6 +645,14 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             self.set_status(f"{self._run_status}{separator}({x}, {y}) = {_format_pixel_value(value)}")
 
     def _on_view_hover(self, view, row, col, x, y, value):
+    def _status_title_hover(self, title: Optional[str]):
+        """Full text of an elided output title appended to the status line while it is hovered."""
+        if title is None:
+            self.set_status(self._run_status)
+        else:
+            separator = " · " if self._run_status else ""
+            self.set_status(f"{self._run_status}{separator}{' — '.join(title.splitlines())}")
+
         if self.on_pixel_hover is not None:
             self.on_pixel_hover(row, col, x, y, value)
         else:
@@ -694,7 +702,8 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
 
     def add_image_placeholder(self, row, col):
         ax_placeholder = None
-        text_label = ElidedLabel(f"{row} {col}")  # long titles get "…" + a hover tooltip
+        # long titles get "…"; hovering shows the full title in a tooltip and the status line
+        text_label = ElidedLabel(f"{row} {col}", on_hover=self._status_title_hover)
         self.image_grid_layout.addWidget(text_label, 2 * row, col, alignment=Qt.AlignmentFlag.AlignCenter)
         image_view = self._new_image_view(row, col)
         self.image_canvas[row][col] = {  # type: ignore[reportOptionalSubscript]

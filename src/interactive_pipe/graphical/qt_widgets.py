@@ -4,7 +4,7 @@ Import direction is one-way: qt_gui imports this module, never the reverse
 (MainWindow is referenced only as a type annotation).
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Optional
 
 from interactive_pipe.graphical.qt_backend import (
     QFrame,
@@ -27,14 +27,31 @@ if TYPE_CHECKING:
 class ElidedLabel(QLabel):  # type: ignore[reportGeneralTypeIssues]
     """Label that shortens its lines with "…" instead of being cut or widening its column.
 
-    The full text is shown as a tooltip on hover whenever it had to be elided.
+    Whenever it had to be elided, the full text is set as tooltip and handed to
+    ``on_hover(text)`` when the mouse enters the label (``on_hover(None)`` when it
+    leaves): tooltips do not show up reliably on every platform (Wayland), so
+    the window also mirrors it in its status line.
     ``text()`` returns the text that was set; ``displayed_text()`` what is drawn.
     """
 
-    def __init__(self, text: str = "", parent=None):
+    def __init__(self, text: str = "", parent=None, on_hover: Optional[Callable[[Optional[str]], None]] = None):
         super().__init__(parent)
         self._full_text = ""
+        self.on_hover = on_hover
         self.setText(text)
+
+    def is_elided(self) -> bool:
+        return self.displayed_text() != self._full_text
+
+    def enterEvent(self, event):  # noqa: N802 (Qt API)
+        super().enterEvent(event)
+        if self.on_hover is not None and self.is_elided():
+            self.on_hover(self._full_text)
+
+    def leaveEvent(self, event):  # noqa: N802 (Qt API)
+        super().leaveEvent(event)
+        if self.on_hover is not None:
+            self.on_hover(None)
 
     def text(self) -> str:
         return self._full_text
@@ -75,7 +92,7 @@ class ElidedLabel(QLabel):  # type: ignore[reportGeneralTypeIssues]
         ]
         shown = "\n".join(lines)
         super().setText(shown)
-        self.setToolTip(self._full_text if shown != self._full_text else "")
+        self.setToolTip(self._full_text if self.is_elided() else "")
 
 
 class CollapsibleBox(QtFrameBase):  # type: ignore[reportGeneralTypeIssues]

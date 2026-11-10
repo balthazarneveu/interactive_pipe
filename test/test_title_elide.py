@@ -85,3 +85,23 @@ def test_qt_elided_label_at_its_size_hint_shows_the_full_text():
     assert label.displayed_text() == "Original: elephant"
     assert label.toolTip() == ""
     label.close()
+
+
+def test_qt_hovering_an_elided_title_shows_it_in_the_status_line():
+    pytest.importorskip("interactive_pipe.graphical.qt_gui")
+    QEvent = pytest.importorskip("PyQt6.QtCore").QEvent
+    from interactive_pipe.graphical.qt_backend import QApplication
+    from interactive_pipe.graphical.qt_widgets import ElidedLabel
+
+    _app = QApplication.instance() or QApplication([])
+    seen = []
+    label = ElidedLabel("Processed\nPanel Position Demo | Gamma: 1.00", on_hover=seen.append)
+    label.show()
+    label.resize(400, 40)
+    QApplication.sendEvent(label, QEvent(QEvent.Type.Enter))
+    assert seen == []  # fits: nothing to show
+    label.resize(60, 40)
+    QApplication.sendEvent(label, QEvent(QEvent.Type.Enter))
+    QApplication.sendEvent(label, QEvent(QEvent.Type.Leave))
+    assert seen == ["Processed\nPanel Position Demo | Gamma: 1.00", None]
+    label.close()
