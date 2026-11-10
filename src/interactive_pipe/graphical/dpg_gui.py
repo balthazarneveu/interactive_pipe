@@ -433,8 +433,9 @@ class MainWindow(InteractivePipeWindow):
 
     def image_cell_at(self, pos) -> Optional[Tuple[Dict[str, Any], Tuple[float, float]]]:
         """(cell, position in cell coordinates) of the image cell under `pos` (viewport coordinates)."""
-        if not self._in_rect(pos, self.grid_container):
-            return None  # cells scrolled out of the grid (1:1) are hidden
+        if not dpg.is_item_hovered(self.grid_container):
+            # outside the grid: cells scrolled out of view (1:1), or covered by a detached panel
+            return None
         for cell in self.image_cells():
             item = cell["content"]
             if not dpg.is_item_visible(item):
@@ -445,14 +446,6 @@ class MainWindow(InteractivePipeWindow):
             if 0 <= local[0] < width and 0 <= local[1] < height:
                 return cell, local
         return None
-
-    @staticmethod
-    def _in_rect(pos, item) -> bool:
-        x0, y0 = dpg.get_item_rect_min(item)[:2]
-        width, height = dpg.get_item_rect_size(item)[:2]
-        if width <= 0 or height <= 0:
-            return True  # not rendered yet: no clipping information
-        return x0 <= pos[0] < x0 + width and y0 <= pos[1] < y0 + height
 
     def _mouse_target(self):
         if self.modal_shown():
