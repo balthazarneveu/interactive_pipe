@@ -69,6 +69,9 @@ STATUS_BAR_HEIGHT = 20  # status line at the bottom of the primary window
 STATUS_COLOR = (150, 150, 150, 255)
 ERROR_COLOR = (230, 80, 80, 255)
 FILE_DIALOG_SIZE = (640, 400)
+SCROLLBAR_SIZE = 14  # ImGui default style
+MIN_GRID_HEIGHT = 80  # the images keep at least this height (fit view)
+MIN_BOTTOM_HEIGHT = 60  # the scrolling controls area keeps at least this height
 LAYOUT_SETTLE_FRAMES = 2  # a relayout shows up in the measured item states after this many frames
 GRID_SLACK = (2 * 8 + GRID_SPACING, 2 * 8)  # 1:1 grid size beyond its cells: child window padding, row spacer
 
@@ -250,7 +253,6 @@ class MainWindow(InteractivePipeWindow):
         self.last_error: Optional[FilterError] = None
         self.scale_factor = 1.0
         self.view = ViewState()  # zoom/pan shared by every image cell
-        self._wheel_locked = False  # primary window wheel scroll disabled while over the grid
         self._size_before_actual: Optional[Tuple[int, int]] = None  # viewport size restored when leaving 1:1
         self._grow_request: Optional[Tuple[int, int]] = None  # last viewport size asked by a 1:1 growth
         self._grid_slack = list(GRID_SLACK)  # 1:1 grid size beyond its cells (paddings), learnt from overflow
@@ -267,9 +269,11 @@ class MainWindow(InteractivePipeWindow):
             no_resize=True,
             no_collapse=True,
             no_close=True,
-            no_scrollbar=False,
         )
         dpg.set_primary_window(self.root, True)
+        # the window never scrolls: the images keep their place, the controls area scrolls
+        # (set after set_primary_window, which resets these flags)
+        dpg.configure_item(self.root, no_scrollbar=True, no_scroll_with_mouse=True)
         self.top_container = dpg.add_group(parent=self.root)
         self.middle_container = dpg.add_group(parent=self.root, horizontal=True, horizontal_spacing=SIDE_PANEL_GAP)
         # side containers are created by init_sliders only when a panel sits there
@@ -281,7 +285,11 @@ class MainWindow(InteractivePipeWindow):
         )
         self.grid_vspacer = dpg.add_spacer(parent=self.grid_container, height=0)
         self.image_grid = dpg.add_group(parent=self.grid_container)
-        self.bottom_container = dpg.add_group(parent=self.root)
+        # bottom controls: a group (measured at its natural height) in a child window that
+        # scrolls when the controls do not fit under the images
+        self.bottom_scroll = dpg.add_child_window(parent=self.root, border=False, height=-STATUS_BAR_HEIGHT)
+        self.bottom_container = dpg.add_group(parent=self.bottom_scroll)
+        self._bottom_scrolls = False
         # status line: last run timings / errors
         self.status_text = dpg.add_text("", parent=self.root, color=STATUS_COLOR)
         self.window_size = size  # validated by the setter
@@ -383,7 +391,11 @@ class MainWindow(InteractivePipeWindow):
         top_h = self._measured_height(self.top_container)
         bottom_h = self._measured_height(self.bottom_container)
         menu_h = MENU_BAR_HEIGHT if self.menu_bar is not None else 0
-        avail_h = max(80, client_h - menu_h - STATUS_BAR_HEIGHT - top_h - bottom_h - LAYOUT_MARGIN - 2 * GRID_SPACING)
+        fixed_h = menu_h + STATUS_BAR_HEIGHT + top_h + LAYOUT_MARGIN + 2 * GRID_SPACING
+        # the controls get their natural height unless that leaves the images less than
+        # MIN_GRID_HEIGHT: then they scroll in their own area
+        bottom_shown = min(bottom_h, max(MIN_BOTTOM_HEIGHT, client_h - fixed_h - MIN_GRID_HEIGHT))
+        avail_h = max(MIN_GRID_HEIGHT, client_h - fixed_h - bottom_shown)
         col_widths, row_heights = self.natural_grid_size()
         total_w = sum(col_widths) + GRID_SPACING * max(0, len(col_widths) - 1)
         total_h = sum(row_heights) + GRID_SPACING * max(0, len(row_heights) - 1)
@@ -394,11 +406,18 @@ class MainWindow(InteractivePipeWindow):
             # overflow the viewport (the primary window scrolls to reach them).
             slack_w, slack_h = self._grid_slack[0], LAYOUT_MARGIN + self._grid_slack[1]
             self._grow_viewport(
-                client_w + max(0, total_w + slack_w - avail_w), client_h + max(0, total_h + slack_h - avail_h)
+                client_w + max(0, total_w + slack_w - avail_w),
+                max(client_h, fixed_h + bottom_h + total_h + slack_h),
             )
             avail_w = max(avail_w, total_w + slack_w)
             avail_h = total_h + slack_h
+            # images first: the controls take the room left (when the screen caps the
+            # window growth) and scroll in their own area
+            bottom_shown = min(bottom_h, max(MIN_BOTTOM_HEIGHT, client_h - fixed_h - avail_h))
         dpg.configure_item(self.grid_container, width=avail_w, height=avail_h)
+        if bottom_h > 0:
+            dpg.configure_item(self.bottom_scroll, height=bottom_shown)
+        self._bottom_scrolls = bottom_shown < bottom_h
         for item in side_containers:
             dpg.configure_item(item, height=avail_h)
         for item, width_fn in self.sized_items:
@@ -629,7 +648,8 @@ class MainWindow(InteractivePipeWindow):
                 panels_by_position[panel.position or "bottom"].append(panel)
 
         def full_width() -> int:
-            return self._client_size()[0] - LAYOUT_MARGIN
+            # leave room for the scrollbar of the controls area when it shows
+            return self._client_size()[0] - LAYOUT_MARGIN - (SCROLLBAR_SIZE if self._bottom_scrolls else 0)
 
         def side_width() -> int:
             return SIDE_PANEL_WIDTH
@@ -654,10 +674,9 @@ class MainWindow(InteractivePipeWindow):
             builder.build_panel(panel, self.bottom_container, full_width)
         for panel in detached_panels:
             builder.build_detached_window(panel)
-        for container in (self.top_container, self.bottom_container):
-            # ImGui quirk: an empty group grows (by the scroll offset) once the window scrolls,
-            # pushing everything below away and the bottom of the window out of reach
-            dpg.configure_item(container, show=bool(dpg.get_item_children(container, 1)))
+        # ImGui quirk: an empty group grows (by the scroll offset) once its window scrolls
+        dpg.configure_item(self.top_container, show=bool(dpg.get_item_children(self.top_container, 1)))
+        dpg.configure_item(self.bottom_scroll, show=bool(dpg.get_item_children(self.bottom_container, 1)))
 
     def on_detached_closed(self, sender, *_args):
         if sender in self.detached_windows:
@@ -678,18 +697,9 @@ class MainWindow(InteractivePipeWindow):
         now = time.time()
         for timer in self.timers:
             timer.tick(now)
-        self._lock_wheel_scroll()
         self._fit_grid_to_content()
         if self._refresh_pending:
             self.refresh()
-
-    def _lock_wheel_scroll(self):
-        """The wheel zooms over the image grid: keep it from also scrolling the
-        primary window (it overflows at 1:1 with large images)."""
-        over_grid = bool(dpg.is_item_hovered(self.grid_container))
-        if over_grid != self._wheel_locked:
-            dpg.configure_item(self.root, no_scroll_with_mouse=over_grid)
-            self._wheel_locked = over_grid
 
     def request_refresh(self):
         """Mark the pipeline dirty: the render loop (tick_timers) runs it once
