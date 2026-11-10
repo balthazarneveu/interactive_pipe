@@ -179,15 +179,18 @@ def process_image(
     if active_effects:
         title += f" [{', '.join(active_effects)}]"
 
-    subtitle = ""
-    if show_info:
-        subtitle = info_text
+    # Info panel (top): extra line under the title (titles are the only text a backend renders)
+    info = []
+    if show_info and info_text:
+        info.append(info_text)
     if enable_gamma:
-        subtitle += f" | Gamma: {gamma:.2f}"
+        info.append(f"Gamma: {gamma:.2f}")
     if enable_noise:
-        subtitle += f" | Noise: {noise_amount:.2f}"
+        info.append(f"Noise: {noise_amount:.2f}")
+    if info:
+        title += "\n" + " | ".join(info)
 
-    layout.style("processed", title=title, subtitle=subtitle)
+    layout.style("processed", title=title)
 
     return result
 

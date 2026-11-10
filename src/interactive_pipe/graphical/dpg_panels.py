@@ -75,6 +75,7 @@ class DpgPanelBuilder:
         self.window = window
         self.control_factory = control_factory
         self._tables: Dict[Any, Any] = {}  # container item -> 2-column controls table
+        self._label_hints: Dict[Any, int] = {}  # container item -> longest control name it will hold
 
     # ------------------------------------------------------------------ panels
     def build_element(self, element, parent, width_fn: WidthFn) -> Optional[Any]:
@@ -103,7 +104,11 @@ class DpgPanelBuilder:
 
     def fill_panel(self, panel: Panel, container, width_fn: WidthFn) -> None:
         """Add the child panels, grid rows and controls of ``panel`` to ``container``."""
-        if panel.elements and isinstance(panel.elements[0], list):
+        is_grid = bool(panel.elements) and isinstance(panel.elements[0], list)
+        direct = [] if is_grid else [el for el in panel.elements if isinstance(el, Control)]
+        direct += panel._controls
+        self._label_hints[container] = max((len(c.name) for c in direct), default=0)
+        if is_grid:
             for row in panel.elements:
                 if not isinstance(row, list) or not row:
                     continue
@@ -144,7 +149,9 @@ class DpgPanelBuilder:
         table = self._tables.get(container)
         if table is not None and dpg.does_item_exist(table):
             return table
-        label_width = min(LABEL_MAX_WIDTH, max(LABEL_MIN_WIDTH, LABEL_CHAR_WIDTH * len(ctrl.name) + 12))
+        # size the label column for the longest name of the container, not just the first one
+        n_chars = max(len(ctrl.name), self._label_hints.get(container, 0))
+        label_width = min(LABEL_MAX_WIDTH, max(LABEL_MIN_WIDTH, LABEL_CHAR_WIDTH * n_chars + 12))
         table = dpg.add_table(parent=container, header_row=False, policy=dpg.mvTable_SizingStretchProp)
         dpg.add_table_column(parent=table, width_fixed=True, init_width_or_weight=label_width)
         dpg.add_table_column(parent=table, width_stretch=True, init_width_or_weight=1.0)
