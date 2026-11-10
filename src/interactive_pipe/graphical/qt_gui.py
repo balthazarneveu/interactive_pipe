@@ -47,6 +47,7 @@ from interactive_pipe.graphical.qt_backend import (  # noqa: F401
 )
 from interactive_pipe.graphical.qt_control import ControlFactory
 from interactive_pipe.graphical.qt_image import (
+    discard_widget,
     numpy_to_pixmap,
     signal_to_curve,
     update_curve_cell,
@@ -713,7 +714,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             if isinstance(widget, ImageView):
                 widget.detach()
             if widget is not None:
-                widget.setParent(None)
+                discard_widget(widget)
         row, col = img_widget_dict.get("row"), img_widget_dict.get("col")
         if row is not None and col is not None:
             self.image_grid_layout.setRowStretch(2 * row + 1, 0)
@@ -736,7 +737,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             # created here and the canvas helpers recreate theirs on demand
             if isinstance(cell["image"], ImageView):
                 cell["image"].detach()
-            cell["image"].setParent(None)
+            discard_widget(cell["image"])
             cell["plot_object"] = None
             cell["ax_placeholder"] = None
             cell["image"] = self._new_image_view(row, col)

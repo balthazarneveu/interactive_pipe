@@ -15,7 +15,7 @@ import pytest  # noqa: E402
 
 qt_gui = pytest.importorskip("interactive_pipe.graphical.qt_gui")
 
-from interactive_pipe import interactive, layout  # noqa: E402
+from interactive_pipe import Curve, interactive, layout  # noqa: E402
 from interactive_pipe.core.engine import FilterError  # noqa: E402
 from interactive_pipe.graphical.qt_backend import QApplication  # noqa: E402
 from interactive_pipe.headless.pipeline import HeadlessPipeline  # noqa: E402
@@ -401,3 +401,38 @@ def test_threaded_display_uses_the_styles_of_its_own_run():
         assert window.image_canvas[0][0]["title"].text() == "gain=0.2"
     finally:
         window.stop_threaded_runs()
+
+
+@interactive(grid_mode=("row", ["row", "column"]))
+def grid_switch(grid_mode="row"):
+    if grid_mode == "row":
+        layout.grid(["switch_img", "switch_curve"])
+    else:
+        layout.grid([["switch_img"], ["switch_curve"]])
+
+
+@interactive()
+def to_curve(img):
+    return Curve([[np.arange(img.shape[1]), img[0]]])
+
+
+def grid_switch_pipeline(img):
+    switch_img = to_rgb_refresh(img)
+    switch_curve = to_curve(img)
+    grid_switch()
+    return [switch_img, switch_curve]
+
+
+def test_grid_change_on_a_shown_window_opens_no_stray_window():
+    gui = build_gui(grid_switch_pipeline)
+    window = gui.window
+    window.show()
+    window.refresh()
+    flush_events()
+    for mode in ("column", "row", "column"):
+        window.ctrl["grid_mode"].update(mode)
+        window.refresh()
+        flush_events()
+        stray = [w for w in QApplication.topLevelWidgets() if w.isVisible() and w is not window]
+        assert stray == [], f"stray top-level windows after switching to {mode}: {stray}"
+    window.close()
