@@ -143,6 +143,23 @@ else:
     SilentSlider = None  # type: ignore[reportAssignmentType]
 
 
+def _dial_offset(span):
+    """Dial position of the range minimum.
+
+    QDial puts its minimum at the bottom and increases clockwise, so half a
+    turn further is the top: a 0-360 dial then points north at 0.
+    """
+    return round(span / 2)
+
+
+def _to_dial(offset_from_min, span):
+    return (offset_from_min + _dial_offset(span)) % span if span else 0
+
+
+def _from_dial(position, span):
+    return (position - _dial_offset(span)) % span if span else 0
+
+
 class IntSliderControl(BaseControl):
     def check_control_type(self):
         if self.ctrl._type is not int:
@@ -175,8 +192,11 @@ class IntSliderControl(BaseControl):
             raise TypeError(f"Expected int for IntSliderControl range, got {type(valmin)}, {type(valmax)}")
         if not isinstance(valdefault, int):
             raise TypeError(f"Expected int for IntSliderControl default, got {type(valdefault)}")
+        self._dial = isinstance(slider, QDial) if QDial is not None else False
         slider.setRange(valmin, valmax)
-        slider.setValue(valdefault)
+        if self._dial:
+            slider.setWrapping(True)
+        slider.setValue(self._position(valdefault))
         step = self.ctrl.step if self.ctrl.step else 1
         if not isinstance(step, int):
             raise TypeError(f"Expected int for IntSliderControl step, got {type(step)}")
@@ -189,7 +209,16 @@ class IntSliderControl(BaseControl):
         self.control_widget = slider
         return self.control_widget
 
+    def _position(self, value):
+        """Widget position of a control value (the dial is rotated, see _dial_offset)."""
+        if not self._dial:
+            return value
+        valmin, valmax = self.ctrl.value_range[0], self.ctrl.value_range[1]  # type: ignore[reportOptionalSubscript]
+        return valmin + _to_dial(value - valmin, valmax - valmin)
+
     def _on_value_changed(self, valmin, step, value):
+        if self._dial:
+            value = valmin + _from_dial(value - valmin, self.ctrl.value_range[1] - valmin)  # type: ignore[reportOptionalSubscript]
         snapped = valmin + round((value - valmin) / step) * step
         self.update_func(self.name, snapped)
 
@@ -197,7 +226,7 @@ class IntSliderControl(BaseControl):
         value = self.ctrl.value
         if not isinstance(value, int):
             raise TypeError(f"Expected int for IntSliderControl value, got {type(value)}")
-        self.control_widget.setValue(value)
+        self.control_widget.setValue(self._position(value))
 
 
 class FloatSliderControl(BaseControl):
@@ -243,6 +272,9 @@ class FloatSliderControl(BaseControl):
                     raise ModuleNotFoundError("PyQt is required for Qt controls")
                 slider_class = QSlider
                 slider = slider_class(Qt.Orientation.Horizontal, self)  # type: ignore[reportOptionalMemberAccess]
+        self._dial = isinstance(slider, QDial) if QDial is not None else False
+        if self._dial:
+            slider.setWrapping(True)
         slider.setRange(
             self.convert_value_to_int(self.ctrl.value_range[0]),  # type: ignore[reportOptionalSubscript]
             self.convert_value_to_int(self.ctrl.value_range[1]),  # type: ignore[reportOptionalSubscript]
@@ -250,7 +282,7 @@ class FloatSliderControl(BaseControl):
         valdefault = self.ctrl.value_default
         if not isinstance(valdefault, (int, float)):
             raise TypeError(f"Expected int or float for FloatSliderControl default, got {type(valdefault)}")
-        slider.setValue(self.convert_value_to_int(valdefault))
+        slider.setValue(self._position(valdefault))
         value_min = self.ctrl.value_range[0]  # type: ignore[reportOptionalSubscript]
         value_max = self.ctrl.value_range[1]  # type: ignore[reportOptionalSubscript]
         if not isinstance(value_min, (int, float)) or not isinstance(value_max, (int, float)):
@@ -270,11 +302,18 @@ class FloatSliderControl(BaseControl):
         self.control_widget = slider
         return slider
 
+    def _position(self, value):
+        """Integer widget position of a control value (the dial is rotated, see _dial_offset)."""
+        position = self.convert_value_to_int(value)
+        return _to_dial(position, 1000) if self._dial else position
+
     def _on_value_changed(self, slider_position: int):
+        if self._dial:
+            slider_position = _from_dial(slider_position, 1000)
         self.update_func(self.name, self.convert_int_to_value(slider_position))
 
     def reset(self):
-        self.control_widget.setValue(self.convert_value_to_int(self.ctrl.value))
+        self.control_widget.setValue(self._position(self.ctrl.value))
 
 
 class IconButtonsControl(BaseControl):
