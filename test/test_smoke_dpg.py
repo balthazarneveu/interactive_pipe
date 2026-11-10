@@ -1138,4 +1138,32 @@ def test_empty_panel_containers_are_hidden():
     gui = build_gui(basic_pipeline)
     window = gui.window
     assert not dpg.is_item_shown(window.top_container)  # no top panel (an empty group breaks scrolling)
-    assert dpg.is_item_shown(window.bottom_container)  # the ungrouped sliders live there
+    assert dpg.is_item_shown(window.bottom_scroll)  # the ungrouped sliders live there
+
+
+def test_controls_scroll_in_their_own_area_when_the_images_need_the_room(monkeypatch):
+    gui = build_gui(basic_pipeline, size=(400, 300))
+    gui.pipeline.inputs = [np.zeros((250, 150))]
+    window = gui.window
+    window.refresh()
+    controls_h = 200  # natural height of the controls (measured after a frame in the real GUI)
+    real_measure = dpg_gui.MainWindow._measured_height
+    monkeypatch.setattr(
+        dpg_gui.MainWindow,
+        "_measured_height",
+        staticmethod(lambda item: controls_h if item == window.bottom_container else real_measure(item)),
+    )
+    _fake_viewport(monkeypatch, window, (400, 300), max_size=(400, 300))  # the window cannot grow
+    window.relayout()
+    assert dpg.get_item_configuration(window.bottom_scroll)["height"] < controls_h  # fit: scrolls too
+    gui.actual_size_view()
+    for cell in window.image_cells():
+        assert dpg_image.image_box(cell) == (150, 250)  # whole images at native size
+    bottom = dpg.get_item_configuration(window.bottom_scroll)["height"]
+    assert dpg_gui.MIN_BOTTOM_HEIGHT <= bottom < controls_h  # the controls area scrolls
+    assert window._bottom_scrolls
+    root = dpg.get_item_configuration(window.root)
+    assert root["no_scrollbar"] and root["no_scroll_with_mouse"]  # the window itself never scrolls
+    gui.fit_view()
+    window.relayout()
+    assert dpg.get_item_configuration(window.grid_container)["height"] >= dpg_gui.MIN_GRID_HEIGHT
