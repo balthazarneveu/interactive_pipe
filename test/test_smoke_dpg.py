@@ -1132,3 +1132,10 @@ def test_actual_size_shows_whole_images_even_when_the_screen_is_too_small(monkey
     for cell in window.image_cells():
         assert dpg_image.image_box(cell) == (600, 600)  # whole image at native size anyway
         assert _drawn_rect(cell) == pytest.approx((0, 0, 600, 600))
+
+
+def test_empty_panel_containers_are_hidden():
+    gui = build_gui(basic_pipeline)
+    window = gui.window
+    assert not dpg.is_item_shown(window.top_container)  # no top panel (an empty group breaks scrolling)
+    assert dpg.is_item_shown(window.bottom_container)  # the ungrouped sliders live there
