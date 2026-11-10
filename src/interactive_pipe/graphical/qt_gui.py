@@ -312,6 +312,8 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         self.main_gui = main_gui
         self.setWindowTitle(self.name)
 
+        # tooltips (elided titles, control help) also when the window is not the active one
+        self.setAttribute(Qt.WidgetAttribute.WA_AlwaysShowToolTips)
         # Track detached panel windows
         self.detached_windows = []
         # Set by QtPanelBuilder when a TimeControl widget is created

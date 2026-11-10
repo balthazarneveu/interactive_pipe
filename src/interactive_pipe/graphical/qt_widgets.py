@@ -51,7 +51,8 @@ class ElidedLabel(QLabel):  # type: ignore[reportGeneralTypeIssues]
         metrics = self.fontMetrics()
         lines = self._full_text.split("\n") or [""]
         margins = self.contentsMargins()
-        width = max(metrics.horizontalAdvance(line) for line in lines) + margins.left() + margins.right()
+        # +2: elidedText already trims a line whose advance equals the available width exactly
+        width = max(metrics.horizontalAdvance(line) for line in lines) + margins.left() + margins.right() + 2
         height = metrics.lineSpacing() * len(lines) + margins.top() + margins.bottom()
         return QSize(width, height)
 
@@ -66,7 +67,12 @@ class ElidedLabel(QLabel):  # type: ignore[reportGeneralTypeIssues]
     def _refresh(self) -> None:
         width = self.contentsRect().width()
         metrics = self.fontMetrics()
-        lines = [metrics.elidedText(line, Qt.TextElideMode.ElideRight, width) for line in self._full_text.split("\n")]
+        lines = [
+            line
+            if metrics.horizontalAdvance(line) <= width
+            else metrics.elidedText(line, Qt.TextElideMode.ElideRight, width)
+            for line in self._full_text.split("\n")
+        ]
         shown = "\n".join(lines)
         super().setText(shown)
         self.setToolTip(self._full_text if shown != self._full_text else "")
