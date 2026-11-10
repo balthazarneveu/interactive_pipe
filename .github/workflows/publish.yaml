@@ -18,9 +18,11 @@ jobs:
           if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
             echo "Tag $GITHUB_REF_NAME does not match pyproject version $VERSION"; exit 1
           fi
-      - name: Promote [full] extra to core dependencies (official PyPI release)
+      - name: Promote [qt6] extra to core dependencies (official PyPI release)
         # The repo keeps minimal deps (pip install from git stays light);
-        # the PyPI wheel ships with every backend, like the old full.patch did.
+        # the PyPI wheel adds only PyQt6 so `pip install interactive-pipe` gives
+        # the Qt backend. Other backends stay opt-in extras ([dpg], [notebook],
+        # [gradio], [full]) to keep the default install small.
         run: |
           python - <<'EOF'
           import re, tomllib
@@ -28,7 +30,7 @@ jobs:
           text = open(path).read()
           data = tomllib.loads(text)
           core = data["project"]["dependencies"]
-          extra = [d for d in data["project"]["optional-dependencies"]["full"] if d not in core]
+          extra = [d for d in data["project"]["optional-dependencies"]["qt6"] if d not in core]
           block = re.search(r"^dependencies = \[\n(.*?)^\]", text, re.S | re.M)
           new = block.group(0)[:-1] + "".join(f'  "{d}",\n' for d in extra) + "]"
           text = text[: block.start()] + new + text[block.end():]

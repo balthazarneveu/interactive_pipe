@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Packaging
+- The PyPI package now ships only the Qt backend on top of the core (numpy, matplotlib, Pillow, PyYAML, PyQt6) instead of every backend. Dear PyGui, Jupyter, gradio, OpenCV, pandas and pytest are opt-in: `pip install "interactive-pipe[dpg]"`, `[notebook]`, `[gradio]`, `[opencv]`, `[pandas]`, or `[full]` for everything. New `gradio`, `opencv` and `pandas` extras.
+
 ## 0.9.2 (November 2026)
 
 ### New features

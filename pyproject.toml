@@ -63,6 +63,18 @@ dpg=[
   "dearpygui>=1.11",
 ]
 
+gradio=[
+  "gradio",
+]
+
+opencv=[
+  "opencv_python_headless>=4.8.1.78",
+]
+
+pandas=[
+  "pandas",
+]
+
 pytest=[
   "opencv_python_headless>=4.8.1.78",
   "pytest>=6.2.5"
