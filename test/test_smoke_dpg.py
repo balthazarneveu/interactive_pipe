@@ -1256,3 +1256,27 @@ def test_bottom_panels_move_into_columns_and_back(monkeypatch):
     assert dpg.get_item_parent(panel) == window.bottom_container
     children = dpg.get_item_children(window.bottom_container, 1)
     assert children == [window._bottom_table, panel]  # original order
+
+
+def test_layout_follows_the_viewport_size_before_the_frame(monkeypatch):
+    """The resize callback arrives after a frame drawn with the old layout
+    (the bottom of the window jumped during a resize): tick_timers relays the
+    layout out as soon as the client size changed."""
+    gui = build_gui(basic_pipeline, size=(800, 600))
+    window = gui.window
+    window.refresh()
+    window.viewport_ready = True
+    client = {"size": (800, 600)}
+    monkeypatch.setattr(dpg, "get_viewport_client_width", lambda: client["size"][0])
+    monkeypatch.setattr(dpg, "get_viewport_client_height", lambda: client["size"][1])
+    window.tick_timers()
+    assert window._laid_out_client == (800, 600)
+    relayouts = []
+    real_relayout = window.relayout
+    monkeypatch.setattr(window, "relayout", lambda: (relayouts.append(client["size"]), real_relayout()))
+    window.tick_timers()
+    assert relayouts == []  # unchanged size: no relayout
+    client["size"] = (800, 560)
+    window.tick_timers()
+    assert relayouts == [(800, 560)]
+    assert window._laid_out_client == (800, 560)
