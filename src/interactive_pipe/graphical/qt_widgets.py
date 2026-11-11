@@ -10,6 +10,7 @@ from interactive_pipe.graphical.qt_backend import (
     QFrame,
     QLabel,
     QPushButton,
+    QScrollArea,
     QSize,
     Qt,
     QtFrameBase,
@@ -93,6 +94,39 @@ class ElidedLabel(QLabel):  # type: ignore[reportGeneralTypeIssues]
         shown = "\n".join(lines)
         super().setText(shown)
         self.setToolTip(self._full_text if self.is_elided() else "")
+
+
+class ControlsScrollArea(QScrollArea):  # type: ignore[reportGeneralTypeIssues]
+    """Vertical scroll area for the controls below the images.
+
+    It asks for the full height of its content, so the controls show whole
+    whenever there is room, but it shrinks down to ``MIN_HEIGHT`` and scrolls
+    when the images take the room (1:1 view, small window).
+    """
+
+    MIN_HEIGHT = 60
+
+    def __init__(self, content: QWidget, parent=None):
+        super().__init__(parent)
+        self.setWidget(content)
+        self.setWidgetResizable(True)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
+    def sizeHint(self) -> QSize:  # noqa: N802 (Qt API)
+        # QScrollArea caps its hint: the controls would scroll needlessly
+        content = self.widget()
+        if content is None:
+            return QSize(0, 0)
+        hint = content.sizeHint().expandedTo(content.minimumSizeHint())
+        bar = self.verticalScrollBar()
+        bar_width = bar.sizeHint().width() if bar is not None else 0
+        return QSize(hint.width() + bar_width, hint.height())  # room for the bar: no horizontal clipping
+
+    def minimumSizeHint(self) -> QSize:  # noqa: N802 (Qt API)
+        hint = self.sizeHint()
+        return QSize(hint.width(), min(hint.height(), self.MIN_HEIGHT))
 
 
 class CollapsibleBox(QtFrameBase):  # type: ignore[reportGeneralTypeIssues]

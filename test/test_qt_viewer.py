@@ -286,3 +286,98 @@ def test_actual_size_grows_the_window_and_fit_restores_it():
     window.set_view_mode("fit")
     settle(window)
     assert (window.width(), window.height()) == before
+
+
+@interactive()
+def many_sliders(
+    img,
+    p0=(0.5, [0.0, 1.0]),
+    p1=(0.5, [0.0, 1.0]),
+    p2=(0.5, [0.0, 1.0]),
+    p3=(0.5, [0.0, 1.0]),
+    p4=(0.5, [0.0, 1.0]),
+    p5=(0.5, [0.0, 1.0]),
+    p6=(0.5, [0.0, 1.0]),
+    p7=(0.5, [0.0, 1.0]),
+    p8=(0.5, [0.0, 1.0]),
+    p9=(0.5, [0.0, 1.0]),
+    p10=(0.5, [0.0, 1.0]),
+    p11=(0.5, [0.0, 1.0]),
+    p12=(0.5, [0.0, 1.0]),
+    p13=(0.5, [0.0, 1.0]),
+    p14=(0.5, [0.0, 1.0]),
+    p15=(0.5, [0.0, 1.0]),
+    p16=(0.5, [0.0, 1.0]),
+    p17=(0.5, [0.0, 1.0]),
+    p18=(0.5, [0.0, 1.0]),
+    p19=(0.5, [0.0, 1.0]),
+    p20=(0.5, [0.0, 1.0]),
+    p21=(0.5, [0.0, 1.0]),
+    p22=(0.5, [0.0, 1.0]),
+    p23=(0.5, [0.0, 1.0]),
+    p24=(0.5, [0.0, 1.0]),
+    p25=(0.5, [0.0, 1.0]),
+    p26=(0.5, [0.0, 1.0]),
+    p27=(0.5, [0.0, 1.0]),
+    p28=(0.5, [0.0, 1.0]),
+    p29=(0.5, [0.0, 1.0]),
+):
+    return img * p0
+
+
+def sliders_pipeline(img):
+    out = many_sliders(img)
+    return [out]
+
+
+def test_actual_size_keeps_the_window_on_screen_and_scrolls_the_controls():
+    """1:1 with more controls than the screen holds: the image shows whole at
+    its native size, the window fits the screen and the controls scroll."""
+    image = RAMP[:200, :300].copy()
+    window = build_window(sliders_pipeline, image=image)
+    controls = window.bottom_scroll
+    screen = window.screen().availableGeometry()
+    assert controls.widget().sizeHint().height() + 200 > screen.height()  # the test needs it
+    window.set_view_mode("1:1")
+    settle(window)
+    (view,) = views(window)
+    assert view.width() >= 300 and view.height() >= 200  # whole image (centered when wider)
+    assert view.scale() == 1.0
+    assert window.height() <= screen.height()
+    assert controls.height() < controls.widget().sizeHint().height()
+    assert controls.verticalScrollBar().maximum() > 0
+    window.set_view_mode("fit")
+    settle(window)
+    assert window.height() <= screen.height()
+
+
+def test_window_manager_shrinking_a_resize_caps_later_ones():
+    """Wayland reports the panels as available screen: the size the compositor
+    granted instead of a requested one becomes the limit for later fits."""
+    window = build_window(pair_pipeline)
+    window._resize_request = (700, 700, qt_gui.time.monotonic())
+    window.resize(700, 700)  # Qt's echo of the request: not an answer yet
+    QApplication.processEvents()
+    assert window._granted_limit is None
+    window.resize(700, 650)  # the compositor's answer
+    QApplication.processEvents()
+    assert window._granted_limit == (qt_gui.NO_LIMIT, 650)
+    window._resize_request = None
+    window.resize(700, 500)  # the user shrinking the window: not a limit
+    QApplication.processEvents()
+    assert window._granted_limit == (qt_gui.NO_LIMIT, 650)
+    window.set_view_mode("1:1")
+    settle(window)
+    assert window.height() <= max(650, window.minimumSizeHint().height())
+
+
+def rgb_pipeline(img):
+    out = to_rgb(img)
+    return [out]
+
+
+def test_controls_area_is_hidden_without_controls():
+    window = build_window(switching_pipeline)
+    assert window.bottom_scroll.isVisible()
+    window = build_window(rgb_pipeline)
+    assert not window.bottom_scroll.isVisible()

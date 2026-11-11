@@ -72,6 +72,7 @@ pyside6.QtWidgets = fake_module(
         "QMenuBar",
         "QMessageBox",
         "QPushButton",
+        "QScrollArea",
         "QSlider",
         "QSpinBox",
         "QVBoxLayout",

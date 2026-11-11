@@ -1,6 +1,7 @@
 import logging
 import sys
 import threading
+import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -58,7 +59,12 @@ from interactive_pipe.graphical.qt_runner import PipelineRunner
 from interactive_pipe.graphical.qt_viewer import ImageView, ViewSync
 
 # Re-exported: interactive_pipe.graphical.qt_gui.CollapsibleBox etc. are public paths
-from interactive_pipe.graphical.qt_widgets import CollapsibleBox, DetachedPanelWindow, ElidedLabel  # noqa: F401
+from interactive_pipe.graphical.qt_widgets import (  # noqa: F401
+    CollapsibleBox,
+    ControlsScrollArea,
+    DetachedPanelWindow,
+    ElidedLabel,
+)
 from interactive_pipe.graphical.window import (
     InteractivePipeWindow,
     display_kind,
@@ -69,6 +75,11 @@ from interactive_pipe.headless.control import Control, TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.panel import Panel
 from interactive_pipe.headless.pipeline import HeadlessPipeline
+
+# seconds within which a smaller size after a resize request is the window
+# manager's answer (rather than the user resizing the window)
+RESIZE_ANSWER_DELAY = 1.0
+NO_LIMIT = 1 << 24  # pixels: a dimension the window manager never shrank
 
 
 def _normalize_output_grid(_out):
@@ -333,6 +344,10 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         # (outputs, output_styles) captured by the worker with the run being
         # displayed: the next run may already be changing the live ones
         self._display_layout: Optional[tuple] = None
+        # window sizing: (width, height, time) last asked by _fit_window_to_images;
+        # usable size learned when the window manager shrank one (None: it never did)
+        self._resize_request: Optional[tuple] = None
+        self._granted_limit: Optional[tuple] = None
 
         # Create main vertical layout (replaces QFormLayout)
         main_layout = QVBoxLayout()
@@ -375,7 +390,12 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         # Assemble main layout: top panels | middle (left | images | right) | bottom panels
         main_layout.addLayout(self.top_panels_layout)
         main_layout.addLayout(middle_layout)
-        main_layout.addLayout(self.bottom_panels_layout)
+        # the controls below scroll in their own area when the images take the room (1:1)
+        bottom_content = QWidget()
+        bottom_content.setLayout(self.bottom_panels_layout)
+        self.bottom_panels_layout.setContentsMargins(0, 0, 0, 0)
+        self.bottom_scroll = ControlsScrollArea(bottom_content)
+        main_layout.addWidget(self.bottom_scroll)
 
         # Status line: last run timings / errors, pixel readout on hover
         self.status_label = QLabel("")
@@ -526,6 +546,8 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             panel_widget = self._build_panel_widget(panel, control_factory)
             self.bottom_panels_layout.addWidget(panel_widget)
 
+        self.bottom_scroll.setVisible(self.bottom_panels_layout.count() > 0)
+
         # Create detached windows for detached panels (position is ignored for detached)
         for panel in detached_panels:
             detached_window = DetachedPanelWindow(panel, self, control_factory)
@@ -671,16 +693,17 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
     def set_view_mode(self, mode: str):
         """ "fit" (default) or "1:1" for every image cell (zoom/pan reset).
 
-        1:1 grows the window so the images show whole at their native size
-        (even past the screen edge); going back to fit restores the previous size.
+        1:1 grows the window (up to the screen size) so the images show whole at
+        their native size, the controls below get the room left and scroll; the
+        window outgrows the screen only when the images alone do not fit.
+        Going back to fit restores the previous size.
         """
         sync = self._view_sync()
         was_absolute = sync.absolute
         sync.set_mode(mode)
         if sync.absolute and not was_absolute:
             self._size_before_actual = (self.width(), self.height())
-            # whole images even past the screen edge (the controls below may end up off-screen)
-            self._fit_window_to_images(clamp_to_screen=False)
+            self._fit_window_to_images()
         elif not sync.absolute:
             previous = getattr(self, "_size_before_actual", None)
             self._size_before_actual = None
@@ -777,11 +800,12 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         except RuntimeError:  # the window was destroyed before the timer fired
             pass
 
-    def _fit_window_to_images(self, clamp_to_screen: bool = True):
+    def _fit_window_to_images(self):
         """Grow the window once so new image cells get their preferred size
         (views can shrink, so Qt no longer grows the window by itself).
 
-        clamp_to_screen=False lets the window outgrow the screen (1:1 view)."""
+        The size is clamped to the screen, but never below the minimum size of
+        the layout (at 1:1 the native size of the images)."""
         if self.full_screen_flag or self.isMaximized() or self.isFullScreen():
             return
         layout = self.layout()
@@ -791,11 +815,40 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         hint = self.sizeHint()
         width, height = max(self.width(), hint.width()), max(self.height(), hint.height())
         screen = self.screen() if hasattr(self, "screen") else None
-        if screen is not None and clamp_to_screen:
+        if screen is not None:
             available = screen.availableGeometry()
-            width, height = min(width, available.width()), min(height, available.height())
+            # the size set is the client area: leave room for the title bar and borders
+            frame, client = self.frameGeometry(), self.geometry()
+            deco_w, deco_h = max(0, frame.width() - client.width()), max(0, frame.height() - client.height())
+            width = min(width, available.width() - deco_w)
+            height = min(height, available.height() - deco_h)
+            if self._granted_limit is not None:
+                width, height = min(width, self._granted_limit[0]), min(height, self._granted_limit[1])
+        minimum = self.minimumSizeHint()  # an explicit `size` lifts the window minimum off the layout's
+        width, height = max(width, minimum.width()), max(height, minimum.height())
         if (width, height) != (self.width(), self.height()):
+            self._resize_request = (width, height, time.monotonic())
             self.resize(width, height)
+
+    def resizeEvent(self, event):  # noqa: N802 - Qt API
+        # On Wayland the available screen geometry includes the panels, but the
+        # compositor shrinks a window that would not fit (after Qt echoed the
+        # requested size): remember what it granted as the usable size.
+        super().resizeEvent(event)
+        size = (event.size().width(), event.size().height())
+        request = self._resize_request
+        if request is None or time.monotonic() - request[2] > RESIZE_ANSWER_DELAY:
+            self._resize_request = None
+            return
+        if size == request[:2]:
+            return  # Qt's echo of the request, the compositor may still shrink it
+        self._resize_request = None
+        if size[0] <= request[0] and size[1] <= request[1]:
+            limit = self._granted_limit or (NO_LIMIT, NO_LIMIT)
+            self._granted_limit = (
+                size[0] if size[0] < request[0] else limit[0],
+                size[1] if size[1] < request[1] else limit[1],
+            )
 
     def update_image(self, image_array_original, row, col):
         cell = self.image_canvas[row][col]  # type: ignore[reportOptionalSubscript]

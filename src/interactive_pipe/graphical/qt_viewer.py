@@ -224,6 +224,8 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         if not self.has_image():
             return super().minimumSizeHint()
         w, h = self.image_size()
+        if self.sync.absolute:
+            return QSize(w, h)  # 1:1: the whole image, the controls below scroll instead
         ratio = min(1.0, MIN_HINT.width() / w, MIN_HINT.height() / h)
         return QSize(max(1, int(w * ratio)), max(1, int(h * ratio)))
 
