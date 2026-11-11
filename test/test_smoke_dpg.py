@@ -1167,3 +1167,92 @@ def test_controls_scroll_in_their_own_area_when_the_images_need_the_room(monkeyp
     gui.fit_view()
     window.relayout()
     assert dpg.get_item_configuration(window.grid_container)["height"] >= dpg_gui.MIN_GRID_HEIGHT
+
+
+def _column_rows(window):
+    """Rows of the ungrouped controls per column (one list per column)."""
+    if window._columns_group is None:
+        return [dpg.get_item_children(window._bottom_table, 1)]
+    columns = []
+    for column_window in dpg.get_item_children(window._columns_group, 1):
+        rows = []
+        for table in dpg.get_item_children(column_window, 1):
+            if dpg.get_item_type(table).endswith("mvTable"):  # not the panels
+                rows.extend(dpg.get_item_children(table, 1))
+        columns.append(rows)
+    return columns
+
+
+def test_controls_spread_over_columns_instead_of_scrolling(monkeypatch):
+    gui = build_gui(basic_pipeline, size=(1000, 500))
+    gui.pipeline.inputs = [np.zeros((200, 200))]
+    window = gui.window
+    window.refresh()
+    rows = [item for kind, item in window._bottom_items if kind == "row"]
+    assert len(rows) == 4
+    # 4 rows 100 px tall (measured after a frame in the real GUI): 400 px in one column
+    monkeypatch.setattr(dpg_gui.MainWindow, "_measure_bottom_items", lambda self: [100] * 4)
+    _fake_viewport(monkeypatch, window, (1000, 500), max_size=(1000, 500))
+    window.relayout()
+    columns = _column_rows(window)
+    assert len(columns) == 2 and [row for column in columns for row in column] == rows  # order kept
+    assert not dpg.is_item_shown(window._bottom_table)  # emptied
+    assert dpg.get_item_configuration(window.bottom_scroll)["height"] == 200  # no scroll
+    assert not window._bottom_scrolls
+    width = window.control_column_width()
+    assert 2 * width + dpg_gui.CONTROL_COLUMN_GAP <= 1000
+    # tall window: back to a single column, the rows in their table and order
+    window.on_viewport_resize(None, [1000, 3000, 1000, 3000])
+    assert window._columns_group is None and window._control_columns == 1
+    assert dpg.get_item_children(window._bottom_table, 1) == rows
+    assert dpg.is_item_shown(window._bottom_table)
+
+
+def test_narrow_window_keeps_a_single_column_and_scrolls(monkeypatch):
+    gui = build_gui(basic_pipeline, size=(500, 500))
+    gui.pipeline.inputs = [np.zeros((200, 200))]
+    window = gui.window
+    window.refresh()
+    monkeypatch.setattr(dpg_gui.MainWindow, "_measure_bottom_items", lambda self: [100] * 4)
+    _fake_viewport(monkeypatch, window, (500, 500), max_size=(500, 500))
+    window.relayout()
+    assert window._control_columns == 1  # two columns need 2 x MIN_CONTROL_COLUMN_WIDTH
+    assert window._bottom_scrolls
+
+
+BOTTOM_PANEL = Panel("Tuning")
+
+
+@interactive(
+    a=(0.5, [0.0, 1.0]),
+    b=(0.5, [0.0, 1.0]),
+    c=(0.5, [0.0, 1.0]),
+    tuned=Control(0.5, [0.0, 1.0], group=BOTTOM_PANEL),
+)
+def rows_and_panel_filter(img, a=0.5, b=0.5, c=0.5, tuned=0.5):
+    return img * a * b * c * tuned
+
+
+def rows_and_panel_pipeline(img):
+    out = rows_and_panel_filter(img)
+    return out
+
+
+def test_bottom_panels_move_into_columns_and_back(monkeypatch):
+    gui = build_gui(rows_and_panel_pipeline, size=(1000, 500))
+    gui.pipeline.inputs = [np.zeros((200, 200))]
+    window = gui.window
+    window.refresh()
+    assert [kind for kind, _item in window._bottom_items] == ["row", "row", "row", "panel"]
+    panel = window._bottom_items[3][1]
+    monkeypatch.setattr(dpg_gui.MainWindow, "_measure_bottom_items", lambda self: [100] * 4)
+    _fake_viewport(monkeypatch, window, (1000, 500), max_size=(1000, 500))
+    window.relayout()
+    assert window._control_columns == 2
+    second = dpg.get_item_children(window._columns_group, 1)[1]
+    assert dpg.get_item_parent(panel) == second  # [a, b] | [c, panel]
+    assert len(_column_rows(window)[1]) == 1
+    window.set_control_columns(1)
+    assert dpg.get_item_parent(panel) == window.bottom_container
+    children = dpg.get_item_children(window.bottom_container, 1)
+    assert children == [window._bottom_table, panel]  # original order
