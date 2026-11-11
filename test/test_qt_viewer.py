@@ -381,3 +381,33 @@ def test_controls_area_is_hidden_without_controls():
     assert window.bottom_scroll.isVisible()
     window = build_window(rgb_pipeline)
     assert not window.bottom_scroll.isVisible()
+
+
+def column_widgets(window):
+    layouts = [window.bottom_panels_layout, *window._extra_columns]
+    return [qt_gui.layout_widgets(layout) for layout in layouts]
+
+
+def test_controls_spread_over_columns_instead_of_scrolling():
+    window = build_window(sliders_pipeline, image=RAMP[:200, :300].copy())
+    window.resize(1800, 700)  # wide but too short for one column of 30 sliders
+    for _ in range(3):
+        QApplication.processEvents()
+    columns = [c for c in column_widgets(window) if c]
+    assert len(columns) > 1
+    assert [w for column in columns for w in column] == window._bottom_items  # order kept
+    settle(window)
+    assert window.bottom_scroll.verticalScrollBar().maximum() == 0  # no scroll needed
+    # narrow window: back to a single column, the controls scroll
+    window.resize(400, 700)
+    for _ in range(3):
+        QApplication.processEvents()
+    settle(window)
+    assert [len(c) for c in column_widgets(window) if c] == [len(window._bottom_items)]
+    assert window.bottom_scroll.verticalScrollBar().maximum() > 0
+
+
+def test_tall_window_keeps_a_single_column():
+    window = build_window(pair_pipeline)
+    assert window._update_control_columns(3000, 3000) is False
+    assert not window._extra_columns
