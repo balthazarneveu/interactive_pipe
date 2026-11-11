@@ -158,6 +158,37 @@ def test_zoom_and_pan_are_synced_across_cells():
     assert left.sync.mode == "fit" and left.scale() == pytest.approx(left.fit_scale())
 
 
+def test_zoom_out_stops_at_fit_and_recenters():
+    window = build_window(pair_pipeline)
+    settle(window, (800, 400))
+    view = views(window)[0]
+    view.zoom_by(4.0, (5.0, 5.0))  # zoomed in off-center
+    view.pan_by(40, 25)
+    view.zoom_by(1e-9, (view.width() - 5.0, view.height() - 5.0))
+    assert view.sync.mode == "fit"
+    assert view.scale() == pytest.approx(view.fit_scale())
+    x, y, w, h = view.image_rect()
+    assert x == pytest.approx((view.width() - w) / 2.0)
+    assert y == pytest.approx((view.height() - h) / 2.0)
+    view.pan_by(30, 30)  # nothing to pan when the image fits
+    assert view.sync.mode == "fit"
+
+
+def test_actual_size_zoom_out_stops_at_the_fit_size():
+    window = build_window(pair_pipeline)
+    settle(window, (800, 400))
+    window.set_view_mode("fit")
+    settle(window, (800, 400))
+    view = views(window)[0]
+    view.sync.absolute = True  # 1:1 scale without the window growing to the native size
+    view.sync.set_state(1.0, (0.2, 0.8))
+    assert view.fit_scale() < 1.0  # two 600x400 images side by side in 800 px
+    view.zoom_by(1e-9)
+    assert view.scale() == pytest.approx(view.fit_scale())
+    x, y, w, h = view.image_rect()
+    assert (x, y) == pytest.approx(((view.width() - w) / 2.0, (view.height() - h) / 2.0))
+
+
 def test_wheel_zoom_keeps_the_point_under_the_cursor():
     window = build_window(pair_pipeline)
     settle(window, (800, 400))
