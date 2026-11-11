@@ -26,6 +26,7 @@ from interactive_pipe.core.engine import FilterError
 from interactive_pipe.data_objects.curves import Curve
 from interactive_pipe.data_objects.table import Table
 from interactive_pipe.graphical.actions import Action
+from interactive_pipe.graphical.columns import choose_column_count, columns_height, split_into_columns
 from interactive_pipe.graphical.dpg_backend import (  # noqa: F401
     INSTALL_HINT,
     context_alive,
@@ -73,6 +74,9 @@ SCROLLBAR_SIZE = 14  # ImGui default style
 MIN_GRID_HEIGHT = 80  # the images keep at least this height (fit view)
 MIN_BOTTOM_HEIGHT = 60  # the scrolling controls area keeps at least this height
 LAYOUT_SETTLE_FRAMES = 2  # a relayout shows up in the measured item states after this many frames
+MIN_CONTROL_COLUMN_WIDTH = 420  # the controls spread over columns at least this wide
+CONTROL_COLUMN_GAP = 16  # pixels between the columns of controls
+FIT_PREFERRED_HEIGHT = 600  # fit view: room the images get before the controls spread over columns
 GRID_SLACK = (2 * 8 + GRID_SPACING, 2 * 8)  # 1:1 grid size beyond its cells: child window padding, row spacer
 
 
@@ -290,6 +294,13 @@ class MainWindow(InteractivePipeWindow):
         self.bottom_scroll = dpg.add_child_window(parent=self.root, border=False, height=-STATUS_BAR_HEIGHT)
         self.bottom_container = dpg.add_group(parent=self.bottom_scroll)
         self._bottom_scrolls = False
+        # the controls below spread over columns when the images take the room
+        self._bottom_items: List[Tuple[str, Any]] = []  # ("row" | "panel", item) in display order
+        self._bottom_table: Optional[Any] = None  # table of the ungrouped controls (single column)
+        self._columns_group: Optional[Any] = None  # horizontal group of column windows (2+ columns)
+        self._control_columns = 1
+        self._item_heights: Optional[List[int]] = None  # measured in a single column
+        self._columns_settle = 0  # frames before the measured positions reflect the columns
         # status line: last run timings / errors
         self.status_text = dpg.add_text("", parent=self.root, color=STATUS_COLOR)
         self.window_size = size  # validated by the setter
@@ -389,9 +400,9 @@ class MainWindow(InteractivePipeWindow):
         side_containers = [item for item in (self.left_container, self.right_container) if item is not None]
         avail_w = max(100, client_w - len(side_containers) * (SIDE_PANEL_WIDTH + SIDE_PANEL_GAP) - LAYOUT_MARGIN)
         top_h = self._measured_height(self.top_container)
-        bottom_h = self._measured_height(self.bottom_container)
         menu_h = MENU_BAR_HEIGHT if self.menu_bar is not None else 0
         fixed_h = menu_h + STATUS_BAR_HEIGHT + top_h + LAYOUT_MARGIN + 2 * GRID_SPACING
+        bottom_h = self._layout_control_columns(client_w, client_h - fixed_h - self._images_preferred_height(avail_w))
         # the controls get their natural height unless that leaves the images less than
         # MIN_GRID_HEIGHT: then they scroll in their own area
         bottom_shown = min(bottom_h, max(MIN_BOTTOM_HEIGHT, client_h - fixed_h - MIN_GRID_HEIGHT))
@@ -620,6 +631,134 @@ class MainWindow(InteractivePipeWindow):
         if self._mouse_target() is not None:
             self.reset_view()
 
+    # ------------------------------------------------ columns of controls
+    def _images_preferred_height(self, avail_w: int) -> int:
+        """Height the image grid should keep before the controls take the room:
+        native size at 1:1, otherwise the fitted size capped at FIT_PREFERRED_HEIGHT."""
+        col_widths, row_heights = self.natural_grid_size()
+        total_w = sum(col_widths) + GRID_SPACING * max(0, len(col_widths) - 1)
+        total_h = sum(row_heights) + GRID_SPACING * max(0, len(row_heights) - 1)
+        if total_w <= 0 or total_h <= 0:
+            return MIN_GRID_HEIGHT
+        if self.view.absolute:
+            return total_h + LAYOUT_MARGIN + self._grid_slack[1]
+        scale = min(1.0, avail_w / total_w, FIT_PREFERRED_HEIGHT / total_h)
+        return max(MIN_GRID_HEIGHT, int(total_h * scale) + LAYOUT_MARGIN)
+
+    def control_column_width(self) -> int:
+        """Width of one column of the bottom controls (the full width with one column)."""
+        width = self._client_size()[0] - LAYOUT_MARGIN - (SCROLLBAR_SIZE if self._bottom_scrolls else 0)
+        count = self._control_columns
+        return max(80, (width - CONTROL_COLUMN_GAP * (count - 1)) // count)
+
+    def _measure_bottom_items(self) -> Optional[List[int]]:
+        """Rendered height of each bottom item (row or panel) in a single column,
+        from the distance between their tops; None before they are rendered."""
+        if self._control_columns != 1 or self._columns_settle > 0 or not self.viewport_ready:
+            return None
+        tops = []
+        for kind, item in self._bottom_items:
+            target = item
+            if kind == "row":  # table rows have no rect: use their label
+                children = dpg.get_item_children(item, 1)
+                if not children:
+                    return None
+                target = children[0]
+            if not dpg.does_item_exist(target):
+                return None
+            tops.append(int(dpg.get_item_rect_min(target)[1]))
+        container_top = int(dpg.get_item_rect_min(self.bottom_container)[1])
+        container_h = self._measured_height(self.bottom_container)
+        if container_h <= 0 or not tops or tops[0] < container_top:
+            return None
+        bottoms = tops[1:] + [container_top + container_h]
+        heights = [bottom - top for top, bottom in zip(tops, bottoms)]
+        return heights if all(h > 0 for h in heights) else None
+
+    def _layout_control_columns(self, client_w: int, height_room: int) -> int:
+        """Spread the bottom controls over the fewest columns that fit
+        `height_room` (as many as the width holds when none does: they scroll).
+        Returns the height of the controls."""
+        measured = self._measure_bottom_items()
+        if measured is not None:
+            self._item_heights = measured
+        heights = self._item_heights
+        if heights is None or len(heights) < 2 or len(heights) != len(self._bottom_items):
+            return self._measured_height(self.bottom_container)
+        width_room = client_w - LAYOUT_MARGIN - SCROLLBAR_SIZE
+        count = choose_column_count(
+            heights,
+            [MIN_CONTROL_COLUMN_WIDTH] * len(heights),
+            width_room,
+            height_room,
+            column_gap=CONTROL_COLUMN_GAP,
+        )
+        self.set_control_columns(count)
+        if self._columns_group is not None:
+            for window in dpg.get_item_children(self._columns_group, 1) or []:
+                dpg.configure_item(window, width=self.control_column_width())
+        return int(math.ceil(columns_height(heights, self._control_columns)))
+
+    def set_control_columns(self, count: int):
+        """Move the bottom controls into `count` columns (in order, balanced heights)."""
+        if count == self._control_columns:
+            return
+        self._release_columns()
+        self._control_columns = 1
+        self._columns_settle = LAYOUT_SETTLE_FRAMES
+        if count <= 1 or self._item_heights is None:
+            return
+        columns = split_into_columns(self._item_heights, count)
+        if len(columns) < 2:
+            return
+        self._control_columns = len(columns)
+        self._columns_group = dpg.add_group(
+            parent=self.bottom_container, horizontal=True, horizontal_spacing=CONTROL_COLUMN_GAP
+        )
+        width = self.control_column_width()
+        for column in columns:
+            window = dpg.add_child_window(
+                parent=self._columns_group, width=width, auto_resize_y=True, border=False, no_scrollbar=True
+            )
+            table = None
+            for index in column:
+                kind, item = self._bottom_items[index]
+                if kind == "row":
+                    if table is None:
+                        table = self._new_controls_table(window)
+                    dpg.move_item(item, parent=table)
+                else:
+                    table = None
+                    dpg.move_item(item, parent=window)
+        if self._bottom_table is not None:
+            dpg.configure_item(self._bottom_table, show=False)  # emptied
+
+    def _new_controls_table(self, parent):
+        """Empty copy of the ungrouped controls table (same label column)."""
+        table = dpg.add_table(parent=parent, header_row=False, policy=dpg.mvTable_SizingStretchProp)
+        label_width = 100.0
+        if self._bottom_table is not None:
+            columns = dpg.get_item_children(self._bottom_table, 0)
+            if columns:
+                label_width = dpg.get_item_configuration(columns[0]).get("init_width_or_weight", label_width)
+        dpg.add_table_column(parent=table, width_fixed=True, init_width_or_weight=label_width)
+        dpg.add_table_column(parent=table, width_stretch=True, init_width_or_weight=1.0)
+        return table
+
+    def _release_columns(self):
+        """Back to a single column: every bottom item in its original container, in order."""
+        if self._columns_group is None:
+            return
+        for kind, item in self._bottom_items:
+            if kind == "row" and self._bottom_table is not None:
+                dpg.move_item(item, parent=self._bottom_table)
+            else:
+                dpg.move_item(item, parent=self.bottom_container)
+        if self._bottom_table is not None:
+            dpg.configure_item(self._bottom_table, show=True)
+        dpg.delete_item(self._columns_group)
+        self._columns_group = None
+
     # --------------------------------------------------------------- controls
     def init_sliders(self, controls: List[Control]):
         self.ctrl = {}
@@ -651,6 +790,9 @@ class MainWindow(InteractivePipeWindow):
             # leave room for the scrollbar of the controls area when it shows
             return self._client_size()[0] - LAYOUT_MARGIN - (SCROLLBAR_SIZE if self._bottom_scrolls else 0)
 
+        def column_width() -> int:
+            return self.control_column_width()
+
         def side_width() -> int:
             return SIDE_PANEL_WIDTH
 
@@ -669,9 +811,12 @@ class MainWindow(InteractivePipeWindow):
         for panel in panels_by_position["right"]:
             builder.build_panel(panel, self.right_container, side_width)
         for ctrl in ungrouped_controls:
-            builder.create_control_row(ctrl, self.bottom_container)
+            row = builder.create_control_row(ctrl, self.bottom_container)
+            if row is not None:
+                self._bottom_items.append(("row", row))
+                self._bottom_table = dpg.get_item_parent(row)
         for panel in panels_by_position["bottom"]:
-            builder.build_panel(panel, self.bottom_container, full_width)
+            self._bottom_items.append(("panel", builder.build_panel(panel, self.bottom_container, column_width)))
         for panel in detached_panels:
             builder.build_detached_window(panel)
         # ImGui quirk: an empty group grows (by the scroll offset) once its window scrolls
@@ -698,6 +843,10 @@ class MainWindow(InteractivePipeWindow):
         for timer in self.timers:
             timer.tick(now)
         self._fit_grid_to_content()
+        if self._columns_settle > 0:
+            self._columns_settle -= 1
+            if self._columns_settle == 0:
+                self.relayout()  # measure the controls in their new place
         if self._refresh_pending:
             self.refresh()
 
