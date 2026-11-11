@@ -1280,3 +1280,10 @@ def test_layout_follows_the_viewport_size_before_the_frame(monkeypatch):
     window.tick_timers()
     assert relayouts == [(800, 560)]
     assert window._laid_out_client == (800, 560)
+    # the resize callback reports another client size: the next frames leave it alone
+    window.on_viewport_resize(None, [800, 590, 800, 570])
+    relayouts.clear()
+    for _ in range(3):
+        window.tick_timers()
+    assert relayouts == []
+    assert window._laid_out_client == (800, 570)

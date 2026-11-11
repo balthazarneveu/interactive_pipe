@@ -304,6 +304,7 @@ class MainWindow(InteractivePipeWindow):
         self._columns_settle = 0  # frames before the measured positions reflect the columns
         self._measure_frames_left = MEASURE_RETRY_FRAMES  # frames to retry measuring the controls
         self._laid_out_client: Optional[Tuple[int, int]] = None  # client size of the last relayout
+        self._polled_client: Optional[Tuple[int, int]] = None  # client size seen by the last frame
         # status line: last run timings / errors
         self.status_text = dpg.add_text("", parent=self.root, color=STATUS_COLOR)
         self.window_size = size  # validated by the setter
@@ -858,7 +859,10 @@ class MainWindow(InteractivePipeWindow):
         if not self.viewport_ready:
             return
         size = (int(dpg.get_viewport_client_width()), int(dpg.get_viewport_client_height()))
-        if size[0] > 0 and size[1] > 0 and size != self._laid_out_client:
+        if size[0] <= 0 or size[1] <= 0 or size == self._polled_client:
+            return  # only a change counts: never fight the sizes the resize callback reports
+        self._polled_client = size
+        if size != self._laid_out_client:
             self._viewport_client = size
             self.relayout()
 
