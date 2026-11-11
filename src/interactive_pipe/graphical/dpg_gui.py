@@ -16,6 +16,7 @@ works without a display; the viewport is created in ``run()``.
 
 import logging
 import math
+import threading
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -305,6 +306,7 @@ class MainWindow(InteractivePipeWindow):
         self._measure_frames_left = MEASURE_RETRY_FRAMES  # frames to retry measuring the controls
         self._laid_out_client: Optional[Tuple[int, int]] = None  # client size of the last relayout
         self._polled_client: Optional[Tuple[int, int]] = None  # client size seen by the last frame
+        self._pending_viewport_size: Optional[Tuple[int, int]] = None  # asked from a callback thread
         # status line: last run timings / errors
         self.status_text = dpg.add_text("", parent=self.root, color=STATUS_COLOR)
         self.window_size = size  # validated by the setter
@@ -520,8 +522,20 @@ class MainWindow(InteractivePipeWindow):
         """Resize the viewport (outer size); the resize callback relays the layout out."""
         if not self._can_resize_viewport():
             return
+        if threading.current_thread() is not threading.main_thread():
+            # key, mouse and menu callbacks run on Dear PyGui's worker thread, but GLFW
+            # resizes windows from the main thread only (else the grown part may never
+            # be painted): the render loop applies it (apply_pending_viewport_size)
+            self._pending_viewport_size = (int(width), int(height))
+            return
         dpg.set_viewport_width(int(width))
         dpg.set_viewport_height(int(height))
+
+    def apply_pending_viewport_size(self):
+        """Called every frame from the main thread: apply a resize asked by a callback."""
+        size, self._pending_viewport_size = self._pending_viewport_size, None
+        if size is not None:
+            self._resize_viewport(*size)
 
     def _grow_viewport(self, client_w: int, client_h: int):
         """Grow (never shrink) the viewport so its client area is at least client_w x client_h.
@@ -868,6 +882,7 @@ class MainWindow(InteractivePipeWindow):
 
     def tick_timers(self):
         """Called every frame: tick the timers, then run at most one pending refresh."""
+        self.apply_pending_viewport_size()
         self.follow_viewport_size()
         now = time.time()
         for timer in self.timers:
