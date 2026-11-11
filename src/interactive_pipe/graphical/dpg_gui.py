@@ -303,6 +303,7 @@ class MainWindow(InteractivePipeWindow):
         self._item_heights: Optional[List[int]] = None  # measured in a single column
         self._columns_settle = 0  # frames before the measured positions reflect the columns
         self._measure_frames_left = MEASURE_RETRY_FRAMES  # frames to retry measuring the controls
+        self._laid_out_client: Optional[Tuple[int, int]] = None  # client size of the last relayout
         # status line: last run timings / errors
         self.status_text = dpg.add_text("", parent=self.root, color=STATUS_COLOR)
         self.window_size = size  # validated by the setter
@@ -399,6 +400,7 @@ class MainWindow(InteractivePipeWindow):
         if not self.image_canvas:
             return
         client_w, client_h = self._client_size()
+        self._laid_out_client = (client_w, client_h)
         side_containers = [item for item in (self.left_container, self.right_container) if item is not None]
         avail_w = max(100, client_w - len(side_containers) * (SIDE_PANEL_WIDTH + SIDE_PANEL_GAP) - LAYOUT_MARGIN)
         top_h = self._measured_height(self.top_container)
@@ -848,8 +850,21 @@ class MainWindow(InteractivePipeWindow):
             for item in (self._file_dialog, self._message_window)
         )
 
+    def follow_viewport_size(self):
+        """Called every frame before rendering: relayout as soon as the client
+        size changed. The resize callback only arrives after a frame drawn with
+        the previous layout, which made the bottom of the window jump during a
+        resize."""
+        if not self.viewport_ready:
+            return
+        size = (int(dpg.get_viewport_client_width()), int(dpg.get_viewport_client_height()))
+        if size[0] > 0 and size[1] > 0 and size != self._laid_out_client:
+            self._viewport_client = size
+            self.relayout()
+
     def tick_timers(self):
         """Called every frame: tick the timers, then run at most one pending refresh."""
+        self.follow_viewport_size()
         now = time.time()
         for timer in self.timers:
             timer.tick(now)
