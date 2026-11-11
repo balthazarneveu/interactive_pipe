@@ -77,6 +77,7 @@ LAYOUT_SETTLE_FRAMES = 2  # a relayout shows up in the measured item states afte
 MIN_CONTROL_COLUMN_WIDTH = 420  # the controls spread over columns at least this wide
 CONTROL_COLUMN_GAP = 16  # pixels between the columns of controls
 FIT_PREFERRED_HEIGHT = 600  # fit view: room the images get before the controls spread over columns
+MEASURE_RETRY_FRAMES = 120  # the first frames may not lay the controls out yet (off-screen, unsettled)
 GRID_SLACK = (2 * 8 + GRID_SPACING, 2 * 8)  # 1:1 grid size beyond its cells: child window padding, row spacer
 
 
@@ -301,6 +302,7 @@ class MainWindow(InteractivePipeWindow):
         self._control_columns = 1
         self._item_heights: Optional[List[int]] = None  # measured in a single column
         self._columns_settle = 0  # frames before the measured positions reflect the columns
+        self._measure_frames_left = MEASURE_RETRY_FRAMES  # frames to retry measuring the controls
         # status line: last run timings / errors
         self.status_text = dpg.add_text("", parent=self.root, color=STATUS_COLOR)
         self.window_size = size  # validated by the setter
@@ -666,8 +668,14 @@ class MainWindow(InteractivePipeWindow):
                 target = children[0]
             if not dpg.does_item_exist(target):
                 return None
-            tops.append(int(dpg.get_item_rect_min(target)[1]))
-        container_top = int(dpg.get_item_rect_min(self.bottom_container)[1])
+            rect_min = dpg.get_item_state(target).get("rect_min")
+            if not rect_min:
+                return None
+            tops.append(int(rect_min[1]))
+        container_min = dpg.get_item_state(self.bottom_container).get("rect_min")
+        if not container_min:
+            return None
+        container_top = int(container_min[1])
         container_h = self._measured_height(self.bottom_container)
         if container_h <= 0 or not tops or tops[0] < container_top:
             return None
@@ -816,7 +824,10 @@ class MainWindow(InteractivePipeWindow):
                 self._bottom_items.append(("row", row))
                 self._bottom_table = dpg.get_item_parent(row)
         for panel in panels_by_position["bottom"]:
-            self._bottom_items.append(("panel", builder.build_panel(panel, self.bottom_container, column_width)))
+            # in a group: child windows and headers have no usable rect, a group does (columns measure it)
+            holder = dpg.add_group(parent=self.bottom_container)
+            builder.build_panel(panel, holder, column_width)
+            self._bottom_items.append(("panel", holder))
         for panel in detached_panels:
             builder.build_detached_window(panel)
         # ImGui quirk: an empty group grows (by the scroll offset) once its window scrolls
@@ -847,6 +858,10 @@ class MainWindow(InteractivePipeWindow):
             self._columns_settle -= 1
             if self._columns_settle == 0:
                 self.relayout()  # measure the controls in their new place
+        elif self._item_heights is None and len(self._bottom_items) > 1 and self._measure_frames_left > 0:
+            self._measure_frames_left -= 1
+            if self._measure_bottom_items() is not None:
+                self.relayout()  # first usable measure: maybe spread the controls over columns
         if self._refresh_pending:
             self.refresh()
 
