@@ -174,6 +174,22 @@ def test_zoom_out_stops_at_fit_and_recenters():
     assert view.sync.mode == "fit"
 
 
+def test_zoomed_in_pan_stops_at_the_image_edges():
+    window = build_window(pair_pipeline)
+    settle(window, (800, 400))
+    view = views(window)[0]
+    view.zoom_in()
+    view.zoom_in()
+    view.zoom_in()
+    view.pan_by(10000, 10000)
+    x, y, w, h = view.image_rect()
+    assert w > view.width() and h > view.height()
+    assert (x, y) == pytest.approx((0, 0))
+    view.pan_by(-50000, -50000)
+    x, y, w, h = view.image_rect()
+    assert (x + w, y + h) == pytest.approx((view.width(), view.height()))
+
+
 def test_actual_size_zoom_out_stops_at_the_fit_size():
     window = build_window(pair_pipeline)
     settle(window, (800, 400))
