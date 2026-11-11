@@ -334,7 +334,7 @@ def test_panels_by_position_grid_rows_and_collapsible_header():
     assert dpg.get_item_configuration(window.left_container)["width"] == dpg_gui.SIDE_PANEL_WIDTH
     bottom_children = dpg.get_item_children(window.bottom_container, 1)
     assert len(bottom_children) == 1  # collapsible defaults to bottom
-    header = bottom_children[0]
+    (header,) = dpg.get_item_children(bottom_children[0], 1)  # each bottom panel sits in a group
     assert dpg.get_item_type(header).endswith("mvCollapsingHeader")
     assert dpg.get_item_configuration(header)["label"] == "Extras"
     assert dpg.get_value(header) is False  # starts collapsed
