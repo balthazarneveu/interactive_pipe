@@ -17,7 +17,8 @@ consistently framed.
 
 Zooming out stops at the size that fits the view (or at the native size when
 that is smaller, in "1:1"), and along an axis where the image fits the view it
-stays centered: the image is never small and off-center.
+stays centered; zoomed in, it pans no further than its edges: the image
+never leaves empty room in its cell that it could fill.
 """
 
 import math
@@ -60,6 +61,15 @@ MAX_HINT = QSize(800, 600)
 MIN_HINT = QSize(320, 240)
 
 HoverCallback = Callable[[int, int, Any], None]
+
+
+def _clamp_center(center: float, drawn: float, room: float) -> float:
+    """Normalized center along one axis: 0.5 when the drawn image fits `room`,
+    else limited so its edges do not come inside the room."""
+    if drawn <= room + FIT_TOLERANCE:
+        return 0.5
+    half = room / (2.0 * drawn)
+    return min(max(center, half), 1.0 - half)
 
 
 def pixel_value(array: Optional[np.ndarray], x: int, y: int) -> Any:
@@ -198,22 +208,20 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         base = 1.0 if self.sync.absolute else self.fit_scale()
         return max(MIN_ZOOM, min(1.0, self.fit_scale() / base))
 
-    def _centered(self, s: float) -> Tuple[float, float]:
-        """The view center, set to the middle along an axis where the image fits."""
+    def _clamped_center(self, s: float) -> Tuple[float, float]:
+        """The view center, kept so the image never leaves empty room in the
+        cell it could fill: centered along an axis where it fits, otherwise
+        its edges stay at or beyond the cell's."""
         w, h = self.image_size()
         cu, cv = self.sync.center
-        if w * s <= self.width() + FIT_TOLERANCE:
-            cu = 0.5
-        if h * s <= self.height() + FIT_TOLERANCE:
-            cv = 0.5
-        return (cu, cv)
+        return (_clamp_center(cu, w * s, self.width()), _clamp_center(cv, h * s, self.height()))
 
     def image_rect(self) -> Tuple[float, float, float, float]:
         """(x, y, width, height) of the painted image in widget coordinates;
         centered along an axis where it fits the view."""
         w, h = self.image_size()
         s = self.scale()
-        cu, cv = self._centered(s)
+        cu, cv = self._clamped_center(s)
         return (self.width() / 2.0 - cu * w * s, self.height() / 2.0 - cv * h * s, w * s, h * s)
 
     def map_to_image(self, px: float, py: float) -> Tuple[float, float]:
@@ -285,7 +293,7 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         cv = (fy - (anchor[1] - self.height() / 2.0) / new_scale) / h
         self.sync.zoom = float(new_zoom)
         self.sync.center = (cu, cv)
-        self.sync.set_state(new_zoom, self._centered(new_scale))
+        self.sync.set_state(new_zoom, self._clamped_center(new_scale))
 
     def pan_by(self, dx: float, dy: float) -> None:
         """Move the image by (dx, dy) widget pixels."""
@@ -295,7 +303,7 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         s = self.scale()
         cu, cv = self.sync.center
         self.sync.center = (cu - dx / (s * w), cv - dy / (s * h))
-        self.sync.set_state(self.sync.zoom, self._centered(s))
+        self.sync.set_state(self.sync.zoom, self._clamped_center(s))
 
     # --- Qt events -----------------------------------------------------------
     def paintEvent(self, event) -> None:  # noqa: N802 - Qt API

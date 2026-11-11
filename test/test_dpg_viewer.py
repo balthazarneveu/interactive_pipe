@@ -79,3 +79,19 @@ def test_actual_size_zoom_out_stops_at_fit_or_native_size():
     big = (800.0, 400.0)  # fit scale 0.25
     view.zoom_by(0.01, BOX, big)
     assert view.image_rect(BOX, big) == pytest.approx((0, 0, 200, 100))
+
+
+def test_zoomed_in_pan_stops_at_the_image_edges():
+    view = ViewState()
+    view.zoom_by(2.0, BOX, SIZE)  # 400x200 in a 200x100 box
+    view.pan_by(1000, 1000, BOX, SIZE)
+    assert view.image_rect(BOX, SIZE)[:2] == pytest.approx((0, 0))
+    view.pan_by(-5000, -5000, BOX, SIZE)
+    x, y, w, h = view.image_rect(BOX, SIZE)
+    assert (x + w, y + h) == pytest.approx(BOX)
+    # zooming near a corner keeps the edges out of the box too
+    view.reset()
+    view.zoom_by(1.25, BOX, SIZE, (0.0, 0.0))
+    view.zoom_by(1.0 / 1.1, BOX, SIZE, (199.0, 99.0))
+    x, y, w, h = view.image_rect(BOX, SIZE)
+    assert x <= 1e-9 and y <= 1e-9 and x + w >= BOX[0] - 1e-9 and y + h >= BOX[1] - 1e-9

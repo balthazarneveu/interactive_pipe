@@ -13,7 +13,8 @@ drawlist clips what falls outside.
 
 Zooming out stops at the size that fits the cell (or at the native size when
 that is smaller, in "1:1"), and along an axis where the image fits the cell it
-stays centered: the image is never small and off-center.
+stays centered; zoomed in, it pans no further than its edges: the image
+never leaves empty room in its cell that it could fill.
 """
 
 from typing import Optional, Tuple
@@ -28,6 +29,15 @@ MAX_ZOOM = 256.0
 FIT_TOLERANCE = 0.5
 
 Size = Tuple[float, float]
+
+
+def _clamp_center(center: float, drawn: float, room: float) -> float:
+    """Normalized center along one axis: 0.5 when the drawn image fits `room`,
+    else limited so its edges do not come inside the room."""
+    if drawn <= room + FIT_TOLERANCE:
+        return 0.5
+    half = room / (2.0 * drawn)
+    return min(max(center, half), 1.0 - half)
 
 
 class ViewState:
@@ -86,17 +96,15 @@ class ViewState:
         along an axis where it fits the box."""
         s = self.scale(box, size)
         w, h = size[0] * s, size[1] * s
-        cu, cv = self._centered(box, size, s)
+        cu, cv = self._clamped_center(box, size, s)
         return (box[0] / 2.0 - cu * w, box[1] / 2.0 - cv * h, w, h)
 
-    def _centered(self, box: Size, size: Size, s: float) -> Tuple[float, float]:
-        """The view center, set to the middle along an axis where the image fits."""
+    def _clamped_center(self, box: Size, size: Size, s: float) -> Tuple[float, float]:
+        """The view center, kept so the image never leaves empty room in the
+        cell it could fill: centered along an axis where it fits, otherwise
+        its edges stay at or beyond the cell's."""
         cu, cv = self.center
-        if size[0] * s <= box[0] + FIT_TOLERANCE:
-            cu = 0.5
-        if size[1] * s <= box[1] + FIT_TOLERANCE:
-            cv = 0.5
-        return (cu, cv)
+        return (_clamp_center(cu, size[0] * s, box[0]), _clamp_center(cv, size[1] * s, box[1]))
 
     def zoom_by(self, factor: float, box: Size, size: Size, anchor: Optional[Tuple[float, float]] = None) -> None:
         """Zoom by `factor` keeping the image point under `anchor` (box
@@ -115,7 +123,7 @@ class ViewState:
         cu = (fx - (anchor[0] - box[0] / 2.0) / new_scale) / size[0]
         cv = (fy - (anchor[1] - box[1] / 2.0) / new_scale) / size[1]
         self.set_state(new_zoom, (cu, cv))
-        self.center = self._centered(box, size, new_scale)
+        self.center = self._clamped_center(box, size, new_scale)
 
     def pan_by(self, dx: float, dy: float, box: Size, size: Size) -> None:
         """Move the image by (dx, dy) screen pixels."""
@@ -124,4 +132,4 @@ class ViewState:
         s = self.scale(box, size)
         cu, cv = self.center
         self.set_state(self.zoom, (cu - dx / (s * size[0]), cv - dy / (s * size[1])))
-        self.center = self._centered(box, size, s)
+        self.center = self._clamped_center(box, size, s)
