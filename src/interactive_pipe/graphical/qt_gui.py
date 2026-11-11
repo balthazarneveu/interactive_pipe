@@ -10,6 +10,7 @@ import numpy as np
 from interactive_pipe.core.engine import FilterError
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.graphical.actions import Action
+from interactive_pipe.graphical.columns import choose_column_count, split_into_columns
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.qt_audio import QtAudioPlayer
 
@@ -80,6 +81,18 @@ from interactive_pipe.headless.pipeline import HeadlessPipeline
 # manager's answer (rather than the user resizing the window)
 RESIZE_ANSWER_DELAY = 1.0
 NO_LIMIT = 1 << 24  # pixels: a dimension the window manager never shrank
+CONTROL_COLUMN_GAP = 16  # pixels between the columns of controls
+
+
+def layout_widgets(layout) -> List[QWidget]:
+    """Widgets directly held by `layout`, in order."""
+    widgets = []
+    for index in range(layout.count()):
+        item = layout.itemAt(index)
+        widget = item.widget() if item is not None else None
+        if widget is not None:
+            widgets.append(widget)
+    return widgets
 
 
 def _normalize_output_grid(_out):
@@ -390,10 +403,19 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         # Assemble main layout: top panels | middle (left | images | right) | bottom panels
         main_layout.addLayout(self.top_panels_layout)
         main_layout.addLayout(middle_layout)
-        # the controls below scroll in their own area when the images take the room (1:1)
+        # the controls below spread over columns when the images take the room,
+        # and scroll in their own area when even that is not enough;
+        # bottom_panels_layout is the first column
         bottom_content = QWidget()
-        bottom_content.setLayout(self.bottom_panels_layout)
-        self.bottom_panels_layout.setContentsMargins(0, 0, 0, 0)
+        self.bottom_columns_layout = QHBoxLayout()
+        self.bottom_columns_layout.setContentsMargins(0, 0, 0, 0)
+        self.bottom_columns_layout.setSpacing(CONTROL_COLUMN_GAP)
+        bottom_content.setLayout(self.bottom_columns_layout)
+        self.bottom_columns_layout.addLayout(self.bottom_panels_layout)
+        self.bottom_panels_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self._bottom_items: List[QWidget] = []  # in display order
+        self._extra_columns: List[QVBoxLayout] = []
+        self._columns_pending = False
         self.bottom_scroll = ControlsScrollArea(bottom_content)
         main_layout.addWidget(self.bottom_scroll)
 
@@ -541,10 +563,12 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             row_widget = self._create_control_widget(ctrl, control_factory)
             if row_widget is not None:
                 self.bottom_panels_layout.addWidget(row_widget)
+                self._bottom_items.append(row_widget)
 
         for panel in panels_by_position["bottom"]:
             panel_widget = self._build_panel_widget(panel, control_factory)
             self.bottom_panels_layout.addWidget(panel_widget)
+            self._bottom_items.append(panel_widget)
 
         self.bottom_scroll.setVisible(self.bottom_panels_layout.count() > 0)
 
@@ -800,30 +824,111 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         except RuntimeError:  # the window was destroyed before the timer fired
             pass
 
+    def _screen_room(self) -> Optional[tuple]:
+        """(width, height) the window can take on its screen (client area), None without screen."""
+        screen = self.screen() if hasattr(self, "screen") else None
+        if screen is None:
+            return None
+        available = screen.availableGeometry()
+        # the size set is the client area: leave room for the title bar and borders
+        frame, client = self.frameGeometry(), self.geometry()
+        deco_w, deco_h = max(0, frame.width() - client.width()), max(0, frame.height() - client.height())
+        width, height = available.width() - deco_w, available.height() - deco_h
+        if self._granted_limit is not None:
+            width, height = min(width, self._granted_limit[0]), min(height, self._granted_limit[1])
+        return width, height
+
+    def _relayout_now(self):
+        layout = self.layout()
+        if layout is not None:
+            layout.invalidate()  # drop cached size hints (freshly filled views, new columns)
+            layout.activate()
+
+    def _set_control_columns(self, count: int) -> bool:
+        """Spread the bottom controls over `count` columns (in order, balanced
+        heights); False when they already are."""
+        items = self._bottom_items
+        heights = [w.sizeHint().expandedTo(w.minimumSizeHint()).height() for w in items]
+        columns = split_into_columns(heights, count, self.bottom_panels_layout.spacing()) if items else []
+        current = [layout_widgets(layout) for layout in [self.bottom_panels_layout, *self._extra_columns]]
+        wanted = [[items[i] for i in column] for column in columns]
+        if [c for c in current if c] == wanted:
+            return False
+        for layout in [self.bottom_panels_layout, *self._extra_columns]:
+            for widget in layout_widgets(layout):
+                layout.removeWidget(widget)
+        while len(self._extra_columns) > max(0, len(wanted) - 1):
+            extra = self._extra_columns.pop()
+            self.bottom_columns_layout.removeItem(extra)
+            extra.deleteLater()
+        while len(self._extra_columns) < len(wanted) - 1:
+            extra = QVBoxLayout()
+            extra.setSpacing(self.bottom_panels_layout.spacing())
+            extra.setAlignment(Qt.AlignmentFlag.AlignTop)
+            self.bottom_columns_layout.addLayout(extra)
+            self._extra_columns.append(extra)
+        for layout, widgets in zip([self.bottom_panels_layout, *self._extra_columns], wanted):
+            for widget in widgets:
+                layout.addWidget(widget)
+        return True
+
+    def _update_control_columns(self, width: int, height: int) -> bool:
+        """Fewest columns of controls that fit a `width` x `height` window
+        next to the images at their preferred size (native at 1:1); as many as
+        the width holds when the controls do not fit (they scroll). True when
+        the columns changed."""
+        items = self._bottom_items
+        if len(items) < 2 or not self.bottom_scroll.isVisibleTo(self):
+            return False
+        widths = [w.sizeHint().expandedTo(w.minimumSizeHint()).width() for w in items]
+        heights = [w.sizeHint().expandedTo(w.minimumSizeHint()).height() for w in items]
+        bar = self.bottom_scroll.verticalScrollBar()
+        bar_width = bar.sizeHint().width() if bar is not None else 0
+        # the window can always shrink to a single column (fewer columns follow)
+        self.bottom_scroll.minimum_width = max(widths) + bar_width
+        margins = self.layout().contentsMargins()  # type: ignore[union-attr]
+        width_room = width - margins.left() - margins.right() - bar_width
+        others = self.sizeHint().height() - self.bottom_scroll.sizeHint().height()
+        count = choose_column_count(
+            heights,
+            widths,
+            width_room,
+            height - others,
+            spacing=self.bottom_panels_layout.spacing(),
+            column_gap=CONTROL_COLUMN_GAP,
+        )
+        changed = self._set_control_columns(count)
+        if changed:
+            self.bottom_scroll.updateGeometry()
+            self._relayout_now()
+        return changed
+
+    def _columns_for_window_size(self):
+        try:
+            self._columns_pending = False
+            if self.isVisible():
+                self._update_control_columns(self.width(), self.height())
+        except RuntimeError:  # the window was destroyed before the timer fired
+            pass
+
     def _fit_window_to_images(self):
         """Grow the window once so new image cells get their preferred size
         (views can shrink, so Qt no longer grows the window by itself).
 
-        The size is clamped to the screen, but never below the minimum size of
-        the layout (at 1:1 the native size of the images)."""
+        The controls first spread over the columns that let them fit the
+        screen next to the images (the window grows wider for them). The size
+        is clamped to the screen, but never below the minimum size of the
+        layout (at 1:1 the native size of the images)."""
         if self.full_screen_flag or self.isMaximized() or self.isFullScreen():
             return
-        layout = self.layout()
-        if layout is not None:
-            layout.invalidate()  # drop cached size hints of the freshly filled views
-            layout.activate()
+        self._relayout_now()
+        room = self._screen_room()
+        if room is not None:
+            self._update_control_columns(*room)
         hint = self.sizeHint()
         width, height = max(self.width(), hint.width()), max(self.height(), hint.height())
-        screen = self.screen() if hasattr(self, "screen") else None
-        if screen is not None:
-            available = screen.availableGeometry()
-            # the size set is the client area: leave room for the title bar and borders
-            frame, client = self.frameGeometry(), self.geometry()
-            deco_w, deco_h = max(0, frame.width() - client.width()), max(0, frame.height() - client.height())
-            width = min(width, available.width() - deco_w)
-            height = min(height, available.height() - deco_h)
-            if self._granted_limit is not None:
-                width, height = min(width, self._granted_limit[0]), min(height, self._granted_limit[1])
+        if room is not None:
+            width, height = min(width, room[0]), min(height, room[1])
         minimum = self.minimumSizeHint()  # an explicit `size` lifts the window minimum off the layout's
         width, height = max(width, minimum.width()), max(height, minimum.height())
         if (width, height) != (self.width(), self.height()):
@@ -835,6 +940,9 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         # compositor shrinks a window that would not fit (after Qt echoed the
         # requested size): remember what it granted as the usable size.
         super().resizeEvent(event)
+        if not self._columns_pending:  # the columns of controls follow the window size
+            self._columns_pending = True
+            QTimer.singleShot(0, self._columns_for_window_size)
         size = (event.size().width(), event.size().height())
         request = self._resize_request
         if request is None or time.monotonic() - request[2] > RESIZE_ANSWER_DELAY:

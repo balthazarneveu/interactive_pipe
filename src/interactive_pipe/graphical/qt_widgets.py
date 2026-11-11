@@ -108,11 +108,21 @@ class ControlsScrollArea(QScrollArea):  # type: ignore[reportGeneralTypeIssues]
 
     def __init__(self, content: QWidget, parent=None):
         super().__init__(parent)
+        # narrowest width (None: the content's): the window sets it to a single
+        # column of controls, so it can shrink and spread them over fewer columns
+        self.minimum_width: Optional[int] = None
         self.setWidget(content)
         self.setWidgetResizable(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
+    def eventFilter(self, obj, event):  # noqa: N802 (Qt API)
+        # the content is not laid out by our parent: forward its size changes
+        # (controls added, spread over columns), or the window keeps a stale hint
+        if obj is self.widget() and event.type() == event.Type.LayoutRequest:
+            self.updateGeometry()
+        return super().eventFilter(obj, event)
 
     def sizeHint(self) -> QSize:  # noqa: N802 (Qt API)
         # QScrollArea caps its hint: the controls would scroll needlessly
@@ -126,7 +136,8 @@ class ControlsScrollArea(QScrollArea):  # type: ignore[reportGeneralTypeIssues]
 
     def minimumSizeHint(self) -> QSize:  # noqa: N802 (Qt API)
         hint = self.sizeHint()
-        return QSize(hint.width(), min(hint.height(), self.MIN_HEIGHT))
+        width = hint.width() if self.minimum_width is None else min(hint.width(), self.minimum_width)
+        return QSize(width, min(hint.height(), self.MIN_HEIGHT))
 
 
 class CollapsibleBox(QtFrameBase):  # type: ignore[reportGeneralTypeIssues]
