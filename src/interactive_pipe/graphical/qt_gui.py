@@ -62,6 +62,7 @@ from interactive_pipe.graphical.qt_viewer import ImageView, ViewSync
 # Re-exported: interactive_pipe.graphical.qt_gui.CollapsibleBox etc. are public paths
 from interactive_pipe.graphical.qt_widgets import (  # noqa: F401
     CollapsibleBox,
+    ControlsContent,
     ControlsScrollArea,
     DetachedPanelWindow,
     ElidedLabel,
@@ -357,10 +358,11 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         # (outputs, output_styles) captured by the worker with the run being
         # displayed: the next run may already be changing the live ones
         self._display_layout: Optional[tuple] = None
-        # window sizing: (width, height, time) last asked by _fit_window_to_images;
+        # window sizing: (width, height, time, size before, retry) last asked by _fit_window_to_images;
         # usable size learned when the window manager shrank one (None: it never did)
         self._resize_request: Optional[tuple] = None
         self._granted_limit: Optional[tuple] = None
+        self._retry_size: Optional[tuple] = None
 
         # Create main vertical layout (replaces QFormLayout)
         main_layout = QVBoxLayout()
@@ -406,7 +408,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         # the controls below spread over columns when the images take the room,
         # and scroll in their own area when even that is not enough;
         # bottom_panels_layout is the first column
-        bottom_content = QWidget()
+        bottom_content = ControlsContent()
         self.bottom_columns_layout = QHBoxLayout()
         self.bottom_columns_layout.setContentsMargins(0, 0, 0, 0)
         self.bottom_columns_layout.setSpacing(CONTROL_COLUMN_GAP)
@@ -415,8 +417,10 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         self.bottom_panels_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self._bottom_items: List[QWidget] = []  # in display order
         self._extra_columns: List[QVBoxLayout] = []
-        self._columns_pending = False
         self.bottom_scroll = ControlsScrollArea(bottom_content)
+        # deferred work owned by the window (a bare QTimer.singleShot can fire on a dead window)
+        self._columns_timer = self._child_timer(self._columns_for_window_size)
+        self._retry_timer = self._child_timer(self._retry_resize)
         main_layout.addWidget(self.bottom_scroll)
 
         # Status line: last run timings / errors, pixel readout on hover
@@ -732,6 +736,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             previous = getattr(self, "_size_before_actual", None)
             self._size_before_actual = None
             if previous is not None and not (self.full_screen_flag or self.isMaximized() or self.isFullScreen()):
+                self._resize_request = None  # deliberate: not an answer to the 1:1 growth
                 self.resize(*previous)
 
     def zoom_in(self):
@@ -903,13 +908,16 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             self._relayout_now()
         return changed
 
+    def _child_timer(self, slot) -> QTimer:
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+        timer.setInterval(0)
+        timer.timeout.connect(slot)
+        return timer
+
     def _columns_for_window_size(self):
-        try:
-            self._columns_pending = False
-            if self.isVisible():
-                self._update_control_columns(self.width(), self.height())
-        except RuntimeError:  # the window was destroyed before the timer fired
-            pass
+        if self.isVisible():
+            self._update_control_columns(self.width(), self.height())
 
     def _fit_window_to_images(self):
         """Grow the window once so new image cells get their preferred size
@@ -932,17 +940,20 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         minimum = self.minimumSizeHint()  # an explicit `size` lifts the window minimum off the layout's
         width, height = max(width, minimum.width()), max(height, minimum.height())
         if (width, height) != (self.width(), self.height()):
-            self._resize_request = (width, height, time.monotonic())
-            self.resize(width, height)
+            self._request_resize(width, height)
+
+    def _request_resize(self, width: int, height: int, retry: bool = True):
+        self._resize_request = (width, height, time.monotonic(), (self.width(), self.height()), retry)
+        self.resize(width, height)
 
     def resizeEvent(self, event):  # noqa: N802 - Qt API
         # On Wayland the available screen geometry includes the panels, but the
         # compositor shrinks a window that would not fit (after Qt echoed the
-        # requested size): remember what it granted as the usable size.
+        # requested size): remember what it granted as the usable size. A size
+        # back at (or below) the one before the request is a stale configure,
+        # not a limit: ask again, once.
         super().resizeEvent(event)
-        if not self._columns_pending:  # the columns of controls follow the window size
-            self._columns_pending = True
-            QTimer.singleShot(0, self._columns_for_window_size)
+        self._columns_timer.start()  # the columns of controls follow the window size
         size = (event.size().width(), event.size().height())
         request = self._resize_request
         if request is None or time.monotonic() - request[2] > RESIZE_ANSWER_DELAY:
@@ -951,12 +962,24 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         if size == request[:2]:
             return  # Qt's echo of the request, the compositor may still shrink it
         self._resize_request = None
-        if size[0] <= request[0] and size[1] <= request[1]:
+        if not (size[0] <= request[0] and size[1] <= request[1]):
+            return
+        before, retry = request[3], request[4]
+        grew = [size[i] > before[i] for i in (0, 1) if size[i] < request[i]]  # the shrunk dimensions
+        if grew and all(grew):
             limit = self._granted_limit or (NO_LIMIT, NO_LIMIT)
             self._granted_limit = (
                 size[0] if size[0] < request[0] else limit[0],
                 size[1] if size[1] < request[1] else limit[1],
             )
+        elif retry:
+            self._retry_size = (request[0], request[1])
+            self._retry_timer.start()
+
+    def _retry_resize(self):
+        size, self._retry_size = self._retry_size, None
+        if size is not None and not (self.full_screen_flag or self.isMaximized() or self.isFullScreen()):
+            self._request_resize(*size, retry=False)
 
     def update_image(self, image_array_original, row, col):
         cell = self.image_canvas[row][col]  # type: ignore[reportOptionalSubscript]

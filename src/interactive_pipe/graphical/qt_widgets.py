@@ -96,6 +96,22 @@ class ElidedLabel(QLabel):  # type: ignore[reportGeneralTypeIssues]
         self.setToolTip(self._full_text if self.is_elided() else "")
 
 
+class ControlsContent(QWidget):  # type: ignore[reportGeneralTypeIssues]
+    """Content of a ControlsScrollArea. It is not laid out by the window, so
+    its size changes (controls added, collapsed, spread over columns) are
+    forwarded to the scroll area, or the window keeps a stale size hint.
+    (An event filter on the scroll area would do it too, but Python event
+    filters crash when the widgets are torn down.)"""
+
+    def event(self, event):  # noqa: N802 (Qt API)
+        if event.type() == event.Type.LayoutRequest:
+            viewport = self.parentWidget()
+            area = viewport.parentWidget() if viewport is not None else None
+            if area is not None:
+                area.updateGeometry()
+        return super().event(event)
+
+
 class ControlsScrollArea(QScrollArea):  # type: ignore[reportGeneralTypeIssues]
     """Vertical scroll area for the controls below the images.
 
@@ -116,13 +132,6 @@ class ControlsScrollArea(QScrollArea):  # type: ignore[reportGeneralTypeIssues]
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-
-    def eventFilter(self, obj, event):  # noqa: N802 (Qt API)
-        # the content is not laid out by our parent: forward its size changes
-        # (controls added, spread over columns), or the window keeps a stale hint
-        if obj is self.widget() and event.type() == event.Type.LayoutRequest:
-            self.updateGeometry()
-        return super().eventFilter(obj, event)
 
     def sizeHint(self) -> QSize:  # noqa: N802 (Qt API)
         # QScrollArea caps its hint: the controls would scroll needlessly

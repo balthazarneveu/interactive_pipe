@@ -424,16 +424,20 @@ def grid_switch_pipeline(img):
 
 
 def test_grid_change_on_a_shown_window_opens_no_stray_window():
+    # windows left over by earlier tests (not collected yet) would count as strays
+    for leftover in QApplication.topLevelWidgets():
+        leftover.close()
     gui = build_gui(grid_switch_pipeline)
     window = gui.window
     window.show()
     window.refresh()
     flush_events()
+    before = set(map(id, QApplication.topLevelWidgets()))
     for mode in ("column", "row", "column"):
         window.ctrl["grid_mode"].update(mode)
         window.refresh()
         flush_events()
-        stray = [w for w in QApplication.topLevelWidgets() if w.isVisible() and w is not window]
+        stray = [w for w in QApplication.topLevelWidgets() if w.isVisible() and w is not window and id(w) not in before]
         assert stray == [], f"stray top-level windows after switching to {mode}: {stray}"
     window.close()
 
