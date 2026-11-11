@@ -84,6 +84,7 @@ def build_window(pipeline_function, image=RAMP, size=(300, 200)):
 
 def settle(window, size=None):
     if size is not None:
+        window._resize_request = None  # a user resize, not the window manager answering a request
         window.resize(*size)
     window.layout().activate()
     QApplication.processEvents()
@@ -355,7 +356,8 @@ def test_window_manager_shrinking_a_resize_caps_later_ones():
     """Wayland reports the panels as available screen: the size the compositor
     granted instead of a requested one becomes the limit for later fits."""
     window = build_window(pair_pipeline)
-    window._resize_request = (700, 700, qt_gui.time.monotonic())
+    settle(window, (600, 600))
+    window._resize_request = (700, 700, qt_gui.time.monotonic(), (600, 600), False)
     window.resize(700, 700)  # Qt's echo of the request: not an answer yet
     QApplication.processEvents()
     assert window._granted_limit is None
@@ -411,3 +413,16 @@ def test_tall_window_keeps_a_single_column():
     window = build_window(pair_pipeline)
     assert window._update_control_columns(3000, 3000) is False
     assert not window._extra_columns
+
+
+def test_stale_configure_is_not_a_limit_and_the_request_is_retried():
+    """A size back below the one before the request is a stale configure: no
+    limit is learned and the size is asked again (once)."""
+    window = build_window(pair_pipeline)
+    settle(window, (500, 400))
+    window._request_resize(900, 800)
+    window.resize(450, 300)  # the stale answer
+    for _ in range(3):
+        QApplication.processEvents()
+    assert window._granted_limit is None
+    assert (window.width(), window.height()) == (900, 800)
