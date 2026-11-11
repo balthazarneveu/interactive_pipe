@@ -1287,3 +1287,27 @@ def test_layout_follows_the_viewport_size_before_the_frame(monkeypatch):
         window.tick_timers()
     assert relayouts == []
     assert window._laid_out_client == (800, 570)
+
+
+def test_viewport_resizes_asked_from_a_callback_thread_run_on_the_main_thread(monkeypatch):
+    """Dear PyGui runs key/mouse/menu callbacks on a worker thread, but GLFW
+    resizes windows from the main thread only (the grown part stayed unpainted)."""
+    import threading
+
+    gui = build_gui(basic_pipeline, size=(400, 300))
+    gui.pipeline.inputs = [np.zeros((600, 600))]
+    window = gui.window
+    window.refresh()
+    viewport = _fake_viewport(monkeypatch, window, (400, 300))
+    monkeypatch.setattr(dpg, "get_viewport_client_width", lambda: viewport["size"][0])
+    monkeypatch.setattr(dpg, "get_viewport_client_height", lambda: viewport["size"][1])
+    worker = threading.Thread(target=gui.actual_size_view)  # as the "1" key callback does
+    worker.start()
+    worker.join()
+    assert viewport["size"] == [400, 300]  # not resized from the worker thread
+    assert window._pending_viewport_size is not None
+    window.tick_timers()  # the render loop, on the main thread
+    assert viewport["size"][0] > 400 and viewport["size"][1] > 300
+    assert window._pending_viewport_size is None
+    for cell in window.image_cells():
+        assert dpg_image.image_box(cell) == (600, 600)
