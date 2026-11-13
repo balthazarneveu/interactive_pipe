@@ -145,6 +145,11 @@ written = sample_pipeline.save("results/sample.png")
 
 Each output `name` goes to `<stem>_<name>`, in a format that follows its type: numpy images (`(H, W)` or `(H, W, 3|4)`, float in `[0, 1]`, `uint8`, `uint16`) through `Image` (the suffix you gave if it is `.png`/`.jpg`/`.tif`), 1D arrays as `.csv`, other arrays as `.npy`, `Curve` / `Table` with their own `save`, strings as `.txt`. Other types are skipped with one warning. `save` returns the list of written files.
 
+To *see* the results without a window — over SSH, in CI, or for a coding agent — render them to a PNG:
+`sample_pipeline.snapshot("out.png", input_image, blend_coeff=0.5)` draws the whole output grid as the GUI
+would, and `sample_pipeline.sweep("sweep.png", input_image, blend_coeff=[0.2, 0.5, 0.8])` builds a contact sheet.
+See [Snapshots, sweeps and describe](../guide/snapshots.md).
+
 ## Next steps
 
 - [Backends](backends.md) — pick between Qt, Dear PyGui, matplotlib, Jupyter and Gradio.
