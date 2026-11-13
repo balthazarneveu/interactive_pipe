@@ -43,7 +43,9 @@ def control_from_tuple(short_params: Tuple, param_name: Optional[str] = None) ->
     """
 
     if isinstance(short_params, bool):
-        return Control(short_params, name=param_name)
+        control = Control(short_params, name=param_name)
+        control._auto_named = True
+        return control
     if not isinstance(short_params, (tuple, list)):
         raise TypeError(f"issue with {param_name}, {short_params}")
     value_default = short_params[0]
@@ -154,6 +156,7 @@ def control_from_tuple(short_params: Tuple, param_name: Optional[str] = None) ->
                 if not isinstance(group, (str, Panel)):
                     raise TypeError(f"{group} group shall be a string or Panel")
 
+    auto_named = name is None
     if name is None:
         name = param_name
 
@@ -164,4 +167,7 @@ def control_from_tuple(short_params: Tuple, param_name: Optional[str] = None) ->
 
     # Keyboard controls are no longer supported via abbreviations
     # Users should use KeyboardControl(...) directly
-    return Control(value_default, value_range=value_range, name=name, step=step, group=group)
+    control = Control(value_default, value_range=value_range, name=name, step=step, group=group)
+    # named after the parameter, not by the user: may be disambiguated in a pipeline
+    control._auto_named = control._auto_named or auto_named
+    return control

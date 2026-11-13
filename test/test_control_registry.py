@@ -129,11 +129,85 @@ def test_get_controls_rejects_bare_names():
         Control.get_controls("gain_filter")
 
 
-def test_duplicate_control_names_across_filters_raise_at_pipeline_build():
-    # GUI widgets are keyed by control name: two distinct controls named
-    # "coeff" in one pipeline must fail loudly at construction.
+def test_colliding_auto_named_controls_are_disambiguated_by_filter():
+    # GUI widgets are keyed by control name: two filters both declaring a
+    # "coeff" control get labels saying which filter they drive.
+    pipeline = HeadlessPipeline.from_function(colliding_pipeline, inputs=["img"])
+    assert [ctrl.name for ctrl in pipeline.controls] == ["stage_one.coeff", "stage_two.coeff"]
+    assert pipeline.controls[0].filter_to_connect is pipeline.filters[0]
+    assert pipeline.controls[1].filter_to_connect is pipeline.filters[1]
+    pipeline.controls[0].update(0.25)
+    pipeline.controls[1].update(1.0)
+    (result,) = pipeline(np.ones((2, 2)))
+    assert np.allclose(result, 0.25 + 1.0)
+    # a pipeline keyword sets the parameter in every filter having it...
+    (result,) = pipeline(np.ones((2, 2)), coeff=0.5)
+    assert np.allclose(result, 0.5 + 0.5)
+    # ...and parameters= targets one filter
+    (result,) = pipeline(np.ones((2, 2)), parameters={"stage_two": {"coeff": 0.0}})
+    assert np.allclose(result, 0.5)
+
+
+def test_disambiguation_does_not_leak_into_the_registry_or_other_pipelines():
+    first = HeadlessPipeline.from_function(colliding_pipeline, inputs=["img"])
+    # the shared registered controls keep their names
+    assert Control.get_controls(stage_one)["coeff"].name == "coeff"
+    assert Control.get_controls(stage_two)["coeff"].name == "coeff"
+
+    def only_stage_one(img):
+        out = stage_one(img)
+        return out
+
+    alone = HeadlessPipeline.from_function(only_stage_one)
+    assert [ctrl.name for ctrl in alone.controls] == ["coeff"]
+    # notebook re-run: same names again
+    again = HeadlessPipeline.from_function(colliding_pipeline, inputs=["img"])
+    assert [ctrl.name for ctrl in again.controls] == [ctrl.name for ctrl in first.controls]
+
+
+def test_repeated_and_colliding_filters_all_named_by_filter_instance():
+    def mixed(img):
+        a = stage_one(img)
+        b = stage_one(a)
+        c = stage_two(b)
+        return c
+
+    pipeline = HeadlessPipeline.from_function(mixed)
+    assert [ctrl.name for ctrl in pipeline.controls] == [
+        "stage_one.coeff",
+        "stage_one_1.coeff",
+        "stage_two.coeff",
+    ]
+
+
+@interactive(coeff=Control(0.5, [0.0, 1.0], name="coeff"))
+def explicit_one(img, coeff=0.5):
+    return img * coeff
+
+
+@interactive(coeff=Control(0.5, [0.0, 1.0], name="coeff"))
+def explicit_two(img, coeff=0.5):
+    return img + coeff
+
+
+def test_explicitly_named_colliding_controls_still_raise():
+    def explicit_pipeline(img):
+        mid = explicit_one(img)
+        out = explicit_two(mid)
+        return out
+
     with pytest.raises(ValueError, match="Duplicate control name 'coeff'"):
-        HeadlessPipeline.from_function(colliding_pipeline, inputs=["img"])
+        HeadlessPipeline.from_function(explicit_pipeline)
+
+
+def test_explicit_name_wins_over_an_auto_named_collision():
+    def explicit_and_auto(img):
+        mid = explicit_one(img)
+        out = stage_two(mid)
+        return out
+
+    pipeline = HeadlessPipeline.from_function(explicit_and_auto)
+    assert [ctrl.name for ctrl in pipeline.controls] == ["coeff", "stage_two.coeff"]
 
 
 def test_distinct_control_names_across_filters_build_and_run():
