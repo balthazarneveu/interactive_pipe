@@ -9,7 +9,7 @@ from pathlib import Path  # noqa: E402
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
 
-from interactive_pipe import interactive, interactive_pipeline  # noqa: E402
+from interactive_pipe import Control, interactive, interactive_pipeline  # noqa: E402
 from interactive_pipe.cli import SNAPSHOT_ENV_VAR, snapshot_path_from_env, snapshot_requested  # noqa: E402
 from interactive_pipe.headless.pipeline import HeadlessPipeline  # noqa: E402
 
@@ -57,15 +57,18 @@ def test_path_parsing(monkeypatch, tmp_path):
 def test_gui_call_writes_a_snapshot_and_returns_results(monkeypatch, tmp_path, capsys, gui):
     monkeypatch.setenv(SNAPSHOT_ENV_VAR, str(tmp_path / "{name}.png"))
     launcher = interactive_pipeline(gui=gui)(env_pipeline)
-    assert isinstance(launcher.pipeline, HeadlessPipeline)  # no GUI object was built
+    # the GUI object is built (scripts may configure it) but never run
+    assert isinstance(launcher.pipeline.pipeline, HeadlessPipeline)
+    launcher.pipeline.bind_key_to_context("n", "noise", "a key event")
     with pytest.warns(UserWarning, match="not_a_parameter"):
         results = launcher(white(), gain=1.0, not_a_parameter=3)
     assert (tmp_path / "env_pipeline.png").is_file()
-    assert isinstance(results, list) and len(results) == 1
-    np.testing.assert_allclose(results[0], white())
+    # like the GUI call: the GUI turned the outputs into a 2D layout (one row)
+    assert isinstance(results, list) and len(results) == 1 and len(results[0]) == 1
+    np.testing.assert_allclose(results[0][0], white())
     assert "env_pipeline.png" in capsys.readouterr().out
     # stateless like snapshot(): the default is back
-    assert launcher.pipeline.parameters["env_amplify"]["gain"] == 0.5
+    assert launcher.pipeline.pipeline.parameters["env_amplify"]["gain"] == 0.5
     assert launcher.describe()["controls"][0]["name"] == "gain"
 
 
@@ -82,3 +85,35 @@ def test_filter_interact_writes_a_snapshot(monkeypatch, tmp_path):
     results = env_amplify.interact(white(), gui="qt")
     assert (tmp_path / "env_amplify.png").is_file()
     np.testing.assert_allclose(results[0], white() * 0.5)
+
+
+@interactive(title=Control("plain", ["plain", "dark"]), path=(1.0, [0.0, 1.0]))
+def env_clashing(img, title="plain", path=1.0):
+    return img * path * (0.0 if title == "dark" else 1.0)
+
+
+def env_clashing_pipeline(img):
+    out = env_clashing(img)
+    return [out]
+
+
+def test_parameters_named_like_snapshot_options(monkeypatch, tmp_path):
+    monkeypatch.setenv(SNAPSHOT_ENV_VAR, str(tmp_path) + "/")
+    launcher = interactive_pipeline(gui="qt")(env_clashing_pipeline)
+    results = launcher(white(), title="dark", path=0.5)
+    np.testing.assert_allclose(results[0][0], 0.0)  # title= reached the filter, not the figure
+    results = launcher(white(), path=0.5)
+    np.testing.assert_allclose(results[0][0], white() * 0.5)
+
+
+def test_gui_object_failure_falls_back_to_headless(monkeypatch, tmp_path):
+    monkeypatch.setenv(SNAPSHOT_ENV_VAR, str(tmp_path) + "/")
+
+    def broken(*_args, **_kwargs):
+        raise ImportError("backend not installed")
+
+    monkeypatch.setattr("interactive_pipe.helper.pipeline_decorator.get_interactive_pipeline_class", broken)
+    launcher = interactive_pipeline(gui="qt")(env_pipeline)
+    assert isinstance(launcher.pipeline, HeadlessPipeline)
+    launcher(white())
+    assert (tmp_path / "env_pipeline.png").is_file()

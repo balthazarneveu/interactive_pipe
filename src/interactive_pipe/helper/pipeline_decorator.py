@@ -1,4 +1,6 @@
 import functools
+import logging
+import os
 from typing import Any, Callable, Optional, Union
 
 from interactive_pipe.cli import resolve_gui, size_from_env, snapshot_path_from_env, snapshot_requested
@@ -24,8 +26,14 @@ def pipeline(pipeline_function: Callable, **kwargs) -> HeadlessPipeline:
     return HeadlessPipeline.from_function(pipeline_function, **kwargs)
 
 
-def _snapshot_launcher(pipeline_function: Callable[..., Any], headless_pipeline: HeadlessPipeline) -> Callable:
-    """Stand-in for the GUI launcher when INTERACTIVE_PIPE_SNAPSHOT is set."""
+def _snapshot_launcher(
+    pipeline_function: Callable[..., Any], headless_pipeline: HeadlessPipeline, gui_pipeline: Any = None
+) -> Callable:
+    """Stand-in for the GUI launcher when INTERACTIVE_PIPE_SNAPSHOT is set.
+
+    `.pipeline` stays the (never shown) GUI object when it could be built, so
+    scripts configuring it (``demo.pipeline.bind_key_to_context(...)``) still run.
+    """
     from interactive_pipe.headless.explore import snapshot_instead_of_gui
 
     @functools.wraps(pipeline_function)
@@ -35,11 +43,37 @@ def _snapshot_launcher(pipeline_function: Callable[..., Any], headless_pipeline:
             raise RuntimeError("INTERACTIVE_PIPE_SNAPSHOT was unset after the pipeline was decorated")
         return snapshot_instead_of_gui(headless_pipeline, path, *args, **kwargs)
 
-    setattr(inner, "pipeline", headless_pipeline)
-    setattr(inner, "graph_representation", headless_pipeline.graph_representation)
+    owner = gui_pipeline if gui_pipeline is not None else headless_pipeline
+    setattr(inner, "pipeline", owner)
+    setattr(inner, "graph_representation", owner.graph_representation)
     for method_name in SEE_THE_RESULT_METHODS:
         setattr(inner, method_name, getattr(headless_pipeline, method_name))
     return inner
+
+
+def _gui_for_snapshot(
+    selected_gui: Any,
+    headless_pipeline: HeadlessPipeline,
+    markdown_description: Optional[str],
+    name: Optional[str],
+    pipeline_function: Callable[..., Any],
+    gui_options: dict,
+) -> Any:
+    """GUI object that is configured but never run (INTERACTIVE_PIPE_SNAPSHOT),
+    or None when it cannot be built here (backend not installed, no display...)."""
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")  # the window is never shown
+    try:
+        gui_class = get_interactive_pipeline_class(selected_gui)
+        return gui_class(
+            pipeline=headless_pipeline,
+            markdown_description=markdown_description,
+            name=name if name is not None else pipeline_function.__name__,
+            **gui_options,
+        )
+    except Exception as exc:
+        # Broad on purpose: the snapshot only needs the headless pipeline
+        logging.warning(f"INTERACTIVE_PIPE_SNAPSHOT: GUI object not built ({exc}), using the headless pipeline")
+        return None
 
 
 def interactive_pipeline(
@@ -159,7 +193,13 @@ def interactive_pipeline(
             return headless_pipeline
         if snapshot_requested():
             # INTERACTIVE_PIPE_SNAPSHOT: render a PNG instead of opening a window
-            return _snapshot_launcher(pipeline_function, headless_pipeline)
+            return _snapshot_launcher(
+                pipeline_function,
+                headless_pipeline,
+                _gui_for_snapshot(
+                    selected_gui, headless_pipeline, markdown_description, name, pipeline_function, dict(kwargs_gui)
+                ),
+            )
         else:
             gui_options = dict(kwargs_gui)
             if gui_options.get("size") is None:

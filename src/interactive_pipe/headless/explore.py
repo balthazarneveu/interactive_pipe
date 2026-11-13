@@ -515,6 +515,7 @@ def sweep(
 def snapshot_instead_of_gui(
     pipeline: "HeadlessPipeline",
     path: Path,
+    /,
     *input_values: Any,
     parameters: Optional[dict] = None,
     context: Optional[dict] = None,
@@ -535,7 +536,8 @@ def snapshot_instead_of_gui(
     if unknown:
         warnings.warn(f"INTERACTIVE_PIPE_SNAPSHOT: ignoring unknown keyword argument(s) {unknown}", stacklevel=3)
     overrides = {name: value for name, value in kwargs.items() if name in known}
-    written, result = run_snapshot(pipeline, path, *input_values, **overrides)
+    # through params=: a parameter named title / output / dpi... is a parameter here
+    written, result = run_snapshot(pipeline, path, *input_values, params=overrides)
     print(f"interactive_pipe: snapshot of {pipeline.name!r} written to {written}")
     if result is None:
         return []
