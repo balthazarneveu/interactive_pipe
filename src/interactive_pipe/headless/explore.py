@@ -148,7 +148,8 @@ def _same_value(left: Any, right: Any) -> bool:
 def preserved_state(pipeline: Any) -> Iterator[None]:
     """Restore parameters, control values, output layout, styles and last
     results on exit (also when the body raises)."""
-    parameters = deepcopy(PipelineCore.parameters.__get__(pipeline))  # type: ignore[attr-defined]
+    # per-filter dict copies are enough: overrides replace values, never mutate them
+    parameters = PipelineCore.parameters.__get__(pipeline)  # type: ignore[attr-defined]
     control_values = [(ctrl, ctrl.value) for ctrl in _controls(pipeline)]
     outputs = deepcopy(pipeline.outputs)
     framework_state = pipeline.framework_state.snapshot()
