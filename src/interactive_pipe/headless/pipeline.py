@@ -76,7 +76,7 @@ class HeadlessPipeline(PipelineCore):
         filters = []
         filters_count = {}
         filters_names = []
-        control_list = []
+        bindings = []  # (filter, parameter name, control), connected once names are resolved
         seen_function_ids = set()
         for filt_dict in graph["call_graph"]:
             # avoid duplicate filters names
@@ -144,9 +144,7 @@ class HeadlessPipeline(PipelineCore):
                         ) from None
             for param_name, param_value in params_to_analyze.items():
                 if isinstance(param_value, Control):
-                    param_value.connect_filter(filt, param_name)
-                    filt.values = {param_name: param_value.value_default}
-                    control_list.append(param_value)
+                    bindings.append((filt, param_name, param_value))
             filt.values = {
                 param_name: literal_value
                 for param_name, literal_value in literal_kwargs.items()
@@ -157,6 +155,13 @@ class HeadlessPipeline(PipelineCore):
             seen_function_ids.add(id(filt_dict["function_object"]))
         logging.debug(filters_count)
         logging.debug(filters_names)
+
+        bindings = cls._disambiguate_control_names(bindings)
+        control_list = []
+        for filt, param_name, ctrl in bindings:
+            ctrl.connect_filter(filt, param_name)
+            filt.values = {param_name: ctrl.value_default}
+            control_list.append(ctrl)
 
         # GUI widgets are keyed by control name: distinct controls sharing a
         # name within one pipeline would silently drive the wrong filter.
@@ -195,6 +200,46 @@ class HeadlessPipeline(PipelineCore):
         )
         data_class.controls = control_list
         return data_class
+
+    @staticmethod
+    def _disambiguate_control_names(bindings: list) -> list:
+        """Rename auto-named controls whose name collides with another control of the pipeline.
+
+        Two filters each declaring a ``gain`` control is the normal case: every
+        auto-named control bound to a colliding parameter name becomes
+        ``"<filter>.<param>"`` (``amplify.gain``, ``blend.gain``; a repeated
+        filter's ``gain_1`` becomes ``amplify_1.gain``), so the widget label
+        says which filter it drives and matches
+        ``parameters={"<filter>": {"<param>": value}}``. Repeats of a single
+        filter without any other collision keep the ``gain``, ``gain_1``
+        suffixes. Controls named explicitly (``name=...``) are never renamed;
+        if they still collide, the caller raises.
+
+        Renamed controls are per-pipeline clones: the registered control
+        shared by every pipeline using the filter is never mutated, and
+        building the same pipeline twice gives the same names.
+        """
+        by_name: dict = {}
+        for binding in bindings:
+            ctrl = binding[2]
+            group = by_name.setdefault(ctrl.name, [])
+            if all(other[2] is not ctrl for other in group):
+                group.append(binding)
+        colliding_params = set()
+        for group in by_name.values():
+            if len(group) < 2:
+                continue
+            for _filt, param_name, ctrl in group:
+                if ctrl._auto_named:
+                    colliding_params.add(param_name)
+        if not colliding_params:
+            return bindings
+        renamed = []
+        for filt, param_name, ctrl in bindings:
+            if ctrl._auto_named and param_name in colliding_params:
+                ctrl = ctrl._clone_unconnected(f"{filt.name}.{param_name}")
+            renamed.append((filt, param_name, ctrl))
+        return renamed
 
     def export_tuning(self, path: Optional[Path] = None, override=False) -> None:
         """Export the current parameters of every filter to a json/yaml file"""

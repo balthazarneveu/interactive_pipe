@@ -297,7 +297,7 @@ in CLAUDE.md. Nothing in use is rejected by the strict parser.
   test/test_core_exceptions.py that pinned the old wording were updated.
 - Tests: `test/test_call_validation.py`.
 
-### D. Scalar control shorthand — done
+### D. Scalar control shorthand — done (`842e106`)
 
 - Decorator keyword arguments only (`@interactive` and `@interact` share the
   code path): a bare bool is a checkbox, same as `(True,)`; a bare int, float
@@ -310,3 +310,30 @@ in CLAUDE.md. Nothing in use is rejected by the strict parser.
   error) — the plan did not cover it and it may be used to switch a control
   off programmatically.
 - Tests: `test/test_decorator_scalar_shorthand.py`.
+
+### E. Duplicate control names across filters — done
+
+- Scheme: every auto-named control bound to a colliding parameter name is
+  renamed `<filter instance>.<param>` — `amplify.gain`, `blend.gain`, and a
+  repeated filter's clone in the same group becomes `amplify_1.gain`. The
+  label says which filter it drives and reads exactly like the way to target
+  it: `parameters={"amplify": {"gain": 2.0}}`. Repeats of one filter without
+  any other collision keep today's `gain`, `gain_1` (no change for existing
+  pipelines; none of demo/, samples/ or test/ had a collision since it
+  raised).
+- Explicitly named controls are never renamed; if two still collide, the
+  existing `Duplicate control name` `ValueError` is raised. An explicit name
+  colliding with an auto-named one: the auto-named one is renamed.
+- "Auto-named" now also covers the tuple shorthand without a name
+  (`(1.0, [0, 2])`) and the decorator bool shorthand: `control_from_tuple`
+  marks them `_auto_named` (it used to pass `param_name` as an explicit name).
+- Renamed controls are per-pipeline `_clone_unconnected` clones; the
+  registered control keeps its name, other pipelines are unaffected and a
+  rebuild gives the same names. Controls are now connected to their filter
+  only after names are resolved.
+- `pipeline(img, gain=2.0)` keeps setting `gain` in every filter that has it
+  (documented in `parameters_from_keyword_args`); target one filter with
+  `parameters={"blend": {"gain": 2.0}}`. Tested.
+- `test/test_control_registry.py`: the pinned raise became the
+  disambiguation test; added leak/rebuild, repeat+collision, explicit-name
+  tests.
