@@ -325,3 +325,23 @@ Decisions:
 hunk next to the existing `graph_representation` attribute);
 `InteractivePipeGUI` gets the same four methods (additive, end of class).
 Tested with `gui="mpl"` and `gui="qt"` (offscreen), no window is opened.
+
+### 6. Single-filter entry points (issue #21) — done
+
+New module `helper/filter_entry_points.py`; `@interactive` attaches
+`snapshot`, `sweep`, `describe`, `summary` and `interact` to the returned
+plain function (one added line in `interactive()`). Decisions:
+- The one-filter pipeline is rebuilt for each call (stateless): registered
+  controls are borrowed and their filter connection, update callback and value
+  are restored afterwards, also on error (tested against a real pipeline using
+  the same filter, with a tuned control value).
+- Output names come from a dry run (one name per returned element, like
+  `run_gui`): `amplify` for a single output, `amplify[0]`, `amplify[1]`, ...
+  otherwise. A failing dry run raises `FilterError` like a pipeline run.
+- Filter inputs are always required (except for a filter without inputs);
+  nothing is cached on the function, so no image is kept alive by it.
+- `describe()` / `summary()` take the inputs optionally: without them there is
+  no dry run and `outputs` is None.
+- `interact()` blocks until the window closes, returns the results and gives
+  the control values back (slider moves do not leak into pipelines).
+- Issue #21's original bug (explicit keyword ignored) has a regression test.
