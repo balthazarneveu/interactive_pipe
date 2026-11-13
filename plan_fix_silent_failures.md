@@ -392,7 +392,7 @@ in CLAUDE.md. Nothing in use is rejected by the strict parser.
   the quickstart, tips, samples/readme.md and the skill now pass the file.
 - Test in `test/test_headless_save.py`.
 
-### I. Docs, skill, changelog — done
+### I. Docs, skill, changelog — done (`50164fb`)
 
 - CLAUDE.md: the "control flow breaks the AST parser" section now states
   what is accepted and what raises `PipelineSyntaxError`.
@@ -412,3 +412,53 @@ in CLAUDE.md. Nothing in use is rejected by the strict parser.
 - CHANGELOG.md: "Unreleased" entry, with "Changes that can affect existing
   code" first.
 - `mkdocs` is not installed in the venv, so the docs build was not run.
+
+### Final verification
+
+1. Full suite: `QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg ./venv/bin/python -m pytest test/ -q`
+   -> `791 passed, 6 skipped` (baseline 713 + 78 new tests). `ruff format` /
+   `ruff check` clean. pyright: 8 errors, same as the baseline (all
+   pre-existing, in graphical/qt_control.py and graphical/dpg_panels.py).
+2. The 14 rows, reproduced headless by a script run against the baseline
+   source (`git archive 8213c59 src`, outside the repo) and against the
+   branch:
+
+   | # | Before (0.9.4) | After |
+   |---|---|---|
+   | 1 | `p1(img, flag=False)` -> mean 2: the `if` body ran anyway | `PipelineSyntaxError: pipeline 'p1', rows.py, line 65: `if` statements are not supported ...` |
+   | 2 | `b = a * 2` -> returns `()` | `PipelineSyntaxError: ... line 72: arithmetic is not supported ...` |
+   | 3 | `amplify(img, gain=2.5)` -> mean 1 (kwarg ignored) | mean 1.25 |
+   | 4 | `blur(amplify(img))` -> `FilterError` (blur got `None`) | mean 2 |
+   | 5 | `return amplify(img)` -> `IndexError: list index out of range` | mean 1 |
+   | 6 | pipeline in `main()` -> `IndentationError: unexpected indent` | runs (mean 1.5) |
+   | 7 | `np.abs(img)` -> `KeyError: "Function name 'abs' not found ..."` | runs (mean 0.5) |
+   | 8 | `gian=2.0` ignored; `gain=99` silently clamped | `TypeError: ... unexpected keyword argument(s) 'gian' ... Did you mean 'gian' -> 'gain'?`; `gain=99` clamped + warning `Control 'gain': value 99.0 is outside its range [0.0, 3.0], clamped to 3.0` |
+   | 9 | `flip=True` -> no control; `gain=1.0` -> no control | `flip=True` -> checkbox `flip`; `gain=1.0` -> `ValueError: @interactive(gain=1.0): a bare value cannot make a widget, a range is needed. Write gain=(1.0, [0, 2.0]) ...` |
+   | 10 | `ValueError: Duplicate control name 'gain'` | controls `ctrl_gain.gain`, `other_gain.gain` |
+   | 11 | `ValueError: Cannot set inputs to None when inputs_routing is defined` | `ValueError: pipeline 'p8' expects 1 input (img), got 0` |
+   | 12 | `save('out.png')` -> only `out.yaml`, one logged traceback per image | `out.yaml`, `out_img.png`, `out_out.png`; returns the list |
+   | 13 | `(H, W)` + `colormap='viridis'` displayed as `(4, 4)` gray | displayed as `(4, 4, 3)` viridis |
+   | 14 | `hasattr(pipe, 'load_tuning')` = False | True |
+
+3. Every pipeline in `demo/` (17) and `samples/` (2) builds headless
+   (`HeadlessPipeline.from_function`, modules imported with
+   `INTERACTIVE_PIPE_GUI=headless`): 19 built, 0 failed. samples/interact_sample
+   and samples/object_oriented_pipeline_declarations.py contain no pipeline
+   function. All rows have at least one regression test failing on the
+   baseline (checked by running the new test files against the baseline
+   source).
+
+### Left for review
+
+- Behaviour changes that can affect existing code are listed first in the
+  CHANGELOG "Unreleased" entry; notably build-time `KeyError`/`TypeError`
+  for unknown/non-callable names became `PipelineSyntaxError` (`ValueError`).
+- Hoisted output names (`amplify(img)`) are also used as file names by
+  `save` and as default titles; they are sanitised for Windows-forbidden
+  characters only.
+- test/test_core_exceptions.py `TestGraphExceptions` holds four empty
+  placeholder tests (pre-existing); the real coverage is now in
+  test/test_pipeline_syntax.py — they could be deleted.
+- The one-off native crash seen in a full-suite run (see B) was not
+  reproduced in later runs.
+- Not done: docs build (mkdocs not installed in the venv).
