@@ -20,7 +20,8 @@ from interactive_pipe.core.signature import analyze_apply_fn_signature
 
 ACCEPTED_SYNTAX = (
     "A pipeline body may only contain: a docstring, `pass`, filter calls "
-    "(`out = flt(img)`, `a, b = flt(img)`, `flt(img)`) and one final `return`."
+    "(`out = flt(img)`, `a, b = flt(img)`, `flt(img)`, nested `blur(amplify(img))`, "
+    "literal keyword arguments `amplify(img, gain=2.0)`) and one final `return`."
 )
 
 
@@ -205,7 +206,7 @@ _EXPRESSION_ERRORS: Dict[type, Tuple[str, str]] = {
     ),
     ast.Constant: (
         "constants are not supported here in a pipeline function",
-        "give the value as a default of a filter keyword argument, or as a control",
+        "pass it as a literal keyword argument of a filter call (`amplify(img, gain=2.0)`), or as a control",
     ),
     ast.JoinedStr: ("f-strings are not supported in a pipeline function", _FILTER_HINT),
     ast.Dict: ("dict literals are not supported in a pipeline function", _FILTER_HINT),
@@ -243,6 +244,14 @@ def _parse_function_source(func: Callable) -> Tuple[ast.AST, int, List[str]]:
     if not isinstance(main_function, (ast.FunctionDef, ast.AsyncFunctionDef)):
         raise ValueError("Function AST node is malformed")
     return main_function, line_offset, source_lines
+
+
+def _is_literal(node: ast.expr) -> bool:
+    try:
+        ast.literal_eval(node)
+    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+        return False
+    return True
 
 
 def _is_native_callable(obj: Any) -> bool:
@@ -291,6 +300,8 @@ class _PipelineParser:
         except TypeError:
             self.filename = None
         self.globals, self.nonlocals = self._scope(func, global_context)
+        self.results: List[dict] = []
+        self.hoisted_names: set = set()
 
     @staticmethod
     def _scope(func: Callable, global_context: Optional[dict]) -> Tuple[dict, dict]:
@@ -405,17 +416,63 @@ class _PipelineParser:
         return function_name, obj
 
     # ------------------------------------------------------------ statements
-    def parse_args(self, call: ast.Call) -> List[str]:
+    def hoisted_name(self, call: ast.Call) -> str:
+        """Name of the intermediate variable holding a nested call's result.
+
+        The call's own source (``amplify(img)``) reads well as an output title
+        and can never collide with a user variable, which must be an
+        identifier. A repeated identical call gets a ``#2``, ``#3``... suffix.
+        """
+        base = ast.unparse(call)
+        name = base
+        count = 1
+        while name in self.hoisted_names:
+            count += 1
+            name = f"{base} #{count}"
+        self.hoisted_names.add(name)
+        return name
+
+    def hoist(self, call: ast.Call) -> str:
+        """Turn a nested call into a node of its own and return its output name."""
+        name = self.hoisted_name(call)
+        self.call_entry(call, [name])
+        return name
+
+    @staticmethod
+    def positional_parameter_hint(sig: Tuple[List[str], Dict[str, Any]], index: int, value: ast.expr) -> str:
+        args, kwargs = sig
+        keyword_names = list(kwargs)
+        kw_index = index - len(args)
+        literal = ast.unparse(value)
+        if 0 <= kw_index < len(keyword_names):
+            return f"pass it as a keyword argument: `{keyword_names[kw_index]}={literal}`"
+        return "pass parameters as keyword arguments (`param=value`); positional arguments are filter inputs"
+
+    def parse_args(self, call: ast.Call, sig: Tuple[List[str], Dict[str, Any]]) -> List[str]:
         input_names = []
-        for arg in call.args:
+        for index, arg in enumerate(call.args):
             if isinstance(arg, ast.Name):
                 input_names.append(arg.id)
+            elif isinstance(arg, ast.Call):
+                input_names.append(self.hoist(arg))
             elif isinstance(arg, ast.Starred):
                 raise self.error(
                     arg, "star-unpacking of arguments (`f(*imgs)`) is not supported", "pass every input explicitly"
                 )
+            elif isinstance(arg, ast.Constant) or _is_literal(arg):
+                raise self.error(
+                    arg,
+                    "positional literal arguments are not supported: positional arguments are filter inputs",
+                    self.positional_parameter_hint(sig, index, arg),
+                )
             else:
-                raise self.expression_error(arg, "filter inputs must be variable names")
+                raise self.expression_error(arg, "filter inputs must be variable names or filter calls")
+        return input_names
+
+    def parse_keywords(self, call: ast.Call, function_name: str, sig: Tuple[List[str], Dict[str, Any]]) -> dict:
+        """Literal keyword arguments: ``amplify(img, gain=2.5)`` sets that instance's parameter."""
+        args, kwargs = sig
+        literal_kwargs = {}
         for keyword in call.keywords:
             if keyword.arg is None:
                 raise self.error(
@@ -423,30 +480,70 @@ class _PipelineParser:
                     "`**kwargs` unpacking is not supported in a filter call",
                     "pass every keyword argument explicitly",
                 )
-        return input_names
+            if keyword.arg not in kwargs:
+                if keyword.arg in args:
+                    raise self.error(
+                        keyword.value,
+                        f"'{keyword.arg}' is an input of filter '{function_name}', not a parameter",
+                        "pass inputs positionally: `flt(img)`",
+                    )
+                suggestion = self._did_you_mean(keyword.arg, list(kwargs))
+                available = ", ".join(kwargs) or "none"
+                raise self.error(
+                    keyword.value,
+                    f"'{keyword.arg}' is not a parameter of filter '{function_name}' (parameters: {available})",
+                    suggestion or "check the filter signature",
+                )
+            try:
+                value = ast.literal_eval(keyword.value)
+            except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+                raise self.error(
+                    keyword.value,
+                    f"the value of '{keyword.arg}' must be a literal (number, string, bool, None, tuple, list, dict)",
+                    "the pipeline body is not executed, so variables cannot be passed: use a literal value, "
+                    "or a control to make it tunable",
+                ) from None
+            literal_kwargs[keyword.arg] = value
+        return literal_kwargs
 
     def call_entry(self, call: ast.Call, output_names: Optional[List[str]]) -> dict:
+        """Validate a filter call and append its node to the graph (after its hoisted inner calls)."""
         function_name, function_object = self.resolve_callable(call)
-        input_names = self.parse_args(call)
         if isinstance(function_object, FilterCore):
-            # Case of a filter instance
             function_object.check_apply_signature()
-            # ---> forcing filter instance .name to be the name of the object used in the func
-            function_object.name = function_name
             sig = function_object.signature
-            function_object.inputs = input_names  # type: ignore
-            function_object.outputs = output_names if output_names is not None else []  # type: ignore
         else:
-            # Case of a decorated function
             if _is_native_callable(function_object):
                 function_object = _positional_filter(function_object, function_name)
             sig = analyze_apply_fn_signature(function_object)
-        return {
+        literal_kwargs = self.parse_keywords(call, function_name, sig)
+        input_names = self.parse_args(call, sig)
+        if isinstance(function_object, FilterCore):
+            # Case of a filter instance
+            # ---> forcing filter instance .name to be the name of the object used in the func
+            function_object.name = function_name
+            function_object.inputs = input_names  # type: ignore
+            function_object.outputs = output_names if output_names is not None else []  # type: ignore
+        entry = {
             "function_name": function_name,
             "function_object": function_object,
             "signature": {"args": sig[0], "kwargs": sig[1]},
             "args": input_names,
             "returns": output_names if output_names is not None else [],
+            "kwargs": literal_kwargs,
+            "location": self.location(call),
+        }
+        self.results.append(entry)
+        return entry
+
+    def location(self, node: ast.AST) -> dict:
+        """Where a node is, to raise a PipelineSyntaxError from later build stages."""
+        error = self.error(node, "")
+        return {
+            "pipeline_name": error.pipeline_name,
+            "filename": error.filename,
+            "lineno": error.lineno,
+            "source_line": error.source_line,
         }
 
     def target_names(self, target: ast.expr) -> List[str]:
@@ -469,19 +566,22 @@ class _PipelineParser:
             "assign to plain names (`out = flt(img)`), not to attributes, items or starred targets",
         )
 
-    def check_return_value(self, node: ast.expr) -> None:
+    def check_return_value(self, node: ast.expr) -> ast.expr:
+        """Validate the returned structure; filter calls in it are hoisted and replaced by their output name."""
         if isinstance(node, ast.Name):
-            return
+            return node
         if isinstance(node, ast.Constant) and node.value is None:
-            return
+            return node
+        if isinstance(node, ast.Call):
+            return ast.copy_location(ast.Name(id=self.hoist(node), ctx=ast.Load()), node)
         if isinstance(node, (ast.Tuple, ast.List)):
-            for element in node.elts:
-                self.check_return_value(element)
-            return
-        raise self.expression_error(node, "a pipeline returns variable names, a tuple or (nested) list of them")
+            elements = [self.check_return_value(element) for element in node.elts]
+            return ast.copy_location(type(node)(elts=elements, ctx=ast.Load()), node)
+        raise self.expression_error(
+            node, "a pipeline returns variable names or filter calls, a tuple or (nested) list of them"
+        )
 
     def parse(self) -> dict:
-        results = []
         body = self.function_node.body  # type: ignore[attr-defined]
         return_node: Optional[ast.Return] = None
         for index, statement in enumerate(body):
@@ -498,8 +598,8 @@ class _PipelineParser:
                 if isinstance(value, ast.Constant) and (isinstance(value.value, str) or value.value is Ellipsis):
                     continue  # docstring / string comment / `...`
                 if isinstance(value, ast.Call):
-                    results.append(self.call_entry(value, None))
-                    logging.debug(f"Function without assignment {results[-1]['function_name']}")
+                    entry = self.call_entry(value, None)
+                    logging.debug(f"Function without assignment {entry['function_name']}")
                     continue
                 raise self.expression_error(value, "a statement must be a filter call")
             if isinstance(statement, (ast.Assign, ast.AnnAssign)):
@@ -524,20 +624,20 @@ class _PipelineParser:
                 output_names = self.target_names(target)
                 if not isinstance(value, ast.Call):
                     raise self.expression_error(value, "the right-hand side must be a filter call")
-                results.append(self.call_entry(value, output_names))
-                logging.debug(f"classic function with assignment {results[-1]['function_name']}")
+                entry = self.call_entry(value, output_names)
+                logging.debug(f"classic function with assignment {entry['function_name']}")
                 continue
             if isinstance(statement, ast.Return):
                 return_node = statement
                 if statement.value is not None:
-                    self.check_return_value(statement.value)
+                    return_node = ast.Return(value=self.check_return_value(statement.value))
                 continue
             description, hint = _STATEMENT_ERRORS.get(
                 type(statement),
                 (f"`{type(statement).__name__}` statements are not supported in a pipeline function", ACCEPTED_SYNTAX),
             )
             raise self.error(statement, description, hint)
-        return {"call_graph": results, "returns": self.return_outputs(return_node)}
+        return {"call_graph": self.results, "returns": self.return_outputs(return_node)}
 
     @staticmethod
     def return_outputs(return_node: Optional[ast.Return]):

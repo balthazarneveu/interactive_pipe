@@ -216,7 +216,7 @@ instances or `None` cells are used in existing pipelines, but they are kept
 working and now tested. The only `if` found is the deliberately wrong example
 in CLAUDE.md. Nothing in use is rejected by the strict parser.
 
-### A. Strict pipeline parser — done
+### A. Strict pipeline parser — done (`ebc3029`)
 
 - `PipelineSyntaxError(ValueError)` in `core/graph.py`, exported from
   `interactive_pipe`; message = pipeline name, file, absolute line, quoted
@@ -245,3 +245,30 @@ in CLAUDE.md. Nothing in use is rejected by the strict parser.
   - Keyword arguments in filter calls are still ignored by this commit (they
     become supported in B); `**kwargs` and `*args` in calls raise.
 - Tests: `test/test_pipeline_syntax.py`.
+
+### B. Literal kwargs, nested calls, `return f(x)` — done
+
+- Literal keyword arguments (`ast.literal_eval`) set that filter instance's
+  value. When a control is bound to the parameter, the instance gets a clone
+  (`Control._clone_with_default`) whose default is the literal; the registered
+  control is never mutated, so other pipelines using the filter and rebuilds
+  are unaffected. Validation does not clamp: out of range, wrong type or not
+  among the choices raises `PipelineSyntaxError` at the call's line.
+  `RangeControl` validates the pair.
+- Unknown keyword (with close-match suggestion), keyword naming an input,
+  non-literal value (`gain=np.pi`, variables) and `**kw` raise.
+- Nested calls and calls in the `return` (at any depth of the returned
+  tuple/list) are hoisted into their own filter node, inner call first.
+  Naming scheme: the call's own source, `ast.unparse(call)` — e.g.
+  `amplify(img)`, `blur(amplify(img))`, `amplify(img, gain=2.0)`. It is
+  deterministic, cannot collide with a user variable (not an identifier) and
+  is a readable output title. An identical call repeated gets ` #2`, ` #3`.
+- Positional literals (`blur(img, 3)`) raise with a hint naming the keyword
+  it would map to (`radius=3`); expressions (`blur(img * 2)`) raise with the
+  "wrap it in a filter" hint.
+- Behaviour change to note: `split_horizontally(final, line=0.8)` in
+  test/test_recorder.py is now honoured (it was ignored); the test filter
+  does not use `line`, so its outputs are unchanged.
+- Flaky: one full-suite run (of 7) at 00:15 died with a native crash dump
+  (extension list showing PyQt6 / dearpygui); 6 reruns green, not
+  reproduced. Probably a pre-existing GUI-backend flake, left for review.
