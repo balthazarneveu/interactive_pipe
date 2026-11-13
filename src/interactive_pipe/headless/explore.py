@@ -480,3 +480,38 @@ def sweep(
             caption=caption_text,
         )
     return _export(fig, path)
+
+
+# ---------------------------------------------------------------------------
+# INTERACTIVE_PIPE_SNAPSHOT: GUI call -> snapshot
+# ---------------------------------------------------------------------------
+
+
+def snapshot_instead_of_gui(
+    pipeline: "HeadlessPipeline",
+    path: Path,
+    *input_values: Any,
+    parameters: Optional[dict] = None,
+    context: Optional[dict] = None,
+    **kwargs: Any,
+) -> Any:
+    """What a GUI-decorated pipeline call does when ``INTERACTIVE_PIPE_SNAPSHOT``
+    is set: same arguments as the GUI call, renders `path` and returns the
+    results (a list, like the GUI backends) instead of opening a window.
+
+    Like the GUI call, keyword arguments that match no parameter are ignored
+    (with a warning) so unmodified scripts keep running.
+    """
+    pipeline.update_user_context(context)
+    if parameters:
+        pipeline.parameters = parameters
+    known = parameter_targets(pipeline)
+    unknown = [name for name in kwargs if name not in known]
+    if unknown:
+        warnings.warn(f"INTERACTIVE_PIPE_SNAPSHOT: ignoring unknown keyword argument(s) {unknown}", stacklevel=3)
+    overrides = {name: value for name, value in kwargs.items() if name in known}
+    written, result = run_snapshot(pipeline, path, *input_values, **overrides)
+    print(f"interactive_pipe: snapshot of {pipeline.name!r} written to {written}")
+    if result is None:
+        return []
+    return list(result) if isinstance(result, tuple) else result
