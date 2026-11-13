@@ -6,8 +6,26 @@ from interactive_pipe.headless.control import Control
 from interactive_pipe.helper.control_abbreviation import control_from_tuple
 
 
+def _scalar_shorthand_error(param_name: str, value) -> ValueError:
+    if isinstance(value, str):
+        example = f"{param_name}=({value!r}, [{value!r}, 'other choice'])"
+        need = "a list of choices"
+    else:
+        low, high = (0, 2 * value) if value > 0 else (2 * value, 0) if value < 0 else (0, 1)
+        example = f"{param_name}=({value!r}, [{low!r}, {high!r}])"
+        need = "a range"
+    return ValueError(
+        f"@interactive({param_name}={value!r}): a bare value cannot make a widget, {need} is needed. "
+        f"Write {example} (or {param_name}=Control(...)) for a widget, "
+        f"or set the default in the function signature (def f(..., {param_name}={value!r})) if no widget is wanted."
+    )
+
+
 def __create_control_from_keyword_argument(
-    param_name: str, unknown_keyword_arg: Union[Control, list, tuple], seen_control_names: set
+    param_name: str,
+    unknown_keyword_arg: Union[Control, list, tuple],
+    seen_control_names: set,
+    from_decorator: bool = False,
 ) -> Union[None, Control]:
     """Create a Control from a given keyword argument named  param_name with value unknown_keyword_arg
 
@@ -19,8 +37,17 @@ def __create_control_from_keyword_argument(
     (`seen_control_names` is scoped per function, so re-decorating in a
     notebook or sharing parameter names across filters is fine).
     See https://github.com/balthazarneveu/interactive_pipe/issues/35 for more details
+
+    Decorator keyword arguments (`from_decorator=True`) always declare a
+    widget: a bare bool is a checkbox (`@interactive(flip=True)`), a bare
+    number or string raises (a range / list of choices is needed). In the
+    function signature a bare value stays a plain default without a widget.
     """
     chosen_control = None
+    if from_decorator and isinstance(unknown_keyword_arg, bool):
+        unknown_keyword_arg = (unknown_keyword_arg,)
+    elif from_decorator and isinstance(unknown_keyword_arg, (int, float, str)):
+        raise _scalar_shorthand_error(param_name, unknown_keyword_arg)
     if isinstance(unknown_keyword_arg, Control):  # This includes KeyboardControl as well!!
         if unknown_keyword_arg.name is None or unknown_keyword_arg._auto_named:
             unknown_keyword_arg.name = param_name
@@ -39,8 +66,8 @@ def __create_control_from_keyword_argument(
                     raise ValueError(
                         f"Cannot create a control from {param_name}={unknown_keyword_arg!r}: {exc}"
                     ) from exc
-            # NOTE: for keyword args, setting a boolean will not trigger a tickmark (although it is possible)
-            # Use (True) instead of True if you want to make a tickbox
+            # NOTE: in the function signature, a bare boolean default does not make a checkbox
+            # (use (True,) there); in the decorator, a bare boolean does
     if chosen_control is not None:
         if chosen_control.name in seen_control_names:
             raise ValueError(f"{chosen_control.name} already attributed - {sorted(seen_control_names)}")
@@ -81,7 +108,9 @@ def get_controls_from_decorated_function_declaration(func: Callable, decorator_c
                 f"typo: control {param_name} passed through the decorator "
                 f"does not match any of the function keyword args {keyword_names}"
             )
-        chosen_control = __create_control_from_keyword_argument(param_name, unknown_keyword_arg, seen_control_names)
+        chosen_control = __create_control_from_keyword_argument(
+            param_name, unknown_keyword_arg, seen_control_names, from_decorator=True
+        )
         if chosen_control is not None:
             controls[param_name] = chosen_control
 
