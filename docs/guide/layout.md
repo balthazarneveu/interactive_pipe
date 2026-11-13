@@ -46,6 +46,27 @@ def pipeline(input):
 
 Live layout switching (e.g. going from a side-by-side comparison to a 2x2 grid while the app runs) is supported on the Qt and Dear PyGui backends.
 
+## Output style
+
+`layout.style(name, ...)` sets how one output is displayed:
+
+| Key | Effect |
+|---|---|
+| `title` | Title shown above the cell (defaults to the output name). |
+| `subtitle` | Secondary text, shown after the title (`title · subtitle`). |
+| `colormap` | matplotlib colormap name (`"viridis"`, `"magma"`, ...) used to display a 2D `(H, W)` array as a heatmap. |
+| `vmin`, `vmax` | Values mapped to the bottom / top of the colormap (or to black / white without one) for 2D arrays. Each defaults to the data min / max, as in matplotlib. |
+| `xlabel`, `ylabel` | Axis labels — matplotlib backend only (for curves use `Curve(..., xlabel=...)`). |
+
+```python
+@interactive()
+def depth_map(img):
+    layout.style("depth", title="Depth", colormap="magma", vmin=0.0, vmax=10.0)
+    return estimate_depth(img)  # (H, W) float array
+```
+
+The heatmap options apply on every backend; on Qt the pixel readout still shows the raw value. An unknown colormap raises `ValueError` (with a suggestion), other unknown keys are ignored with a warning listing the supported ones.
+
 ## Image viewer (Qt, Dear PyGui)
 
 On the Qt and Dear PyGui backends every image cell is a small image viewer, so large outputs stay usable:
