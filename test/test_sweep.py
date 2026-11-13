@@ -1,5 +1,7 @@
 """HeadlessPipeline.sweep: contact sheets over one or two parameters."""
 
+import warnings
+
 import matplotlib
 
 matplotlib.use("Agg")
@@ -8,7 +10,7 @@ import numpy as np  # noqa: E402
 import pytest  # noqa: E402
 from PIL import Image as PILImage  # noqa: E402
 
-from interactive_pipe import Control, FilterError, RangeControl, interactive, interactive_pipeline  # noqa: E402
+from interactive_pipe import Control, FilterError, RangeControl, interactive, interactive_pipeline, layout  # noqa: E402
 from interactive_pipe.data_objects.curves import Curve  # noqa: E402
 from interactive_pipe.headless.explore import split_sweep_arguments, values_over_range  # noqa: E402
 
@@ -172,3 +174,49 @@ def test_tuple_of_values_is_an_axis_for_plain_parameters():
     assert axes == {"gain": [0.1, 0.9]}
     axes, _ = split_sweep_arguments(make(sw_pipeline), {"gain": np.array([0.1, 0.9])}, None)
     assert axes == {"gain": [0.1, 0.9]}
+
+
+@interactive(count=(2, [1, 5]), on=Control(True))
+def sw_counted(img, count=2, on=True):
+    return img * (count / 5.0) if on else img * 0.0
+
+
+@interactive(choice=Control("a", ["a", "b"]))
+def sw_relayout(img, choice="a"):
+    if choice == "b":
+        layout.grid([["right"]])
+    return img * 0.2, img
+
+
+def sw_numpy_pipeline(img):
+    counted = sw_counted(img)
+    return [counted]
+
+
+def sw_relayout_pipeline(img):
+    left, right = sw_relayout(img)
+    return left, right
+
+
+def test_numpy_axes_of_any_dtype():
+    pipe = make(sw_numpy_pipeline)
+    assert pipe.sweep(None, count=np.arange(1, 4)).ndim == 3
+    assert pipe.sweep(None, on=np.array([True, False]), count=np.int64(3)).ndim == 3
+
+
+def test_default_output_follows_layout_changes():
+    pipe = make(sw_relayout_pipeline)
+    rgb = pipe.sweep(None, choice=["a", "b"], caption=False)  # 'left' disappears from the second layout
+    assert rgb.ndim == 3
+
+
+def test_range_list_override_does_not_warn():
+    pipe = make(sw_range_pipeline)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        pipe.snapshot(None, window=[0.1, 0.4])
+
+
+def test_none_override_of_a_control_raises():
+    with pytest.raises(TypeError, match="None"):
+        make(sw_pipeline).snapshot(None, gain=None)

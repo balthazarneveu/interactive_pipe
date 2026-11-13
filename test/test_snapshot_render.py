@@ -178,3 +178,11 @@ def test_format_helpers():
     assert format_value(np.zeros((2, 3))) == "array(2, 3)"
     text = format_parameters({"f": {"a": 1, "b": 0.5}, "g": {}, "h": {"c": "x"}}, exclude=["b"])
     assert text == "f: a=1\nh: c=x"
+
+
+def test_int_names_of_index_routed_pipelines_win_over_positions():
+    pipe = FakePipeline([1, 2, 3])
+    grid = result_grid(pipe, ("text", gray(0.5), gray(0.1)))
+    assert [cell.name for cell in select_cells(grid, 2)[0]] == [2]
+    assert [cell.name for cell in select_cells(grid, 0)[0]] == [1]  # not a name: reading order
+    assert default_sweep_cell(grid) == 1

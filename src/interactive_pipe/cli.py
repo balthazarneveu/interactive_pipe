@@ -149,9 +149,10 @@ def snapshot_path_from_env(name: str) -> Optional[Path]:
     if not raw:
         return None
     safe_name = "".join(char if char.isalnum() or char in "-_." else "_" for char in name) or "pipeline"
+    raw = raw.replace("{name}", safe_name)
     if raw.endswith(("/", os.sep)) or Path(raw).is_dir():
         return Path(raw) / f"{safe_name}.png"
-    path = Path(raw.replace("{name}", safe_name))
+    path = Path(raw)
     return path if path.suffix else path.with_suffix(".png")
 
 
