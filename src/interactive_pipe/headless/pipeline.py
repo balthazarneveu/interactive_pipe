@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, Callable, List, Optional
 
 from interactive_pipe.core.filter import FilterCore, analyze_apply_fn_signature
-from interactive_pipe.core.graph import get_call_graph
+from interactive_pipe.core.graph import PipelineSyntaxError, get_call_graph
 from interactive_pipe.core.pipeline import PipelineCore
 from interactive_pipe.data_objects.parameters import Parameters
 from interactive_pipe.headless.control import Control, TimeControl
@@ -99,7 +99,7 @@ class HeadlessPipeline(PipelineCore):
                 filt.outputs = outputs_filt
                 filt.name = filt_name
                 # EnhancedFilterCore (filter_from_function) carries its controls; a plain FilterCore has none
-                params_to_analyze = getattr(filt, "controls", None) or {}
+                params_to_analyze = dict(getattr(filt, "controls", None) or {})
             else:
                 # when using the @interactive decorator
                 filt = FilterCore(
@@ -126,11 +126,31 @@ class HeadlessPipeline(PipelineCore):
                         if not isinstance(ctrl, (KeyboardControl, TimeControl))
                     }
                 params_to_analyze = {**func_kwargs, **registered_controls}
+            # Literal keyword arguments in the pipeline body (`amplify(img, gain=2.5)`)
+            # set this instance's value; a bound control gets a per-instance clone
+            # with that default so the shared registered control is never mutated.
+            literal_kwargs = filt_dict.get("kwargs") or {}
+            for param_name, literal_value in literal_kwargs.items():
+                bound_control = params_to_analyze.get(param_name)
+                if isinstance(bound_control, Control):
+                    try:
+                        params_to_analyze[param_name] = bound_control._clone_with_default(literal_value)
+                    except (TypeError, ValueError) as exc:
+                        raise PipelineSyntaxError(
+                            f"invalid value for '{param_name}' of filter '{filt_dict['function_name']}': {exc}",
+                            hint="use a value accepted by the control, or change the control declaration",
+                            **filt_dict.get("location", {}),
+                        ) from None
             for param_name, param_value in params_to_analyze.items():
                 if isinstance(param_value, Control):
                     param_value.connect_filter(filt, param_name)
                     filt.values = {param_name: param_value.value_default}
                     control_list.append(param_value)
+            filt.values = {
+                param_name: literal_value
+                for param_name, literal_value in literal_kwargs.items()
+                if not isinstance(params_to_analyze.get(param_name), Control)
+            }
             filters.append(filt)
             filters_names.append(filt_name)
             seen_function_ids.add(id(filt_dict["function_object"]))

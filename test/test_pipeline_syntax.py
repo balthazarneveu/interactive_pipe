@@ -296,3 +296,176 @@ def test_get_call_graph_accepts_explicit_global_context():
     assert [node["function_name"] for node in graph["call_graph"]] == ["amplify", "blur"]
     with pytest.raises(PipelineSyntaxError, match="'blur' is not defined"):
         get_call_graph(pipe_two_stages, global_context={"amplify": amplify})
+
+
+# ------------------------------------------- B: literal kwargs, nested calls
+
+
+@interactive(gain=(1.0, [0.0, 3.0]))
+def controlled_gain(img, gain=1.0):
+    return img * gain
+
+
+def pipe_literal_kwarg(img):
+    out = amplify(img, gain=2.5)
+    return out
+
+
+def test_literal_keyword_argument_sets_the_parameter():
+    pipe = build(pipe_literal_kwarg)
+    assert pipe.parameters["amplify"]["gain"] == 2.5
+    np.testing.assert_allclose(pipe(np.ones(3))[0], 2.5)
+
+
+def pipe_literal_kwarg_on_control(img):
+    out = controlled_gain(img, gain=2.5)
+    return out
+
+
+def pipe_plain_control(img):
+    out = controlled_gain(img)
+    return out
+
+
+def test_literal_keyword_argument_becomes_the_instance_control_default():
+    from interactive_pipe.headless.control import Control
+
+    registered = Control.get_controls(controlled_gain)["gain"]
+    pipe = build(pipe_literal_kwarg_on_control)
+    (ctrl,) = pipe.controls
+    assert ctrl is not registered
+    assert ctrl.value_default == 2.5 and ctrl.value == 2.5
+    assert ctrl.name == "gain"
+    np.testing.assert_allclose(pipe(np.ones(3))[0], 2.5)
+    # the shared registered control does not leak into other pipelines
+    assert registered.value_default == 1.0
+    plain = build(pipe_plain_control)
+    assert plain.controls[0].value_default == 1.0
+    np.testing.assert_allclose(plain(np.ones(3))[0], 1.0)
+    # rebuilding gives the same result
+    assert build(pipe_literal_kwarg_on_control).controls[0].value_default == 2.5
+
+
+def pipe_literal_out_of_range(img):
+    out = controlled_gain(img, gain=99.0)
+    return out
+
+
+def pipe_literal_wrong_type(img):
+    out = controlled_gain(img, gain="high")
+    return out
+
+
+def pipe_unknown_kwarg(img):
+    out = amplify(img, gian=2.0)
+    return out
+
+
+def pipe_non_literal_kwarg(img):
+    out = amplify(img, gain=np.pi)
+    return out
+
+
+def pipe_input_as_kwarg(img):
+    out = amplify(img=img)
+    return out
+
+
+def pipe_positional_literal(img):
+    out = blur(img, 3)
+    return out
+
+
+def pipe_expression_argument(img):
+    out = blur(img * 2)
+    return out
+
+
+REJECTED_B = [
+    (pipe_literal_out_of_range, "outside the range [0.0, 3.0]", "control", "gain=99.0"),
+    (pipe_literal_wrong_type, "expects a number", "control", 'gain="high"'),
+    (pipe_unknown_kwarg, "'gian' is not a parameter of filter 'amplify'", "did you mean 'gain'", "gian=2.0"),
+    (pipe_non_literal_kwarg, "must be a literal", "control", "gain=np.pi"),
+    (pipe_input_as_kwarg, "'img' is an input of filter 'amplify'", "positionally", "amplify(img=img)"),
+    (pipe_positional_literal, "positional literal", "`radius=3`", "blur(img, 3)"),
+    (pipe_expression_argument, "arithmetic", "wrap it in a filter", "blur(img * 2)"),
+]
+
+
+@pytest.mark.parametrize("func, reason, hint, line", REJECTED_B, ids=[case[0].__name__ for case in REJECTED_B])
+def test_rejected_call_arguments_name_line_and_fix(func, reason, hint, line):
+    test_rejected_construct_names_line_and_fix(func, reason, hint, line)
+
+
+def pipe_nested(img):
+    out = blur(amplify(img))
+    return out
+
+
+def test_nested_call_is_hoisted_into_its_own_filter():
+    pipe = build(pipe_nested)
+    assert [filt.name for filt in pipe.filters] == ["amplify", "blur"]
+    assert pipe.filters[0].outputs == ["amplify(img)"]
+    assert pipe.filters[1].inputs == ["amplify(img)"]
+    np.testing.assert_allclose(pipe(np.ones(3))[0], 3.0)
+
+
+def pipe_return_call(img):
+    return amplify(img)
+
+
+def pipe_return_mixed(img):
+    a = amplify(img, gain=3.0)
+    return [[a, blur(a)], [blur(amplify(img)), None]]
+
+
+def test_return_of_a_call_is_hoisted():
+    pipe = build(pipe_return_call)
+    assert pipe.outputs == ["amplify(img)"]
+    np.testing.assert_allclose(pipe(np.ones(3))[0], 2.0)
+
+
+def test_calls_in_a_nested_return_are_hoisted_with_unique_names():
+    pipe = build(pipe_return_mixed)
+    assert pipe.outputs == [["a", "blur(a)"], ["blur(amplify(img))"]]
+    assert [filt.name for filt in pipe.filters] == ["amplify", "blur", "amplify_1", "blur_1"]
+    rows = pipe(np.ones(3))
+    np.testing.assert_allclose(rows[0][0], 3.0)
+    np.testing.assert_allclose(rows[0][1], 4.0)
+    np.testing.assert_allclose(rows[1][0], 3.0)
+
+
+def pipe_same_nested_call_twice(img):
+    a = blur(amplify(img))
+    b = blur(amplify(img))
+    return a, b
+
+
+def test_identical_nested_calls_get_distinct_names():
+    pipe = build(pipe_same_nested_call_twice)
+    assert pipe.filters[0].outputs == ["amplify(img)"]
+    assert pipe.filters[2].outputs == ["amplify(img) #2"]
+    assert pipe.filters[3].inputs == ["amplify(img) #2"]
+
+
+@interactive(window=interactive_pipe.RangeControl((0.2, 0.8), [0.0, 1.0]))
+def crop_window(img, window=(0.2, 0.8)):
+    return img * (window[1] - window[0])
+
+
+def pipe_range_literal(img):
+    out = crop_window(img, window=(0.0, 0.5))
+    return out
+
+
+def pipe_range_literal_out_of_range(img):
+    out = crop_window(img, window=(0.0, 1.5))
+    return out
+
+
+def test_literal_keyword_argument_on_a_range_control():
+    pipe = build(pipe_range_literal)
+    assert pipe.controls[0].value == (0.0, 0.5)
+    np.testing.assert_allclose(pipe(np.ones(3))[0], 0.5)
+    with pytest.raises(PipelineSyntaxError, match="outside the range"):
+        build(pipe_range_literal_out_of_range)
