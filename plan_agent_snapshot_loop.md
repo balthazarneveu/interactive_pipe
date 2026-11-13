@@ -285,3 +285,23 @@ end of the `HeadlessPipeline` class body (a 2-line additive hunk). Decisions:
   (styles) and `pipeline.results`. New inputs passed to `snapshot` are kept
   (like `__call__`), so later calls can omit them.
 - Unknown names are checked before running anything (no half-written file).
+
+### 3. `HeadlessPipeline.sweep` — done
+
+Decisions:
+- Axis detection: a list or numpy array is a swept axis; a tuple is an axis
+  too, except for a range parameter (a `RangeControl`, or a parameter whose
+  current value is a tuple) where a tuple is one `(lo, hi)` value — sweep a
+  range with a *list* of pairs. Scalars are fixed overrides for every cell.
+- "Sweep over the declared range": `steps={"gain": 5}` (evenly spaced values;
+  ints de-duplicated; every choice of a dropdown, or evenly picked ones when
+  fewer steps are asked; `[False, True]` for a checkbox). A `RangeControl` or
+  a control without range raises `ValueError` pointing to explicit lists.
+- One axis: one row up to 6 values, then a near-square grid; each cell is
+  labelled `param=value`. Two axes: rows = first keyword, columns = second,
+  row labels on the left, column labels on top.
+- `output=None` shows the only output, else the first image output (chosen on
+  the first cell, then kept by name); `output="all"` shows the whole layout in
+  every cell (nested matplotlib subfigures); a name/index/list as in
+  `snapshot`.
+- The caption lists the fixed parameter values (swept ones are in the labels).

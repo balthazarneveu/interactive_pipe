@@ -421,4 +421,4 @@ class HeadlessPipeline(PipelineCore):
         return dot
 
     # See-the-result loop: render runs to PNG files (interactive_pipe.headless.explore)
-    from interactive_pipe.headless.explore import snapshot
+    from interactive_pipe.headless.explore import snapshot, sweep
