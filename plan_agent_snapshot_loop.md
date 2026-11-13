@@ -305,3 +305,15 @@ Decisions:
   every cell (nested matplotlib subfigures); a name/index/list as in
   `snapshot`.
 - The caption lists the fixed parameter values (swept ones are in the labels).
+
+### 4. `describe()` — done
+
+`headless/describe.py`: `describe()` (dict, JSON round-trip tested) and
+`summary()` (text) on `HeadlessPipeline`. Decisions:
+- The text rendering is a new `summary()` method rather than `help()`
+  (`InteractivePipeGUI.help` already means "print the key bindings") or a
+  `__repr__` change (`print_parameters` relies on the current repr).
+- Control kinds: slider, number (numeric without range), checkbox, dropdown,
+  range, text, time, keyboard; `CircularControl` is a slider with
+  `"circular": true`. Filters also carry the first docstring line (`doc`),
+  useful to an agent reading an unknown pipeline.
