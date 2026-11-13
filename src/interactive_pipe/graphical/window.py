@@ -26,6 +26,47 @@ def display_kind(content: Any) -> Optional[str]:
     return None
 
 
+HEATMAP_STYLE_KEYS = ("colormap", "vmin", "vmax")
+
+
+def apply_display_style(content: Any, style: Optional[dict]) -> Any:
+    """Apply the ``layout.style`` heatmap options to an output before display.
+
+    A 2D ``(H, W)`` (or ``(H, W, 1)``) numpy array whose style sets
+    ``colormap``, ``vmin`` or ``vmax`` is windowed to ``[vmin, vmax]``
+    (each defaulting to the data min / max, as in matplotlib) and, with a
+    colormap, turned into an ``(H, W, 3)`` RGB image in ``[0, 1]``. Anything
+    else is returned unchanged. Shared by every backend through
+    ``InteractivePipeWindow.refresh_display``.
+    """
+    if not isinstance(content, np.ndarray) or not style:
+        return content
+    if all(style.get(key) is None for key in HEATMAP_STYLE_KEYS):
+        return content
+    array = content[..., 0] if content.ndim == 3 and content.shape[-1] == 1 else content
+    if array.ndim != 2 or not (np.issubdtype(array.dtype, np.number) or array.dtype == np.bool_):
+        return content
+    data = array.astype(np.float64)
+    finite = data[np.isfinite(data)]
+    vmin = style.get("vmin")
+    vmax = style.get("vmax")
+    if vmin is None:
+        vmin = float(finite.min()) if finite.size else 0.0
+    if vmax is None:
+        vmax = float(finite.max()) if finite.size else 1.0
+    span = vmax - vmin
+    normalized = (data - vmin) / span if span != 0 else np.zeros_like(data)
+    normalized = np.clip(normalized, 0.0, 1.0)
+    colormap = style.get("colormap")
+    if colormap is None:
+        return normalized
+    if isinstance(colormap, str):
+        import matplotlib
+
+        colormap = matplotlib.colormaps[colormap]
+    return np.asarray(colormap(normalized))[..., :3]
+
+
 def format_run_status(report) -> str:
     """One-line summary of a RunReport for the status line, e.g.
     "run 12.3 ms · 3 filters · 1 cached" ("error in <filter>" when it failed)."""
@@ -175,6 +216,16 @@ class InteractivePipeWindow:
                 matching.append((row, col))
         return matching or positions[:1]
 
+    def _styled(self, content: Any, row: int, col: int) -> Any:
+        """Content with the heatmap options of its ``layout.style`` applied (see apply_display_style)."""
+        if not isinstance(content, np.ndarray):
+            return content
+        try:
+            style = self.get_current_style(row, col)
+        except (IndexError, KeyError, TypeError, RuntimeError):
+            return content
+        return apply_display_style(content, style)
+
     def convert_image(self, img):
         """Convert image to backend-specific format. Must be implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement convert_image")
@@ -189,10 +240,15 @@ class InteractivePipeWindow:
         # Build a fresh grid of converted outputs: the pipeline results are left untouched
         # (no deep copy of the buffers - converting large images every frame is costly enough).
         out = []
-        for img_row in _out:
+        for row, img_row in enumerate(_out):
             if isinstance(img_row, list):
-                out.append([None if img is None else self.convert_image(img) for img in img_row])
+                out.append(
+                    [
+                        None if img is None else self.convert_image(self._styled(img, row, col))
+                        for col, img in enumerate(img_row)
+                    ]
+                )
             else:
-                out.append([self.convert_image(img_row)])
+                out.append([self.convert_image(self._styled(img_row, row, 0))])
         logging.debug(f"{len(out)} x {max((len(row) for row in out), default=0)} figures")
         self.set_images(out)
