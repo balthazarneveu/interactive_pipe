@@ -7,6 +7,9 @@ from interactive_pipe.core.context import REMOVED_CONTEXT_ALIASES
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
 
+#: HeadlessPipeline methods also reachable from a GUI-decorated pipeline function
+SEE_THE_RESULT_METHODS = ("snapshot", "sweep", "describe", "summary")
+
 
 def pipeline(pipeline_function: Callable, **kwargs) -> HeadlessPipeline:
     """Build a ``HeadlessPipeline`` from a pipeline function, without any GUI.
@@ -152,6 +155,9 @@ def interactive_pipeline(
         # Attach the GUI pipeline object to the function so users can access methods like graph_representation
         setattr(inner, "pipeline", gui_pipeline)
         setattr(inner, "graph_representation", gui_pipeline.graph_representation)
+        # See-the-result loop without opening the window (same calls as on a HeadlessPipeline)
+        for method_name in SEE_THE_RESULT_METHODS:
+            setattr(inner, method_name, getattr(headless_pipeline, method_name))
 
         return inner
 
