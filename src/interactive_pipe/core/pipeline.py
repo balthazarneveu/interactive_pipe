@@ -220,28 +220,38 @@ class PipelineCore:
             raise RuntimeError("Cannot access uninitialized inputs!")
         return self.__inputs
 
+    def _expected_inputs(self) -> str:
+        """``pipeline 'p' expects 1 input (img)`` - start of every input count error."""
+        routing = list(self.inputs_routing or [])
+        name = getattr(self, "name", "pipeline")
+        if not routing:
+            return f"pipeline '{name}' expects no input"
+        plural = "input" if len(routing) == 1 else "inputs"
+        return f"pipeline '{name}' expects {len(routing)} {plural} ({', '.join(str(item) for item in routing)})"
+
     @inputs.setter
     def inputs(self, inputs: list):
         if inputs is not None:
             if isinstance(inputs, dict):
                 provided_keys = list(inputs.keys())
-                for input_name in self.inputs_routing:
-                    if input_name not in provided_keys:
-                        raise ValueError(f"{input_name} is not among {provided_keys}")
+                missing = [input_name for input_name in self.inputs_routing if input_name not in provided_keys]
+                if missing:
+                    raise ValueError(
+                        f"{self._expected_inputs()}, the inputs dict is missing {', '.join(map(str, missing))} "
+                        f"(provided keys: {', '.join(map(str, provided_keys)) or 'none'})"
+                    )
                 self.__inputs = inputs
             elif isinstance(inputs, (list, tuple)):
                 # inputs is a list or a tuple
                 if len(inputs) != len(self.inputs_routing):
-                    raise ValueError(
-                        f"Wrong amount of inputs: provided {len(inputs)} vs expected {len(self.inputs_routing)}"
-                    )
+                    raise ValueError(f"{self._expected_inputs()}, got {len(inputs)}")
                 self.__inputs = {}
                 for idx, input_name in enumerate(self.inputs_routing):
                     self.__inputs[input_name] = inputs[idx]
             else:
                 # single element
                 if len(self.inputs_routing) != 1:
-                    raise ValueError(f"Single input provided but expected {len(self.inputs_routing)} inputs")
+                    raise ValueError(f"{self._expected_inputs()}, got 1")
                 self.__inputs = {self.inputs_routing[0]: inputs}
             if not isinstance(self.__inputs, dict):
                 raise RuntimeError("Internal error: inputs should be a dict")
@@ -253,7 +263,7 @@ class PipelineCore:
                 self.inputs_routing is None
                 or (isinstance(self.inputs_routing, (tuple, list)) and len(self.inputs_routing) == 0)
             ):
-                raise ValueError("Cannot set inputs to None when inputs_routing is defined")
+                raise ValueError(f"{self._expected_inputs()}, got 0")
             self.__inputs = None
         self.__initialized_inputs = True
         self.reset_cache()
