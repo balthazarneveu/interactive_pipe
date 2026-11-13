@@ -96,7 +96,9 @@ def single_filter_pipeline(
             inplace=bool(getattr(func, "__interactive_pipe_inplace__", False)),
         )
         filt.values = {param_name: ctrl.value for param_name, ctrl in controls.items()}
-        outputs = _deduce_outputs(filt, input_values) if input_values is not None else None
+        outputs: Optional[List[Union[int, str]]] = (
+            list(_deduce_outputs(filt, input_values)) if input_values is not None else None
+        )
         filt.outputs = outputs
         pipeline = HeadlessPipeline(filters=[filt], name=func.__name__, inputs=list(input_names), outputs=outputs)
         for param_name, ctrl in controls.items():
