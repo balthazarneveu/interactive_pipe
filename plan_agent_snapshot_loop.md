@@ -241,6 +241,17 @@ time is short; say so in Status.
 
 ## Status
 
+**Summary (00:53 CET):** all 8 items done, plus a review pass. 12 commits on
+`feature/agent-snapshot-loop` (`ccb7bdc`..HEAD): renderer `ccb7bdc`, snapshot
+`4de5e83`, sweep `ac99ebc`, describe `5ab3b79`, GUI-decorated pipelines
+`59a8ee8`, single filters `64ae893`, env variable `b391376`, sheet layout
+polish `df4e637`, docs `d5d8441`, review fixes `0ae67f9` `ab69ecb` and the
+commit finishing this file. Final state: `789 passed, 6 skipped`, ruff clean,
+pyright 8 errors, all in the untouched `graphical/dpg_panels.py` and
+`graphical/qt_control.py` (not introduced by this branch). Nothing pushed, no
+PR, other checkout untouched. Not run: the mkdocs site build (mkdocs is not
+installed in the shared venv).
+
 Agent run of 2026-11-14 (started 00:08 CET). Environment check: the shared
 interpreter imports `interactive_pipe` from this worktree's `src/`; baseline
 `713 passed, 6 skipped` confirmed before any change.
