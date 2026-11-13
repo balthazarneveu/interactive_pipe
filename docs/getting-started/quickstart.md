@@ -135,6 +135,16 @@ sample_pipeline.load_tuning()  # ...and reload them later
 
 The exported YAML keeps one section per filter, so the parameters you tuned in the GUI feed your batch runs.
 
+To write the results to disk, call `save` after running the pipeline:
+
+```python
+written = sample_pipeline.save("results/sample.png")
+# -> [results/sample_exposed.png, results/sample_blended.png, results/sample_bnw_image.png]
+#    plus results/sample.yaml with the current parameters
+```
+
+Each output `name` goes to `<stem>_<name>`, in a format that follows its type: numpy images (`(H, W)` or `(H, W, 3|4)`, float in `[0, 1]`, `uint8`, `uint16`) through `Image` (the suffix you gave if it is `.png`/`.jpg`/`.tif`), 1D arrays as `.csv`, other arrays as `.npy`, `Curve` / `Table` with their own `save`, strings as `.txt`. Other types are skipped with one warning. `save` returns the list of written files.
+
 ## Next steps
 
 - [Backends](backends.md) — pick between Qt, Dear PyGui, matplotlib, Jupyter and Gradio.

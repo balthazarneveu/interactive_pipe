@@ -3,12 +3,97 @@ import logging
 from pathlib import Path
 from typing import Any, Callable, List, Optional
 
+import numpy as np
+
 from interactive_pipe.core.filter import FilterCore, analyze_apply_fn_signature
 from interactive_pipe.core.graph import PipelineSyntaxError, get_call_graph
 from interactive_pipe.core.pipeline import PipelineCore
+from interactive_pipe.data_objects.data import Data
+from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.parameters import Parameters
+from interactive_pipe.data_objects.table import PANDAS_AVAILABLE, Table
 from interactive_pipe.headless.control import Control, TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
+
+_UNSAFE_FILENAME_CHARS = '<>:"/\\|?*'
+
+
+def _safe_file_part(name: Any) -> str:
+    """Output names can be call sources (``blur(amplify(img))``): keep them portable as file names."""
+    text = str(name)
+    for char in _UNSAFE_FILENAME_CHARS:
+        text = text.replace(char, "_")
+    return text
+
+
+def _flatten_outputs(outputs) -> list:
+    """Output names of a flat or 2D (list of rows) layout."""
+    flat = []
+    for item in outputs:
+        if isinstance(item, (list, tuple)):
+            flat.extend(_flatten_outputs(item))
+        elif item is not None:
+            flat.append(item)
+    return flat
+
+
+def _with_supported_suffix(path: Path, extensions: Optional[List[str]]) -> Path:
+    if not extensions or path.suffix in extensions:
+        return path
+    return path.with_suffix(extensions[0])
+
+
+def _as_image_array(array: np.ndarray) -> Optional[np.ndarray]:
+    """``[0, 1]`` float version of an image-shaped array, None if it is not an image."""
+    if array.ndim == 3 and array.shape[-1] == 1:
+        array = array[..., 0]
+    if not (array.ndim == 2 or (array.ndim == 3 and array.shape[-1] in (3, 4))):
+        return None
+    if array.dtype == np.bool_:
+        return array.astype(np.float32)
+    if array.dtype == np.uint8:
+        return array / 255.0
+    if array.dtype == np.uint16:
+        return array / 65535.0
+    if np.issubdtype(array.dtype, np.floating):
+        return array
+    return None
+
+
+def _save_output(result: Any, path: Path) -> Optional[Path]:
+    """Write one pipeline output in a format matching its type; None if the type is not supported."""
+    if isinstance(result, Image):
+        result.save(_with_supported_suffix(path, result.file_extensions))
+        return result.path
+    if isinstance(result, Table):
+        target = _with_supported_suffix(path, result.file_extensions)
+        if target.suffix == ".csv" and not PANDAS_AVAILABLE:
+            target = target.with_suffix(".pkl")
+        result.save(target)
+        return target
+    if isinstance(result, Data):
+        target = _with_supported_suffix(path, result.file_extensions)
+        result.save(target)
+        return target
+    if isinstance(result, np.ndarray):
+        image = _as_image_array(result)
+        if image is not None:
+            extensions = [".png", ".tif"] if image.ndim == 3 and image.shape[-1] == 4 else Image(None).file_extensions
+            wrapped = Image(image)
+            wrapped.save(_with_supported_suffix(path, extensions))
+            return wrapped.path
+        if result.ndim == 1:
+            target = path.with_suffix(".csv")
+            np.savetxt(target, result, delimiter=",")
+            return target
+        target = path.with_suffix(".npy")
+        np.save(target, result)
+        return target
+    if isinstance(result, str):
+        target = path.with_suffix(".txt")
+        target.write_text(result)
+        return target
+    return None
 
 
 class HeadlessPipeline(PipelineCore):
@@ -309,8 +394,34 @@ class HeadlessPipeline(PipelineCore):
         data_wrapper_fn: Optional[Callable[..., Any]] = None,
         output_indexes: Optional[list] = None,
         save_entire_buffer=False,
-    ) -> Optional[Path]:
-        """Save images"""
+    ) -> List[Path]:
+        """Run the pipeline and write its outputs (and the tuning) next to ``path``.
+
+        Output ``name`` is written to ``<stem>_<name><suffix>``, the current
+        parameters to ``<stem>.yaml``. The format follows the output type:
+
+        - numpy image (``(H, W)``, ``(H, W, 1|3|4)``; float in ``[0, 1]``,
+          uint8, uint16 or bool) -> image file through ``Image`` (``path``'s
+          suffix if it is ``.png``/``.jpg``/``.tif``, else ``.png``)
+        - 1D numpy array -> ``.csv``; any other numpy array -> ``.npy``
+        - ``Image``, ``Curve``, ``SingleCurve``, ``Table`` -> their own ``save``
+          (``path``'s suffix when they support it, else their default one)
+        - ``str`` -> ``.txt``
+
+        Other output types are skipped with a single warning. Pass
+        ``data_wrapper_fn`` to wrap every output yourself (it must return an
+        object with a ``save(path)`` method).
+
+        Args:
+            path: Base file path, e.g. ``"out/result.png"``.
+            data_wrapper_fn: Optional wrapper applied to each output.
+            output_indexes: Names (or indexes) of the buffers to save;
+                defaults to the pipeline outputs.
+            save_entire_buffer: Save every intermediate buffer.
+
+        Returns:
+            The list of written output files (the tuning file excluded).
+        """
         if output_indexes is None:
             if self.outputs is not None:
                 output_indexes = self.outputs
@@ -318,9 +429,10 @@ class HeadlessPipeline(PipelineCore):
                 output_indexes = self.filters[-1].outputs
         if save_entire_buffer:
             output_indexes = None  # you may force specific buffer index you'd like to save
+        wanted = None if output_indexes is None else set(_flatten_outputs(output_indexes))
         result_full = super().run()
         if result_full is None:
-            return None
+            return []
         if path is None:
             raise ValueError("path must be provided for saving")
         if not isinstance(path, Path):
@@ -328,23 +440,40 @@ class HeadlessPipeline(PipelineCore):
         self.export_tuning(path.with_suffix(".yaml"))
         if not isinstance(result_full, dict):
             raise RuntimeError(f"Expected dict from pipeline run, got {type(result_full)}")
+        written: List[Path] = []
+        skipped = []
         for num, res_current in result_full.items():
-            if output_indexes is not None and num not in output_indexes:
+            if wanted is not None and num not in wanted:
                 continue
-            current_name = path.with_name(path.stem + "_" + str(num) + path.suffix)
-            if res_current is not None and not (isinstance(res_current, list) and len(res_current) == 0):
-                try:
-                    to_save = data_wrapper_fn(res_current) if data_wrapper_fn is not None else res_current
+            if res_current is None or (isinstance(res_current, list) and len(res_current) == 0):
+                continue
+            current_name = path.with_name(f"{path.stem}_{_safe_file_part(num)}{path.suffix}")
+            try:
+                if data_wrapper_fn is not None:
+                    to_save = data_wrapper_fn(res_current)
                     if not hasattr(to_save, "save"):
                         raise AttributeError(f"Result object {type(to_save)} has no 'save' method")
                     to_save.save(current_name)  # type: ignore
-                except Exception:
-                    # Broad on purpose: one failed output must not abort the
-                    # whole batch save; continue with the remaining outputs.
-                    logging.exception(f"Cannot save image {current_name}")
-            # @ TODO: handle proper output suffixes namings
-            logging.info(f"saved image {current_name}")
-        return path
+                    saved_path = getattr(to_save, "path", None) or current_name
+                else:
+                    saved_path = _save_output(res_current, current_name)
+                    if saved_path is None:
+                        skipped.append(f"{num} ({type(res_current).__name__})")
+                        continue
+            except Exception:
+                # Broad on purpose: one failed output must not abort the
+                # whole batch save; continue with the remaining outputs.
+                logging.exception(f"Cannot save output {num} to {current_name}")
+                continue
+            written.append(Path(saved_path))
+            logging.info(f"saved output {num} to {saved_path}")
+        if skipped:
+            logging.warning(
+                f"Not saved (unsupported output type): {', '.join(skipped)}. "
+                "Supported: numpy arrays, Image, Curve, SingleCurve, Table, str - "
+                "or pass data_wrapper_fn=... returning an object with a save(path) method."
+            )
+        return written
 
     def parameters_from_keyword_args(self, **kwargs) -> dict:
         """Map ``pipeline(img, gain=2.0)`` keyword arguments to ``{filter: {param: value}}``.
