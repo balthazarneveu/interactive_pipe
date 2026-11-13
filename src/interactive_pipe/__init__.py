@@ -13,6 +13,7 @@ from interactive_pipe.core.context import (
 
 # Clean exception handling
 from interactive_pipe.core.engine import FilterError
+from interactive_pipe.core.graph import PipelineSyntaxError
 
 # Data objects
 from interactive_pipe.data_objects.curves import Curve, SingleCurve
@@ -50,6 +51,7 @@ __all__ = [
     "__version__",
     "Backend",
     "FilterError",
+    "PipelineSyntaxError",
     "context",
     "layout",
     "audio",

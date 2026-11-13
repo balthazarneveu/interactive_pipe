@@ -98,7 +98,8 @@ class HeadlessPipeline(PipelineCore):
                 filt.inputs = inputs_filt
                 filt.outputs = outputs_filt
                 filt.name = filt_name
-                params_to_analyze = filt.controls
+                # EnhancedFilterCore (filter_from_function) carries its controls; a plain FilterCore has none
+                params_to_analyze = getattr(filt, "controls", None) or {}
             else:
                 # when using the @interactive decorator
                 filt = FilterCore(
