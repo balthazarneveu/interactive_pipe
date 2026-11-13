@@ -342,6 +342,17 @@ class HeadlessPipeline(PipelineCore):
             # must not crash the app (bound to a GUI key).
             logging.exception(f"Cannot load parameters from {path}")
 
+    def load_tuning(self, path: Path) -> None:
+        """Load a json/yaml tuning file written by ``export_tuning`` (alias of ``import_tuning``).
+
+        Example:
+            ```python
+            pipe.export_tuning("my_tuning.yaml")
+            pipe.load_tuning("my_tuning.yaml")
+            ```
+        """
+        self.import_tuning(path)
+
     def __repr__(self):
         """Describe filters routing and tuning parameters"""
         ret = "\n".join(repr(filt) for filt in self.filters)

@@ -130,7 +130,7 @@ def sample_pipeline(input_image):
 
 exposed, blended, bnw_image = sample_pipeline(input_image, bnw=True, blend_coeff=0.5)
 sample_pipeline.export_tuning("my_tuning.yaml")  # save parameters...
-sample_pipeline.load_tuning()  # ...and reload them later
+sample_pipeline.load_tuning("my_tuning.yaml")  # ...and reload them later
 ```
 
 The exported YAML keeps one section per filter, so the parameters you tuned in the GUI feed your batch runs.

@@ -117,3 +117,13 @@ def test_data_wrapper_fn_is_still_honoured(tmp_path):
     (written,) = pipe.save(tmp_path / "res.png", data_wrapper_fn=lambda x: Image(x, title="_wrapped"))
     assert written.name == "res_brighten(img)_wrapped.png"
     assert written.is_file()
+
+
+def test_load_tuning_is_an_alias_of_import_tuning(tmp_path):
+    pipe = HeadlessPipeline.from_function(call_named_pipeline)
+    pipe(np.ones(3), gain=3.0)
+    pipe.export_tuning(tmp_path / "tuning.yaml")
+    pipe(np.ones(3), gain=1.0)
+    pipe.load_tuning(tmp_path / "tuning.yaml")
+    assert pipe.parameters["brighten"]["gain"] == 3.0
+    np.testing.assert_allclose(pipe(np.ones(3))[0], 3.0)

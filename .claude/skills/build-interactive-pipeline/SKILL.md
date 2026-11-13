@@ -74,7 +74,7 @@ The decorated function's own default (`gain=1.0`) is overridden by the control's
 - `"nb"` — Jupyter/Colab (needs `[notebook]` extra)
 - `"gradio"` — web app (needs gradio)
 - `"auto"` — best available
-- `None` / `"headless"` — **no GUI, returns a `HeadlessPipeline`**: use this in tests and batch scripts. Call it like a function, override params by kwargs: `pipe(img, gain=2.0)`. `pipe.export_tuning("t.yaml")` / `pipe.load_tuning()` persist parameters.
+- `None` / `"headless"` — **no GUI, returns a `HeadlessPipeline`**: use this in tests and batch scripts. Call it like a function, override params by kwargs: `pipe(img, gain=2.0)`. `pipe.export_tuning("t.yaml")` / `pipe.load_tuning("t.yaml")` persist parameters.
 
 For one-off single-filter GUIs there is also `@interact(input_img, gain=(1.0, [0.0, 3.0]))` which launches immediately at decoration time.
 
