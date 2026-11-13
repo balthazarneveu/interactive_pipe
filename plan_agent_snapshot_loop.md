@@ -369,3 +369,22 @@ Decisions:
 - Verified on unmodified demos: `image_analysis_demo.py`, `table_demo.py`,
   `independent_curve_image_demo.py`, `grouped_controls_demo.py`,
   `multi_image.py`, `panel_demo.py` (all wrote a correct PNG and exited).
+
+### 8. Docs, skill, changelog — done
+
+- `docs/guide/snapshots.md` (in the `mkdocs.yml` nav under Guide): the
+  example pipeline, the two images it generates (`docs/images/snapshot_example.png`,
+  `docs/images/snapshot_sweep.png`, produced by running the page's own code
+  block), option reference, single filters, the environment variable and the
+  "working with a coding agent" loop. Linked from the quickstart headless
+  section and the readme "Learn more" list.
+- Skill: new section "Check your work without a display"; `CLAUDE.md`: new
+  section "Checking visual output without a display"; `CHANGELOG.md`: new
+  "Unreleased" section (absolute link to the guide, since the changelog is
+  also included in the docs site).
+- Public API: no new top-level exports. The loop is reached through methods
+  (`HeadlessPipeline`, decorated pipeline functions, `InteractivePipeGUI`,
+  `@interactive` functions); top-level `snapshot` / `sweep` / `describe`
+  names would be easy to shadow in user scripts and add nothing.
+- `mkdocs` is not installed in the shared venv, so the site build was not
+  run (left for review); the guide's code block was extracted and executed.

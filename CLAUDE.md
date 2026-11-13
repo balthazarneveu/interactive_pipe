@@ -108,6 +108,21 @@ def my_filter(img, param=0.5, global_params={}):  # TypeError at construction!
 - Use `context["key"]` or `context.key` for sharing data between filters
 - No need for `global_params={}` in function signatures anymore
 
+## Checking visual output without a display
+
+A GUI window cannot be looked at from here: render it to a PNG and read the file.
+
+```python
+print(pipe.summary())  # controls, ranges, outputs
+pipe.snapshot("/tmp/out.png", img, gain=2.0)  # what the window would show
+pipe.sweep("/tmp/sweep.png", img, gain=[0.5, 1, 2])  # compare values side by side
+my_filter.snapshot("/tmp/f.png", img)  # a single @interactive filter
+```
+
+Works with any `gui=` value; overrides apply to the call only. For an unmodified
+GUI script: `INTERACTIVE_PIPE_SNAPSHOT=/tmp/shots/ python demo/some_demo.py`.
+See `docs/guide/snapshots.md`.
+
 ## Project Structure
 
 - Source code: `src/interactive_pipe/`

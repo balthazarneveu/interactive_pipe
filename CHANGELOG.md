@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### New features
+- **Snapshots**: `pipeline.snapshot("out.png", img, gain=2.0)` renders what the GUI would show — the output layout, `layout.style` titles, images, curves, tables, text — to a PNG, headless (matplotlib object API, no `pyplot`, no window), with the parameter values as a caption. `path=None` returns an `(H, W, 3)` uint8 array; `output=` renders a subset. Parameter overrides apply to the call only: parameters, control values, layout, styles and last results are restored, also when a filter raises. Unknown parameter names raise `TypeError` with the available names and a close match.
+- **Sweeps**: `pipeline.sweep("sweep.png", img, gain=[0.5, 1, 2])` renders a contact sheet over one parameter (a labelled row) or two (a grid with row and column labels); scalars are fixed overrides, `steps={"gain": 5}` spans a control's declared range, `output="all"` shows the whole layout per cell. `RangeControl` values are swept with a list of `(lo, hi)` pairs.
+- **Describe**: `pipeline.describe()` returns a JSON-serialisable description (inputs, output layout, filters with routing, parameters and docstring line, controls with kind, value, range or choices, step, group, keys, tooltip); `pipeline.summary()` prints it as text.
+- These are available on `HeadlessPipeline`, on `@interactive_pipeline(gui=...)` functions for any backend (without opening the window) and on `InteractivePipeGUI`.
+- **Single filters (#21)**: every `@interactive` function gets `.snapshot()`, `.sweep()`, `.describe()`, `.summary()` and `.interact(img)` (open the GUI on this filter alone). The function itself is unchanged and its controls stay connected to the pipelines using it.
+- **`INTERACTIVE_PIPE_SNAPSHOT=<path.png or folder/>`**: GUI-decorated pipelines render a snapshot there and return the results instead of opening a window (`{name}` is replaced by the pipeline name), so an unmodified GUI script can be checked headless.
+- New guide page: [Snapshots, sweeps and describe](https://balthazarneveu.github.io/interactive_pipe/guide/snapshots/).
+
 ## 0.9.4 (November 2026)
 
 ### New features

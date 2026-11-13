@@ -135,6 +135,11 @@ sample_pipeline.load_tuning()  # ...and reload them later
 
 The exported YAML keeps one section per filter, so the parameters you tuned in the GUI feed your batch runs.
 
+To *see* the results without a window — over SSH, in CI, or for a coding agent — render them to a PNG:
+`sample_pipeline.snapshot("out.png", input_image, blend_coeff=0.5)` draws the whole output grid as the GUI
+would, and `sample_pipeline.sweep("sweep.png", input_image, blend_coeff=[0.2, 0.5, 0.8])` builds a contact sheet.
+See [Snapshots, sweeps and describe](../guide/snapshots.md).
+
 ## Next steps
 
 - [Backends](backends.md) — pick between Qt, Dear PyGui, matplotlib, Jupyter and Gradio.
