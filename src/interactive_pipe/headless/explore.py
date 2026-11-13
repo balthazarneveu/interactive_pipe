@@ -32,6 +32,7 @@ from interactive_pipe.headless.snapshot import (
     flat_cells,
     format_parameters,
     format_value,
+    grid_size,
     render_grid,
     render_sweep,
     result_grid,
@@ -462,7 +463,11 @@ def sweep(
     labels = [", ".join(f"{name}={format_value(val)}" for name, val in zip(names, combo)) for combo in combos]
     if len(names) == 1:
         count = len(panels_flat)
-        n_cols = count if count <= 6 else math.ceil(math.sqrt(count))
+        widths, heights = grid_size(panels_flat[0])
+        if sum(widths) > 1.5 * sum(heights):
+            n_cols = 1  # wide panels (several outputs each): one row per value
+        else:
+            n_cols = count if count <= 6 else math.ceil(math.sqrt(count))
         panels = [panels_flat[start : start + n_cols] for start in range(0, count, n_cols)]
         cell_labels = [labels[start : start + n_cols] for start in range(0, count, n_cols)]
         fig = render_sweep(panels, cell_labels=cell_labels, figsize=figsize, dpi=dpi, title=title, caption=caption_text)
