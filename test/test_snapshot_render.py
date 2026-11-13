@@ -162,11 +162,7 @@ def test_render_sweep_labels():
     fig = render_sweep(panels, row_labels=["a=1", "a=2"], column_labels=["b=1", "b=2"])
     rgb = figure_to_rgb(fig)
     assert rgb.std() > 0
-    labels = []
-    for subfig in fig.subfigs:
-        for text in (subfig._suptitle, subfig._supylabel):
-            if text is not None:
-                labels.append(text.get_text())
+    labels = [text.get_text() for subfig in fig.subfigs for text in subfig.texts]
     assert sorted(labels) == ["a=1", "a=2", "b=1", "b=2"]
 
 
