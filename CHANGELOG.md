@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.4 (November 2026)
 
 ### New features
 - Qt: the controls below the images spread over several columns (in order, balanced heights) when they would not fit the height left by the images; the window grows wider for them, up to the screen width. They scroll only when even that is not enough. The columns follow the window size.
