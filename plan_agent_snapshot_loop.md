@@ -266,3 +266,22 @@ Decisions:
 - Automatic dpi shows the largest image near native size (80-150 dpi); the
   figure is scaled down when wider than 22 in.
 
+
+### 2. `HeadlessPipeline.snapshot` — done
+
+`headless/explore.py::snapshot`, exposed as a method through an import at the
+end of the `HeadlessPipeline` class body (a 2-line additive hunk). Decisions:
+- Python forbids `*inputs` next to `inputs=`: the varargs are `*input_values`;
+  `inputs={...}` takes a dict as planned.
+- Accepted override names: keyword-argument names (applied to every filter
+  having it, like `pipeline(img, gain=2)`), control names (e.g. the `gain_1`
+  clone of a repeated filter) and `"filter_name.param"` for one filter.
+  `params={...}` is an escape hatch for parameter names that clash with the
+  method's own options (`title`, `dpi`, `output`, ...).
+- Out-of-range values are clamped by the control like a GUI slider would, with
+  a `UserWarning`.
+- Restored afterwards (also on error): filter parameters, control values,
+  `pipeline.outputs` (a filter may call `layout.grid`), framework state
+  (styles) and `pipeline.results`. New inputs passed to `snapshot` are kept
+  (like `__call__`), so later calls can omit them.
+- Unknown names are checked before running anything (no half-written file).

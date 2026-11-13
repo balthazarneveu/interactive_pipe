@@ -419,3 +419,6 @@ class HeadlessPipeline(PipelineCore):
                 logging.error(f"Failed to render graph: {exc}")
             return None
         return dot
+
+    # See-the-result loop: render runs to PNG files (interactive_pipe.headless.explore)
+    from interactive_pipe.headless.explore import snapshot
