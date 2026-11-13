@@ -311,7 +311,7 @@ in CLAUDE.md. Nothing in use is rejected by the strict parser.
   off programmatically.
 - Tests: `test/test_decorator_scalar_shorthand.py`.
 
-### E. Duplicate control names across filters — done
+### E. Duplicate control names across filters — done (`6ecfa89`)
 
 - Scheme: every auto-named control bound to a colliding parameter name is
   renamed `<filter instance>.<param>` — `amplify.gain`, `blend.gain`, and a
@@ -337,3 +337,26 @@ in CLAUDE.md. Nothing in use is rejected by the strict parser.
 - `test/test_control_registry.py`: the pinned raise became the
   disambiguation test; added leak/rebuild, repeat+collision, explicit-name
   tests.
+
+### F. `HeadlessPipeline.save` writes images — done
+
+- Without `data_wrapper_fn`, each output is written according to its type:
+  numpy image (`(H, W)`, `(H, W, 1|3|4)`, float `[0, 1]` / uint8 / uint16 /
+  bool) through `Image` (the given suffix if `.png/.jpg/.tif`, else `.png`;
+  RGBA never to `.jpg`), 1D array -> `.csv`, other arrays -> `.npy`, `Image`,
+  `Curve`, `SingleCurve`, `Table` -> their own `save` (given suffix when
+  supported, else their default; `Table` falls back to `.pkl` without
+  pandas), `str` -> `.txt`. Anything else is skipped with **one** warning
+  listing the skipped outputs; no traceback for supported types.
+  `data_wrapper_fn` keeps its old meaning.
+- Returns the list of written files (tuning yaml excluded). Decision: the
+  return type changed from `path` to `List[Path]`: no caller in src/, tests,
+  demos or docs used the return value (the GUI `save_images` ignores it).
+- Also fixed on the way: with a 2D output layout (`return [[a, b], [c]]`)
+  nothing was saved, because output names were compared against the rows;
+  output names are now flattened. File names are sanitised for
+  `<>:"/\|?*` since hoisted names (`blur(amplify(img))`) can be file names.
+- GUI `save_images` (key `w`) no longer forces `Image(...)` on every buffer
+  (which logged a traceback for each curve/table); it uses the type dispatch.
+- Documented in the quickstart headless section.
+- Tests: `test/test_headless_save.py`.

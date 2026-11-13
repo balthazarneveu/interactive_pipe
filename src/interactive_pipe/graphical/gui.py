@@ -472,7 +472,8 @@ class InteractivePipeGUI:
 
         def save(path: Path):
             path = Image.check_path(path, load=False, extensions=extensions)
-            self.pipeline.save(path, data_wrapper_fn=lambda im: Image(im), save_entire_buffer=True)
+            # no wrapper: save() picks the format from each buffer's type (images, curves, tables...)
+            self.pipeline.save(path, save_entire_buffer=True)
 
         default_name = f"{self._default_file_stem()}{extensions[0]}"
         self._with_path("Save images", True, extensions, default_name, save)
