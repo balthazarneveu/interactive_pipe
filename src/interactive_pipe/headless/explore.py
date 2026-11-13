@@ -12,6 +12,8 @@ raises.
 """
 
 import difflib
+import itertools
+import math
 import warnings
 from contextlib import contextmanager
 from copy import deepcopy
@@ -21,13 +23,17 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence,
 import numpy as np
 
 from interactive_pipe.core.pipeline import PipelineCore
-from interactive_pipe.headless.control import Control
+from interactive_pipe.headless.control import Control, RangeControl
 from interactive_pipe.headless.snapshot import (
+    Grid,
     OutputSelector,
+    default_sweep_cell,
     figure_to_rgb,
+    flat_cells,
     format_parameters,
     format_value,
     render_grid,
+    render_sweep,
     result_grid,
     save_figure,
     select_cells,
@@ -293,3 +299,184 @@ def snapshot(
         **overrides,
     )
     return written
+
+
+# ---------------------------------------------------------------------------
+# sweep
+# ---------------------------------------------------------------------------
+
+
+def _is_range_parameter(pipeline: Any, targets: List[Target]) -> bool:
+    if any(isinstance(ctrl, RangeControl) for ctrl in _controls_for(pipeline, targets)):
+        return True
+    parameters = PipelineCore.parameters.__get__(pipeline)  # type: ignore[attr-defined]
+    return any(isinstance(parameters[filt].get(param), tuple) for filt, param in targets)
+
+
+def _is_sweep_axis(pipeline: Any, targets: List[Target], value: Any) -> bool:
+    """list / numpy array -> swept; tuple -> swept unless the parameter is a
+    range (RangeControl or a tuple-valued parameter), where a tuple is one value."""
+    if isinstance(value, (list, np.ndarray)):
+        return True
+    if isinstance(value, tuple):
+        return not _is_range_parameter(pipeline, targets)
+    return False
+
+
+def values_over_range(pipeline: Any, name: str, targets: List[Target], count: int) -> List[Any]:
+    """`count` values spread over the declared range of the control behind `name`."""
+    if isinstance(count, bool) or not isinstance(count, int) or count < 1:
+        raise ValueError(f"steps[{name!r}] must be a positive int, got {count!r}")
+    controls = _controls_for(pipeline, targets)
+    if not controls:
+        raise ValueError(f"steps: {name!r} has no control (no declared range): pass a list of values instead")
+    ctrl = controls[0]
+    if isinstance(ctrl, RangeControl):
+        raise ValueError(f"steps: {name!r} is a RangeControl, pass a list of (lo, hi) pairs instead")
+    if ctrl._type is bool:
+        return [False, True]
+    if ctrl.value_range is None:
+        raise ValueError(f"steps: control {ctrl.name!r} has no declared range, pass a list of values instead")
+    if ctrl._type is str:
+        choices = list(ctrl.value_range)
+        if count >= len(choices):
+            return choices
+        indexes = np.linspace(0, len(choices) - 1, count).round().astype(int)
+        return [choices[idx] for idx in dict.fromkeys(indexes.tolist())]
+    low, high = ctrl.value_range[0], ctrl.value_range[1]
+    if count == 1:
+        return [ctrl.value_default]
+    values = np.linspace(float(low), float(high), count)  # type: ignore[arg-type]
+    if ctrl._type is int:
+        return list(dict.fromkeys(int(round(val)) for val in values))
+    return [float(val) for val in values]
+
+
+def split_sweep_arguments(
+    pipeline: Any, overrides: Dict[str, Any], steps: Optional[Dict[str, int]]
+) -> Tuple[Dict[str, List[Any]], Dict[str, Any]]:
+    """Separate swept axes (name -> list of values) from fixed overrides."""
+    resolved = resolve_names(pipeline, list(overrides) + list(steps or {}), "sweep")
+    axes: Dict[str, List[Any]] = {}
+    fixed: Dict[str, Any] = {}
+    for name, value in overrides.items():
+        if _is_sweep_axis(pipeline, resolved[name], value):
+            values = list(value)
+            if not values:
+                raise ValueError(f"sweep(): {name} has no values to sweep")
+            axes[name] = values
+        else:
+            fixed[name] = value
+    for name, count in (steps or {}).items():
+        if name in overrides:
+            raise ValueError(f"sweep(): {name!r} is given both as a keyword and in steps=")
+        axes[name] = values_over_range(pipeline, name, resolved[name], count)
+    if not axes:
+        raise ValueError(
+            "sweep() needs a parameter to sweep: a list of values (gain=[0.5, 1.0, 2.0]) "
+            "or steps over the declared range (steps={'gain': 5})"
+        )
+    if len(axes) > 2:
+        raise ValueError(
+            f"sweep() sweeps one or two parameters at a time, got {len(axes)} ({', '.join(axes)}): "
+            "fix the others to a single value, or call sweep() once per pair"
+        )
+    return axes, fixed
+
+
+def _panel(grid: Grid, output: Any) -> Grid:
+    if output == ALL_OUTPUTS:
+        return grid
+    return select_cells(grid, output)
+
+
+def sweep(
+    pipeline: "HeadlessPipeline",
+    path: PathLike,
+    *input_values: Any,
+    inputs: Optional[dict] = None,
+    output: Any = None,
+    steps: Optional[Dict[str, int]] = None,
+    params: Optional[Dict[str, Any]] = None,
+    figsize: Optional[Tuple[float, float]] = None,
+    dpi: Optional[float] = None,
+    title: Optional[str] = None,
+    caption: Union[bool, str, None] = True,
+    **overrides: Any,
+) -> Union[Path, np.ndarray]:
+    """Run the pipeline for several parameter values and render a contact sheet.
+
+    Example:
+        ```python
+        pipe.sweep("sweep.png", img, gain=[0.5, 1, 2])  # one row
+        pipe.sweep("grid.png", img, gain=[0.5, 2], blur=[1, 3, 5])  # 2 x 3 grid
+        pipe.sweep("steps.png", img, steps={"gain": 5})  # 5 values over the slider range
+        pipe.sweep("all.png", img, gain=[0.5, 2], output="all")  # every output per cell
+        ```
+
+    A list, tuple or numpy array is a swept axis; a scalar is a fixed override
+    applied to every cell. For a range parameter (``RangeControl``) a tuple is
+    one ``(lo, hi)`` value: sweep it with a list of pairs.
+
+    Args:
+        path: PNG to write, or None to get the image as an (H, W, 3) uint8 array.
+        *input_values: Pipeline inputs (optional when reusing the previous ones).
+        inputs: Inputs as a dict instead.
+        output: Output shown in each cell: a name or an index. Default: the
+            only output, else the first image output. ``"all"`` shows the
+            whole layout in every cell; a list shows several outputs.
+        steps: ``{name: count}`` sweeps a control over its declared range
+            (``count`` evenly spaced values; every choice of a dropdown, both
+            states of a checkbox).
+        params: Overrides / axes as a dict (for names clashing with options).
+        figsize, dpi, title: As for ``snapshot``.
+        caption: True prints the fixed parameter values under the sheet.
+        **overrides: Swept axes (lists) and fixed overrides (scalars).
+
+    Returns:
+        The written path, or the image when ``path`` is None.
+
+    Raises:
+        ValueError: nothing to sweep, or more than two swept parameters.
+        TypeError: unknown parameter name, or missing inputs.
+        FilterError: a filter raised (state is restored).
+    """
+    all_overrides = {**(params or {}), **overrides}
+    axes, fixed = split_sweep_arguments(pipeline, all_overrides, steps)
+    prepare_inputs(pipeline, input_values, inputs, "sweep")
+    names = list(axes)
+    combos = list(itertools.product(*(axes[name] for name in names)))
+    swept_params = sorted({param for name in names for _, param in parameter_targets(pipeline)[name]})
+    panels_flat: List[Grid] = []
+    with preserved_state(pipeline):
+        apply_overrides(pipeline, fixed, "sweep")
+        caption_text = _caption(pipeline, caption, exclude=swept_params)
+        selector = output
+        for combo in combos:
+            apply_overrides(pipeline, dict(zip(names, combo)), "sweep")
+            grid = result_grid(pipeline, pipeline.run())
+            if selector is None:
+                # chosen on the first cell, then kept by name for the others
+                selector = flat_cells(grid)[default_sweep_cell(grid)].name
+            panels_flat.append(_panel(grid, selector))
+    labels = [", ".join(f"{name}={format_value(val)}" for name, val in zip(names, combo)) for combo in combos]
+    if len(names) == 1:
+        count = len(panels_flat)
+        n_cols = count if count <= 6 else math.ceil(math.sqrt(count))
+        panels = [panels_flat[start : start + n_cols] for start in range(0, count, n_cols)]
+        cell_labels = [labels[start : start + n_cols] for start in range(0, count, n_cols)]
+        fig = render_sweep(panels, cell_labels=cell_labels, figsize=figsize, dpi=dpi, title=title, caption=caption_text)
+    else:
+        first, second = names
+        n_cols = len(axes[second])
+        panels = [panels_flat[start : start + n_cols] for start in range(0, len(panels_flat), n_cols)]
+        fig = render_sweep(
+            panels,
+            row_labels=[f"{first}={format_value(val)}" for val in axes[first]],
+            column_labels=[f"{second}={format_value(val)}" for val in axes[second]],
+            figsize=figsize,
+            dpi=dpi,
+            title=title,
+            caption=caption_text,
+        )
+    return _export(fig, path)
