@@ -145,8 +145,10 @@ def interactive(inplace: bool = False, **decorator_controls: Any):
             (``img = img.copy()``) in new code.
         **decorator_controls: Mapping of keyword-argument name to a control
             declaration — a ``Control`` instance (or subclass such as
-            ``KeyboardControl``) or the ``(default, [min, max])`` tuple
-            shorthand.
+            ``KeyboardControl``), the ``(default, [min, max])`` tuple
+            shorthand, or a bare bool for a checkbox (``flip=True``). A bare
+            number or string raises ``ValueError``: a slider needs a range,
+            a dropdown a list of choices.
 
     Example:
         ```python

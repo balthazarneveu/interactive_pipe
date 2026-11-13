@@ -384,10 +384,31 @@ in CLAUDE.md. Nothing in use is rejected by the strict parser.
 - Docs: new "Output style" section in docs/guide/layout.md.
 - Tests: `test/test_layout_style_heatmap.py`.
 
-### H. `load_tuning` — done
+### H. `load_tuning` — done (`1c89193`)
 
 - `HeadlessPipeline.load_tuning(path)` delegates to `import_tuning`. Decision:
   `path` is required (the docs called `load_tuning()` with no argument,
   which with `import_tuning`'s optional path would only log a traceback);
   the quickstart, tips, samples/readme.md and the skill now pass the file.
 - Test in `test/test_headless_save.py`.
+
+### I. Docs, skill, changelog — done
+
+- CLAUDE.md: the "control flow breaks the AST parser" section now states
+  what is accepted and what raises `PipelineSyntaxError`.
+- Skill: hard-rule section rewritten (accepted / rejected lists), checkbox row
+  shows `flip=True`, bare-scalar error, colliding names, save, heatmap style,
+  and a new "Common errors" table built from the actual messages.
+- docs/guide/decorators.md: new "What a pipeline body may contain" section
+  (with a real error message, checked against the code); the `interactive`
+  and `interactive_pipeline` docstrings rendered there were updated too.
+- docs/guide/controls.md: checkbox row, bare-value note, new "Same parameter
+  name in several filters" section (renaming, kwargs vs `parameters=`,
+  unknown kwargs, clamp warning).
+- docs/getting-started/quickstart.md: pipeline-body warning box links the
+  new section; bare-number note; `save` and `load_tuning(path)` (F, H).
+- docs/guide/layout.md: "Output style" section (G). docs/guide/tips.md:
+  only the `load_tuning(path)` fix was needed.
+- CHANGELOG.md: "Unreleased" entry, with "Changes that can affect existing
+  code" first.
+- `mkdocs` is not installed in the venv, so the docs build was not run.

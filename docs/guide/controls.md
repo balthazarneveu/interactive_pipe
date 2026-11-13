@@ -37,6 +37,15 @@ The same control can always be written as a **tuple shorthand** — great for pr
 
 Specialized widgets (keyboard, circular slider, range slider, timer) only exist as explicit objects.
 
+!!! note "Bare values in the decorator"
+    In `@interactive(...)`, a bare boolean makes a checkbox (`flip=True`), while a bare number or string raises `ValueError` — a slider needs a range, a dropdown a list of choices. In the function signature, a bare default (`def f(img, flip=True)`) is just a default and gets no widget.
+
+## Same parameter name in several filters
+
+Two filters may both declare a control on a parameter of the same name. In a pipeline using both, these auto-named controls are labelled after their filter — `amplify.gain` and `blend.gain` (a repeated filter's copy is `amplify_1.gain`) — so each widget says which filter it drives. Controls you named explicitly (`name=...`) are never renamed: two of them with the same name in one pipeline raise `ValueError`.
+
+Calling the pipeline with `pipe(img, gain=2.0)` sets `gain` in **every** filter that has it; target one filter with `pipe(img, parameters={"blend": {"gain": 2.0}})`. An unknown keyword raises `TypeError` listing the available parameters, and a value outside a control's range is clamped with a warning.
+
 ## Declaration patterns
 
 | You want | Tuple shorthand | Explicit object |
@@ -44,7 +53,7 @@ Specialized widgets (keyboard, circular slider, range slider, timer) only exist 
 | Float slider | `gain=(1.0, [0.5, 2.0])` | `gain=Control(1.0, [0.5, 2.0])` |
 | ... with a custom label | `gain=(1.0, [0.5, 2.0], "exposure")` | `gain=Control(1.0, [0.5, 2.0], name="exposure")` |
 | Int slider (step 1) | `size=(5, [1, 15])` | `size=Control(5, [1, 15])` |
-| Checkbox | `flip=(True,)` | `flip=Control(True)` |
+| Checkbox | `flip=True` or `flip=(True,)` | `flip=Control(True)` |
 | Dropdown | `mode=("light", ["dark", "light"])` | `mode=Control("light", ["dark", "light"])` |
 | Dropdown, first choice as default | `mode=["dark", "light"]` | — |
 | Free text box | `txt=("Hello world!", None)` | `txt=TextPrompt("Hello world!")` |
