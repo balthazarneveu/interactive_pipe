@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+Common mistakes in pipelines used to build something that ran and was wrong. They now either do what was meant or fail with an error naming the line and the fix.
+
+### Changes that can affect existing code
+- **Stricter pipeline body**: every top-level statement of a pipeline function is now validated. `if` / `for` / `while` / `with` / `try`, arithmetic and other non-call expressions (`b = a * 2`), `+=`, comprehensions, lambdas, statements after the `return`, `*args` / `**kwargs`, positional literals and builtins raise the new `PipelineSyntaxError` (a `ValueError`, exported from `interactive_pipe`) at build time, with the file, line, source line and a hint. Before, the body was flattened silently: branches always taken, loop bodies run once, arithmetic dropped (the pipeline returned `()`).
+- **Keyword arguments in filter calls are now applied or rejected**: `amplify(img, gain=2.5)` used to be ignored silently; a literal value now sets that filter instance's parameter (and its control default, validated against the range). A keyword that is not a parameter of the filter, or a non-literal value (a variable), raises `PipelineSyntaxError`.
+- **Unknown keywords when calling a pipeline raise**: `pipeline(img, gian=2.0)` raises `TypeError` listing the available parameters with a suggestion (headless and GUI), instead of being ignored.
+- **Colliding control names are renamed**: two filters declaring an auto-named `gain` control in one pipeline used to raise `Duplicate control name`; they are now shown as `amplify.gain` / `blend.gain` (a repeated filter's copy as `amplify_1.gain`). Repeats of a single filter keep `gain`, `gain_1`; explicitly named (`name=...`) collisions still raise. `pipeline(img, gain=2.0)` sets every `gain`; use `parameters={"blend": {"gain": 2.0}}` to target one.
+- **`@interactive(gain=1.0)` raises** `ValueError` explaining that a range is needed (`gain=(1.0, [0.0, 2.0])`); a bare string likewise needs a list of choices. Before, no widget was created and nothing was said. Plain defaults in the function signature still mean "no widget".
+- **`HeadlessPipeline.save()` returns the list of written files** instead of the base path.
+
+### New features
+- Pipelines and their filters can be defined in an indented scope (inside `main()`, a test function): the source is dedented and names are resolved in the function's real scope (closure, then module globals).
+- Dotted calls in the pipeline body (`np.abs(img)`, `lib.blur(img)`) resolve along the attribute chain; numpy ufuncs work as filters. Unknown names get a "did you mean" suggestion.
+- Nested calls (`blur(amplify(img))`) and `return amplify(img)` are supported: the inner call becomes its own node, named after its source (`amplify(img)`), which is also its display title.
+- `@interactive(flip=True)` creates a checkbox (same as `(True,)`).
+- `layout.style(..., colormap="viridis", vmin=0, vmax=1)` displays 2D arrays as heatmaps on every backend (vmin/vmax default to the data range). Unknown colormaps raise with a suggestion, unknown style keys warn once listing the supported ones, and `subtitle=` is shown after the title.
+- `HeadlessPipeline.save()` writes the outputs according to their type: numpy images through `Image`, 1D arrays as `.csv`, other arrays as `.npy`, `Image` / `Curve` / `Table` with their own `save`, strings as `.txt`; other types are skipped with one warning. The GUI save action (`w`) uses the same dispatch.
+- `HeadlessPipeline.load_tuning(path)`, the name the docs already used (alias of `import_tuning`).
+
+### Improvements & bug fixes
+- A value outside a control's range (`pipeline(img, gain=99)`, tuning files, sessions) is still clamped, but now logs a warning naming the control, the value and the range.
+- Calling a pipeline with the wrong number of inputs says `pipeline 'p' expects 1 input (img), got 0` (and names the missing keys for `inputs={...}`), instead of `Cannot set inputs to None when inputs_routing is defined`.
+- The GUI `__call__` accepts `inputs={...}` like the headless one.
+- `HeadlessPipeline.save()` used to log one traceback per numpy output and write nothing but curves; it also saved nothing for 2D output layouts.
+- A plain `FilterCore` instance used in a pipeline function no longer fails with `AttributeError: controls`.
+
 ## 0.9.4 (November 2026)
 
 ### New features

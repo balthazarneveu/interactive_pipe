@@ -53,21 +53,30 @@
 
 ## Important Constraints
 
-### Pipeline functions must contain ONLY function calls
-No control flow statements (if/else/for/while). The AST parser analyzes the pipeline function to build the execution graph, and it only understands function calls. If you need conditional logic, handle it inside individual filter functions instead.
+### Pipeline function bodies are parsed, not executed — only filter calls are allowed
+The pipeline function is analyzed statically (`core/graph.py`) to build the execution graph. Every top-level statement is validated; anything unsupported raises `PipelineSyntaxError` (a `ValueError`, exported from `interactive_pipe`) at build time, with the file, line, offending source line and a hint. Accepted:
+- docstring, `pass`, `...`
+- filter calls, assigned or not: `out = f(img)`, `a, b = f(img)`, `f(img)`, `gen()`
+- nested calls `blur(amplify(img))` and `return amplify(img)` (the inner result is auto-named after its source, e.g. `amplify(img)`)
+- literal keyword arguments `amplify(img, gain=2.5)` (sets that instance's value / control default; validated)
+- dotted calls `np.abs(img)`, `lib.blur(img)`; names are resolved in the function's real scope (closure, then module globals), so pipelines may be defined inside `main()` or a test function
+- one final `return` of names / tuples / (nested) lists / `None` / calls
+
+Rejected with a hint: `if`/`for`/`while`/`with`/`try`, arithmetic and any non-call expression, `+=`, comprehensions, lambdas, statements after `return`, `*args`/`**kwargs`, positional literals (`blur(img, 3)`), non-literal keyword values, builtins, unknown names. If you need conditional logic, handle it inside individual filter functions instead.
 
 ```python
-# ✅ CORRECT - only function calls
+# ✅ CORRECT - only filter calls
 def my_pipeline(img_list):
     img = select_image(img_list)
-    processed = process_image(img)
+    processed = process_image(img, strength=0.5)
     return [img, processed]
 
 
-# ❌ WRONG - contains if statement
+# ❌ WRONG - raises PipelineSyntaxError ("`if` statements are not supported ...
+#    Hint: move the condition inside a filter")
 def my_pipeline(img_list):
     img = select_image(img_list)
-    if some_condition:  # This will break the AST parser!
+    if some_condition:
         return [img]
     else:
         return [img, processed]
