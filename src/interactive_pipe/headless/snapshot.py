@@ -119,7 +119,8 @@ def select_cells(grid: Grid, output: OutputSelector) -> Grid:
     """Keep the requested outputs, in the requested order, on one row.
 
     ``output`` is an output name, an index in reading order (empty cells
-    skipped), or a list of them. ``None`` keeps the whole grid.
+    skipped), or a list of them. ``None`` keeps the whole grid. An int that
+    is an output name (pipelines routed by buffer indexes) selects that output.
     """
     if output is None:
         return grid
@@ -132,7 +133,9 @@ def select_cells(grid: Grid, output: OutputSelector) -> Grid:
     for selector in selectors:
         if isinstance(selector, bool) or not isinstance(selector, (str, int)):
             raise TypeError(f"output must be an output name, an index or a list of them, got {selector!r}")
-        if isinstance(selector, str):
+        if selector in names:
+            chosen.append(cells[names.index(selector)])
+        elif isinstance(selector, str):
             if selector not in names:
                 raise ValueError(f"No output named {selector!r}, available outputs: {names}")
             chosen.append(cells[names.index(selector)])

@@ -25,6 +25,7 @@ working in its pipelines.
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Union
 
+from interactive_pipe.core.context import _set_user_context
 from interactive_pipe.core.engine import FilterError
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.core.signature import analyze_apply_fn_signature
@@ -96,11 +97,17 @@ def single_filter_pipeline(
             inplace=bool(getattr(func, "__interactive_pipe_inplace__", False)),
         )
         filt.values = {param_name: ctrl.value for param_name, ctrl in controls.items()}
-        outputs: Optional[List[Union[int, str]]] = (
-            list(_deduce_outputs(filt, input_values)) if input_values is not None else None
-        )
+        pipeline = HeadlessPipeline(filters=[filt], name=func.__name__, inputs=list(input_names), outputs=[])
+        outputs: Optional[List[Union[int, str]]] = None
+        if input_values is not None:
+            # dry run with the pipeline's context set, so filters using `context` work
+            _set_user_context(pipeline._user_context)
+            try:
+                outputs = list(_deduce_outputs(filt, input_values))
+            finally:
+                _set_user_context(None)
         filt.outputs = outputs
-        pipeline = HeadlessPipeline(filters=[filt], name=func.__name__, inputs=list(input_names), outputs=outputs)
+        pipeline.outputs = outputs
         for param_name, ctrl in controls.items():
             ctrl.connect_filter(filt, param_name)
         pipeline.controls = list(controls.values())
