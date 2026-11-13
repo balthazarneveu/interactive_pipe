@@ -1,3 +1,4 @@
+import difflib
 import logging
 from pathlib import Path
 from typing import Any, Callable, List, Optional
@@ -301,17 +302,47 @@ class HeadlessPipeline(PipelineCore):
         return path
 
     def parameters_from_keyword_args(self, **kwargs) -> dict:
+        """Map ``pipeline(img, gain=2.0)`` keyword arguments to ``{filter: {param: value}}``.
+
+        A keyword sets the parameter of that name in every filter that has one
+        (to target a single filter, use ``parameters={"filter": {"param": value}}``).
+
+        Raises:
+            TypeError: if a keyword is not a parameter of any filter.
+        """
         new_param_dict = {}
+        current_parameters = self.parameters
+        unknown = []
         for key, value in kwargs.items():
-            for filter_name, parameters_dict in self.parameters.items():
-                parameter_names = parameters_dict.keys()
-                if key in parameter_names:
-                    if filter_name not in new_param_dict.keys():
-                        new_param_dict[filter_name] = {}
-                    new_param_dict[filter_name][key] = value
+            matched = False
+            for filter_name, parameters_dict in current_parameters.items():
+                if key in parameters_dict:
+                    new_param_dict.setdefault(filter_name, {})[key] = value
+                    matched = True
+            if not matched:
+                unknown.append(key)
+        if unknown:
+            available = sorted({name for params in current_parameters.values() for name in params})
+            message = (
+                f"pipeline '{self.name}' got unexpected keyword argument(s) "
+                + ", ".join(f"'{key}'" for key in unknown)
+                + f". Available parameters: {', '.join(available) or 'none'}"
+                + " (reserved keywords: inputs, parameters, context)."
+            )
+            suggestions = [
+                f"'{key}' -> '{match[0]}'"
+                for key in unknown
+                for match in [difflib.get_close_matches(key, available, n=1)]
+                if match
+            ]
+            if suggestions:
+                message += " Did you mean " + ", ".join(suggestions) + "?"
+            raise TypeError(message)
         return new_param_dict
 
     def __call__(self, *inputs_tuple, inputs=None, parameters=None, context=None, **kwargs) -> Any:
+        # validated first: an unknown keyword raises before anything is changed
+        kwargs_params = self.parameters_from_keyword_args(**kwargs)
         if inputs is not None:
             if not isinstance(inputs, dict):
                 raise TypeError(f"inputs must be a dict, got {type(inputs)}")
@@ -326,7 +357,6 @@ class HeadlessPipeline(PipelineCore):
         if parameters is not None:
             self.parameters = parameters
         # Merge in any keyword arguments as parameters
-        kwargs_params = self.parameters_from_keyword_args(**kwargs)
         if kwargs_params:
             # Get current parameters, merge, and re-set to trigger the setter
             current_params = self.parameters  # Calls getter
