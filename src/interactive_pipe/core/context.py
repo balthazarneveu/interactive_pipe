@@ -9,6 +9,7 @@ This module provides four main exports:
 Internal implementation uses contextvars to maintain separate framework and user contexts.
 """
 
+import logging
 from contextvars import ContextVar
 from typing import Any, Dict, List, Optional, Union
 
@@ -68,6 +69,21 @@ def _set_current_filter(name: Optional[str]) -> None:
 # ============================================================================
 
 
+SUPPORTED_STYLE_KEYS = ("title", "subtitle", "colormap", "vmin", "vmax", "xlabel", "ylabel")
+_warned_style_keys: set = set()  # warn once per unknown key: layout.style runs on every frame
+
+
+def _check_colormap_name(colormap: str) -> None:
+    import matplotlib
+
+    if colormap not in matplotlib.colormaps:
+        import difflib
+
+        matches = difflib.get_close_matches(colormap, list(matplotlib.colormaps), n=3)
+        hint = f" Did you mean {', '.join(repr(match) for match in matches)}?" if matches else ""
+        raise ValueError(f"layout.style: unknown colormap {colormap!r}.{hint}")
+
+
 class _LayoutProxy:
     """Proxy for display and layout operations using contextvars.
 
@@ -86,7 +102,20 @@ class _LayoutProxy:
         Args:
             name: Output variable name (must match the variable name in the return statement)
             title: Display title for the output
-            **style_kwargs: Additional style properties (colormap, vmin, vmax, etc.)
+            **style_kwargs: Additional style properties:
+
+                - ``subtitle``: secondary text, appended to the title
+                  (``"title · subtitle"``) on every backend.
+                - ``colormap``: matplotlib colormap name (e.g. ``"viridis"``)
+                  or ``Colormap`` used to display a 2D ``(H, W)`` array as a
+                  heatmap, on every backend.
+                - ``vmin`` / ``vmax``: values mapped to the bottom / top of the
+                  colormap (or to black / white without a colormap) for 2D
+                  arrays; each defaults to the data min / max, as in matplotlib.
+                - ``xlabel`` / ``ylabel``: axis labels (matplotlib backend only;
+                  for curves prefer ``Curve(..., xlabel=...)``).
+
+                Other keys are ignored, with a warning.
 
         Example:
             ```python
@@ -96,13 +125,29 @@ class _LayoutProxy:
 
         Raises:
             RuntimeError: If called outside of filter execution context.
+            ValueError: If ``colormap`` is not a known matplotlib colormap.
         """
         state = _get_framework_state()
 
         style = {}
         if title is not None:
             style["title"] = title
+        unknown = sorted(key for key in style_kwargs if key not in SUPPORTED_STYLE_KEYS)
+        for key in unknown:
+            if key not in _warned_style_keys:
+                _warned_style_keys.add(key)
+                logging.warning(
+                    f"layout.style('{name}', {key}=...): unknown style key '{key}' is ignored. "
+                    f"Supported keys: {', '.join(SUPPORTED_STYLE_KEYS)}"
+                )
+        colormap = style_kwargs.get("colormap")
+        if isinstance(colormap, str):
+            _check_colormap_name(colormap)
         style.update(style_kwargs)
+        subtitle = style_kwargs.get("subtitle")
+        if subtitle:
+            # backends show a single title line: the subtitle goes after it
+            style["title"] = f"{title if title is not None else name} · {subtitle}"
 
         state.output_styles[name] = style
 

@@ -338,7 +338,7 @@ in CLAUDE.md. Nothing in use is rejected by the strict parser.
   disambiguation test; added leak/rebuild, repeat+collision, explicit-name
   tests.
 
-### F. `HeadlessPipeline.save` writes images — done
+### F. `HeadlessPipeline.save` writes images — done (`e597258`, typing follow-up `ba06a22`)
 
 - Without `data_wrapper_fn`, each output is written according to its type:
   numpy image (`(H, W)`, `(H, W, 1|3|4)`, float `[0, 1]` / uint8 / uint16 /
@@ -360,3 +360,26 @@ in CLAUDE.md. Nothing in use is rejected by the strict parser.
   (which logged a traceback for each curve/table); it uses the type dispatch.
 - Documented in the quickstart headless section.
 - Tests: `test/test_headless_save.py`.
+
+### G. `layout.style` heatmap options — done, preferred path
+
+- Single hook: `InteractivePipeWindow.refresh_display` (graphical/window.py),
+  which the Qt, Dear PyGui, matplotlib, notebook and Gradio windows all go
+  through, now passes each cell through `apply_display_style` before the
+  backend's `convert_image`. A 2D `(H, W)` / `(H, W, 1)` numeric array whose
+  style sets `colormap`, `vmin` or `vmax` is windowed to `[vmin, vmax]`
+  (each defaulting to the data min/max, matplotlib semantics) and, with a
+  colormap, converted to RGB with `matplotlib.colormaps`. Other contents are
+  untouched. Qt still reports the raw value in its pixel readout (it keeps
+  the raw outputs separately). Verified on Qt offscreen (pixel colour test).
+- `layout.style` validates a colormap name (`ValueError` with a close-match
+  suggestion, surfaced as a `FilterError`) and warns **once per key** for
+  unknown keys, listing the supported ones (it runs every frame).
+- Decision: `subtitle=` is used 7 times in demo/panel_demo.py,
+  detached_panel_demo.py and grouped_controls_demo.py but was never shown by
+  any backend. Rather than make those demos warn, it is now supported:
+  appended to the title as `title · subtitle` (single line, works on every
+  backend).
+- `xlabel`/`ylabel` stay matplotlib-only; documented as such.
+- Docs: new "Output style" section in docs/guide/layout.md.
+- Tests: `test/test_layout_style_heatmap.py`.
