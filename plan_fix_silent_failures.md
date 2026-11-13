@@ -273,7 +273,7 @@ in CLAUDE.md. Nothing in use is rejected by the strict parser.
   (extension list showing PyQt6 / dearpygui); 6 reruns green, not
   reproduced. Probably a pre-existing GUI-backend flake, left for review.
 
-### C. Call-time validation — done
+### C. Call-time validation — done (`88de7f8`)
 
 - Unknown keyword in `pipeline(img, gian=2.0)` raises `TypeError` listing the
   available parameter names, the reserved keywords and a close-match
@@ -296,3 +296,17 @@ in CLAUDE.md. Nothing in use is rejected by the strict parser.
   `except ValueError` code keeps working; the 4 tests in
   test/test_core_exceptions.py that pinned the old wording were updated.
 - Tests: `test/test_call_validation.py`.
+
+### D. Scalar control shorthand — done
+
+- Decorator keyword arguments only (`@interactive` and `@interact` share the
+  code path): a bare bool is a checkbox, same as `(True,)`; a bare int, float
+  or str raises `ValueError` that quotes the decorator, says a range / list of
+  choices is needed, and spells the fix (`gain=(1.0, [0, 2.0])`,
+  `mode=('dark', ['dark', 'other choice'])`) plus the signature-default
+  alternative when no widget is wanted.
+- Signature defaults (`def f(img, flip=True)`) still mean "no widget".
+- Decision: a bare `None` in the decorator is left as it was (no widget, no
+  error) — the plan did not cover it and it may be used to switch a control
+  off programmatically.
+- Tests: `test/test_decorator_scalar_shorthand.py`.
