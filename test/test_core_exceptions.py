@@ -125,19 +125,19 @@ class TestPipelineCoreExceptions:
     def test_inputs_setter_raises_valueerror_when_length_mismatch(self):
         filter1 = FilterCore(apply_fn=simple_func)
         pipeline = PipelineCore(filters=[filter1], inputs=["input1", "input2"])
-        with pytest.raises(ValueError, match="Wrong amount of inputs"):
+        with pytest.raises(ValueError, match=r"expects 2 inputs \(input1, input2\), got 1"):
             pipeline.inputs = [np.array([1, 2, 3])]  # Only 1 input, expects 2
 
     def test_inputs_setter_raises_valueerror_when_none_but_routing_defined(self):
         filter1 = FilterCore(apply_fn=simple_func)
         pipeline = PipelineCore(filters=[filter1], inputs=["input1"])
-        with pytest.raises(ValueError, match="Cannot set inputs to None"):
+        with pytest.raises(ValueError, match=r"expects 1 input \(input1\), got 0"):
             pipeline.inputs = None
 
     def test_inputs_setter_raises_valueerror_when_dict_missing_key(self):
         filter1 = FilterCore(apply_fn=simple_func)
         pipeline = PipelineCore(filters=[filter1], inputs=["input1", "input2"])
-        with pytest.raises(ValueError, match="is not among"):
+        with pytest.raises(ValueError, match="the inputs dict is missing input2"):
             pipeline.inputs = {"input1": np.array([1, 2, 3])}  # Missing input2
 
     def test_inputs_setter_raises_valueerror_when_single_input_but_multiple_expected(
@@ -145,7 +145,7 @@ class TestPipelineCoreExceptions:
     ):
         filter1 = FilterCore(apply_fn=simple_func)
         pipeline = PipelineCore(filters=[filter1], inputs=["input1", "input2"])
-        with pytest.raises(ValueError, match="Single input provided"):
+        with pytest.raises(ValueError, match=r"expects 2 inputs \(input1, input2\), got 1"):
             pipeline.inputs = np.array([1, 2, 3])
 
 

@@ -246,7 +246,7 @@ in CLAUDE.md. Nothing in use is rejected by the strict parser.
     become supported in B); `**kwargs` and `*args` in calls raise.
 - Tests: `test/test_pipeline_syntax.py`.
 
-### B. Literal kwargs, nested calls, `return f(x)` — done
+### B. Literal kwargs, nested calls, `return f(x)` — done (`4cfc0a0`)
 
 - Literal keyword arguments (`ast.literal_eval`) set that filter instance's
   value. When a control is bound to the parameter, the instance gets a clone
@@ -272,3 +272,27 @@ in CLAUDE.md. Nothing in use is rejected by the strict parser.
 - Flaky: one full-suite run (of 7) at 00:15 died with a native crash dump
   (extension list showing PyQt6 / dearpygui); 6 reruns green, not
   reproduced. Probably a pre-existing GUI-backend flake, left for review.
+
+### C. Call-time validation — done
+
+- Unknown keyword in `pipeline(img, gian=2.0)` raises `TypeError` listing the
+  available parameter names, the reserved keywords and a close-match
+  suggestion (`'gian' -> 'gain'`). It is checked before anything is changed
+  (inputs, context, parameters), in both `HeadlessPipeline.__call__` and the
+  GUI `__call__`.
+- The GUI `__call__` now also accepts the reserved `inputs={...}` dict like
+  the headless one (before, it would have been swallowed as an unknown kwarg).
+- Out-of-range values are still clamped, in `Control.check_value` and
+  `RangeControl.check_value` (the two clamp sites), now with
+  `logging.warning("Control 'gain': value 99.0 is outside its range [0.0, 3.0], clamped to 3.0")`.
+  Differences within 1e-9 of the span (slider float noise) do not warn.
+  `TimeControl` is exempt: its timer keeps ticking past the end of its range
+  and would warn on every frame.
+- Wrong number of inputs: the message is produced by the `PipelineCore.inputs`
+  setter, so the headless call, the GUI call and direct assignment all say
+  `pipeline 'p' expects 1 input (img), got 0` (and `..., the inputs dict is
+  missing mask (provided keys: img)` for the dict form). Decision: kept
+  `ValueError` (the type raised today) rather than `TypeError`, so existing
+  `except ValueError` code keeps working; the 4 tests in
+  test/test_core_exceptions.py that pinned the old wording were updated.
+- Tests: `test/test_call_validation.py`.

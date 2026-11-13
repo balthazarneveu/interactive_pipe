@@ -196,13 +196,33 @@ class Control:
         if self._type is not None and not isinstance(value, self._type):
             raise TypeError(f"Expected {self._type}, got {type(value)}")
         if isinstance(value, (float, int)) and self.value_range is not None:
-            return max(self.value_range[0], min(value, self.value_range[1]))  # type: ignore
+            clamped = max(self.value_range[0], min(value, self.value_range[1]))  # type: ignore
+            self._warn_clamped(value, clamped)
+            return clamped
         elif self._type is str and self.value_range is not None:
             if value not in self.value_range:
                 raise ValueError(f"{value} must be in {self.value_range}")
             return value
         else:
             return value
+
+    def _warn_clamped(self, value, clamped) -> None:
+        """Out-of-range values are clamped (tuning files and sessions rely on it), but never silently."""
+        if clamped == value or self.value_range is None:
+            return
+        low, high = self.value_range[0], self.value_range[1]
+        try:
+            # float noise from slider widgets (min + k * step) is not worth a warning
+            tolerance = 1e-9 * max(1.0, abs(float(high) - float(low)))  # type: ignore[arg-type]
+            values = value if isinstance(value, (list, tuple)) else [value]
+            references = clamped if isinstance(clamped, (list, tuple)) else [clamped]
+            if all(abs(float(v) - float(r)) <= tolerance for v, r in zip(values, references)):
+                return
+        except (TypeError, ValueError):
+            pass
+        logging.warning(
+            f"Control '{self.name}': value {value!r} is outside its range [{low}, {high}], clamped to {clamped!r}"
+        )
 
     def __repr__(self) -> str:
         if self._type in [float, int]:
@@ -480,9 +500,9 @@ class RangeControl(Control):
             raise ValueError(f"RangeControl value must have exactly 2 elements, got {len(elements)}")
         lo, hi = sorted(self._coerce_element(element) for element in elements)
         value_min, value_max = self.value_range  # type: ignore[misc]
-        lo = max(value_min, min(lo, value_max))
-        hi = max(value_min, min(hi, value_max))
-        return (lo, hi)
+        clamped = (max(value_min, min(lo, value_max)), max(value_min, min(hi, value_max)))
+        self._warn_clamped((lo, hi), clamped)
+        return clamped
 
     def _checked_default(self, value):
         lo, hi = self._validate_pair(value, f"default of control '{self.name}'")
@@ -578,6 +598,10 @@ class TimeControl(Control):
         )
         self.update_interval_ms = update_interval_ms
         self.pause_resume_key = pause_resume_key
+
+    def _warn_clamped(self, value, clamped) -> None:
+        # running past the end of the range is expected (the timer keeps ticking): stay quiet
+        return
 
     def __repr__(self) -> str:
         return super().__repr__()
