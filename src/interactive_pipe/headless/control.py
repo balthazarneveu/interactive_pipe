@@ -257,6 +257,48 @@ class Control:
             clone.panel._register_control(clone)
         return clone
 
+    def _checked_default(self, value):
+        """Validate a new default value for this control (no clamping: out of range raises)."""
+        label = f"control '{self.name}'"
+        if self._type is bool:
+            if not isinstance(value, bool):
+                raise TypeError(f"{label} is a checkbox: expected True or False, got {value!r}")
+            return value
+        if self._type in (int, float):
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise TypeError(f"{label} expects a number, got {value!r}")
+            if self._type is int:
+                if isinstance(value, float) and not value.is_integer():
+                    raise TypeError(f"{label} expects an integer, got {value!r}")
+                value = int(value)
+            else:
+                value = float(value)
+            if self.value_range is not None:
+                low, high = self.value_range[0], self.value_range[1]
+                if not (low <= value <= high):  # type: ignore[operator]
+                    raise ValueError(f"{value!r} is outside the range [{low}, {high}] of {label}")
+            return value
+        if self._type is str:
+            if not isinstance(value, str):
+                raise TypeError(f"{label} expects a string, got {value!r}")
+            if self.value_range is not None and value not in self.value_range:
+                raise ValueError(f"{value!r} is not one of the choices {list(self.value_range)} of {label}")
+            return value
+        return self.check_value(value)
+
+    def _clone_with_default(self, value_default, name: Optional[str] = None) -> "Control":
+        """Unconnected clone whose default (and current value) is ``value_default``.
+
+        Used for a filter instance given a literal keyword argument in the
+        pipeline body: the registered control is shared by every pipeline using
+        the filter, so it is never mutated.
+        """
+        checked = self._checked_default(value_default)
+        clone = self._clone_unconnected(self.name if name is None else name)
+        clone.value_default = checked
+        clone.reset()
+        return clone
+
     def connect_parameter(self, update_param_func: Callable):
         self.update_param_func = update_param_func
 
@@ -441,6 +483,15 @@ class RangeControl(Control):
         lo = max(value_min, min(lo, value_max))
         hi = max(value_min, min(hi, value_max))
         return (lo, hi)
+
+    def _checked_default(self, value):
+        lo, hi = self._validate_pair(value, f"default of control '{self.name}'")
+        value_min, value_max = self.value_range  # type: ignore[misc]
+        if lo > hi:
+            raise ValueError(f"default {value!r} of control '{self.name}' must satisfy lo <= hi")
+        if not (value_min <= lo and hi <= value_max):  # type: ignore[operator]
+            raise ValueError(f"{value!r} is outside the range [{value_min}, {value_max}] of control '{self.name}'")
+        return (self._type(lo), self._type(hi))  # type: ignore[misc]
 
     def __repr__(self) -> str:
         return (
