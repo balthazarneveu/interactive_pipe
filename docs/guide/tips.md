@@ -88,7 +88,7 @@ Slider moves are already coalesced (one run per event-loop pass with the latest 
 
 ## Export / import tuning
 
-Press ++e++ in the GUI to export the current parameters to YAML and ++o++ to load them back; headless pipelines expose the same via `export_tuning()` / `load_tuning()`. Press ++g++ to export a graphviz diagram of the pipeline.
+Press ++e++ in the GUI to export the current parameters to YAML and ++o++ to load them back; headless pipelines expose the same via `export_tuning(path)` / `load_tuning(path)`. Press ++g++ to export a graphviz diagram of the pipeline.
 
 ## One-shot GUI with `@interact`
 

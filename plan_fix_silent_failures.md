@@ -361,7 +361,7 @@ in CLAUDE.md. Nothing in use is rejected by the strict parser.
 - Documented in the quickstart headless section.
 - Tests: `test/test_headless_save.py`.
 
-### G. `layout.style` heatmap options — done, preferred path
+### G. `layout.style` heatmap options — done, preferred path (`2e80148`)
 
 - Single hook: `InteractivePipeWindow.refresh_display` (graphical/window.py),
   which the Qt, Dear PyGui, matplotlib, notebook and Gradio windows all go
@@ -383,3 +383,11 @@ in CLAUDE.md. Nothing in use is rejected by the strict parser.
 - `xlabel`/`ylabel` stay matplotlib-only; documented as such.
 - Docs: new "Output style" section in docs/guide/layout.md.
 - Tests: `test/test_layout_style_heatmap.py`.
+
+### H. `load_tuning` — done
+
+- `HeadlessPipeline.load_tuning(path)` delegates to `import_tuning`. Decision:
+  `path` is required (the docs called `load_tuning()` with no argument,
+  which with `import_tuning`'s optional path would only log a traceback);
+  the quickstart, tips, samples/readme.md and the skill now pass the file.
+- Test in `test/test_headless_save.py`.

@@ -296,7 +296,7 @@ exposure:
   coeff: 1.0
 ```
 
-So obviously, you can modify this file & reload it `sample_pipeline.load_tuning()`. Internal parameters will be updated seamlessly so you can run your pipeline again.
+So obviously, you can modify this file & reload it `sample_pipeline.load_tuning("my_tuning.yaml")`. Internal parameters will be updated seamlessly so you can run your pipeline again.
 
 
 ### Step 3 : adding interactivity
