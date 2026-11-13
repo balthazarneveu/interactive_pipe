@@ -355,8 +355,12 @@ Decisions:
 - Precedence: it wins over any GUI `gui=` value (explicit `"qt"` included,
   since demos hard-code their backend) and over `INTERACTIVE_PIPE_GUI`;
   `gui=None` / headless pipelines are returned unchanged and render nothing.
-  No GUI object is created at all (no Qt app needed); `.pipeline` is then the
-  `HeadlessPipeline`, `.graph_representation` and the loop methods still work.
+  The GUI object is still built (never run, `QT_QPA_PLATFORM` defaulted to
+  `offscreen`) so scripts configuring `demo.pipeline` keep working (e.g.
+  `demo/key_event_demo.py` calls `bind_key_to_context`); if it cannot be built
+  (backend missing...), a warning is logged and `.pipeline` is the
+  `HeadlessPipeline`. Results are returned like the GUI call returns them
+  (a 2D list once the GUI made the layout 2D).
 - Path: `{name}` is replaced by the pipeline function name; a value ending in
   `/` or naming an existing folder writes `<folder>/<name>.png`; `.png` is
   added when the suffix is missing.
@@ -368,7 +372,8 @@ Decisions:
   runs at import time through `run_gui`, left untouched).
 - Verified on unmodified demos: `image_analysis_demo.py`, `table_demo.py`,
   `independent_curve_image_demo.py`, `grouped_controls_demo.py`,
-  `multi_image.py`, `panel_demo.py` (all wrote a correct PNG and exited).
+  `multi_image.py`, `panel_demo.py`, `key_event_demo.py` (qt and `-b dpg`),
+  also without `QT_QPA_PLATFORM` set: all wrote a correct PNG and exited.
 
 ### 8. Docs, skill, changelog — done
 
@@ -388,3 +393,24 @@ Decisions:
   names would be easy to shadow in user scripts and add nothing.
 - `mkdocs` is not installed in the shared venv, so the site build was not
   run (left for review); the guide's code block was extracted and executed.
+
+### Review pass — done
+
+An independent read-only review of the branch (separate agent, verifying by
+running code) confirmed that state restoration holds with `cache=False`,
+`True` and `"graph"`, repeated filters, Range/Keyboard/Time controls and
+failing filters, and found six bugs, all fixed with regression tests:
+filter entry points failing for filters using the `context` proxy (dry run
+had no user context); `INTERACTIVE_PIPE_SNAPSHOT` keyword arguments colliding
+with snapshot options (`title`, `path`, ...); `.pipeline` not being the GUI
+object under the variable (`key_event_demo.py` crashed); int output names of
+index-routed pipelines read as positions; default sweep output missing after a
+`layout.grid` change; numpy-typed sweep values rejected by controls. Smaller
+fixes: no false "clamped" warning for a `[lo, hi]` list on a RangeControl,
+`None` as a control override raises, `{name}` in folder values.
+
+Not changed (left for review): the user `context` dict is not saved/restored
+by snapshot/sweep — values written by filters during those runs stay in it
+(considered derived state; restoring a `ContextTracker` in graph-cache mode
+needs care). The sweep caption hides every fixed value sharing a swept
+parameter's bare name (cosmetic).
