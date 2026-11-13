@@ -35,9 +35,12 @@ def interactive_pipeline(
 
     The decorated function chains filters (typically declared with
     ``@interactive``) and is analyzed statically to build the execution
-    graph. Its body must therefore contain only filter-function calls,
-    assignments and a return statement — no control flow (if/for/while)
-    or arithmetic; put such logic inside the filters themselves.
+    graph. Its body must therefore contain only filter-function calls
+    (possibly nested, with literal keyword arguments such as
+    ``amplify(img, gain=2.0)``), assignments and one final return — no
+    control flow (if/for/while) or arithmetic; put such logic inside the
+    filters themselves. Anything else raises ``PipelineSyntaxError`` at
+    decoration time, naming the line and the fix.
 
     Args:
         gui: Backend used to display the pipeline. One of ``"auto"``,
@@ -94,6 +97,8 @@ def interactive_pipeline(
     Raises:
         TypeError: If a removed pre-0.9.0 context alias (``global_params``,
             ``state``, ...) is passed; use ``context={...}`` instead.
+        PipelineSyntaxError: If the pipeline body contains a statement the
+            static analysis cannot express (see the guide).
 
     Example:
         ```python

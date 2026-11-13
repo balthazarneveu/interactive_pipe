@@ -28,7 +28,7 @@ def exposure(img, coeff=1.0, bias=0.0):
 @interactive(bnw=(True, "black and white"))
 def black_and_white(img, bnw=True):
     """Averages the 3 color channels (Black & White) if bnw=True"""
-    # Booleans: a tuple like (True,) creates the tick box.
+    # Booleans: bnw=True or bnw=(True,) in the decorator creates the tick box.
     return np.repeat(np.expand_dims(np.average(img, axis=-1), -1), img.shape[-1], axis=-1) if bnw else img
 
 
@@ -58,12 +58,12 @@ if __name__ == "__main__":
 ❤️ This code displays a GUI with three images; the middle one is the result of the blend.
 
 !!! warning "Pipeline functions contain only filter calls"
-    The pipeline function body is analyzed statically to build the execution graph, so it may contain **only filter calls, assignments and a return** — no if/for/while, no arithmetic. Put that logic inside the filters.
+    The pipeline function body is analyzed statically to build the execution graph, so it may contain **only filter calls, assignments and a return** — no if/for/while, no arithmetic. Put that logic inside the filters. Anything else raises `PipelineSyntaxError` when the pipeline is built, pointing at the line with a hint. Filter calls may be nested (`blur(amplify(img))`) and take literal keyword arguments (`amplify(img, gain=2.0)`); see [what a pipeline body may contain](../guide/decorators.md#what-a-pipeline-body-may-contain).
 
 Notes:
 
 - With a bare `@interactive()` and `def blend(img0, img1, blend_coeff=0.5):`, `blend_coeff` simply won't get a slider.
-- `@interactive(blend_coeff=[0., 1.])` creates a slider initialized to the middle of the range (0.5).
+- `@interactive(blend_coeff=[0., 1.])` creates a slider initialized to the middle of the range (0.5). A bare number (`@interactive(blend_coeff=0.5)`) raises `ValueError`: a slider needs a range.
 - `@interactive(bnw=KeyboardControl(True, keydown="k"))` replaces the checkbox by a keypress event (press ++k++ to toggle) — see the [Keyboard guide](../guide/keyboard.md).
 
 ## Keeping your library clean
