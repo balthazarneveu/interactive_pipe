@@ -78,8 +78,10 @@ def _save_output(result: Any, path: Path) -> Optional[Path]:
     if isinstance(result, np.ndarray):
         image = _as_image_array(result)
         if image is not None:
-            extensions = [".png", ".tif"] if image.ndim == 3 and image.shape[-1] == 4 else Image(None).file_extensions
             wrapped = Image(image)
+            extensions = wrapped.file_extensions
+            if image.ndim == 3 and image.shape[-1] == 4:
+                extensions = [".png", ".tif"]  # no alpha channel in jpeg
             wrapped.save(_with_supported_suffix(path, extensions))
             return wrapped.path
         if result.ndim == 1:
