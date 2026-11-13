@@ -345,3 +345,27 @@ plain function (one added line in `interactive()`). Decisions:
 - `interact()` blocks until the window closes, returns the results and gives
   the control values back (slider moves do not leak into pipelines).
 - Issue #21's original bug (explicit keyword ignored) has a regression test.
+
+### 7. `INTERACTIVE_PIPE_SNAPSHOT` (stretch) — done
+
+`cli.snapshot_requested` / `cli.snapshot_path_from_env` next to the GUI env
+helpers; the decorator returns a snapshot launcher instead of building the GUI
+when the variable is set (read at decoration time, like the other variables).
+Decisions:
+- Precedence: it wins over any GUI `gui=` value (explicit `"qt"` included,
+  since demos hard-code their backend) and over `INTERACTIVE_PIPE_GUI`;
+  `gui=None` / headless pipelines are returned unchanged and render nothing.
+  No GUI object is created at all (no Qt app needed); `.pipeline` is then the
+  `HeadlessPipeline`, `.graph_representation` and the loop methods still work.
+- Path: `{name}` is replaced by the pipeline function name; a value ending in
+  `/` or naming an existing folder writes `<folder>/<name>.png`; `.png` is
+  added when the suffix is missing.
+- The launcher accepts the GUI call signature (`parameters=`, `context=`,
+  keyword overrides), warns about and ignores unknown keyword names (the GUI
+  ignores them silently, so unmodified scripts keep running), prints the
+  written path and returns the results as a list, like the GUI backends.
+- `filter.interact()` honours the variable too (`@interact` does not: it
+  runs at import time through `run_gui`, left untouched).
+- Verified on unmodified demos: `image_analysis_demo.py`, `table_demo.py`,
+  `independent_curve_image_demo.py`, `grouped_controls_demo.py`,
+  `multi_image.py`, `panel_demo.py` (all wrote a correct PNG and exited).

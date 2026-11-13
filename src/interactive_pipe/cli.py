@@ -15,6 +15,10 @@ Environment variables (read when ``interactive_pipeline`` decorates a function):
   used when the decorator was called with ``gui="auto"`` (the default).
 - ``INTERACTIVE_PIPE_SIZE``: "fullscreen", "maximized" or "WxH" (e.g. "1280x800"),
   used when the decorator was not given a ``size``.
+- ``INTERACTIVE_PIPE_SNAPSHOT``: a PNG path (or a folder). When set, calling a
+  GUI-decorated pipeline renders a snapshot there and returns the results
+  instead of opening a window, whatever the ``gui`` value (see
+  ``snapshot_path_from_env``).
 
 Precedence: CLI helper values > explicit decorator arguments (other than "auto") > environment.
 
@@ -23,6 +27,7 @@ This module only depends on the standard library and has no side effects on impo
 
 import argparse
 import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 GUI_ENV_VAR = "INTERACTIVE_PIPE_GUI"
@@ -117,6 +122,37 @@ def resolve_gui(gui: Any) -> Any:
     if env_gui is None:
         return gui
     return None if env_gui == "headless" else env_gui
+
+
+SNAPSHOT_ENV_VAR = "INTERACTIVE_PIPE_SNAPSHOT"
+
+
+def snapshot_requested() -> bool:
+    """True when ``INTERACTIVE_PIPE_SNAPSHOT`` is set to a non-empty value."""
+    return bool(os.environ.get(SNAPSHOT_ENV_VAR, "").strip())
+
+
+def snapshot_path_from_env(name: str) -> Optional[Path]:
+    """Snapshot path requested by ``INTERACTIVE_PIPE_SNAPSHOT``, or None when unset.
+
+    - ``{name}`` in the value is replaced by the pipeline name, so a script
+      running several pipelines writes one file each (``shots/{name}.png``);
+    - a value ending with ``/`` or naming an existing folder writes
+      ``<folder>/<name>.png``;
+    - a value without suffix gets ``.png``.
+
+    Precedence: when set, it wins over ``gui=`` (explicit or "auto") and
+    ``INTERACTIVE_PIPE_GUI`` for GUI-decorated pipelines (no window is created);
+    ``gui=None`` / "headless" pipelines are returned unchanged and render nothing.
+    """
+    raw = os.environ.get(SNAPSHOT_ENV_VAR, "").strip()
+    if not raw:
+        return None
+    safe_name = "".join(char if char.isalnum() or char in "-_." else "_" for char in name) or "pipeline"
+    if raw.endswith(("/", os.sep)) or Path(raw).is_dir():
+        return Path(raw) / f"{safe_name}.png"
+    path = Path(raw.replace("{name}", safe_name))
+    return path if path.suffix else path.with_suffix(".png")
 
 
 def add_gui_arguments(

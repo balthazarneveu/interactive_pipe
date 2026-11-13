@@ -1,7 +1,7 @@
 import functools
 from typing import Any, Callable, Optional, Union
 
-from interactive_pipe.cli import resolve_gui, size_from_env
+from interactive_pipe.cli import resolve_gui, size_from_env, snapshot_path_from_env, snapshot_requested
 from interactive_pipe.core.backend import Backend
 from interactive_pipe.core.context import REMOVED_CONTEXT_ALIASES
 from interactive_pipe.headless.pipeline import HeadlessPipeline
@@ -22,6 +22,24 @@ def pipeline(pipeline_function: Callable, **kwargs) -> HeadlessPipeline:
     ``interactive_pipeline`` (the decorator), not to this helper.
     """
     return HeadlessPipeline.from_function(pipeline_function, **kwargs)
+
+
+def _snapshot_launcher(pipeline_function: Callable[..., Any], headless_pipeline: HeadlessPipeline) -> Callable:
+    """Stand-in for the GUI launcher when INTERACTIVE_PIPE_SNAPSHOT is set."""
+    from interactive_pipe.headless.explore import snapshot_instead_of_gui
+
+    @functools.wraps(pipeline_function)
+    def inner(*args: Any, **kwargs: Any) -> Any:
+        path = snapshot_path_from_env(pipeline_function.__name__)
+        if path is None:  # unset after decoration
+            raise RuntimeError("INTERACTIVE_PIPE_SNAPSHOT was unset after the pipeline was decorated")
+        return snapshot_instead_of_gui(headless_pipeline, path, *args, **kwargs)
+
+    setattr(inner, "pipeline", headless_pipeline)
+    setattr(inner, "graph_representation", headless_pipeline.graph_representation)
+    for method_name in SEE_THE_RESULT_METHODS:
+        setattr(inner, method_name, getattr(headless_pipeline, method_name))
+    return inner
 
 
 def interactive_pipeline(
@@ -89,6 +107,11 @@ def interactive_pipeline(
         the environment; ``interactive_pipe.cli.parse_gui_args`` values are
         explicit arguments, so the command line wins over both.
 
+        ``INTERACTIVE_PIPE_SNAPSHOT`` (a PNG path or folder, ``{name}`` is
+        replaced by the function name): when set, any GUI ``gui`` value
+        returns a launcher that renders a snapshot there and returns the
+        results instead of opening a window (``gui=None`` is unaffected).
+
     Returns:
         A decorator. Applied to a pipeline function it returns either a
         ``HeadlessPipeline`` (when ``gui`` is None or ``"headless"``) or a
@@ -129,6 +152,9 @@ def interactive_pipeline(
         selected_gui = resolve_gui(gui)
         if selected_gui is None or selected_gui == "headless":
             return headless_pipeline
+        if snapshot_requested():
+            # INTERACTIVE_PIPE_SNAPSHOT: render a PNG instead of opening a window
+            return _snapshot_launcher(pipeline_function, headless_pipeline)
         else:
             gui_options = dict(kwargs_gui)
             if gui_options.get("size") is None:
