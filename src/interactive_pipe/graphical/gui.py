@@ -574,4 +574,23 @@ class InteractivePipeGUI:
     def print_message(self, message_list: List[str]):
         print("\n".join(message_list))
 
+    # See-the-result loop: render to PNG / describe without touching the window
+    # (interactive_pipe.headless.explore, interactive_pipe.headless.describe)
+
+    def snapshot(self, *args, **kwargs):
+        """Render one run to a PNG, see HeadlessPipeline.snapshot"""
+        return self.pipeline.snapshot(*args, **kwargs)
+
+    def sweep(self, *args, **kwargs):
+        """Render a parameter sweep to a PNG, see HeadlessPipeline.sweep"""
+        return self.pipeline.sweep(*args, **kwargs)
+
+    def describe(self) -> dict:
+        """Describe inputs, outputs, filters and controls, see HeadlessPipeline.describe"""
+        return self.pipeline.describe()
+
+    def summary(self) -> str:
+        """Text version of describe()"""
+        return self.pipeline.summary()
+
     # ---------------------------------------------------------------------

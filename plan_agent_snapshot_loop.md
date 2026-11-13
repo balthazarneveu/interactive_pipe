@@ -317,3 +317,11 @@ Decisions:
   range, text, time, keyboard; `CircularControl` is a slider with
   `"circular": true`. Filters also carry the first docstring line (`doc`),
   useful to an agent reading an unknown pipeline.
+
+### 5. Reachable from any decorated pipeline — done
+
+`@interactive_pipeline(gui=...)` functions get `snapshot`, `sweep`,
+`describe`, `summary` bound to the underlying `HeadlessPipeline` (additive
+hunk next to the existing `graph_representation` attribute);
+`InteractivePipeGUI` gets the same four methods (additive, end of class).
+Tested with `gui="mpl"` and `gui="qt"` (offscreen), no window is opened.
