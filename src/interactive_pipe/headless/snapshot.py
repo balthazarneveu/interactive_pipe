@@ -315,8 +315,9 @@ def _draw_image(ax: Any, content: np.ndarray, pixels_available: float) -> None:
     ax.imshow(img, **kwargs)
     ax.set_xticks([])
     ax.set_yticks([])
-    for spine in ax.spines.values():
-        spine.set_visible(False)
+    for spine in ax.spines.values():  # thin frame: shows where a white image ends
+        spine.set_color("lightgray")
+        spine.set_linewidth(0.6)
 
 
 def _set_title(ax: Any, title: Optional[str], width_inches: float) -> None:
@@ -494,34 +495,49 @@ def render_sweep(
         for panel in row:
             widths, heights = grid_size(panel)
             panel_w, panel_h = max(panel_w, sum(widths)), max(panel_h, sum(heights))
-    label_h = 0.22
-    row_label_w = 0.4 if row_labels else 0.0
+    label_h = 0.3
+    row_label_w = 0.35 if row_labels else 0.0
+    cell_label_h = label_h if cell_labels is not None else 0.0
+    header_h = label_h if column_labels is not None else 0.0
     natural_width = n_cols * panel_w + row_label_w
+    natural_height = n_rows * (panel_h + cell_label_h) + header_h
     scale = min(1.0, MAX_WIDTH / natural_width)
     if figsize is None:
         width = natural_width * scale
-        figsize = (width, n_rows * (panel_h + label_h) * scale + _extra_height(width, title, caption))
+        figsize = (width, natural_height * scale + _extra_height(width, title, caption))
     else:
-        scale = min(figsize[0] / natural_width, figsize[1] / (n_rows * (panel_h + label_h)))
+        scale = min(figsize[0] / natural_width, figsize[1] / natural_height)
     if dpi is None:
         dpi = auto_dpi(all_cells, scale)
     fig = _new_figure(figsize[0], figsize[1], dpi)
-    subfigs = fig.subfigures(n_rows, n_cols, squeeze=False, wspace=0.02, hspace=0.02)
+    # Row / column labels get their own header subfigures, so every panel has
+    # the same room and the images line up across the sheet.
+    row_offset = 1 if column_labels is not None else 0
+    col_offset = 1 if row_labels is not None else 0
+    subfigs = fig.subfigures(
+        n_rows + row_offset,
+        n_cols + col_offset,
+        squeeze=False,
+        wspace=0.01,
+        hspace=0.01,
+        width_ratios=[row_label_w] * col_offset + [panel_w] * n_cols,
+        height_ratios=[header_h] * row_offset + [panel_h + cell_label_h] * n_rows,
+    )
+    label_style = {"fontsize": 11, "fontweight": "bold", "ha": "center", "va": "center"}
+    if column_labels is not None:
+        for col_idx, label in enumerate(column_labels):
+            subfigs[0][col_idx + col_offset].text(0.5, 0.5, label, **label_style)
+    if row_labels is not None:
+        for row_idx, label in enumerate(row_labels):
+            subfigs[row_idx + row_offset][0].text(0.5, 0.5, label, rotation=90, **label_style)
     for row_idx in range(n_rows):
         for col_idx in range(n_cols):
-            subfig = subfigs[row_idx][col_idx]
             if col_idx >= len(panels[row_idx]):
                 continue
+            subfig = subfigs[row_idx + row_offset][col_idx + col_offset]
             draw_grid(subfig, panels[row_idx][col_idx], scale, dpi)
-            label = None
-            if cell_labels is not None:
-                label = cell_labels[row_idx][col_idx]
-            elif column_labels is not None and row_idx == 0:
-                label = column_labels[col_idx]
-            if label:
-                subfig.suptitle(label, fontsize=11, fontweight="bold")
-            if row_labels is not None and col_idx == 0:
-                subfig.supylabel(row_labels[row_idx], fontsize=11, fontweight="bold")
+            if cell_labels is not None and cell_labels[row_idx][col_idx]:
+                subfig.suptitle(cell_labels[row_idx][col_idx], fontsize=11, fontweight="bold")
     _decorate(fig, figsize[0], title, caption)
     return fig
 
