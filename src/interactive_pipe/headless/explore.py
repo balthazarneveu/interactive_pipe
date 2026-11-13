@@ -116,9 +116,12 @@ def apply_overrides(pipeline: Any, overrides: Dict[str, Any], method: str = "sna
     """
     resolved = resolve_names(pipeline, list(overrides), method)
     for name, value in overrides.items():
+        value = plain_value(value)
         targets = resolved[name]
         controls = _controls_for(pipeline, targets)
         for ctrl in controls:
+            if value is None:  # Control.value = None would silently reset to the default
+                raise TypeError(f"{method}(): {name}=None is not a valid value for control {ctrl.name!r}")
             ctrl.value = value  # may raise TypeError / ValueError (wrong type, unknown choice)
             if not _same_value(ctrl.value, value):
                 warnings.warn(
@@ -132,7 +135,17 @@ def apply_overrides(pipeline: Any, overrides: Dict[str, Any], method: str = "sna
             PipelineCore.parameters.__set__(pipeline, {filter_name: {param_name: final}})  # type: ignore[attr-defined]
 
 
+def plain_value(value: Any) -> Any:
+    """numpy scalars -> Python scalars (controls type-check int / float / bool / str)."""
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
 def _same_value(left: Any, right: Any) -> bool:
+    if isinstance(left, (list, tuple)) and isinstance(right, (list, tuple)):
+        # a RangeControl stores (lo, hi) tuples, a list [lo, hi] is the same value
+        return len(left) == len(right) and all(_same_value(a, b) for a, b in zip(left, right))
     try:
         return bool(left == right)
     except (TypeError, ValueError):  # e.g. numpy arrays
@@ -363,7 +376,7 @@ def split_sweep_arguments(
     fixed: Dict[str, Any] = {}
     for name, value in overrides.items():
         if _is_sweep_axis(pipeline, resolved[name], value):
-            values = list(value)
+            values = value.tolist() if isinstance(value, np.ndarray) else [plain_value(item) for item in value]
             if not values:
                 raise ValueError(f"sweep(): {name} has no values to sweep")
             axes[name] = values
@@ -453,14 +466,20 @@ def sweep(
     with preserved_state(pipeline):
         apply_overrides(pipeline, fixed, "sweep")
         caption_text = _caption(pipeline, caption, exclude=swept_params)
-        selector = output
+        chosen_name: Any = None
         for combo in combos:
             apply_overrides(pipeline, dict(zip(names, combo)), "sweep")
             grid = result_grid(pipeline, pipeline.run())
-            if selector is None:
-                # chosen on the first cell, then kept by name for the others
-                selector = flat_cells(grid)[default_sweep_cell(grid)].name
-            panels_flat.append(_panel(grid, selector))
+            if output is not None:
+                panels_flat.append(_panel(grid, output))
+                continue
+            # default: chosen on the first cell, then kept by name for the others
+            # (unless a layout.grid call removed it from this cell's layout)
+            cells = flat_cells(grid)
+            if chosen_name is None or chosen_name not in [cell.name for cell in cells]:
+                chosen_name = cells[default_sweep_cell(grid)].name
+            chosen_cell = next(cell for cell in cells if cell.name == chosen_name)
+            panels_flat.append([[chosen_cell]])
     labels = [", ".join(f"{name}={format_value(val)}" for name, val in zip(names, combo)) for combo in combos]
     if len(names) == 1:
         count = len(panels_flat)

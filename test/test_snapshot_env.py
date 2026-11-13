@@ -47,6 +47,8 @@ def test_path_parsing(monkeypatch, tmp_path):
     assert snapshot_path_from_env("pipe") == Path("shots/pipe.png")
     monkeypatch.setenv(SNAPSHOT_ENV_VAR, str(tmp_path))
     assert snapshot_path_from_env("pipe") == tmp_path / "pipe.png"
+    monkeypatch.setenv(SNAPSHOT_ENV_VAR, "shots/{name}/")
+    assert snapshot_path_from_env("pipe") == Path("shots/pipe/pipe.png")
     monkeypatch.setenv(SNAPSHOT_ENV_VAR, "a.png")
     assert snapshot_path_from_env("pipe") == Path("a.png")
 

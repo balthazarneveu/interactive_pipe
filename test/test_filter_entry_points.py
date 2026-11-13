@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
 
-from interactive_pipe import Control, Curve, FilterError, interactive, interactive_pipeline, layout  # noqa: E402
+from interactive_pipe import Control, Curve, FilterError, context, interactive, interactive_pipeline, layout  # noqa: E402
 
 SIZE = 16
 
@@ -169,3 +169,15 @@ def test_interact_opens_the_gui_on_one_filter(monkeypatch):
     assert len(results) == 1
     np.testing.assert_allclose(np.asarray(results[0]).squeeze(), white() * 0.5)
     assert (ctrl.filter_to_connect, ctrl.value) == before
+
+
+@interactive(gain=(0.5, [0.0, 1.0]))
+def fe_with_context(img, gain=0.5):
+    context["mean"] = float(img.mean())
+    return img * gain * context.get("scale", 1.0)
+
+
+def test_filters_using_the_context_proxy():
+    assert fe_with_context.snapshot(None, white()).ndim == 3
+    assert fe_with_context.sweep(None, white(), gain=[0.1, 0.9]).ndim == 3
+    assert fe_with_context.describe(white())["outputs"] == ["fe_with_context"]
