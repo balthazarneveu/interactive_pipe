@@ -95,6 +95,13 @@ Improvements & bug fixes:
 - Controls are attached to the filter function itself instead of a registry keyed by `module.qualname`: two scripts run in one interpreter with same-named `__main__` filters, or filters made by a factory, no longer share or replace each other's controls (`filter 'process_image' has no parameter 'hue_shift'`). Pipelines built from the same filter still share its control (documented in the controls guide, "One control per filter").
 - **`import interactive_pipe` is ~4x faster** (about 1.0 s -> 0.22 s here, `interactive-pipe --help` 1.05 s -> 0.3 s): matplotlib (`pyplot` included), pandas, OpenCV and Pillow are imported when an image or curve is saved, loaded, plotted or rendered, not at import time. `Curve.save` to an image file uses matplotlib's object API instead of `pyplot`.
 
+### Mouse input: points and regions
+- **`PointControl((x, y), on="img")` and `RegionControl((x0, y0, x1, y1), on="img")`**: a click sets the point, a shift-drag draws the region, on the output named by `on=` (default: the first image). Values are fractions of the image size in [0, 1]; `to_pixels(value, img)` gives the pixel `(col, row)` or the slice bounds `img[y0:y1, x0:x1]`. Validated (length, numbers, range; a region is reordered); an unknown `on=` name fails when the GUI is built, with the available outputs.
+- Qt, Dear PyGui and matplotlib: click (moving less than 3 screen pixels) and shift-drag, through zoom / pan and back to data pixels for heatmaps with a colorbar; left-drag keeps panning. Gradio: a click sets the point. The window draws the marker and the rectangle over the image, the outputs are untouched.
+- Where gestures are not available (notebook, Gradio regions, any backend that does not implement them) the controls are shown as sliders in [0, 1] (`seed x`, `seed y`, ...).
+- Headless they are ordinary parameters: `pipe(img, seed=(0.2, 0.4))`, `snapshot`, `sweep(seed=[...])`, tuning files, `describe()` (kinds `"point"` / `"region"` with the target output).
+- New demo: `demo/pointer_demo.py`. New guide page: [Mouse input](https://balthazarneveu.github.io/interactive_pipe/guide/mouse-input/).
+
 ## 0.9.4 (November 2026)
 
 ### New features
