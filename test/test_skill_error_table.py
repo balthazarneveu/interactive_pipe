@@ -111,8 +111,7 @@ def _clamped(caplog):
         out = amplify(img)
         return out
 
-    with pytest.warns(UserWarning):
-        p.snapshot(None, np.zeros((4, 4)), gain=9)
+    p(np.zeros((4, 4)), gain=9)  # snapshot() words its own warning instead (once)
 
 
 def _misleading(caplog):
