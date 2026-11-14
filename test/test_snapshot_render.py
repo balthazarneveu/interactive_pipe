@@ -191,3 +191,14 @@ def test_int_names_of_index_routed_pipelines_win_over_positions():
     assert [cell.name for cell in select_cells(grid, 0)[0]] == [1]  # not a name: reading order
     assert default_sweep_cell(grid) == 2
     assert default_sweep_cell(grid, {2}) == 1
+
+
+def test_image_cells_follow_the_display_rules():
+    from interactive_pipe.headless.snapshot import _image_array
+
+    gray8 = np.full((4, 5), 255, dtype=np.uint8)
+    np.testing.assert_allclose(_image_array(gray8), np.ones((4, 5, 3)))
+    rgba = np.zeros((4, 5, 4), dtype=np.float32)  # fully transparent: the checkerboard
+    assert _image_array(rgba).shape == (4, 5, 3) and _image_array(rgba).min() > 0
+    assert _image_array(np.zeros((3, 4, 5))) is None  # channel-first: DisplayError in prepare_display
+    assert _image_array(np.zeros(5)) is None  # a signal, not an image

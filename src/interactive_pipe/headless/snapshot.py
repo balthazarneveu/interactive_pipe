@@ -38,9 +38,11 @@ from interactive_pipe.data_objects.table import table_column_widths as _table_co
 from interactive_pipe.data_objects.table import table_text as _table_text
 from interactive_pipe.graphical.display import (
     TEXT_FONT_PT,
+    array_display_problem,
     content_title,
     display_kind,
     figure_of,
+    normalize_image,
     prepare_display,
     producer_of,
     rasterize_figure,
@@ -250,20 +252,13 @@ def _wrap(text: str, width_inches: float, fontsize: float) -> str:
 
 
 def _image_array(content: np.ndarray) -> Optional[np.ndarray]:
-    """Image ready for imshow (HxW or HxWx3/4; uint8 kept, rest clipped to [0, 1]),
-    None when the array cannot be shown as an image."""
-    img = content
-    if img.ndim == 3 and img.shape[-1] == 1:
-        img = img[..., 0]
-    if img.ndim not in (2, 3) or (img.ndim == 3 and img.shape[-1] not in (3, 4)):
+    """``(H, W, 3)`` float image in ``[0, 1]`` ready for imshow, None when the
+    array is no displayable image. Cells are already through ``prepare_display``;
+    this applies the same rules (``array_display_problem`` / ``normalize_image``)
+    to anything else."""
+    if content.ndim < 2 or array_display_problem(content) is not None:
         return None
-    if img.size == 0:
-        return None
-    if img.dtype == np.uint8:
-        return img
-    if not (np.issubdtype(img.dtype, np.number) or img.dtype == np.bool_):
-        return None
-    return np.clip(np.nan_to_num(img.astype(np.float32)), 0.0, 1.0)
+    return np.clip(np.nan_to_num(normalize_image(content).astype(np.float32, copy=False)), 0.0, 1.0)
 
 
 def _cell_kind(content: Any) -> str:
@@ -306,8 +301,6 @@ def _draw_image(ax: Any, content: np.ndarray, pixels_available: float) -> None:
     # small images (e.g. 8x8 test patterns): show the pixels, not a blur
     interpolation = "nearest" if img.shape[1] < pixels_available else "antialiased"
     kwargs: Dict[str, Any] = {"interpolation": interpolation}
-    if img.ndim == 2:
-        kwargs.update(cmap="gray", vmin=0, vmax=255 if img.dtype == np.uint8 else 1.0)
     ax.imshow(img, **kwargs)
     ax.set_xticks([])
     ax.set_yticks([])
