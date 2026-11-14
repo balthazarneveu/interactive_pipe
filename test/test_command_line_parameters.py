@@ -208,10 +208,11 @@ def test_bad_set_fails_with_exit_code_2_and_writes_nothing(script, tmp_path, cap
     assert not list(tmp_path.glob("*.png"))
 
 
-def test_out_of_range_set_value_is_clamped_with_a_warning(script, tmp_path):
+def test_out_of_range_set_value_is_clamped_with_a_warning(script, tmp_path, caplog):
     with pytest.warns(UserWarning, match="gain=7 is outside the range of control 'gain'"):
         run = run_script(str(script), output=f"{tmp_path}/", options=CallOptions(settings={"gain": "7"}))
     assert np.allclose(_out(run)[0, 0], 0.4 * 2 * 0.5)
+    assert "outside its range" not in caplog.text  # warned once, not again by the control
 
 
 def test_output_selection_and_one_pipeline(script, tmp_path):
