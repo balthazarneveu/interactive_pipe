@@ -714,7 +714,8 @@ class MainWindow(InteractivePipeWindow):
 
     def _gesture_fraction(self, pos):
         cell = self._pointer_cell
-        if cell is None or not dpg.does_item_exist(cell.get("content")):
+        content = None if cell is None else cell.get("content")
+        if cell is None or content is None or not dpg.does_item_exist(content):
             return None
         return self._pointer_fraction(cell, self._local(cell, pos))
 

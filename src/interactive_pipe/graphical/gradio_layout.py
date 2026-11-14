@@ -84,9 +84,8 @@ def build_panel_widget(window: "MainWindow", panel: Panel) -> None:
                             if isinstance(element, Panel):
                                 build_panel_widget(window, element)
                             elif isinstance(element, Control):
-                                widget = get_control_widget(
-                                    window, Panel.resolve_control(element, list(window.ctrl.values()))
-                                )
+                                resolved = Panel.resolve_control(element, list(window.ctrl.values()))
+                                widget = None if resolved is None else get_control_widget(window, resolved)
                                 if widget is not None:
                                     _render_widget(widget)
         elif panel.elements:
@@ -95,7 +94,8 @@ def build_panel_widget(window: "MainWindow", panel: Panel) -> None:
                 if isinstance(element, Panel):
                     build_panel_widget(window, element)
                 elif isinstance(element, Control):
-                    widget = get_control_widget(window, Panel.resolve_control(element, list(window.ctrl.values())))
+                    resolved = Panel.resolve_control(element, list(window.ctrl.values()))
+                    widget = None if resolved is None else get_control_widget(window, resolved)
                     if widget is not None:
                         _render_widget(widget)
 
