@@ -56,3 +56,11 @@ def test_wrong_guesses_point_to_headless(guess, no_snapshot_env):
     demo = interactive_pipeline(gui="mpl")(ho_body)
     with pytest.raises(AttributeError, match=rf"ho_body\.{guess}\(\.\.\.\) does not exist.*ho_body\.headless\(img"):
         getattr(demo, guess)(np.ones(3))
+
+
+def test_gui_object_run_with_inputs_points_to_headless(no_snapshot_env):
+    demo = interactive_pipeline(gui="mpl")(ho_body)
+    with pytest.raises(TypeError, match=r"run\(\) takes no inputs.*ho_body\.headless\(img"):
+        demo.pipeline.run(np.ones(3))
+    with pytest.raises(TypeError, match="takes no inputs"):
+        demo.pipeline.run(gain=2.0)

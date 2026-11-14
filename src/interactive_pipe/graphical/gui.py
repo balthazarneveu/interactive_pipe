@@ -96,6 +96,24 @@ class InteractivePipeGUI:
         if self.restore_session:
             self.load_session()
             self.run = self._run_with_session(self.run)
+        self.run = self._run_without_inputs(self.run)
+
+    def _run_without_inputs(self, run: Callable) -> Callable:
+        """``run()`` takes no inputs: ``demo.pipeline.run(img)`` (a guess for
+        "the outputs without a window") raises, pointing to ``.headless``."""
+        name = self.name or "my_pipeline"
+
+        def run_checked(*args, **kwargs):
+            if args or kwargs:
+                raise TypeError(
+                    f"{type(self).__name__}.run() takes no inputs: it starts the window's event loop. "
+                    f"To get the outputs without a window, call {name}.headless(img, gain=2.0) on the "
+                    "decorated pipeline function (returns a tuple, like a gui=None pipeline); "
+                    f"{name}(img) opens the window."
+                )
+            return run()
+
+        return run_checked
 
     def init_app(self):
         """Init the app
