@@ -70,3 +70,67 @@ Not yours: `graphical/display.py`, `headless/snapshot.py`, `data_objects/`, `dra
   process-wide `Panel._controls`, so another pipeline's clones never show up.
 - Auto-renaming of colliding names (`f.gain`, `g.gain`) never renames a shared
   control (it is renamed as a whole, keeping one clone).
+
+### Done (2026-11-14, 04:06 → 05:00 CET)
+
+Full suite green: 1516 passed, 6 skipped (ruff format + check clean). The only
+failure seen in between was the known flaky
+`test_command_line.py::test_doctor_opens_no_window` (pre-existing, see
+`plan_robust_display.md`), which passed when rerun.
+
+| Commit | Item | What |
+|---|---|---|
+| `73c4198` | 1, 2 | Each pipeline clones the declared controls (`from_function`, filter entry points); the same `Control` object in several filters = one clone with several `targets`; named annotation aliases shared; parameters setter, `update_parameters_from_controls`, overrides, captions, `describe` (`targets`), summary go through targets; Qt / DPG / Gradio panels build from `Panel.controls_among(window controls)`; clones no longer appended to `Panel._controls` (no leak, no foreign widgets). Duplicate explicit names still raise, with how to share. Tests: `test_shared_controls.py` (headless + all five backends), rewritten `test_pipelines_built_from_one_filter_do_not_share_its_control`. |
+| `45dcfd4` | 1 | Gallery: `frequency_filtering` (shared `BAND`, `choose_band` removed, 81 → 78 lines), `signal_filtering` (shared `CUTOFF`, the invisible `context["cutoff"]` write/read removed; 98 → 98 lines), `pid_control` (named aliases `Kp`/`Ki`/`Kd`, `gains` filter removed, 87 → 79). Test: one control per shared value with both targets. |
+| `d4cb2d0` | 3 | `PipelineCore` keeps the context given from outside (construction + `context=`) as the seed; `snapshot` and each sweep cell restart from it (events off, cache cleared), live context / events / cache restored afterwards. Warm-up: `runs=N` on snapshot / sweep (smaller API than a `fresh=` flag). Log reproducer in `test_stateless_snapshots.py`. `reaction_diffusion` no longer keys its state on (feed, kill) (62 → 60). |
+| `3cc6b5c` | 4 | `core.context.direct_call_scope`: an `@interactive` filter called outside a pipeline run gets a throwaway framework state (layout / audio validated then no-ops, events off) and a scratch context whose missing keys raise a `KeyError` saying the filter is called directly. Module-level calls still raise (message names both ways). Gallery test calls the ISP filters directly. |
+| `311226f` | 5, 9 | Chosen name: **`.headless`** (`HeadlessPipeline.run()` already exists without arguments, so `run` would mean two things). Every `@interactive_pipeline` function gets `.headless`, a separate `HeadlessPipeline` of the same function (the GUI reshapes its own pipeline's outputs into rows, so sharing it would not return what `gui=None` returns); `HeadlessPipeline.headless` is itself. `.run / .outputs / .results / .compute` on the launcher raise pointing to it. `HeadlessPipeline.__call__` docstring. |
+| `42fa675` | 6 | A list returned to a single assigned name is kept whole (several names still unpack; tuples unchanged). Instrumented run of the whole suite (every demo, gallery example, sample and tested doc / skill block): no code relied on the old rule; untested doc blocks checked by hand (all are pipeline returns). Listed first in the changelog. Tests: `test_list_outputs.py` (the log reproducer for n = 0..3). |
+| `72b690e` | 7 | `Control(..., scale="log")`, shorthand `(1e-2, [1e-4, 1e-1, "log"])`, annotation `Annotated[float, (1e-4, 1e-1, "log")]` (the label stays a separate string, so `"log"` in the step slot is unambiguous); float only, positive range, no step. `to_position` / `from_position` / `snap` on `Control`; Qt, DPG (slider over the position, its text the real value), matplotlib (valtext), notebook (`FloatLogSlider`), Gradio (HTML slider like the range one). Geometric `steps=`, `describe()["scale"]`. Default float step 1/2/5×10^k (`nice_step`), snapped values without float noise. `optimizer_trace`: `lr` log slider instead of `log_lr` (79 → 79 lines, the `10**` gone). Tests: `test_log_controls.py`. |
+| `9b15239` | 8, 9 | `check_targets` at the end of `from_function`; `animation.py` passes output and filter names to `prepare_display`; `save_entire_buffer: bool`. Tests: `test_build_checks.py`. |
+| `cc02aac` | — | `docs/guide/testing.md` (direct calls, `.headless`, fresh snapshots, `runs=`), blocks run in `test_testing_docs.py`; nav entry. |
+
+Looked at: Qt offscreen grabs (shared control in its panel; log slider at mid
+travel = 0.00316), matplotlib figure of the log slider, snapshots of the three
+shared-control gallery examples (shared values captioned once), reaction-diffusion
+sweep (independent cells), geometric `lr` sweep of `optimizer_trace`.
+
+### Decisions worth knowing
+
+- A pipeline **starts from the declared control's current value** (normally its
+  default); repeats and renamed controls start from the default. The declared
+  object is never connected nor changed by a pipeline, so `Control.get_controls(f)`
+  is a declaration, and direct calls use it.
+- `"filter.param"` naming one target of a shared control sets the control, hence
+  all its targets (one widget, one value).
+- A shared control is never auto-renamed (`band` stays `band` next to another
+  filter's `band`, which becomes `f.band`).
+- Single-filter entry points (`f.snapshot`, `f.interact`) still deduce their
+  outputs by unpacking a returned list (no pipeline line to decide).
+- Log scale is not offered for `RangeControl`, int sliders or `CircularControl`.
+
+### Not done / limits
+
+- Dear PyGui: the log slider text was checked by the unit test (the item's
+  `format` is the real value), but the frame capture of a real viewport came back
+  blank on this machine (twice), so it was not looked at as a picture.
+- Gradio's HTML log slider: built and wired (the component value is the real
+  value, `run_fn` sets the control), not rendered in a browser.
+- `signal_filtering.py` and `optimizer_trace.py` did not get shorter in lines
+  (the workaround lines were replaced one for one); `blob_detection.py` keeps its
+  dict-of-columns design (a list-of-dicts rewrite was 3 lines longer), only the
+  "a dict: one output" workaround comment is gone.
+
+### Left for review (files not mine)
+
+- **Skill** (`src/interactive_pipe/agent/build-interactive-pipeline/SKILL.md`), lines to replace:
+  - l.75 "No log-scale slider: ..." → "Log slider: `lr=Control(1e-2, [1e-4, 1e-1], scale="log")`, `(1e-2, [1e-4, 1e-1, "log"])` or `Annotated[float, (1e-4, 1e-1, "log")]`; values, sweeps and captions are the real value."
+  - l.77 "One slider for several filters: ... `pid = gains()` ..." → "**One slider for several filters**: declare it once and pass the same object to each decorator (`band = RangeControl(...)`; `@interactive(band=band)` on both; parameter names may differ), or a named annotation alias `Kp = Annotated[float, Control(2.0, [0, 10], name="Kp")]`."
+  - l.104 "A returned tuple or list is unpacked ... 1-item list silently becomes its item" → "A returned tuple is unpacked into the names the line assigns; a list assigned to one name stays one value (detections...)."
+  - l.219 row `returned 9 values but the pipeline assigns 1 name(s)` → fix: "the filter returned a tuple: unpack it, or return a list / `(items,)`".
+  - Add: "Unit tests: call filters directly (`layout` / `context` work, context is a scratch dict); `my_pipeline.headless(img, gain=2.0)` returns the outputs of any GUI pipeline; snapshots / sweeps start from a fresh context, `runs=N` for warm-up."
+- `docs/gallery.md` l.61 "a log10 learning-rate slider" → "a log-scale learning-rate slider"; l.105 (reaction-diffusion) → "the state lives in `context`; snapshots and sweeps start each picture from a fresh context, so they stay reproducible". Gallery PNGs (`scripts/make_gallery.py`) can be regenerated (optimizer captions now `lr=...`).
+- `graphical/qt_gui.py::update_label` formats floats as `f"{val:.3e}"` (`3.160e-03`, `2.500e-01`): `f"{val:.4g}"` would read better now that steps are 1/2/5.
+- `graphical/gui.py` / backends: `demo.pipeline.run(img)` (the GUI object's `run`) still fails with `TypeError: run() takes 1 positional argument`; a pointer to `demo.headless(img)` there would close the last wrong guess.
+- `docs/guide/snapshots.md` / `decorators.md` (not mine) do not mention the fresh context / `runs=` nor the list rule; `docs/guide/testing.md` and the changelog do.
+- Ruff reformats python blocks inside `plan_agent_dogfood.md` on every `ruff format .` (reverted each time here).
