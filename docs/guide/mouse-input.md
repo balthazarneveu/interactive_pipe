@@ -69,11 +69,14 @@ drag from bottom-right to top-left produces) is reordered.
 
 `on="img"` names the pipeline output that receives the gestures, here the
 input image itself; any variable of the pipeline body that is displayed works.
-Without `on=`, the first image output is used. An unknown name fails when the
-GUI is built (and in `describe()`), listing the available outputs.
+Without `on=`, the first image output is used. An unknown name fails when a
+GUI pipeline is decorated or a GUI is built, listing the available outputs; a
+`gui=None` pipeline (a small test pipeline reusing the filter) and
+`describe()` only log a warning, since there is no mouse there.
 
 A heatmap shown with a colorbar (`layout.style(..., colorbar=True)`) or
-enlarged maps back to data pixels; clicks on the colorbar are ignored. A
+enlarged maps back to data pixels; clicks on the colorbar are ignored. With axes
+(`layout.style(..., extent=...)`) the margins are skipped the same way. A
 matplotlib figure output cannot be a target (a warning says so).
 
 ## Gestures per backend

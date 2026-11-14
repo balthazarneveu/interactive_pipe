@@ -69,6 +69,39 @@ def demo(img):
 assert out.tolist() == [2.0, 2.0, 2.0]
 ```
 
+## Read the titles and styles of the last run
+
+A readout written in a title (`layout.style("overlay", title=f"IoU {iou:.2f}")`)
+is not part of the outputs; `pipe.styles` gives the `layout.style` options of
+each output after the last run (a copy), also through `.headless`:
+
+```python
+import numpy as np
+
+from interactive_pipe import interactive, interactive_pipeline, layout
+
+
+@interactive(gain=(1.0, [0.0, 3.0]))
+def measured(img, gain=1.0):
+    out = img * gain
+    layout.style("out", title=f"mean {out.mean():.1f}")
+    return out
+
+
+@interactive_pipeline(gui="qt")
+def readout(img):
+    out = measured(img)
+    return out
+
+
+readout.headless(np.ones(3), gain=2.0)
+assert readout.headless.styles["out"]["title"] == "mean 2.0"
+```
+
+A filter with a `PointControl` / `RegionControl` aimed (`on=`) at an output
+that a small `gui=None` test pipeline does not produce only logs a warning
+there (a GUI pipeline raises): the control keeps its value.
+
 ## Reproducible snapshots of stateful pipelines
 
 `snapshot` and every `sweep` cell start like a first run: the `context` holds

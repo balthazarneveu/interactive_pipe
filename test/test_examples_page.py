@@ -12,7 +12,7 @@ def test_every_demo_is_on_the_examples_page():
     text = EXAMPLES.read_text(encoding="utf-8")
     scripts = sorted(path.name for path in (ROOT / "demo").glob("*.py"))
     gallery = (ROOT / "demo" / "gallery").glob("*.py")
-    scripts += sorted(path.name for path in gallery if not path.stem.startswith("g2_"))  # g2_*: not listed yet
+    scripts += sorted(path.name for path in gallery)
     missing = [name for name in scripts if f"`{name}`" not in text and f"`{name.removesuffix('.py')}.py`" not in text]
     assert not missing, f"not on docs/guide/examples.md: {missing}"
 

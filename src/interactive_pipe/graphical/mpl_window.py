@@ -9,7 +9,13 @@ from matplotlib.figure import Figure
 from interactive_pipe.core.engine import FilterError
 from interactive_pipe.data_objects.curves import Curve
 from interactive_pipe.data_objects.table import Table
-from interactive_pipe.graphical.display import FIGURE_SCREEN_DPI, TEXT_FONT_PT, figure_of, wrap_text
+from interactive_pipe.graphical.display import (
+    FIGURE_SCREEN_DPI,
+    HEATMAP_STYLE_KEYS,
+    TEXT_FONT_PT,
+    figure_of,
+    wrap_text,
+)
 from interactive_pipe.graphical.pointer_input import (
     POINT_COLOR,
     REGION_COLOR,
@@ -75,6 +81,13 @@ class MatplotlibWindow(InteractivePipeWindow):
         title = style.get("title", None)
         if title:
             ax.set_title(title)
+        if any(style.get(key) is not None for key in HEATMAP_STYLE_KEYS):
+            # a heatmap: extent / xlabel / ylabel are drawn into the image (same on every
+            # backend); the pixel ticks of the composed image would only confuse
+            if any(style.get(key) is not None for key in ("extent", "xlabel", "ylabel")):
+                ax.set_xticks([])
+                ax.set_yticks([])
+            return
         xlabel = style.get("xlabel", None)
         if xlabel:
             ax.set_xlabel(xlabel)

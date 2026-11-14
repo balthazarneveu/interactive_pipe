@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from typing import Annotated, Tuple
 
 import numpy as np
@@ -239,7 +240,7 @@ def test_describe_kinds_and_target():
     assert "on the first image" in text
 
 
-def test_unknown_target_is_reported_with_the_available_names():
+def test_unknown_target_is_reported_with_the_available_names(caplog):
     @interactive(where=PointControl((0.5, 0.5), on="missing"))
     def misplaced(img, where=(0.5, 0.5)):
         return img
@@ -248,9 +249,10 @@ def test_unknown_target_is_reported_with_the_available_names():
         out = misplaced(img)
         return [img, out]
 
-    # raised when the pipeline is built (before any GUI, describe or snapshot)
-    with pytest.raises(ValueError, match=r"on='missing' is not an output .*Available outputs: \['img', 'out'\]"):
+    # a headless pipeline warns (no mouse there); a GUI raises (test_pointer_fallback)
+    with caplog.at_level(logging.WARNING):
         HeadlessPipeline.from_function(bad_pipeline, inputs=["img"])
+    assert re.search(r"on='missing' is not an output .*Available outputs: \['img', 'out'\]", caplog.text)
 
 
 def test_target_may_be_any_produced_variable():

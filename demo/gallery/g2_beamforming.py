@@ -58,8 +58,10 @@ def pattern(
 @interactive(elements=ELEMENTS, steering=STEERING, taper=TAPER)
 def spacing_map(elements=8, steering=20.0, taper="uniform"):
     rows = [array_factor_db(elements, d, steering, taper, angles=np.arange(-90, 91)) for d in SPACINGS]
-    title = "rows: spacing 0.1 (top) to 2 wavelengths, columns: -90 to 90 deg"
-    layout.style("spacing_vs_angle", title=title, colormap="magma", vmin=-40, vmax=0, colorbar="array factor (dB)")
+    layout.style("spacing_vs_angle", title="array factor vs spacing", colormap="magma", vmin=-40, vmax=0)
+    # rows run from 0.1 (top) to 2 wavelengths (bottom): extent = (left, right, bottom, top)
+    axes = dict(extent=(-90, 90, 2.0, 0.1), xlabel="angle (deg)", ylabel="spacing (wavelengths)")
+    layout.style("spacing_vs_angle", colorbar="array factor (dB)", **axes)
     return np.array(rows)
 
 

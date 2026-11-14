@@ -47,7 +47,7 @@ def test_large_maps_are_not_upscaled():
     big = np.random.default_rng(0).random((300, 400))
     out = apply_display_style(big, {"colormap": "magma", "colorbar": True})
     assert out.shape[0] == 300
-    assert heatmap_geometry(big, {"colorbar": True}) == (1, 300, 400)
+    assert heatmap_geometry(big, {"colorbar": True})[:3] == (1, 300, 400)
 
 
 def test_colorbar_text_height_stays_legible():
@@ -113,6 +113,25 @@ def test_colorbar_keeps_both_ends_and_drops_overlapping_ticks(vmin, vmax, bar_h)
     assert [text for _, text in placed[: len(ends)]] == ends
     ys = sorted(y for y, _ in placed)
     assert all(b - a >= 15.0 for a, b in zip(ys, ys[1:])) or len(ends) == 2 and len(placed) == 2
+
+
+@pytest.mark.parametrize("height", [256, 512, 800, 1000])
+def test_end_label_and_nearest_tick_keep_a_clear_gap(height):
+    """vmin=1.0, vmax=4.2: '4.2' and '4.0' must not nearly touch."""
+    strip = colorbar_strip(matplotlib.colormaps["viridis"], 1.0, 4.2, height)
+    # rows holding label text (right of the bar): groups of dark rows separated by white
+    labels_area = strip[:, int(strip.shape[1] * 0.6) :]  # right of the bar and its ticks
+    dark_rows = (labels_area.mean(axis=-1) < 0.5).any(axis=1)
+    runs, start = [], None
+    for y, dark in enumerate(dark_rows):
+        if dark and start is None:
+            start = y
+        elif not dark and start is not None:
+            runs.append((start, y))
+            start = None
+    gaps = [b_start - a_end for (_, a_end), (b_start, _) in zip(runs, runs[1:])]
+    font_px = np.clip(round(height * 0.05), 12, 48)
+    assert min(gaps) >= 0.6 * font_px, (runs, gaps)
 
 
 def _strip_text_columns(strip):
@@ -271,7 +290,7 @@ def test_qt_readout_reports_the_scalar_in_data_pixels():
     gui.window.refresh()
     view = gui.window.image_canvas[0][0]["image"]
     upscale = colorbar_upscale(16)
-    assert view.readout == (upscale, 16, 16)
+    assert view.readout[:3] == (upscale, 16, 16)
     x0, y0, _, _ = view.image_rect()
     scale = view.scale()
 
@@ -318,7 +337,7 @@ def test_registered_colormap_strips_are_cached():
 def test_wide_flat_maps_are_not_blown_up():
     out = apply_display_style(np.zeros((8, 2000)), {"colorbar": True})
     assert out.shape[1] < 2100
-    assert heatmap_geometry(np.zeros((8, 2000)), {"colorbar": True}) == (1, 8, 2000)
+    assert heatmap_geometry(np.zeros((8, 2000)), {"colorbar": True})[:3] == (1, 8, 2000)
 
 
 def test_numpy_integer_style_values_do_not_wrap():

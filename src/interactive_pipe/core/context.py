@@ -9,13 +9,20 @@ This module provides four main exports:
 Internal implementation uses contextvars to maintain separate framework and user contexts.
 """
 
+import atexit
 import logging
 import numbers
+import os
+import tempfile
+import wave
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any, Dict, Iterator, List, Optional, Union
 
+import numpy as np
+
 from interactive_pipe.core.framework_state import FrameworkState
+from interactive_pipe.core.framework_state import _noop as _NO_AUDIO
 
 # ============================================================================
 # Internal Context Variables (not exported)
@@ -135,8 +142,24 @@ SUPPORTED_STYLE_KEYS = (
     "dpi",
     "xlabel",
     "ylabel",
+    "extent",
 )
 _warned_style_keys: set = set()  # warn once per unknown key: layout.style runs on every frame
+_UNSET: Any = object()  # layout.style(title=...) not given (an explicit None removes the title)
+
+
+def _check_extent(name: str, extent: Any) -> None:
+    if extent is None:
+        return
+    if (
+        not isinstance(extent, (tuple, list))
+        or len(extent) != 4
+        or any(isinstance(v, bool) or not isinstance(v, numbers.Real) for v in extent)
+    ):
+        raise TypeError(
+            f"layout.style('{name}', extent=...): (x0, x1, y0, y1) numbers are expected "
+            f"(x of the left / right columns, y of the bottom / top rows), got {extent!r}"
+        )
 
 
 def _check_colormap_name(colormap: str) -> None:
@@ -162,8 +185,14 @@ class _LayoutProxy:
         - row(): Convenience for single-row layout
     """
 
-    def style(self, name: str, *, title: Optional[str] = None, **style_kwargs: Any) -> None:
+    def style(self, name: str, *, title: Any = _UNSET, **style_kwargs: Any) -> None:
         """Set display properties for an output.
+
+        Calls on one output during one run add up: a later call changes only
+        the keys it gives (``layout.style("h", colormap="viridis")`` then
+        ``layout.style("h", title=f"max {m:.1f}")`` keeps the colormap);
+        ``key=None`` removes that key. The first call of the next run starts
+        from nothing again.
 
         Args:
             name: Output variable name (must match the variable name in the return statement)
@@ -194,8 +223,16 @@ class _LayoutProxy:
 
                 NaN and masked (``numpy.ma``) values of a styled 2D array are
                 shown in magenta; ``±inf`` go to the ends of the scale.
-                - ``xlabel`` / ``ylabel``: axis labels (matplotlib backend only;
-                  for curves prefer ``Curve(..., xlabel=...)``).
+                - ``extent``: ``(x0, x1, y0, y1)``, the coordinates of the left /
+                  right columns and bottom / top rows of a 2D array (as in
+                  ``imshow``): the heatmap gets axes with round ticks drawn
+                  into the displayed image (every backend and snapshots; the
+                  Qt readout then also shows these coordinates). ``extent``
+                  alone makes a 2D array a heatmap (data range, gray).
+                - ``xlabel`` / ``ylabel``: axis labels; on a heatmap they are
+                  drawn with its axes (pixel indices without ``extent``),
+                  elsewhere only by the matplotlib backend. For curves use
+                  ``Curve(..., xlabel=...)``.
 
                 Other keys are ignored, with a warning.
 
@@ -211,9 +248,8 @@ class _LayoutProxy:
         """
         state = _get_framework_state(f"layout.style({name!r}, ...)")
 
-        style = {}
-        if title is not None:
-            style["title"] = title
+        if title is not _UNSET:
+            style_kwargs = {"title": title, **style_kwargs}
         unknown = sorted(key for key in style_kwargs if key not in SUPPORTED_STYLE_KEYS)
         for key in unknown:
             if key not in _warned_style_keys:
@@ -229,12 +265,21 @@ class _LayoutProxy:
             value = style_kwargs.get(key)
             if value is not None and (isinstance(value, bool) or not isinstance(value, numbers.Real)):
                 raise TypeError(f"layout.style('{name}', {key}=...): a number is expected, got {value!r}")
-        style.update(style_kwargs)
-        subtitle = style_kwargs.get("subtitle")
+        _check_extent(name, style_kwargs.get("extent"))
+
+        # successive calls on one output during one run add up (later call
+        # wins per key, None removes a key); the first call of a run starts afresh
+        previous = state.style_calls.get(name)
+        given = dict(previous[1]) if previous is not None and previous[0] == state.run_count else {}
+        given.update(style_kwargs)
+        given = {key: value for key, value in given.items() if value is not None}
+        state.style_calls[name] = (state.run_count, given)
+
+        style = dict(given)
+        subtitle = given.get("subtitle")
         if subtitle:
             # backends show a single title line: the subtitle goes after it
-            style["title"] = f"{title if title is not None else name} · {subtitle}"
-
+            style["title"] = f"{given.get('title', name)} · {subtitle}"
         state.output_styles[name] = style
 
     def grid(self, arrangement: Union[List[str], List[List[str]]]) -> None:
@@ -294,6 +339,47 @@ class _LayoutProxy:
 # ============================================================================
 
 
+_temporary_wavs: set = set()  # audio.set(signal, rate) files still on disk, deleted at exit
+
+
+@atexit.register
+def _remove_temporary_wavs() -> None:
+    for path in list(_temporary_wavs):
+        _remove_wav(path)
+
+
+def _remove_wav(path: str) -> None:
+    _temporary_wavs.discard(path)
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
+def _write_temporary_wav(state: FrameworkState, signal: Any, sample_rate: int) -> str:
+    """16-bit PCM WAV of ``signal`` in a new temporary file; the previous one of ``state`` is removed.
+
+    A new name per sound: players cache what they loaded from a path.
+    """
+    if signal.dtype == np.int16:
+        pcm = signal
+    else:
+        pcm = (np.clip(np.nan_to_num(signal.astype(np.float64)), -1.0, 1.0) * 32767).astype(np.int16)
+    channels = 1 if pcm.ndim == 1 else pcm.shape[1]
+    handle, path = tempfile.mkstemp(prefix="interactive_pipe_audio_", suffix=".wav")
+    os.close(handle)
+    _temporary_wavs.add(path)
+    with wave.open(path, "wb") as wav:
+        wav.setnchannels(channels)
+        wav.setsampwidth(2)
+        wav.setframerate(sample_rate)
+        wav.writeframes(np.ascontiguousarray(pcm).astype("<i2").tobytes())
+    if state.audio_file is not None:
+        _remove_wav(state.audio_file)
+    state.audio_file = path
+    return path
+
+
 class _AudioProxy:
     """Proxy for audio playback control using contextvars.
 
@@ -301,24 +387,63 @@ class _AudioProxy:
     without polluting function signatures with global_params.
     """
 
-    def set(self, audio_path: str) -> None:
-        """Set the audio file to play.
+    def set(self, audio: Any, sample_rate: Optional[int] = None) -> None:
+        """Set the sound the GUI plays: a file, or a signal computed by the filter.
 
-        Args:
-            audio_path: Path to the audio file
+        Two forms:
+
+        - ``audio.set("path/to/track.wav")``: a file path (``str`` or ``Path``).
+        - ``audio.set(signal, sample_rate)``: a numpy array, mono ``(n,)`` or
+          ``(n, channels)`` with 1 or 2 channels, float in ``[-1, 1]``
+          (clipped) or ``int16``; ``sample_rate`` in Hz. The library writes it
+          to a temporary WAV file, deleted when the next sound replaces it and
+          at exit.
+
+        Each call stops what is playing and loads the new sound from its
+        start; call ``audio.play()`` after it to start playback (a filter
+        calling ``set`` then ``play`` restarts the sound each time a slider
+        changes its output; with the cache on, an unchanged filter does not
+        re-run and the sound goes on). Playback exists in the Qt and Gradio
+        windows only: in headless calls, snapshots, sweeps, tests and the
+        other backends the call checks its arguments and does nothing else
+        (no file, no audio device).
 
         Example:
             ```python
-            audio.set("path/to/track.mp3")
+            audio.set(np.sin(2 * np.pi * 440 * t), 16000)
+            audio.play()
             ```
 
         Raises:
             RuntimeError: If called outside of filter execution context.
+            TypeError: If the arguments match neither form.
         """
         state = _get_framework_state("audio.set(...)")
-        # AudioBindings defaults to no-ops, so this silently does nothing
-        # outside a GUI (same behavior as before)
-        state.audio.set_audio(audio_path)
+        forms = (
+            "audio.set(path) with a file path, or audio.set(signal, sample_rate) with a numpy array "
+            "(n,) or (n, channels), float in [-1, 1] or int16, and the rate in Hz"
+        )
+        if isinstance(audio, (str, os.PathLike)):
+            if sample_rate is not None:
+                raise TypeError(f"audio.set: a file has its own sample rate, do not pass one. Use {forms}")
+            path: Any = audio
+        else:
+            if not isinstance(audio, np.ndarray):
+                raise TypeError(f"audio.set: got {type(audio).__name__}. Use {forms}")
+            if sample_rate is None or isinstance(sample_rate, bool) or not isinstance(sample_rate, numbers.Integral):
+                raise TypeError(f"audio.set(signal, sample_rate): an integer rate in Hz is expected. Use {forms}")
+            if sample_rate <= 0:
+                raise ValueError(f"audio.set(signal, sample_rate): the rate must be positive, got {sample_rate}")
+            if audio.ndim not in (1, 2) or (audio.ndim == 2 and audio.shape[1] not in (1, 2)):
+                hint = " (pass signal.T: channels go last)" if audio.ndim == 2 and audio.shape[0] in (1, 2) else ""
+                raise TypeError(f"audio.set: signal of shape {audio.shape}{hint}. Use {forms}")
+            if audio.dtype != np.int16 and audio.dtype.kind not in "fiu":
+                raise TypeError(f"audio.set: signal of dtype {audio.dtype}. Use {forms}")
+            if state.audio.set_audio is _NO_AUDIO:
+                return  # no player (headless, snapshot, a backend without audio): no file either
+            path = _write_temporary_wav(state, audio, int(sample_rate))
+        # AudioBindings defaults to no-ops: does nothing outside a GUI with audio
+        state.audio.set_audio(path)
 
     def play(self) -> None:
         """Start audio playback.

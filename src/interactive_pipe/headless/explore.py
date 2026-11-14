@@ -28,6 +28,7 @@ from interactive_pipe.headless.output_check import output_problem, warn_output_p
 from interactive_pipe.headless.snapshot import (
     Grid,
     OutputSelector,
+    compact_panel,
     default_sweep_cell,
     figure_to_rgb,
     flat_cells,
@@ -303,14 +304,19 @@ def _caption(pipeline: Any, caption: Union[bool, str, None], exclude: Sequence[T
     if caption is True:
         parameters = PipelineCore.parameters.__get__(pipeline)  # type: ignore[attr-defined]
         excluded = set(exclude)
+        shared = []
         for ctrl in _controls(pipeline):
-            # a control shared by several filters is one value: shown once, at its first target
-            excluded.update((filt.name, param_name) for filt, param_name in ctrl.targets[1:])
+            # a control shared by several filters is one value: shown once, by the control's name
+            if len(ctrl.targets) > 1:
+                targets = {(filt.name, param_name) for filt, param_name in ctrl.targets}
+                if not targets & set(exclude):  # swept: in the cell labels
+                    shared.append(f"{ctrl.name}={format_value(ctrl.value)}")
+                excluded |= targets
         kept = {
             filter_name: {key: val for key, val in values.items() if (filter_name, key) not in excluded}
             for filter_name, values in parameters.items()
         }
-        text = format_parameters(kept)
+        text = "\n".join(line for line in (", ".join(shared), format_parameters(kept)) if line)
         return text or None
     if isinstance(caption, str):
         return caption
@@ -522,9 +528,7 @@ def split_sweep_arguments(
 
 
 def _panel(grid: Grid, output: Any) -> Grid:
-    if output == ALL_OUTPUTS:
-        return grid
-    return select_cells(grid, output)
+    return compact_panel(grid if output == ALL_OUTPUTS else select_cells(grid, output))
 
 
 def sweep(

@@ -182,6 +182,18 @@ def select_cells(grid: Grid, output: OutputSelector) -> Grid:
     return [chosen]
 
 
+def compact_panel(grid: Grid) -> Grid:
+    """A sweep panel that is one row or one column of four or more outputs,
+    folded into a near-square grid (four outputs: 2 x 2) so that the contact
+    sheet stays readable; other layouts are kept."""
+    cells = flat_cells(grid)
+    single_line = len(grid) == 1 or all(len([cell for cell in row if cell is not None]) <= 1 for row in grid)
+    if len(cells) < 4 or not single_line:
+        return grid
+    ncols = int(np.ceil(np.sqrt(len(cells))))
+    return [list(cells[start : start + ncols]) for start in range(0, len(cells), ncols)]
+
+
 def default_sweep_cell(grid: Grid, changed: Optional[Collection[Any]] = None) -> int:
     """Index (reading order) of the output shown by default in a sweep.
 
@@ -275,7 +287,7 @@ def _draw_table(ax: Any, table: Table, height_inches: float) -> None:
     draw_table(ax, table, height_inches=height_inches - TITLE_HEIGHT)
 
 
-def _draw_image(ax: Any, content: np.ndarray, pixels_available: float) -> None:
+def _draw_image(ax: Any, content: np.ndarray, pixels_available: float, frame: bool = True) -> None:
     img = _image_array(content)
     if img is None:  # pragma: no cover - filtered out by _cell_kind
         return
@@ -288,6 +300,8 @@ def _draw_image(ax: Any, content: np.ndarray, pixels_available: float) -> None:
     for spine in ax.spines.values():  # thin frame: shows where a white image ends
         spine.set_color("lightgray")
         spine.set_linewidth(0.6)
+        # a figure has its own axes: no frame around it (drawn like a Curve's cell)
+        spine.set_visible(frame)
 
 
 def _set_title(ax: Any, title: Optional[str], width_inches: float) -> None:
@@ -300,7 +314,7 @@ def draw_cell(ax: Any, cell: SnapshotCell, width_inches: float, dpi: float, heig
     content = cell.content
     kind = _cell_kind(content)
     if kind == "image":
-        _draw_image(ax, content, pixels_available=width_inches * dpi)
+        _draw_image(ax, content, pixels_available=width_inches * dpi, frame=figure_of(cell.raw) is None)
         _set_title(ax, cell.title, width_inches)
         if figure_of(cell.raw) is not None:
             # drawn again at the size of its axes once the layout is known (_redraw_figure_cells)
@@ -361,6 +375,8 @@ def grid_size(grid: Grid) -> Tuple[List[float], List[float]]:
             if cell is None:
                 continue
             width, height = natural_size(cell.content)
+            if figure_of(cell.raw) is not None:  # at least the room of a Curve: same text, same size
+                width = max(width, PLOT_SIZE[0])
             widths[col_idx] = max(widths[col_idx], width)
             heights[row_idx] = max(heights[row_idx], height + TITLE_HEIGHT)
     widths = [width if width > 0 else 1.0 for width in widths]
@@ -389,7 +405,23 @@ def _all_axes(container: Any) -> List[Any]:
     return axes
 
 
+def _row_neighbours(ax: Any) -> List[Any]:
+    """The other axes of the grid sharing a row with `ax` (same gridspec)."""
+    spec = ax.get_subplotspec()
+    rows = set(spec.rowspan)
+    neighbours = []
+    for other in spec.get_gridspec().figure.axes:
+        other_spec = other.get_subplotspec() if hasattr(other, "get_subplotspec") else None
+        if other is ax or other_spec is None or other_spec.get_gridspec() is not spec.get_gridspec():
+            continue
+        if rows & set(other_spec.rowspan):
+            neighbours.append(other)
+    return neighbours
+
+
 def _redraw_figure_cells(fig: "Figure", dpi: float) -> None:
+    from matplotlib.transforms import Bbox
+
     """Draw each matplotlib figure output again at the pixel size of its
     axes, at the snapshot dpi: its text comes out the size of a Curve's in
     the next cell, whatever its figsize (see ``rasterize_figure``)."""
@@ -397,18 +429,25 @@ def _redraw_figure_cells(fig: "Figure", dpi: float) -> None:
     if not axes:
         return
     fig.draw_without_rendering()  # runs the (constrained) layout
-    width_px, height_px = fig.get_size_inches() * fig.dpi
+    renderer = fig.canvas.get_renderer()
     for ax in axes:
         figure, style_dpi = getattr(ax, _FIGURE_CELL)
-        position = ax.get_position(original=True)
-        box = (
-            FIGURE_OVERSAMPLE * position.width * width_px,
-            FIGURE_OVERSAMPLE * position.height * height_px,
-        )
+        # the figure has its own ticks and labels: it also takes the room the
+        # layout keeps below the axes of its row for a Curve's tick labels
+        extent = ax.get_window_extent(renderer)
+        x0, y0, width, height = extent.x0, extent.y0, extent.width, extent.height
+        bottom = min([y0] + [other.get_tightbbox(renderer).y0 for other in _row_neighbours(ax)])
+        if bottom < y0:
+            height, y0 = height + (y0 - bottom), bottom
+            container = ax.get_subplotspec().get_gridspec().figure
+            ax.set_in_layout(False)  # keep this position when the sheet is drawn
+            ax.set_position(container.transSubfigure.inverted().transform_bbox(Bbox.from_bounds(x0, y0, width, height)))
+        box = (FIGURE_OVERSAMPLE * width, FIGURE_OVERSAMPLE * height)
         raster = rasterize_figure(figure, FIGURE_OVERSAMPLE * (style_dpi or dpi), box=box)
         for image in list(ax.images):
             image.remove()
-        _draw_image(ax, raster, pixels_available=position.width * width_px)
+        _draw_image(ax, raster, pixels_available=width, frame=False)
+        ax.set_anchor("N")  # any spare room goes below the figure, not between it and its title
 
 
 def draw_grid(container: Any, grid: Grid, scale: float, dpi: float) -> None:

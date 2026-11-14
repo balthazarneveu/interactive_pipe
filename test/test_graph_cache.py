@@ -241,24 +241,22 @@ def test_graph_cache_inplace_mutation_detected():
     assert counters == {"detect": 1, "draw": 1}
     assert np.allclose(res[2], input_image + 1.0)
 
-    # detect reads AND writes "boxes" (self feedback edge): one settle run replays it,
-    # but the net content is identical so draw stays cached
+    # detect reads "boxes" only after writing it in the same call: its own value,
+    # not a feedback edge - nothing re-runs
     pip.run()
-    assert counters == {"detect": 2, "draw": 1}
+    assert counters == {"detect": 1, "draw": 1}
     pip.run()
-    assert counters == {"detect": 2, "draw": 1}
+    assert counters == {"detect": 1, "draw": 1}
 
     # detect recomputes with a new sigma: draw must see the new boxes the same run
     pip.parameters = {"detect": {"sigma": 2.0}}
     res = pip.run()
-    assert counters == {"detect": 3, "draw": 2}
+    assert counters == {"detect": 2, "draw": 2}
     assert np.allclose(res[2], input_image + 2.0)
 
-    # one settle run for the self edge, then stable again
+    # no settle run: stable at once
     pip.run()
-    assert counters == {"detect": 4, "draw": 2}
-    pip.run()
-    assert counters == {"detect": 4, "draw": 2}
+    assert counters == {"detect": 2, "draw": 2}
 
 
 def test_graph_cache_accumulator_always_recomputes():

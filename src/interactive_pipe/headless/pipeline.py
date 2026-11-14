@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 
@@ -140,6 +140,21 @@ class HeadlessPipeline(PipelineCore):
         """This pipeline (``my_pipeline.headless(img)`` works whatever the ``gui``:
         a GUI-decorated function's ``.headless`` is its HeadlessPipeline)."""
         return self
+
+    @property
+    def styles(self) -> Dict[str, Dict[str, Any]]:
+        """``layout.style`` options of each output after the last run, as
+        ``{output name: {"title": ..., "colormap": ..., ...}}`` (a copy).
+
+        Readouts written in titles are testable without a window::
+
+            out = my_pipeline.headless(img, radius=2)
+            assert my_pipeline.headless.styles["overlay"]["title"] == "mean IoU 0.80"
+
+        An output whose filter did not re-run (cache) keeps the style of the
+        run that produced it; an output never styled is absent.
+        """
+        return {name: dict(style) for name, style in self.framework_state.output_styles.items()}
 
     @staticmethod
     def routing_indexes(inputs_names, all_variables):
@@ -332,11 +347,12 @@ class HeadlessPipeline(PipelineCore):
             **kwargs,
         )
         data_class.controls = control_list
-        # a point / region control aimed (on=...) at an output the pipeline does not produce
-        # fails here, at build time, rather than when a GUI / snapshot is made
+        # a point / region control aimed (on=...) at an output the pipeline does not produce:
+        # a warning here (a headless test pipeline may reuse the filter without that output);
+        # @interactive_pipeline with a GUI and every GUI construction raise
         from interactive_pipe.headless.pointer import check_targets
 
-        check_targets(data_class)
+        check_targets(data_class, strict=False)
         return data_class
 
     @staticmethod

@@ -131,3 +131,79 @@ def test_curve_update_plot_handles_curve_count_change():
     plt_obj = crv.update_plot(plt_obj, ax=ax)
     assert len(ax.get_lines()[0].get_xdata()) == 20
     plt.close(fig)
+
+
+# ---------------------------------------------------------------------------
+# xscale / yscale
+# ---------------------------------------------------------------------------
+
+LOSS = np.exp(-np.linspace(0, 8, 50)) + 1e-4
+
+
+def test_curve_scales_are_validated():
+    with pytest.raises(ValueError, match="'log', 'symlog'"):
+        Curve([LOSS], yscale="logarithmic")
+    curve = Curve([LOSS], yscale="log", xscale="symlog")
+    assert (curve.xscale, curve.yscale) == ("symlog", "log")
+    assert Curve([LOSS]).yscale is None
+
+
+def test_curve_scales_on_matplotlib_axes_and_updates():
+    from matplotlib.figure import Figure
+
+    ax = Figure().subplots()
+    plot = Curve([LOSS], yscale="log").create_plot(ax=ax)
+    assert (ax.get_xscale(), ax.get_yscale()) == ("linear", "log")
+    plot = Curve([LOSS], xscale="log").update_plot(plot, ax=ax)
+    assert (ax.get_xscale(), ax.get_yscale()) == ("log", "linear")
+
+
+def _pixels_of(curve):
+    from interactive_pipe import interactive
+    from interactive_pipe.headless.pipeline import HeadlessPipeline
+
+    @interactive()
+    def plot():
+        return curve
+
+    def pipe():
+        out = plot()
+        return out
+
+    return HeadlessPipeline.from_function(pipe).snapshot(None)
+
+
+def test_snapshot_draws_the_log_axis():
+    linear = _pixels_of(Curve([LOSS]))
+    log = _pixels_of(Curve([LOSS], yscale="log"))
+    assert linear.shape == log.shape
+    assert not np.array_equal(linear, log)
+
+
+def test_qt_curve_cell_uses_the_scale():
+    import os
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    qt_gui = pytest.importorskip("interactive_pipe.graphical.qt_gui")
+    from interactive_pipe import interactive
+    from interactive_pipe.headless.pipeline import HeadlessPipeline
+
+    @interactive()
+    def plot(log=True):
+        return Curve([LOSS], yscale="log" if log else None)
+
+    def pipe():
+        out = plot()
+        return out
+
+    gui = qt_gui.InteractivePipeQT(pipeline=HeadlessPipeline.from_function(pipe, inputs=[]), name="scales")
+    try:
+        gui.pipeline.inputs = []
+        gui.window.refresh()
+        ax = gui.window.image_canvas[0][0]["ax_placeholder"]
+        assert ax.get_yscale() == "log"
+        gui.pipeline.parameters = {"plot": {"log": False}}
+        gui.window.refresh()
+        assert ax.get_yscale() == "linear"
+    finally:
+        gui.close()

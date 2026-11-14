@@ -54,7 +54,7 @@ def _object_fix(value: Any) -> str:
     return f"convert the {name} to a numpy array, a Curve or a Table in the filter"
 
 
-HEATMAP_STYLE_KEYS = ("colormap", "vmin", "vmax", "center", "colorbar")
+HEATMAP_STYLE_KEYS = ("colormap", "vmin", "vmax", "center", "colorbar", "extent")
 
 
 def array_problem(value: np.ndarray, style: Optional[dict] = None) -> Optional[Problem]:
@@ -76,6 +76,14 @@ def array_problem(value: np.ndarray, style: Optional[dict] = None) -> Optional[P
     )
     if heatmap or value.dtype.kind == "b" or value.dtype in (np.uint8, np.uint16):
         return None  # scaled by the display (uint8 / 255, uint16 / 65535, bool 0 / 1)
+    styled = sorted(key for key in HEATMAP_STYLE_KEYS if style and style.get(key) is not None)
+    # the usual fix is a heatmap style; when one is already there it is ignored
+    # because the array is not 2D: say that instead of suggesting it again
+    style_fix = (
+        "layout.style(name, vmin=..., vmax=...) / a colormap"
+        if not styled
+        else f"note: layout.style({', '.join(styled)}) applies to 2D (H, W) arrays only, this one is {shape}"
+    )
     data = np.ma.getdata(value)
     if value.dtype.kind in "iu":
         low, high = int(data.min()), int(data.max())
@@ -84,8 +92,9 @@ def array_problem(value: np.ndarray, style: Optional[dict] = None) -> Optional[P
                 "misleading",
                 f"{value.dtype} image in [{low}, {high}]: integers other than uint8 / uint16 are taken as values "
                 "(1 is white) and clipped to [0, 1]",
-                "scale it (e.g. img / 255.0, or img.astype(np.uint8) for 0-255 data) or use "
-                "layout.style(name, vmin=..., vmax=...) / a colormap",
+                "scale it (e.g. img / 255.0, or img.astype(np.uint8) for 0-255 data)"
+                + (" or use " if not styled else "; ")
+                + style_fix,
             )
         return None
     finite = np.isfinite(data)
@@ -103,8 +112,9 @@ def array_problem(value: np.ndarray, style: Optional[dict] = None) -> Optional[P
         return (
             "misleading",
             f"float image in [{low:.3g}, {high:.3g}] is clipped to [0, 1]",
-            "normalize it (e.g. (img - img.min()) / (img.max() - img.min())) or use "
-            "layout.style(name, vmin=..., vmax=...) / a colormap",
+            "normalize it (e.g. (img - img.min()) / (img.max() - img.min()))"
+            + (" or use " if not styled else "; ")
+            + style_fix,
         )
     return None
 

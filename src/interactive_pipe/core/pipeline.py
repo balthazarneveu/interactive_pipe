@@ -169,6 +169,7 @@ class PipelineCore:
         """Useful for standalone python access without gui or disk write"""
         # Set user context before running pipeline
         _set_user_context(self._user_context)
+        self.framework_state.run_count += 1  # layout.style merges calls within one run
         try:
             return self.engine.run(self.filters, imglst=self.inputs)
         finally:

@@ -40,7 +40,7 @@ my_pipeline(img)  # opens the window (blocks until it is closed)
 Every top-level statement is checked when the decorator runs; anything else raises `PipelineSyntaxError` (a `ValueError`) with file, line, the source line and a `Hint:`. Accepted:
 
 - docstring, `pass`, `...`
-- filter calls, assigned or not: `out = f(img)`, `a, b = f(img)`, `f(img)`, `gen()` (no input)
+- filter calls, assigned or not: `out = f(img)`, `a, b = f(img)`, `f(img)` (its result is dropped), `gen()` (no input)
 - nested calls `blur(amplify(img))` and `return amplify(img)` — the inner result is named after its source, `amplify(img)`
 - literal keyword arguments `amplify(img, gain=2.5)`: sets that call's value and its widget default (validated against the range)
 - dotted calls `np.abs(img)`, `lib.blur(img)`; names resolve in the function's real scope, so a pipeline may live inside `main()` or a test
@@ -62,7 +62,7 @@ Rejected: `if` / `for` / `while` / `with` / `try`, arithmetic and any non-call e
 
 Import them from `interactive_pipe` (also `KeyboardControl`, `TextPrompt`: see the controls guide); group widgets with `group="name"` or a nestable `Panel`. Log slider: `lr=Control(1e-2, [1e-4, 1e-1], scale="log")`, `(1e-2, [1e-4, 1e-1, "log"])` or `Annotated[float, (1e-4, 1e-1, "log")]`; values, sweeps and captions are the real value. The control default wins over the signature default; a keyword argument without a declaration gets no widget. A bare number in the decorator (`gain=1.0`) raises `ValueError`: a slider needs a range.
 
-Same parameter in several filters: both `amplify` and `blend` declaring `gain` show as **two** sliders, `amplify.gain` and `blend.gain`. `pipe(img, gain=2.0)` sets every filter's `gain`; target one with `"amplify.gain"` in `snapshot` / `sweep`, or `pipe(img, parameters={"amplify": {"gain": 2.0}})`. **One slider for several filters**: declare the control once and pass the same object to each decorator — `band = RangeControl((0.1, 0.3), [0.0, 0.7])`, then `@interactive(band=band)` on both filters (the parameter names may differ): one widget, one value. Each pipeline has its own control values.
+Same parameter in several filters: both `amplify` and `blend` declaring `gain` (no label) show as **two** sliders, `amplify.gain` and `blend.gain`; a label (`Annotated[..., "label"]`, `name=`) is the control's name and must be unique, so the same label in two filters raises. `pipe(img, gain=2.0)` sets every filter's `gain`; target one with `"amplify.gain"` in `snapshot` / `sweep`, or `pipe(img, parameters={"amplify": {"gain": 2.0}})`. **One slider for several filters**: declare the control once and pass the same object to each decorator — `band = RangeControl((0.1, 0.3), [0.0, 0.7])`, then `@interactive(band=band)` on both filters (the parameter names may differ): one widget, one value (a shared checkbox: `Control(False, name="...")`).
 
 ## Controls from type hints
 
@@ -100,10 +100,12 @@ from interactive_pipe import Curve, Image, SingleCurve, Table
 def report(img):
     x = np.arange(img.shape[1])
     mean = SingleCurve(x, img.mean(axis=(0, 2)), style="b-", label="mean", linewidth=1)  # or [x, y, "b-", "mean"]
-    profile = Curve([mean], xlabel="column", ylim=(0, 1), grid=True)
-    table = Table([{"stat": "mean", "value": img.mean()}], title="stats")  # or a dict of lists / arrays
+    profile = Curve([mean], xlabel="column", ylim=(0, 1), grid=True)  # also ylabel, title, xlim, xscale / yscale="log"
+    table = Table([{"stat": "mean", "value": img.mean()}], title="stats", precision=3)  # or a dict of lists / arrays
     return profile, table, Image(img, title=f"mean {img.mean():.3f}")  # a metric in the title, not a text cell
 ```
+
+`SingleCurve(x, y, style=, label=, linestyle=, linewidth=, markersize=, alpha=)`; `Curve(..., yscale="log")` (`"linear"`, `"log"`, `"symlog"`); in tests `table.columns` and `table.values` (rows of formatted cells).
 
 ## Figures and overlays
 
@@ -127,7 +129,7 @@ def histogram(img):
     return fig  # a Figure or an Axes: rasterised identically on every backend and in snapshots
 ```
 
-`draw.*` functions are pure (new array, same dtype and range, gray promoted to RGB), take `(x, y)` pixel coordinates and clip marks outside the image; `color=` takes one colour or a list (one per mark), `draw.lines(img, segments)` takes `(K, 2, 2)` segments, `draw.points(img, xy, radius=6, filled=False)` draws circles. Heatmaps (2D arrays): `layout.style("err", colormap="RdBu_r", center=0, colorbar=True)` draws the scale into the image, also in snapshots; NaN shows magenta; `unit="px"` is written once above the bar, `colorbar="a longer label"` along it. A figure is drawn at the size of its cell (its text is the size of a `Curve`'s): `figsize` only sets the aspect ratio. Zero marks (`draw.boxes(img, [])`) and an empty `Table` are fine. Readout next to an output: `layout.style("out", title=f"PSNR {psnr:.2f} dB")`.
+`draw.*` functions are pure (new array, same dtype and range, gray promoted to RGB), take `(x, y)` pixel coordinates and clip marks outside the image; `color=` takes one colour or a list (one per mark), `draw.lines(img, segments)` takes `(K, 2, 2)` segments, `draw.points(img, xy, radius=6, filled=False)` draws circles, `draw.mask(img, mask, color=, alpha=0.5)` blends a mask. Heatmaps (2D arrays): `layout.style("err", colormap="RdBu_r", center=0, colorbar=True)` draws the scale into the image, also in snapshots; NaN shows magenta; `unit="px"` is written once above the bar, `colorbar="a longer label"` along it; `extent=(x_left, x_right, y_bottom, y_top), xlabel=, ylabel=` draws axes with round ticks (the Qt readout shows those coordinates). A figure is drawn at the size of its cell (its text is the size of a `Curve`'s): `figsize` only sets the aspect ratio. Zero marks (`draw.boxes(img, [])`) and an empty `Table` are fine. Readout next to an output: `layout.style("out", title=f"PSNR {psnr:.2f} dB")`. Calls on one output in a run add up (a later `title=` keeps the colormap; `key=None` removes a key); any displayed name can be styled, a pipeline input included.
 
 ## Mouse input: a point or a region on an image
 
@@ -147,7 +149,7 @@ inspect.snapshot("/tmp/inspect.png", img, seed=(0.2, 0.4))  # headless: a plain 
 ```
 
 - Click sets the nearest point, shift + drag draws a region (Qt, dpg, mpl; Gradio: click only; notebook: sliders); the window draws the marker, snapshots do not (use `draw` if it must be in the output).
-- `on=` names the displayed output receiving the gesture (default: the first image); an unknown name raises when the GUI is built or described.
+- `on=` names the displayed output receiving the gesture (default: the first image); an unknown name raises when a GUI pipeline is built (a `gui=None` test pipeline only warns).
 - Headless it is a plain tuple parameter: `pipe(img, seed=(0.2, 0.4))`, `sweep(..., seed=[(0.1, 0.1), (0.6, 0.4)])`, `--set seed=0.2,0.4`.
 
 ## Proxies: context, layout, events, audio
@@ -165,7 +167,7 @@ def analyse(img):
     return img.mean(axis=-1)
 ```
 
-`events.get("name")` (keys bound with `bind_key_to_context`) and `audio.set(...)` / `audio.play()` (Qt) work the same way. Never add `global_params` / `context` / `state` parameters to a filter signature (removed in 0.9.0, `TypeError`). Seed the context with `@interactive_pipeline(context={...})`. **Stateful simulations**: a state advanced in `context` on every run makes snapshots and sweep cells depend on the runs before (cells are not independent); make the output a function of the controls (a `TimeControl`'s `t` included, `snapshot(None, t=4.0)`) and use the context only as a cache keyed on them.
+`events.get("name")` (keys bound with `bind_key_to_context`) works the same way. Sound (Qt, Gradio): `audio.set("file.wav")` or `audio.set(signal, 16000)` (numpy, mono or `(n, 2)`, float in `[-1, 1]` or int16), then `audio.play()`; each `set` restarts from the beginning; headless it does nothing. A filter reading a context key re-runs whenever the earlier filter writing it does (every `cache=` mode). Never add `global_params` / `context` / `state` parameters to a filter signature (removed in 0.9.0, `TypeError`). Seed the context with `@interactive_pipeline(context={...})`. **Stateful simulations**: a state advanced in `context` on every run makes snapshots and sweep cells depend on the runs before (cells are not independent); make the output a function of the controls (a `TimeControl`'s `t` included, `snapshot(None, t=4.0)`) and use the context only as a cache keyed on them.
 
 ## Check your work without a display
 
@@ -213,12 +215,9 @@ written = batch.save("/tmp/res/result.png")  # every output + result.yaml; retur
 batch.export_tuning("/tmp/res/tuning.yaml")  # and load_tuning(...)
 ```
 
-- `INTERACTIVE_PIPE_GUI=headless|qt|dpg|mpl|nb|gradio` overrides `gui="auto"`; `INTERACTIVE_PIPE_SIZE=1280x800|fullscreen|maximized`; `interactive_pipe.cli.parse_gui_args()` adds `--gui`, `--size`, `--fullscreen` to a script.
-- `interactive-pipe doctor` lists installed backends, the pip extra for each missing one, whether a display is available and what `gui="auto"` picks: run it when "nothing shows up".
-
 ## Testing your filters
 
-A decorated filter stays a plain function: `amplify(img, gain=2.0)` returns the array, also when it calls `layout` (ignored) or `context` (a scratch dict for that call). `my_pipeline.headless(img, gain=2.0)` returns the outputs of a pipeline decorated with any `gui=` as a tuple in `return` order (whatever `layout.grid` displays); `snapshot(None, ...)` returns the rendered RGB array. Snapshots and sweeps start from a fresh `context` (`runs=N` to warm up a stateful pipeline). Run `interactive-pipe check script.py` in CI.
+A decorated filter stays a plain function: `amplify(img, gain=2.0)` returns the array, also when it calls `layout` (ignored) or `context` (a scratch dict for that call). `my_pipeline.headless(img, gain=2.0)` returns the outputs of a pipeline decorated with any `gui=` as a tuple in `return` order (whatever `layout.grid` displays); `snapshot(None, ...)` returns the rendered RGB array; `my_pipeline.headless.styles["out"]["title"]` reads a readout title of the last run. Snapshots and sweeps start from a fresh `context` (`runs=N` to warm up a stateful pipeline). Run `interactive-pipe check script.py` in CI.
 
 <!-- code: continue -->
 ```python
@@ -251,8 +250,8 @@ test_amplify()
 | `filter 'f' returned 3 values but the pipeline assigns 1 name(s)` | Unpack them (`a, b, c = f(img)`); a returned list, unlike a tuple, is kept as one value |
 | `DisplayError: output 'out' (returned by filter 'f') cannot be displayed: channel-first array (3, 8, 8). Fix: ...` | Apply the `Fix:` (`np.moveaxis(img, 0, -1)`) |
 | Log `output 'out' is displayed misleadingly: int64 image in [127, 127] ... Fix: ...` | Scale to `[0, 1]`, or `astype(np.uint8)` for 0-255 data |
-| `RuntimeError: layout.style('x', ...) called outside of filter execution` | Call it inside a filter; test the filter through a pipeline |
-| No window / crash on a server | `interactive-pipe check` / snapshot instead, or `gui=None`; `interactive-pipe doctor` |
+| `RuntimeError: layout.style('x', ...) called outside of filter execution` | Call it inside a filter (a direct call of the filter is fine) |
+| No window / crash on a server | `interactive-pipe check` / snapshot instead, or `gui=None`; `interactive-pipe doctor` (installed backends, display, what `gui="auto"` picks) |
 
 ## More
 

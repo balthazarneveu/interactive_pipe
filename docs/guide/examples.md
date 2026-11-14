@@ -58,7 +58,7 @@ Every demo also runs without a display: `interactive-pipe snapshot demo/table_de
 
 ## Scientific gallery
 
-Eight visual-debugging tools for engineering problems in [`demo/gallery/`](https://github.com/balthazarneveu/interactive_pipe/tree/master/demo/gallery), synthetic data only, each with its picture and source on the [scientific gallery](../gallery.md) page:
+Sixteen visual-debugging tools for engineering problems in [`demo/gallery/`](https://github.com/balthazarneveu/interactive_pipe/tree/master/demo/gallery), synthetic data only, each with its picture and source on the [scientific gallery](../gallery.md) page:
 
 | Script | Shows |
 |---|---|
@@ -70,6 +70,14 @@ Eight visual-debugging tools for engineering problems in [`demo/gallery/`](https
 | `lens_calibration.py` | Radial distortion recovered by eye: corrected checkerboard and residual vectors |
 | `pid_control.py` | PID step response and Bode plot, one set of sliders shared by two filters |
 | `reaction_diffusion.py` | Gray-Scott simulation driven by a clock, kept reproducible for snapshots |
+| `g2_stereo_matching.py` | Block matching: disparity and error heatmaps with colorbars, `PointControl` probe on a cost curve |
+| `g2_segmentation.py` | `draw.mask` overlay, confusion `Table`, IoU in the title, `RegionControl` on a histogram figure |
+| `g2_kalman_tracking.py` | Two Kalman filters, one log slider each shared by both, trajectory figure, innovation `Curve` |
+| `g2_beamforming.py` | Polar figure, heatmap with axes (`layout.style(extent=...)`) of the array factor vs spacing |
+| `g2_dct_compression.py` | Block DCT, diverging error heatmap, rate-distortion curve and table, shared quality slider |
+| `g2_heat_diffusion.py` | Stateful simulation stepped by a slider, `context` cache keyed on the controls |
+| `g2_training_curves.py` | `Literal` metric, smoothing, log scale (`Curve(yscale="log")`), empty selection shown |
+| `g2_audio_effects.py` | Effect chain, waveform and spectrum curves, spectrogram with axes, `audio.set(signal, rate)` |
 
 ## Curated samples
 

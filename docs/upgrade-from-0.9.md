@@ -405,6 +405,60 @@ img, out = pipe(np.ones((4, 4)))  # was [[out, img]]
 assert out[0, 0] == 0.5
 ```
 
+### A bare filter call drops its result
+
+`f(img)` on its own line of a pipeline body (the result not assigned) raised
+`filter 'f' returned a single ndarray but the pipeline unpacks 0 values` when
+`f` returned something. The filter now runs and its result is dropped, as in
+Python:
+
+```python
+import numpy as np
+from interactive_pipe import interactive, interactive_pipeline
+
+
+@interactive()
+def log_stats(img):
+    print(f"mean {img.mean():.2f}")
+    return img.mean()  # ignored by the line below
+
+
+@interactive_pipeline(gui=None)
+def pipe(img):
+    log_stats(img)
+    return img
+
+
+pipe(np.ones((4, 4)))
+```
+
+### An unknown `on=` target only warns without a window
+
+A `PointControl` / `RegionControl` whose `on=` names an output the pipeline
+does not produce raised when any pipeline was built. A GUI pipeline still
+raises (at decoration, and when a GUI is built); a `gui=None` pipeline and
+`describe()` now log a warning instead (no mouse there: the control keeps its
+value), so a small test pipeline can reuse the filter:
+
+```python
+import numpy as np
+from interactive_pipe import PointControl, interactive, interactive_pipeline
+
+
+@interactive(seed=PointControl((0.5, 0.5), on="overlay"))
+def probe(img, seed=(0.5, 0.5)):
+    return img[int(seed[1] * (img.shape[0] - 1))]
+
+
+@interactive_pipeline(gui=None)  # no 'overlay' here: a warning, not an error
+def under_test(img):
+    row = probe(img)
+    return row
+
+
+(row,) = under_test(np.eye(3))
+```
+
 ## Declaring controls
 
 ### A bare value in `@interactive` raises
@@ -660,6 +714,60 @@ from interactive_pipe import interactive
 def histogram(img):
     fig = Figure(figsize=(4, 3))
     fig.subplots().hist(img.ravel(), bins=32)
+    return fig
+```
+
+### `layout.style` calls on one output add up
+
+Two `layout.style` calls on the same output during one run used to keep only
+the last one, so styling once and setting a readout title later dropped the
+colormap / range. Calls now add up (a later call changes only the keys it
+gives; `key=None` removes one); the first call of the next run starts from
+nothing. Code relying on a second call clearing the first one's keys passes
+them as `None`:
+
+```python
+import numpy as np
+from interactive_pipe import interactive, interactive_pipeline, layout
+
+
+@interactive()
+def heat():
+    layout.style("h", colormap="viridis", vmin=0, vmax=10)
+    layout.style("h", title="readout")  # keeps the colormap and the range
+    layout.style("h", vmax=None)  # removes vmax: back to the data max
+    return np.linspace(0, 10, 64).reshape(8, 8)
+
+
+@interactive_pipeline(gui=None)
+def pipe():
+    h = heat()
+    return h
+
+
+pipe()
+assert pipe.styles["h"] == {"colormap": "viridis", "vmin": 0, "title": "readout"}
+```
+
+### Figures laid out with `tight_layout()` are laid out again in their cell
+
+A figure on which the filter called `fig.tight_layout()` at its own
+`figsize` kept those margins when drawn smaller in a cell, so its labels
+could be cut. It is now laid out again at the cell size (its margins are
+put back afterwards); `subplots_adjust` without a layout engine is still
+kept as given. To keep exact margins, use a layout engine of your own
+(`Figure(layout="constrained")`) or `subplots_adjust`:
+
+```python
+from matplotlib.figure import Figure
+from interactive_pipe import interactive
+
+
+@interactive()
+def plot(img):
+    fig = Figure(figsize=(6, 4))
+    fig.subplots().plot(img.mean(axis=0))
+    fig.tight_layout()  # fine: redone at the size of the cell
     return fig
 ```
 
