@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 import re
 import subprocess
 import sys
@@ -33,6 +34,8 @@ def test_reference_demo_passes_the_grader(prompt, tmp_path):
         + ["--max-lines", str(_budget(prompt))],
         capture_output=True,
         check=False,
+        # small linear solves and tiny networks: thread pools only add contention on a busy machine
+        env={**os.environ, "OMP_NUM_THREADS": "1"},
     )
     report = json.loads((tmp_path / "report.json").read_text())
     problems = report["static"]["problems"] + report["dynamic"]["problems"]
