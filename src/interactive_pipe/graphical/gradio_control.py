@@ -105,6 +105,8 @@ class FloatSliderControl(BaseControl):
         value_default = self.ctrl.value_default
         if not isinstance(value_default, (int, float)):
             raise TypeError(f"Expected int or float for FloatSliderControl, got {type(value_default)}")
+        if self.ctrl.is_log:
+            return self._create_log_slider()
         self.control_widget = gr.Slider(  # type: ignore[reportOptionalMemberAccess]
             value=float(value_default),
             minimum=float(self.ctrl.value_range[0]),  # type: ignore[reportOptionalSubscript]
@@ -115,6 +117,51 @@ class FloatSliderControl(BaseControl):
         )
 
         return self.control_widget
+
+    def _create_log_slider(self) -> "gr.HTML":  # type: ignore[reportInvalidTypeForm]
+        """``gr.Slider`` is linear: a native ``<input type=range>`` over the position
+        (evenly over decades) whose value and readout are the real value."""
+        value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
+        template = (
+            _LOG_HTML.replace("${label}", str(self.name))
+            .replace("${vmin}", repr(float(value_min)))
+            .replace("${vmax}", repr(float(value_max)))
+        )
+        self.control_widget = gr.HTML(  # type: ignore[reportOptionalMemberAccess]
+            value=float(self.ctrl.value_default),
+            html_template=template,
+            css_template=_RANGE_CSS,
+            js_on_load=_LOG_JS,
+            elem_classes=["ip-range-control"],
+        )
+        return self.control_widget
+
+
+_LOG_HTML = """
+<div class="ip-range" data-vmin="${vmin}" data-vmax="${vmax}">
+  <div class="ip-head"><span class="ip-name">${label}</span><span class="ip-readout"></span></div>
+  <div class="ip-track">
+    <div class="ip-groove"></div><div class="ip-fill" style="left: 0"></div>
+    <input class="ip-log" type="range" min="0" max="1000" step="1">
+  </div>
+</div>
+"""
+
+_LOG_JS = """
+const box = element.querySelector('.ip-range'), input = element.querySelector('.ip-log');
+const fill = element.querySelector('.ip-fill'), readout = element.querySelector('.ip-readout');
+const lmin = Math.log10(parseFloat(box.dataset.vmin)), lmax = Math.log10(parseFloat(box.dataset.vmax));
+const toValue = (p) => Number(Math.pow(10, lmin + (p / 1000) * (lmax - lmin)).toPrecision(3));
+const toPosition = (v) => Math.round(1000 * (Math.log10(v) - lmin) / (lmax - lmin));
+function draw(p) {
+  input.value = p;
+  fill.style.width = (p / 10) + '%';
+  readout.textContent = String(toValue(p));
+}
+draw(toPosition(props.value || Math.pow(10, lmin)));
+input.addEventListener('input', () => draw(parseFloat(input.value)));
+input.addEventListener('change', () => { props.value = toValue(parseFloat(input.value)); trigger('change'); });
+"""
 
 
 _RANGE_CSS = """

@@ -3,7 +3,7 @@
 What to look at: plain gradient descent zig-zags across the narrow curved valley and crawls along
 its floor; momentum and Nesterov overshoot then accelerate along it; Adam normalises the step per
 axis. Raise the learning rate until the trajectory diverges (the loss curve shoots up), and compare
-how many steps each method needs to reach the minimum at (1, 1). The learning rate slider is in log10.
+how many steps each method needs to reach the minimum at (1, 1).
 """
 
 from typing import Annotated, Literal
@@ -28,11 +28,11 @@ def grad(p):
 @interactive
 def optimize(
     optimizer: Literal["gd", "momentum", "nesterov", "adam"] = "momentum",
-    log_lr: Annotated[float, (-4.0, -0.5), "log10(learning rate)"] = -2.0,
+    lr: Annotated[float, (1e-4, 0.3, "log"), "learning rate"] = 0.01,
     momentum: Annotated[float, (0.0, 0.99), "Momentum / beta1"] = 0.9,
     steps: Annotated[int, (1, 500), "Steps"] = 150,
 ):
-    lr, p, v, s = 10**log_lr, np.array([-1.5, 2.5]), np.zeros(2), np.zeros(2)
+    p, v, s = np.array([-1.5, 2.5]), np.zeros(2), np.zeros(2)
     path = [p]
     for k in range(1, steps + 1):
         if optimizer == "gd":

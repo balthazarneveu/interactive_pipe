@@ -37,6 +37,8 @@ class SliderMatplotlibControl(BaseControl):
             raise TypeError(f"Expected int or float for valmax, got {type(valmax)}")
         if not isinstance(valinit, (int, float)):
             raise TypeError(f"Expected int or float for valinit, got {type(valinit)}")
+        if self.ctrl.is_log:
+            return self._create_log_slider()
         slider = Slider(
             self.ax_control,
             self.name,
@@ -46,6 +48,19 @@ class SliderMatplotlibControl(BaseControl):
             valstep=self.ctrl.step,
         )
         slider.on_changed(lambda val: self.update_func(self.name, val))
+        return slider
+
+    def _create_log_slider(self):
+        """Slider over the position in [0, 1] (evenly over decades), showing the real value."""
+        slider = Slider(self.ax_control, self.name, 0.0, 1.0, valinit=self.ctrl.to_position(self.ctrl.value))
+        slider.valtext.set_text(f"{self.ctrl.value:.3g}")
+
+        def on_changed(position):
+            value = self.ctrl.from_position(position)
+            slider.valtext.set_text(f"{value:.3g}")
+            self.update_func(self.name, value)
+
+        slider.on_changed(on_changed)
         return slider
 
 
