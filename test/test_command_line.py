@@ -410,3 +410,68 @@ def test_interact_decorator_renders_instead_of_opening_a_window(tmp_path):
     assert run.exit_code == 0, run.error
     assert [path.name for path in run.written] == ["scaled.png"]
     assert filter_decorator.get_interactive_pipeline_class is original
+
+
+# --- errors -------------------------------------------------------------------------------------
+
+FAILING_FILTER = """
+import numpy as np
+from interactive_pipe import interactive, interactive_pipeline
+
+
+@interactive(gain=(1.0, [0.0, 2.0]))
+def boom(img, gain=1.0):
+    raise ValueError("bad gain")
+
+
+@interactive_pipeline(gui="mpl")
+def p(img):
+    out = boom(img)
+    return out
+
+
+if __name__ == "__main__":
+    {call}
+"""
+
+
+@pytest.mark.parametrize("command", ["snapshot", "describe"])
+def test_a_failing_filter_is_reported_once_with_the_pipeline_name(tmp_path, capsys, command):
+    script = tmp_path / "err.py"
+    script.write_text(FAILING_FILTER.format(call="p(np.zeros((8, 8)))"))
+    extra = ["-o", f"{tmp_path}/"] if command == "snapshot" else []
+    assert main([command, str(script), *extra]) == 1
+    captured = capsys.readouterr()
+    err = captured.err
+    assert err.count("Filter 'boom' raised ValueError") == 1
+    assert f"{command}: pipeline 'p' raised FilterError, see above" in err
+    assert "no GUI-decorated pipeline" not in err
+    assert "run_script.py" not in err and "runpy" not in err  # no framework frames
+    assert f'{script}", line 18' in err  # the call site in the script
+    assert "snapshot(s) written" not in captured.out
+    assert not list(tmp_path.glob("*.png"))
+    if command == "describe":
+        assert "Pipeline 'p'" in captured.out  # described although its run failed
+
+
+def test_an_error_caught_by_the_script_is_still_reported(tmp_path, capsys):
+    script = tmp_path / "caught.py"
+    call = "try:\n        p(np.zeros((8, 8)))\n    except Exception:\n        print('caught')"
+    script.write_text(FAILING_FILTER.format(call=call))
+    assert main(["snapshot", str(script), "-o", f"{tmp_path}/"]) == 1
+    err = capsys.readouterr().err
+    assert "pipeline 'p' raised FilterError (caught by the script)" in err
+    assert "bad gain" in err
+
+
+def test_error_location_points_to_user_code(tmp_path):
+    from interactive_pipe.agent.run_script import error_location
+
+    script = tmp_path / "err.py"
+    script.write_text(FAILING_FILTER.format(call="p(np.zeros((8, 8)))"))
+    run = run_script(str(script), output=f"{tmp_path}/")
+    assert error_location(run.exception) == (str(script), 8)
+    script.write_text("import numpy as np\n\n\ndef helper():\n    return 1 / 0\n\n\nhelper()\n")
+    run = run_script(str(script), output=f"{tmp_path}/")
+    assert error_location(run.exception) == (str(script), 5)
+    assert "ZeroDivisionError" in run.error and "line 8" in run.error and "line 5" in run.error

@@ -125,11 +125,32 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
     return 0
 
 
-def _report_failure(run, out) -> None:
+def _report(run, command: str, script: str) -> int:
+    """What went wrong, on stderr, each error once; returns the exit code."""
+    out = sys.stderr
     if run.error:
         print(f"\n{PROG}: the script failed:\n{run.error}", file=out)
     if run.stopped_early:
         print(f"{PROG}: stopped the script after {len(run.calls)} pipeline calls (--max-calls)", file=out)
+    failed = run.failed_calls
+    if failed:
+        # the error was printed above (by the script's failure) or by the script itself
+        for call in failed:
+            raised_here = run.exception is call.error
+            print(
+                f"{PROG} {command}: pipeline {call.name!r} raised {type(call.error).__name__}"
+                + (", see above" if raised_here else f" (caught by the script): {call.error}"),
+                file=out,
+            )
+        return run.exit_code or 1
+    if not run.calls:
+        print(
+            f"{PROG} {command}: no GUI-decorated pipeline was called by {script} "
+            "(gui=None pipelines and pipelines that are only defined are not captured)",
+            file=out,
+        )
+        return run.exit_code or 1
+    return run.exit_code
 
 
 def _cmd_run(args: argparse.Namespace, script_args: List[str]) -> int:
@@ -156,19 +177,12 @@ def _cmd_run(args: argparse.Namespace, script_args: List[str]) -> int:
             for call in unique:
                 print(call.summary)
                 print()
-    else:
+    elif run.written:
         print(f"\n{len(run.written)} snapshot(s) written:")
         for call in run.calls:
-            print(f"  {call.path}  (pipeline {call.name!r})")
-    _report_failure(run, sys.stderr)
-    if not run.calls:
-        print(
-            f"{PROG} {args.command}: no GUI-decorated pipeline was called by {args.script} "
-            "(gui=None pipelines and pipelines that are only defined are not captured)",
-            file=sys.stderr,
-        )
-        return run.exit_code or 1
-    return run.exit_code
+            if not call.failed:
+                print(f"  {call.path}  (pipeline {call.name!r})")
+    return _report(run, args.command, args.script)
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
