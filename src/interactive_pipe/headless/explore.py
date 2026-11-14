@@ -28,6 +28,7 @@ from interactive_pipe.headless.output_check import output_problem, warn_output_p
 from interactive_pipe.headless.snapshot import (
     Grid,
     OutputSelector,
+    compact_panel,
     default_sweep_cell,
     figure_to_rgb,
     flat_cells,
@@ -522,9 +523,7 @@ def split_sweep_arguments(
 
 
 def _panel(grid: Grid, output: Any) -> Grid:
-    if output == ALL_OUTPUTS:
-        return grid
-    return select_cells(grid, output)
+    return compact_panel(grid if output == ALL_OUTPUTS else select_cells(grid, output))
 
 
 def sweep(
