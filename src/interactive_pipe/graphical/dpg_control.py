@@ -158,29 +158,57 @@ class FloatSliderControl(BaseControl):
 
     def create(self, parent):
         value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
-        self.control_widget = dpg.add_slider_float(
-            parent=parent,
-            default_value=float(self.ctrl.value),
-            min_value=float(value_min),
-            max_value=float(value_max),
-            clamped=True,
-            width=-1,
-            format="%.4g",
-            callback=self._on_change,
-        )
+        if self.ctrl.is_log:
+            # the slider moves over the position in [0, 1] (evenly over decades);
+            # its text is the real value (an ImGui format without %-field is shown as is)
+            self.control_widget = dpg.add_slider_float(
+                parent=parent,
+                default_value=self.ctrl.to_position(self.ctrl.value),
+                min_value=0.0,
+                max_value=1.0,
+                clamped=True,
+                width=-1,
+                format=_log_label(self.ctrl.value),
+                callback=self._on_change,
+            )
+        else:
+            self.control_widget = dpg.add_slider_float(
+                parent=parent,
+                default_value=float(self.ctrl.value),
+                min_value=float(value_min),
+                max_value=float(value_max),
+                clamped=True,
+                width=-1,
+                format="%.4g",
+                callback=self._on_change,
+            )
         self._add_tooltip(self.control_widget)
         return self.control_widget
 
     def _on_change(self, _sender, app_data, _user_data):
+        if self.ctrl.is_log:
+            value = self.ctrl.from_position(float(app_data))
+            dpg.configure_item(self.control_widget, format=_log_label(value))
+            self._emit(value)
+            return
         value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
-        snapped = _snap(float(app_data), float(value_min), self.ctrl.step)
+        snapped = self.ctrl.snap(float(app_data)) if self.ctrl.step else float(app_data)
         snapped = float(min(max(snapped, value_min), value_max))
         if snapped != app_data:
             dpg.set_value(self.control_widget, snapped)
         self._emit(snapped)
 
     def reset(self):
+        if self.ctrl.is_log:
+            dpg.set_value(self.control_widget, self.ctrl.to_position(self.ctrl.value))
+            dpg.configure_item(self.control_widget, format=_log_label(self.ctrl.value))
+            return
         dpg.set_value(self.control_widget, float(self.ctrl.value))
+
+
+def _log_label(value: float) -> str:
+    """Text of a log slider: the real value (``%`` escaped, the format is printf-like)."""
+    return f"{value:.3g}".replace("%", "%%")
 
 
 class RangeSliderControl(BaseControl):

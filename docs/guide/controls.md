@@ -85,18 +85,54 @@ Two filters may both declare a control on a parameter of the same name. In a pip
 
 Calling the pipeline with `pipe(img, gain=2.0)` sets `gain` in **every** filter that has it; target one filter with `pipe(img, **{"blend.gain": 2.0})` (the same spelling as `snapshot` / `sweep`, a control name works too) or `pipe(img, parameters={"blend": {"gain": 2.0}})`. An unknown keyword raises `TypeError` listing the available parameters, and a value outside a control's range is clamped with a warning.
 
-## One control per filter
+## One control for several filters
 
-A filter's controls belong to the decorated function: every pipeline built from
-`amplify`, its direct calls (`amplify(img)`) and `amplify.snapshot(...)` share
-the same `gain` control. A value set in one pipeline (a slider move, or a call
-`pipe(img, gain=2.0)`, which keeps the value) is therefore the current value in
-the other pipelines and the starting value of the next one built from the same
-filter in the same process (`snapshot` / `sweep` overrides are restored after
-the call). To start a pipeline from known values, pass them at build time with a
-literal keyword argument in the body (`out = amplify(img, gain=1.0)` gives that
-instance its own control), load a tuning file, or reset the controls
-(`for ctrl in pipe.controls: ctrl.reset()`).
+Declare the control once and pass **the same object** to every filter it
+drives: the pipeline shows one widget, holding one value, set in all of them.
+The parameter names may differ.
+
+```python
+band = RangeControl((0.1, 0.3), [0.0, 0.7])
+
+
+@interactive(band=band)
+def band_pass(spectrum, band=(0.1, 0.3)): ...
+
+
+@interactive(cutoffs=band)
+def radial_profile(spectrum, cutoffs=(0.1, 0.3)): ...
+```
+
+The control is named after the first parameter it is declared for (`band`)
+unless you give it a `name=`. `describe()` lists it once with all its
+`targets` (`band_pass.band`, `radial_profile.cutoffs`); `pipe(img, band=...)`,
+`snapshot`, `sweep` (one axis), tuning files and every GUI backend treat it as
+one value — setting one of its targets (`**{"radial_profile.cutoffs": ...}`)
+sets the control, hence all of them. A repeated filter gets its own copy
+(`band_1`), shared with the other repeated filters using the same control.
+
+With annotations, an alias whose control has a name is one widget:
+`Cutoff = Annotated[float, Control(0.3, [0.0, 1.0], name="cutoff")]` used in
+two signatures gives one `cutoff` slider (both signature defaults must agree).
+An unnamed alias (`Gain = Annotated[float, Control(1.0, [0.0, 2.0])]`) is a
+reusable type: each filter gets its own slider.
+
+Two *different* control objects with the same explicit `name=` in one pipeline
+raise `ValueError`: pass the same object to share it, or rename one.
+
+## Controls belong to the pipeline
+
+Each pipeline works on its own copies of the declared controls: two pipelines
+built from `amplify` have independent `gain` values, and a slider move or a
+`pipe(img, gain=2.0)` call (which keeps the value) changes that pipeline only.
+A pipeline starts from the declared values: the `Control` object you wrote
+(`Control.get_controls(amplify)["gain"]`) is never connected nor changed by a
+pipeline, and a direct call `amplify(img)` uses its value — the declared
+default, like a plain function. `amplify.snapshot(...)` / `.sweep(...)` build a
+throwaway pipeline. To start a pipeline from other values, pass them at build
+time with a literal keyword argument in the body (`out = amplify(img, gain=1.0)`
+gives that instance its own control), load a tuning file, or call it with
+`pipe(img, gain=...)`.
 
 Functions are told apart by identity, not by name: two scripts run in one
 interpreter, or filters made by a factory, may define functions with the same
@@ -120,6 +156,26 @@ name without sharing controls.
 | Animated timer | — | `t=TimeControl(update_interval_ms=50)` |
 
 See the [Control API reference](../api/controls.md) for every argument.
+
+## Log-scale sliders
+
+For a value spanning decades (a learning rate, a regularisation weight), a
+log slider moves evenly over decades and still shows, sends, sweeps and saves
+the real value (the widget rounds it to 3 significant digits):
+
+| Form | Spelling |
+|---|---|
+| Control | `lr=Control(1e-2, [1e-4, 1e-1], scale="log")` |
+| Tuple shorthand | `lr=(1e-2, [1e-4, 1e-1, "log"])` (`"log"` in the step slot) |
+| Annotation | `lr: Annotated[float, (1e-4, 1e-1, "log")] = 1e-2` |
+
+The range must be positive, the default a float, and there is no `step`.
+`sweep(..., steps={"lr": 4})` gives geometric values (`1e-4, 1e-3, 1e-2, 1e-1`);
+`describe()` reports `"scale": "log"`. Not available for `RangeControl`.
+
+**Default float step**: without `step=`, a float slider moves by 1, 2 or 5 × 10^k,
+the closest to 1/100 of its range (`[0, 3]` → 0.02, `[2, 100]` → 1), so values
+read `0.06` rather than `0.0588`.
 
 ## Range control
 

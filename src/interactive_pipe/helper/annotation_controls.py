@@ -191,6 +191,9 @@ def _numeric_range(func: Callable, param_name: str, base, spec) -> Tuple[list, A
         )
     low, high = spec[0], spec[1]
     step = spec[2] if len(spec) == 3 else None
+    log = step == "log"  # (min, max, "log"): a log slider, see Control(scale="log")
+    if log:
+        step = None
     for bound in (low, high):
         if isinstance(bound, bool) or not isinstance(bound, _NUMBER):
             raise annotation_error(
@@ -225,7 +228,7 @@ def _numeric_range(func: Callable, param_name: str, base, spec) -> Tuple[list, A
             raise annotation_error(func, param_name, f"the step {step!r} of an int slider is not an int", "use an int")
         if base is int:
             step = int(step)
-    return [low, high], step
+    return [low, high], "log" if log else step
 
 
 def _in_range(func: Callable, param_name: str, default, value_range: list) -> None:
@@ -244,7 +247,9 @@ def _from_control(func: Callable, param_name: str, ctrl: Control, default) -> Tu
 
     The annotation object can be shared (a type alias used by several filters)
     and pipelines rename / connect the controls they get: never hand out the
-    annotation instance itself.
+    annotation instance itself. A control given an explicit ``name=`` stays
+    one widget in a pipeline using the alias in several filters (the clones
+    share its ``share_key``); an unnamed one gives each filter its own.
     """
     name = param_name if (ctrl._auto_named or ctrl.name is None) else ctrl.name
     clone = ctrl._clone_unconnected(name)
@@ -261,6 +266,10 @@ def _from_control(func: Callable, param_name: str, ctrl: Control, default) -> Tu
                 type(exc),
             ) from None
         clone._auto_named = ctrl._auto_named
+    if not ctrl._auto_named:
+        # an explicitly named annotation control (an alias used by several
+        # filters) is one widget in a pipeline; an unnamed one stays per filter
+        clone._share_key = ctrl.share_key
     return clone, clone.value_default
 
 
@@ -349,6 +358,8 @@ def control_from_annotation(func: Callable, param_name: str, hint, default) -> O
     tuple_like = get_origin(base) is tuple or base is tuple
     if tuple_like or (isinstance(default, (tuple, list)) and len(default) == 2):
         value_range, step = _numeric_range(func, param_name, None, spec)
+        if step == "log":
+            raise annotation_error(func, param_name, "a (lo, hi) range slider has no log scale", "remove 'log'")
         try:
             control = RangeControl(tuple(default), value_range, step=step, name=name, group=group)
         except (TypeError, ValueError) as exc:
@@ -384,8 +395,11 @@ def control_from_annotation(func: Callable, param_name: str, hint, default) -> O
             func, param_name, f"the default {default!r} is not a number", "use a number as default", TypeError
         )
     _in_range(func, param_name, default, value_range)
+    scale = "log" if step == "log" else "linear"
     try:
-        control = Control(default, value_range, name=name, step=step, group=group)
+        control = Control(
+            default, value_range, name=name, step=None if scale == "log" else step, group=group, scale=scale
+        )
     except (TypeError, ValueError) as exc:
         raise annotation_error(func, param_name, str(exc), "fix the annotation", type(exc)) from None
     return control, default

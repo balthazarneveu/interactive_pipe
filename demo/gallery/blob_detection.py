@@ -50,7 +50,7 @@ def detect(
 ):
     comps = [c for c in label(img > threshold) if len(c[0]) >= min_area]
     boxes = np.array([(xs.min(), ys.min(), xs.max(), ys.max()) for ys, xs in comps]).reshape(-1, 4)
-    return dict(box=boxes, area=[len(ys) for ys, _ in comps], peak=[img[c].max() for c in comps])  # a dict: one output
+    return dict(box=boxes, area=[len(ys) for ys, _ in comps], peak=[img[c].max() for c in comps])
 
 
 @interactive

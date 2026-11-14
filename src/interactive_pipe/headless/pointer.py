@@ -142,8 +142,8 @@ class PointerControl(Control):
             self._fallback = [PointerAxisControl(self, index) for index in range(len(self.axes))]
         return self._fallback
 
-    def _clone_unconnected(self, name: str) -> "Control":
-        clone = super()._clone_unconnected(name)
+    def _clone_unconnected(self, name: str, keep_value: bool = False) -> "Control":
+        clone = super()._clone_unconnected(name, keep_value=keep_value)
         clone._fallback = None  # type: ignore[attr-defined]
         return clone
 

@@ -57,18 +57,12 @@ def test_camera_isp_white_balance_maximises_psnr(isolated_controls):
     mosaic, demosaic, white_balance, gamma, compare = (
         ns[k] for k in ("mosaic", "demosaic", "white_balance", "gamma", "compare")
     )
-
-    @interactive_pipeline(gui=None)
-    def isp(gt):
-        out = gamma(white_balance(demosaic(mosaic(gt))))
-        error = compare(out, gt)
-        return error
-
     scene = ns["make_scene"]()
 
     def psnr(method="bilinear", red=1.8, blue=1.4):
-        (error,) = isp(scene, method=method, red=red, blue=blue)
-        return float(error.title.split()[2])  # "error, PSNR 29.72 dB"
+        # filters called directly, like plain functions (compare calls layout.style)
+        out = gamma(white_balance(demosaic(mosaic(scene), method=method), red=red, blue=blue))
+        return float(compare(out, scene).title.split()[2])  # "error, PSNR 29.72 dB"
 
     assert psnr() > psnr(red=1.0, blue=1.0) + 5  # the defaults undo the sensor colour cast
     assert psnr() > psnr(method="nearest")
@@ -83,20 +77,14 @@ def test_lens_calibration_residual_vanishes_at_the_true_coefficients(isolated_co
 
 def test_blob_detection_scores(isolated_controls):
     ns = _load("blob_detection")
-    detect, score = ns["detect"], ns["score"]
-
-    @interactive_pipeline(gui=None)
-    def blobs(img):
-        detections = detect(img)
-        overlay, table = score(img, detections)
-        return overlay, table
+    blobs = ns["blob_detection"].headless  # the outputs of the GUI-decorated pipeline, no window
 
     img = ns["make_image"]()
-    overlay, table = blobs(img)
+    _, overlay, table = blobs(img)
     precision, recall = (float(word) for word in overlay.title.replace(",", "").split()[1::2])
     assert precision >= 0.8 and recall >= 0.6
     assert overlay.data.shape == img.shape + (3,) and len(table.values) == 11
-    overlay, table = blobs(img, threshold=0.99)  # nothing detected: no crash
+    _, overlay, table = blobs(img, threshold=0.99)  # nothing detected: no crash
     assert overlay.title == "precision 0.00, recall 0.00" and table == "no detection"
 
 
@@ -117,10 +105,25 @@ def test_signal_filters_have_unit_dc_gain(isolated_controls):
 
 def test_pid_reaches_the_reference(isolated_controls):
     ns = _load("pid_control")
-    pid = (2.0, 3.0, 0.15)
-    response, command = ns["simulate"](pid)
+    response, command = ns["simulate"](kp=2.0, ki=3.0, kd=0.15)
     output = response.curves[1].y
     assert abs(output[-1] - 1.0) < 0.02
+
+
+@pytest.mark.parametrize(
+    "name, shared",
+    [
+        ("frequency_filtering", {"band (cycles/px)": ["band_pass.band", "radial_profile.band"]}),
+        ("signal_filtering", {"cutoff (Hz)": ["design.cutoff", "bode.cutoff"]}),
+        ("pid_control", {gain: [f"simulate.{gain.lower()}", f"bode.{gain.lower()}"] for gain in ("Kp", "Ki", "Kd")}),
+    ],
+)
+def test_one_slider_drives_several_filters(name, shared, isolated_controls):
+    ns = _load(name)
+    controls = ns[name].describe()["controls"]
+    names = [entry["name"] for entry in controls]
+    assert len(names) == len(set(names))
+    assert {entry["name"]: entry["targets"] for entry in controls if entry["name"] in shared} == shared
 
 
 def test_reaction_diffusion_frame_depends_on_the_clock_only(isolated_controls):
@@ -130,6 +133,9 @@ def test_reaction_diffusion_frame_depends_on_the_clock_only(isolated_controls):
     for t in (0.5, 2.0, 1.5):  # other runs in between must not change the frame at t=1
         pipe.snapshot(None, t=t)
     np.testing.assert_array_equal(pipe.snapshot(None, t=1.0), first)
+    sheet = pipe.sweep(None, t=1.0, feed=[0.03, 0.05])
+    pipe.snapshot(None, t=3.0)
+    np.testing.assert_array_equal(pipe.sweep(None, t=1.0, feed=[0.03, 0.05]), sheet)
 
 
 def test_make_gallery_writes_small_pngs(tmp_path, isolated_controls):

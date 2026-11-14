@@ -11,24 +11,18 @@ from typing import Annotated
 import numpy as np
 from matplotlib.figure import Figure
 
-from interactive_pipe import Curve, interactive, interactive_pipeline
+from interactive_pipe import Control, Curve, interactive, interactive_pipeline
 
 WN, ZETA = 2 * np.pi * 1.0, 0.15  # plant: natural frequency 1 Hz, damping 0.15
 DT, T_END, TAU_D = 1e-3, 6.0, 0.01  # time step, duration, derivative filter time constant (s)
+# named controls in an alias: one slider each, shared by simulate() and bode()
+Kp = Annotated[float, Control(2.0, [0.0, 10.0], name="Kp")]
+Ki = Annotated[float, Control(3.0, [0.0, 20.0], name="Ki")]
+Kd = Annotated[float, Control(0.15, [0.0, 1.0], name="Kd")]
 
 
 @interactive
-def gains(
-    kp: Annotated[float, (0.0, 10.0), "Kp"] = 2.0,
-    ki: Annotated[float, (0.0, 20.0), "Ki"] = 3.0,
-    kd: Annotated[float, (0.0, 1.0), "Kd"] = 0.15,
-):
-    return ((kp, ki, kd),)  # one value shared by simulate() and bode(): the sliders appear once
-
-
-@interactive
-def simulate(pid, u_max: Annotated[float, (0.5, 20.0), "u_max (saturation)"] = 20.0):
-    kp, ki, kd = pid
+def simulate(kp: Kp = 2.0, ki: Ki = 3.0, kd: Kd = 0.15, u_max: Annotated[float, (0.5, 20.0), "u_max"] = 20.0):
     t = np.arange(0, T_END, DT)
     ref = (t >= 0.5).astype(float)
     y = dy = integral = d_filt = prev_err = 0.0
@@ -51,8 +45,7 @@ def simulate(pid, u_max: Annotated[float, (0.5, 20.0), "u_max (saturation)"] = 2
 
 
 @interactive
-def bode(pid):
-    kp, ki, kd = pid
+def bode(kp: Kp = 2.0, ki: Ki = 3.0, kd: Kd = 0.15):
     w = np.logspace(-1, 3, 800)
     s = 1j * w
     loop = (kp + ki / s + kd * s / (1 + TAU_D * s)) * WN**2 / (s**2 + 2 * ZETA * WN * s + WN**2)
@@ -77,9 +70,8 @@ def bode(pid):
 
 @interactive_pipeline(gui="auto")
 def pid_control():
-    pid = gains()
-    response, command = simulate(pid)
-    open_loop = bode(pid)
+    response, command = simulate()
+    open_loop = bode()
     return [[response, open_loop], [command]]
 
 

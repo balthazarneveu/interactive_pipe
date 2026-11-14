@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from copy import copy, deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple, Union
@@ -11,6 +12,25 @@ from interactive_pipe.core.filter import FilterCore
 
 if TYPE_CHECKING:
     from interactive_pipe.headless.panel import Panel
+
+
+SCALES = ("linear", "log")
+
+
+def nice_step(span: float) -> float:
+    """Default float slider step: 1, 2 or 5 x 10^k, the closest (as a ratio) to ``span / 100``,
+    so that slider values read 0.05 rather than 0.0195."""
+    if not span > 0:
+        return span / 100.0
+    target = span / 100.0
+    exponent = math.floor(math.log10(target))
+    candidates = [float(f"{mantissa}e{power}") for power in (exponent, exponent + 1) for mantissa in (1, 2, 5)]
+    return min(candidates, key=lambda candidate: abs(math.log(candidate / target)))
+
+
+def _clean(value: float) -> float:
+    """Remove float noise from ``min + k * step`` (0.25000000000000006 -> 0.25)."""
+    return float(f"{value:.12g}")
 
 
 def _control_label(name: Optional[str]) -> str:
@@ -36,8 +56,9 @@ class Control:
         value_range: ``[min, max]`` for numeric sliders, or the list of
             choices for a string dropdown. Must be None for bool.
         name: Label displayed next to the widget. Auto-generated if omitted.
-        step: Slider increment. Defaults to 1 for int sliders and 1/100 of
-            the range for float sliders.
+        step: Slider increment. Defaults to 1 for int sliders; for float
+            sliders 1, 2 or 5 x 10^k close to 1/100 of the range (0.02 for
+            [0, 3], 1 for [2, 100]).
         filter_to_connect: Filter to connect immediately (requires
             ``parameter_name_to_connect``). Usually left to the
             ``@interactive`` decorator.
@@ -46,11 +67,17 @@ class Control:
         group: ``Panel`` instance or panel name used to group controls;
             same-named string groups share one panel across filters.
         tooltip: Hover text displayed on the widget.
+        scale: ``"linear"`` (default) or ``"log"``: a log slider moves
+            evenly over decades (``Control(1e-2, [1e-4, 1e-1], scale="log")``);
+            its value, label, sweeps (``steps=`` are geometric) and tuning files
+            hold the real value, rounded to 3 significant digits by the widget.
+            Needs a positive range; no ``step``.
 
     Example:
         ```python
         @interactive(
             gain=Control(1.0, [0.0, 3.0]),  # float slider
+            lr=Control(1e-2, [1e-4, 1e-1], scale="log"),  # log slider
             flip=Control(False),  # checkbox
             mode=Control("dark", ["dark", "light"]),  # dropdown
         )
@@ -137,12 +164,16 @@ class Control:
         icons: Optional[List] = None,
         group: Optional[Union[str, "Panel"]] = None,
         tooltip: Optional[str] = None,
+        scale: str = "linear",
     ) -> None:
         self.value_default = value_default
         self._type = None
         self._auto_named = False
         self.step = step
         self.tooltip = tooltip
+        if scale not in SCALES:
+            raise ValueError(f"{_control_label(name)}scale must be 'linear' or 'log', got {scale!r}")
+        self.scale = scale
 
         # Convert string to Panel for backward compatibility
         # Use cached Panel if same string name was used before
@@ -181,9 +212,9 @@ class Control:
                     self._type = int
                 else:
                     self._type = float
-                    if self.step is None:
+                    if self.step is None and scale == "linear":
                         # Type narrowing: we know value_range contains numeric values here
-                        self.step = (value_range[1] - value_range[0]) / 100.0  # type: ignore
+                        self.step = nice_step(value_range[1] - value_range[0])  # type: ignore
                 if value_range[0] > value_range[1]:  # type: ignore[operator]
                     # min == max stays allowed: an image selector (0, [0, len(images) - 1]) on one image
                     raise ValueError(
@@ -196,6 +227,8 @@ class Control:
                         f"{_control_label(name)}the default {value_default} is outside the range "
                         f"{list(value_range)}: choose a default between {low} and {high}, or widen the range"
                     )
+                if scale == "log":
+                    self._validate_log_scale(value_default, value_range, step, name)
                 self._validate_step(value_range)
         elif isinstance(value_default, str):
             # similar to an enum
@@ -222,6 +255,11 @@ class Control:
             raise TypeError(
                 f"{_control_label(name)}wrong default type {type(value_default).__name__} {value_default!r}, "
                 "expected int, float, bool or str"
+            )
+        if scale == "log" and (self._type is not float or value_range is None):
+            raise ValueError(
+                f"{_control_label(name)}scale='log' needs a float slider: Control(1e-2, [1e-4, 1e-1], scale='log') "
+                "(use float bounds or default)"
             )
         self.value_range = value_range
 
@@ -255,6 +293,52 @@ class Control:
         # Register with panel if provided
         if self.panel is not None:
             self.panel._register_control(self)
+
+    @staticmethod
+    def _validate_log_scale(value_default, value_range, step, name) -> None:
+        if step is not None:
+            raise ValueError(
+                f"{_control_label(name)}a log slider has no step (it moves evenly over decades): remove step="
+            )
+        if not value_range[0] > 0:
+            raise ValueError(
+                f"{_control_label(name)}a log slider needs a positive range, got {list(value_range)}: "
+                f"start it above 0, e.g. [{value_range[1] / 1000:g}, {value_range[1]:g}]"
+            )
+
+    @property
+    def is_log(self) -> bool:
+        return self.__dict__.get("scale", "linear") == "log"
+
+    def to_position(self, value) -> float:
+        """Slider position in [0, 1] of a value (log scale: evenly over decades)."""
+        low, high = float(self.value_range[0]), float(self.value_range[1])  # type: ignore[index,arg-type]
+        if high == low:
+            return 0.0
+        value = min(max(float(value), low), high)
+        if self.is_log:
+            return (math.log10(value) - math.log10(low)) / (math.log10(high) - math.log10(low))
+        return (value - low) / (high - low)
+
+    def from_position(self, position: float):
+        """Value at a slider position in [0, 1]: snapped to the step (linear scale) or
+        rounded to 3 significant digits (log scale), within the range."""
+        low, high = float(self.value_range[0]), float(self.value_range[1])  # type: ignore[index,arg-type]
+        position = min(max(float(position), 0.0), 1.0)
+        if self.is_log:
+            value = 10 ** (math.log10(low) + position * (math.log10(high) - math.log10(low)))
+            value = min(max(float(f"{value:.3g}"), low), high)
+        else:
+            value = self.snap(low + position * (high - low))
+        return value
+
+    def snap(self, value: float) -> float:
+        """A linear slider value on the step grid (min + k * step), without float noise."""
+        if self.is_log or not self.step or self.value_range is None:
+            return value
+        low, high = self.value_range[0], self.value_range[1]
+        snapped = low + round((value - low) / self.step) * self.step  # type: ignore[operator]
+        return min(max(_clean(snapped), low), high)  # type: ignore[type-var]
 
     def _validate_step(self, value_range) -> None:
         """A slider step must be a positive number no larger than the range."""
@@ -354,19 +438,62 @@ class Control:
         if self.update_param_func is not None:
             self.update_param_func(self.value)
 
-    def _clone_unconnected(self, name: str) -> "Control":
-        """Shallow clone for a repeated filter instance: same value spec,
-        panel and widget type, but a fresh name, the default value and no
-        filter connection (the pipeline connects it to the repeat)."""
+    def _clone_unconnected(self, name: str, keep_value: bool = False) -> "Control":
+        """Shallow clone for one pipeline (or one repeated filter instance): same
+        value spec, panel and widget type, but a fresh name, the default value
+        (unless ``keep_value``: a pipeline starts from the declared control's
+        current value) and no filter connection (the pipeline connects it).
+
+        The clone is not added to its panel's ``_controls``: a GUI lists the
+        controls of a panel among its own pipeline's controls
+        (``Panel.controls_among``), so clones made by other pipelines never
+        show up there (and are not kept alive by the panel)."""
         clone = copy(self)
         clone.name = name
         clone.filter_to_connect = None
         clone.parameter_name_to_connect = None
+        clone._extra_targets = []
         clone.update_param_func = None
-        clone.reset()
-        if clone.panel is not None:
-            clone.panel._register_control(clone)
+        clone._origin = self.origin
+        if not keep_value:
+            clone.reset()
         return clone
+
+    @property
+    def origin(self) -> "Control":
+        """The declared control this one was cloned from (itself if it is a declaration)."""
+        return self.__dict__.get("_origin") or self
+
+    @property
+    def share_key(self) -> int:
+        """Controls with the same key are one widget within a pipeline.
+
+        The declared object itself: the same ``Control`` passed to two
+        ``@interactive`` decorators is shared. Per-function clones of an
+        explicitly named annotation control carry the key of the annotation
+        object (see ``helper/annotation_controls.py``).
+        """
+        key = self.__dict__.get("_share_key")
+        return key if key is not None else id(self)
+
+    @property
+    def targets(self) -> List[Tuple[FilterCore, str]]:
+        """``(filter, parameter)`` pairs this control drives in its pipeline.
+
+        One pair for a control declared in one filter; several when the same
+        control object is declared by several filters of the pipeline
+        (``band = RangeControl(...)``; ``@interactive(band=band)`` twice).
+        """
+        if self.filter_to_connect is None or self.parameter_name_to_connect is None:
+            return []
+        return [(self.filter_to_connect, self.parameter_name_to_connect), *self.__dict__.get("_extra_targets", [])]
+
+    def _add_target(self, filt: FilterCore, parameter_name: str) -> None:
+        """Drive one more filter parameter (a control shared by several filters)."""
+        if self.filter_to_connect is None:
+            self.connect_filter(filt, parameter_name)
+            return
+        self.__dict__.setdefault("_extra_targets", []).append((filt, parameter_name))
 
     def _checked_default(self, value):
         """Validate a new default value for this control (no clamping: out of range raises)."""
@@ -414,13 +541,16 @@ class Control:
         self.update_param_func = update_param_func
 
     def connect_filter(self, filt: FilterCore, parameter_name):
-        def update_param_func(val):
-            logging.debug(f"update filter {filt.name} - param {parameter_name} - value {val}")
-            filt.values = {parameter_name: val}
-
-        self.update_param_func = update_param_func
+        """Drive ``parameter_name`` of ``filt`` (replaces any previous target)."""
+        self.update_param_func = self._update_targets
         self.parameter_name_to_connect = parameter_name
         self.filter_to_connect = filt
+        self._extra_targets = []
+
+    def _update_targets(self, val) -> None:
+        for filt, parameter_name in self.targets:
+            logging.debug(f"update filter {filt.name} - param {parameter_name} - value {val}")
+            filt.values = {parameter_name: val}
 
 
 class MappedChoiceControl(Control):

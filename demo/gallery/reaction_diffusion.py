@@ -1,12 +1,10 @@
 """Edge case: a stateful simulation (Gray-Scott reaction-diffusion) animated by a clock.
 
 What to look at: spots, stripes or labyrinths grow from a small seed depending on feed / kill.
-This is where the library is a poor fit: a pipeline is a pure function of its controls, but a
-simulation is a state that evolves. Keeping the state in `context` and advancing it on every run
-makes snapshots and sweeps depend on how many runs happened before. Instead the frame is made a
-function of the clock: `t` seconds = `t * speed` steps from the seed, and the context only caches
-the last state to resume from, so `snapshot(t=4)` is reproducible. A run advances at most 2000 steps
-(the title shows the step reached), so the GUI stays responsive when the clock jumps.
+The state lives in `context` and each run advances it to the clock: `t` seconds = `t * speed` steps
+from the seed (moving feed / kill continues the simulation with the new values). Snapshots and sweeps
+start each picture from an empty context, so `snapshot(t=4)` is reproducible. A run advances at most
+2000 steps (the title shows the step reached), so the GUI stays responsive when the clock jumps.
 """
 
 from typing import Annotated
@@ -36,11 +34,11 @@ def simulate(
     kill: Annotated[float, (0.04, 0.07), "kill"] = 0.06,
     speed: Annotated[int, (100, 2000), "steps / second"] = 500,
 ):
-    """A pure function of (t, feed, kill, speed): the context only caches the last state to resume from."""
+    """Advance the state kept in the context up to the clock."""
     target = int(t * speed)
     state = context.get("sim")
-    if state is None or state["params"] != (feed, kill) or state["step"] > target:
-        state = dict(params=(feed, kill), step=0, uv=seed())  # parameters changed or time went back
+    if state is None or state["step"] > target:  # first run, or the clock went back
+        state = dict(step=0, uv=seed())
     u, v = state["uv"]
     for _ in range(min(target - state["step"], 2000)):
         uvv = u * v * v

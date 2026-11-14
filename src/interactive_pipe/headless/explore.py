@@ -75,9 +75,13 @@ def parameter_targets(pipeline: Any) -> Dict[str, List[Target]]:
             targets.setdefault(param_name, []).append((filt.name, param_name))
             targets[f"{filt.name}.{param_name}"] = [(filt.name, param_name)]
     for ctrl in _controls(pipeline):
-        if ctrl.filter_to_connect is None or ctrl.parameter_name_to_connect is None:
-            continue
-        targets.setdefault(ctrl.name, [(ctrl.filter_to_connect.name, ctrl.parameter_name_to_connect)])
+        # a control shared by several filters sets all of them (one widget, one value)
+        found = targets.setdefault(ctrl.name, [])
+        for filt, param_name in ctrl.targets:
+            if (filt.name, param_name) not in found:
+                found.append((filt.name, param_name))
+        if not found:
+            del targets[ctrl.name]
     return targets
 
 
@@ -157,8 +161,7 @@ def _controls_for(pipeline: Any, targets: List[Target]) -> List[Control]:
     return [
         ctrl
         for ctrl in _controls(pipeline)
-        if ctrl.filter_to_connect is not None
-        and (ctrl.filter_to_connect.name, ctrl.parameter_name_to_connect) in targets
+        if any((filt.name, param_name) in targets for filt, param_name in ctrl.targets)
     ]
 
 
@@ -185,7 +188,9 @@ def apply_overrides(pipeline: Any, overrides: Dict[str, Any], method: str = "sna
                     stacklevel=4,
                 )
         for filter_name, param_name in targets:
-            controlled = [ctrl for ctrl in controls if ctrl.filter_to_connect.name == filter_name]  # type: ignore[union-attr]
+            controlled = [
+                ctrl for ctrl in controls if (filter_name, param_name) in [(f.name, p) for f, p in ctrl.targets]
+            ]
             final = controlled[0].value if controlled else value
             PipelineCore.parameters.__set__(pipeline, {filter_name: {param_name: final}})  # type: ignore[attr-defined]
 
@@ -214,17 +219,19 @@ def _same_value(left: Any, right: Any) -> bool:
 
 @contextmanager
 def preserved_state(pipeline: Any) -> Iterator[None]:
-    """Restore parameters, control values, output layout, styles and last
-    results on exit (also when the body raises)."""
+    """Restore parameters, control values, output layout, styles, last
+    results, context and events on exit (also when the body raises)."""
     # per-filter dict copies are enough: overrides replace values, never mutate them
     parameters = PipelineCore.parameters.__get__(pipeline)  # type: ignore[attr-defined]
     control_values = [(ctrl, ctrl.value) for ctrl in _controls(pipeline)]
     outputs = deepcopy(pipeline.outputs)
     framework_state = pipeline.framework_state.snapshot()
     results = getattr(pipeline, "results", None)
+    run_state = pipeline.save_run_state()
     try:
         yield
     finally:
+        pipeline.restore_run_state(run_state)
         PipelineCore.parameters.__set__(pipeline, parameters)  # type: ignore[attr-defined]
         for ctrl, value in control_values:
             ctrl.value = value
@@ -279,6 +286,9 @@ def _caption(pipeline: Any, caption: Union[bool, str, None], exclude: Sequence[T
     if caption is True:
         parameters = PipelineCore.parameters.__get__(pipeline)  # type: ignore[attr-defined]
         excluded = set(exclude)
+        for ctrl in _controls(pipeline):
+            # a control shared by several filters is one value: shown once, at its first target
+            excluded.update((filt.name, param_name) for filt, param_name in ctrl.targets[1:])
         kept = {
             filter_name: {key: val for key, val in values.items() if (filter_name, key) not in excluded}
             for filter_name, values in parameters.items()
@@ -295,6 +305,17 @@ def _caption(pipeline: Any, caption: Union[bool, str, None], exclude: Sequence[T
 # ---------------------------------------------------------------------------
 
 
+def fresh_run(pipeline: Any, runs: int = 1, method: str = "snapshot") -> Any:
+    """Run like the first run: context back to what was given from outside, events off,
+    no cache (``PipelineCore.restart_run_state``), then ``runs`` runs; the last one's results."""
+    if isinstance(runs, bool) or not isinstance(runs, int) or runs < 1:
+        raise ValueError(f"{method}(): runs must be a positive int (warm-up runs + 1), got {runs!r}")
+    pipeline.restart_run_state()
+    for _ in range(runs - 1):
+        pipeline.run()
+    return pipeline.run()
+
+
 def run_snapshot(
     pipeline: "HeadlessPipeline",
     path: PathLike,
@@ -306,6 +327,7 @@ def run_snapshot(
     dpi: Optional[float] = None,
     title: Optional[str] = None,
     caption: Union[bool, str, None] = True,
+    runs: int = 1,
     **overrides: Any,
 ) -> Tuple[Union[Path, np.ndarray], Any]:
     """`snapshot` returning (written path or image, run results)."""
@@ -314,7 +336,7 @@ def run_snapshot(
     prepare_inputs(pipeline, input_values, inputs, "snapshot")
     with preserved_state(pipeline):
         apply_overrides(pipeline, all_overrides, "snapshot")
-        result = pipeline.run()
+        result = fresh_run(pipeline, runs, "snapshot")
         grid = select_cells(result_grid(pipeline, result), output)
         warn_output_problems(((cell.name, cell.raw) for cell in flat_cells(grid)), "snapshot", _output_styles(pipeline))
         fig = render_grid(grid, figsize=figsize, dpi=dpi, title=title, caption=_caption(pipeline, caption))
@@ -332,9 +354,17 @@ def snapshot(
     dpi: Optional[float] = None,
     title: Optional[str] = None,
     caption: Union[bool, str, None] = True,
+    runs: int = 1,
     **overrides: Any,
 ) -> Union[Path, np.ndarray]:
     """Run the pipeline once and render what the GUI would show to a PNG.
+
+    Each call starts like a first run: the ``context`` holds only what was given
+    from outside (``context=`` at construction or in a call), not what filters
+    wrote in earlier runs; key-bound events are off and nothing is served from
+    the cache. The pipeline's own context, events and cache are put back
+    afterwards. A pipeline that needs warm-up runs (an accumulator, a
+    simulation) takes ``runs=N``: N runs from that fresh start, the last one shown.
 
     Example:
         ```python
@@ -359,6 +389,7 @@ def snapshot(
         title: Figure title.
         caption: True (default) prints the parameter values used under the
             grid, False hides them, a string replaces them.
+        runs: Number of runs from the fresh start (default 1); the last one is shown.
         **overrides: Parameter values for this call only: a keyword-argument
             name (``gain=2.0``), a control name or ``"filter.param"``.
 
@@ -381,6 +412,7 @@ def snapshot(
         dpi=dpi,
         title=title,
         caption=caption,
+        runs=runs,
         **overrides,
     )
     return written
@@ -431,7 +463,10 @@ def values_over_range(pipeline: Any, name: str, targets: List[Target], count: in
     low, high = ctrl.value_range[0], ctrl.value_range[1]
     if count == 1:
         return [ctrl.value_default]
-    values = np.linspace(float(low), float(high), count)  # type: ignore[arg-type]
+    if getattr(ctrl, "is_log", False):  # log slider: geometric steps, 3 significant digits
+        values = np.array([float(f"{val:.3g}") for val in np.geomspace(float(low), float(high), count)])  # type: ignore[arg-type]
+    else:
+        values = np.linspace(float(low), float(high), count)  # type: ignore[arg-type]
     if ctrl._type is int:
         return list(dict.fromkeys(int(round(val)) for val in values))
     return [float(val) for val in values]
@@ -487,9 +522,13 @@ def sweep(
     dpi: Optional[float] = None,
     title: Optional[str] = None,
     caption: Union[bool, str, None] = True,
+    runs: int = 1,
     **overrides: Any,
 ) -> Union[Path, np.ndarray]:
     """Run the pipeline for several parameter values and render a contact sheet.
+
+    Every cell starts like a first run (see ``snapshot``): cells are
+    independent of each other and of the runs before the call.
 
     Example:
         ```python
@@ -511,13 +550,14 @@ def sweep(
             only output, else the first image output. ``"all"`` shows the
             whole layout in every cell; a list shows several outputs.
         steps: ``{name: count}`` sweeps a control over its declared range
-            (``count`` evenly spaced values; every choice of a dropdown, both
-            states of a checkbox).
+            (``count`` evenly spaced values, geometric for a log slider; every
+            choice of a dropdown, both states of a checkbox).
         params: Overrides / axes as a dict (for names clashing with options).
         figsize: As for ``snapshot``.
         dpi: As for ``snapshot``.
         title: As for ``snapshot``.
         caption: True prints the fixed parameter values under the sheet.
+        runs: Runs per cell from the fresh start (default 1); the last one is shown.
         **overrides: Swept axes (lists) and fixed overrides (scalars).
 
     Returns:
@@ -542,7 +582,7 @@ def sweep(
         chosen_name: Any = None
         for combo in combos:
             apply_overrides(pipeline, dict(zip(names, combo)), "sweep")
-            grid = result_grid(pipeline, pipeline.run())
+            grid = result_grid(pipeline, fresh_run(pipeline, runs, "sweep"))
             run_styles.update(_output_styles(pipeline))  # layout.style calls of this run
             if output is not None:
                 panels_flat.append(_panel(grid, output))

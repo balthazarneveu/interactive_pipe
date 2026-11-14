@@ -12,6 +12,7 @@ import numpy as np  # noqa: E402
 import pytest  # noqa: E402
 
 from interactive_pipe import interactive, interactive_pipeline, layout  # noqa: E402
+from interactive_pipe.headless.pipeline import HeadlessPipeline  # noqa: E402
 
 SIZE = 16
 
@@ -44,7 +45,7 @@ def gui_pipe(request, monkeypatch):
 
 
 def test_decorated_gui_function_exposes_the_loop(gui_pipe, tmp_path):
-    assert callable(gui_pipe) and not hasattr(gui_pipe, "run")  # still the launcher function
+    assert callable(gui_pipe) and not isinstance(gui_pipe, HeadlessPipeline)  # still the launcher function
     path = gui_pipe.snapshot(tmp_path / "gui.png", white(), gain=1.0)
     assert path.is_file()
     rgb = gui_pipe.sweep(None, gain=[0.0, 1.0], output="amplified", caption=False)

@@ -52,8 +52,13 @@ def __create_control_from_keyword_argument(
     elif from_decorator and isinstance(unknown_keyword_arg, (int, float, str)):
         raise _scalar_shorthand_error(param_name, unknown_keyword_arg)
     if isinstance(unknown_keyword_arg, Control):  # This includes KeyboardControl as well!!
-        if unknown_keyword_arg.name is None or unknown_keyword_arg._auto_named:
+        # An unnamed control takes the name of the parameter it is first declared for;
+        # the same object declared again for another filter (a shared control,
+        # possibly under another parameter name) keeps that name.
+        first_parameter = unknown_keyword_arg.__dict__.get("_named_after_parameter")
+        if unknown_keyword_arg.name is None or (unknown_keyword_arg._auto_named and first_parameter is None):
             unknown_keyword_arg.name = param_name
+            unknown_keyword_arg._named_after_parameter = param_name
         chosen_control = unknown_keyword_arg
     else:
         if isinstance(unknown_keyword_arg, (list, tuple)):

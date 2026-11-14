@@ -82,7 +82,8 @@ class DpgPanelBuilder:
         if isinstance(element, Panel):
             return self.build_panel(element, parent, width_fn)
         if isinstance(element, Control):
-            return self.create_control_row(element, parent)
+            ctrl = Panel.resolve_control(element, list(self.window.ctrl.values()))
+            return None if ctrl is None else self.create_control_row(ctrl, parent)
         return None
 
     def build_panel(self, panel: Panel, parent, width_fn: WidthFn) -> Any:
@@ -106,7 +107,8 @@ class DpgPanelBuilder:
         """Add the child panels, grid rows and controls of ``panel`` to ``container``."""
         is_grid = bool(panel.elements) and isinstance(panel.elements[0], list)
         direct = [] if is_grid else [el for el in panel.elements if isinstance(el, Control)]
-        direct += panel._controls
+        own_controls = panel.controls_among(list(self.window.ctrl.values()))
+        direct += own_controls
         self._label_hints[container] = max((len(c.name) for c in direct), default=0)
         if is_grid:
             for row in panel.elements:
@@ -125,7 +127,7 @@ class DpgPanelBuilder:
         else:
             for element in panel.elements:
                 self.build_element(element, container, width_fn)
-        for ctrl in panel._controls:
+        for ctrl in own_controls:
             self.create_control_row(ctrl, container)
 
     def build_detached_window(self, panel: Panel) -> Any:
@@ -171,10 +173,11 @@ class DpgPanelBuilder:
         widget_wrapper = self.control_factory.create_control(ctrl, window.update_parameter)
         if widget_wrapper is None:
             return None
-        if ctrl._type is str and ctrl.icons is not None and ctrl.filter_to_connect is not None:
+        if ctrl._type is str and ctrl.icons is not None:
             # icon bars re-trigger the same choice: never serve it from the cache
-            ctrl.filter_to_connect.cache = False
-            ctrl.filter_to_connect.cache_mem = None
+            for filt, _param in ctrl.targets:
+                filt.cache = False
+                filt.cache_mem = None
         table = self._controls_table(container, ctrl)
         row = dpg.add_table_row(parent=table)
         label = dpg.add_text(ctrl.name, parent=row)
