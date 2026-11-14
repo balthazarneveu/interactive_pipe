@@ -18,8 +18,8 @@ from interactive_pipe import interactive  # noqa: E402
 from interactive_pipe.graphical.value_format import (  # noqa: E402
     D3_FORMAT,
     JS_FORMAT_NUMBER,
-    format_control_value,
     format_number,
+    format_value,
     printf_format,
 )
 from interactive_pipe.headless.pipeline import HeadlessPipeline  # noqa: E402
@@ -52,8 +52,9 @@ def test_integers_booleans_and_numpy_scalars():
     assert format_number(np.int64(4)) == "4"
     assert format_number(np.float32(0.1)) == "0.1"
     assert format_number(True) == "True"
-    assert format_control_value((0.1, 2.0)) == "(0.1, 2)"
-    assert format_control_value("median") == "median"
+    assert format_value((0.1, 2.0)) == "(0.1, 2)"
+    assert format_value("median") == "median"
+    assert format_value(np.int64(3)) == "3" and format_value(True) == "True"
 
 
 @pytest.mark.parametrize(
