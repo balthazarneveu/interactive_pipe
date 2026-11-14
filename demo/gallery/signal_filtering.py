@@ -9,9 +9,10 @@ coefficients, but a curved phase, so a frequency-dependent delay). The Bode plot
 import numpy as np
 from matplotlib.figure import Figure
 
-from interactive_pipe import Curve, SingleCurve, context, interactive, interactive_pipeline
+from interactive_pipe import Control, Curve, SingleCurve, interactive, interactive_pipeline
 
 FS = 500.0  # sampling rate, Hz
+CUTOFF = Control(25.0, [2.0, 100.0], name="cutoff (Hz)")  # one slider for design and bode
 
 
 @interactive(noise=(0.3, [0.0, 1.0]))
@@ -24,13 +25,12 @@ def chirp(noise=0.3):
 
 @interactive(
     kind=("FIR", ["FIR", "IIR"]),
-    cutoff=(25.0, [2.0, 100.0], "cutoff (Hz)"),
+    cutoff=CUTOFF,
     taps=(41, [3, 201], "FIR taps"),
     iir_order=(4, [1, 8], "IIR order"),
 )
 def design(kind="FIR", cutoff=25.0, taps=41, iir_order=4):
     """Return (b, a): a Hamming windowed-sinc FIR, or a Butterworth IIR (bilinear transform)."""
-    context["cutoff"] = cutoff
     if kind == "FIR":
         n = np.arange(taps) - (taps - 1) / 2
         b = np.sinc(2 * cutoff / FS * n) * np.hamming(taps)
@@ -66,8 +66,8 @@ def plot_signals(t, noisy, filtered, clean):
     )
 
 
-@interactive()
-def bode(b, a):
+@interactive(cutoff=CUTOFF)
+def bode(b, a, cutoff=25.0):
     n = 4096
     f = np.fft.rfftfreq(n, 1 / FS)
     h = np.fft.rfft(b, n) / np.fft.rfft(a, n)
@@ -76,7 +76,7 @@ def bode(b, a):
     ax.semilogx(f[1:], 20 * np.log10(np.abs(h[1:]) + 1e-12), "b")
     ax.set(xlabel="frequency (Hz)", ylabel="magnitude (dB)", ylim=(-80, 5))
     ax.grid(True, which="both", alpha=0.3)
-    ax.axvline(context["cutoff"], color="gray", linestyle=":")
+    ax.axvline(cutoff, color="gray", linestyle=":")
     twin = ax.twinx()
     twin.semilogx(f[1:], np.degrees(np.unwrap(np.angle(h[1:]))), "r")
     twin.set_ylabel("phase (deg)", color="r")

@@ -117,10 +117,25 @@ def test_signal_filters_have_unit_dc_gain(isolated_controls):
 
 def test_pid_reaches_the_reference(isolated_controls):
     ns = _load("pid_control")
-    pid = (2.0, 3.0, 0.15)
-    response, command = ns["simulate"](pid)
+    response, command = ns["simulate"](kp=2.0, ki=3.0, kd=0.15)
     output = response.curves[1].y
     assert abs(output[-1] - 1.0) < 0.02
+
+
+@pytest.mark.parametrize(
+    "name, shared",
+    [
+        ("frequency_filtering", {"band (cycles/px)": ["band_pass.band", "radial_profile.band"]}),
+        ("signal_filtering", {"cutoff (Hz)": ["design.cutoff", "bode.cutoff"]}),
+        ("pid_control", {gain: [f"simulate.{gain.lower()}", f"bode.{gain.lower()}"] for gain in ("Kp", "Ki", "Kd")}),
+    ],
+)
+def test_one_slider_drives_several_filters(name, shared, isolated_controls):
+    ns = _load(name)
+    controls = ns[name].describe()["controls"]
+    names = [entry["name"] for entry in controls]
+    assert len(names) == len(set(names))
+    assert {entry["name"]: entry["targets"] for entry in controls if entry["name"] in shared} == shared
 
 
 def test_reaction_diffusion_frame_depends_on_the_clock_only(isolated_controls):

@@ -36,13 +36,11 @@ def spectrum(img):
     return f, np.log10(np.abs(f) + 1e-6)
 
 
-@interactive(band=RangeControl((0.1, 0.3), [0.0, 0.71], name="band (cycles/px)"))
-def choose_band(band=(0.1, 0.3)):
-    return (band,)  # one slider for band_pass and radial_profile; (band,): a bare tuple would be 2 outputs
+BAND = RangeControl((0.1, 0.3), [0.0, 0.71], name="band (cycles/px)")  # one slider, used by two filters
 
 
-@interactive(softness=(0.01, [0.0, 0.05]))
-def band_pass(f, band, softness=0.01):
+@interactive(band=BAND, softness=(0.01, [0.0, 0.05]))
+def band_pass(f, band=(0.1, 0.3), softness=0.01):
     r, s = radius(f.shape), max(softness, 1e-4)
     mask = 1 / (1 + np.exp(-(r - band[0]) / s)) / (1 + np.exp((r - band[1]) / s))
     return f * mask, mask
@@ -54,8 +52,8 @@ def inverse(f):
     return (out - out.min()) / (np.ptp(out) + 1e-12)
 
 
-@interactive()
-def radial_profile(f, band):
+@interactive(band=BAND)
+def radial_profile(f, band=(0.1, 0.3)):
     idx = np.round(radius(f.shape) * 100).astype(int).ravel()  # 0.01 cycle/px bins
     power = np.bincount(idx, np.abs(f.ravel()) ** 2) / np.maximum(np.bincount(idx), 1)
     fig = Figure(figsize=(5, 3.5), layout="tight")
@@ -70,10 +68,9 @@ def radial_profile(f, band):
 @interactive_pipeline(gui="auto")
 def frequency_filtering(img):
     f, log_spectrum = spectrum(img)
-    band = choose_band()
-    filtered_f, mask = band_pass(f, band)
+    filtered_f, mask = band_pass(f)
     filtered = inverse(filtered_f)
-    profile = radial_profile(f, band)
+    profile = radial_profile(f)
     return [[img, log_spectrum, mask], [filtered, profile]]
 
 
