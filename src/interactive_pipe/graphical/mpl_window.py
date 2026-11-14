@@ -90,6 +90,11 @@ class MatplotlibWindow(InteractivePipeWindow):
             ax_dict["kind"] = kind
             self.need_redraw = True
         data = ax_dict.get("data")
+        if isinstance(img, np.ndarray) and data is not None and np.shape(data.get_array()) != img.shape:
+            # new image size (e.g. image <-> figure output): set_data would keep the old extent
+            ax.clear()
+            data = ax_dict["data"] = None
+            self.need_redraw = True
         if isinstance(img, np.ndarray):
             if data is None:
                 ax_dict["data"] = ax.imshow(img)
