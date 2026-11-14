@@ -254,3 +254,13 @@ def test_numpy_integer_style_values_do_not_wrap():
     data = np.zeros((2, 2))
     style = {"vmin": np.uint8(10), "vmax": np.uint8(200), "center": 128}
     assert heatmap_range(data, np.ones((2, 2), bool), style) == (10.0, 246.0)
+
+
+def test_constant_map_takes_the_middle_colour_of_the_scale():
+    """A zero error map with center=0 is the colour of zero (white for RdBu), not the low end."""
+    from matplotlib import colormaps
+
+    from interactive_pipe.graphical.display import apply_display_style
+
+    shown = apply_display_style(np.zeros((8, 8)), {"colormap": "RdBu_r", "center": 0})
+    np.testing.assert_allclose(shown[4, 4, :3], colormaps["RdBu_r"](0.5)[:3], atol=1 / 255)
