@@ -1,0 +1,3 @@
+Build an interactive demo with interactive_pipe of why coordinate networks need positional encoding: fit a synthetic image from its (x, y) pixel coordinates using random Fourier features followed by a linear least-squares solve (no training loop), from a random subset of the pixels. Sliders for the frequency scale of the features, their number and the share of pixels used for fitting. Show the target, the reconstruction and the error with the PSNR on the fitted and on the held-out pixels. Students should see blur when the frequency scale is too low and noise between the samples when it is too high.
+
+Line budget: 70.

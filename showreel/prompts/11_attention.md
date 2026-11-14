@@ -1,0 +1,3 @@
+Build an interactive demo with interactive_pipe that puts scaled dot-product attention under the microscope, in plain numpy: a short toy sequence of tokens with content embeddings plus positional encodings, and the attention matrix shown as a heatmap, with the attention row of one query token I can step through with the keyboard. Controls for the softmax temperature, the weight of the positional encoding versus the content, the kind of positional encoding and a causal mask. Students should see what temperature and the mask do, and what attending by position versus by content looks like.
+
+Line budget: 80.
