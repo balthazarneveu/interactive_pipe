@@ -300,3 +300,12 @@ def test_rerun_after_exception_recomputes(cache):
         assert pipe(np.ones(1), gain=1.0)[0][0] == 101
     finally:
         FLAKY_STATE["fail"] = False
+
+
+def empty_pipeline(img): ...
+
+
+def test_pipeline_without_any_filter_says_so():
+    # used to raise IndexError: list index out of range
+    with pytest.raises(ValueError, match="pipeline 'empty_pipeline' calls no filter and returns nothing"):
+        HeadlessPipeline.from_function(empty_pipeline)
