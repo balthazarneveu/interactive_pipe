@@ -70,8 +70,8 @@ Return a 2D `(H, W)` array and describe its display with
 | `colormap` | matplotlib colormap name or `Colormap` object. |
 | `vmin`, `vmax` | Values mapped to the ends of the colormap; each defaults to the data min / max. |
 | `center` | Widens the range to be symmetric around this value: `colormap="RdBu", center=0` for signed data. |
-| `colorbar` | `True` draws the scale on the right of the map: min, max and round ticks. |
-| `unit` | Text appended to the colorbar labels, e.g. `unit="dB"`. |
+| `colorbar` | `True` draws the scale on the right of the map: min, max and round ticks. A string, `colorbar="log10 \|F\|"`, also writes it vertically along the bar (for a longer description). |
+| `unit` | Short unit written once, above the bar, e.g. `unit="dB"`. |
 
 ```python
 import numpy as np
@@ -103,6 +103,12 @@ heatmap_pipeline.snapshot("docs/images/figures_heatmap_colorbar.png")
   every backend and in snapshots. A small map (like this 32 x 32 one) is
   first enlarged (nearest neighbour, integer factor) so the labels stay
   legible; large maps are not resampled.
+- **Labels**: both ends of the range are always labelled (with enough
+  decimals to be within 0.5 % of the true value: `4.2`, not `4`), round
+  ticks in between are dropped when they would overlap an end, and every
+  label of a bar has the same number of decimals. Very large (>= 1e5) or
+  very small (< 1e-2) values are written once as a multiplier above the bar
+  (`×10⁻³ m`) instead of `0.0024 m` on every tick.
 - **NaN and masked values** (`numpy.ma`) are shown in **magenta**, a colour
   no common colormap uses, so a missing value never reads as a valid one;
   they are ignored when computing the automatic range. A `Colormap` with
