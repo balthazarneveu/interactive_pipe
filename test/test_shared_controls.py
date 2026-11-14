@@ -90,7 +90,12 @@ def test_snapshot_and_sweep_one_axis(tmp_path):
     from interactive_pipe.headless.explore import _caption
 
     pipe.inputs = [SIGNAL]
-    assert _caption(pipe, True).count("0.2") == 1  # the shared value is shown once
+    caption = _caption(pipe, True)
+    assert caption.count("0.2") == 1  # the shared value is shown once
+    assert caption.splitlines()[0] == "band=(0.2, 0.6)"  # by the control's name, not a filter's parameter
+    assert "sc_band_pass" not in caption and "sc_profile" not in caption
+    swept = _caption(pipe, True, exclude=[("sc_profile", "bounds")])  # swept: in the cell labels
+    assert swept is None or "band" not in swept
     assert pipe.snapshot(tmp_path / "s.png", SIGNAL, band=(0.3, 0.4)).is_file()
     image = pipe.sweep(None, SIGNAL, band=[(0.0, 0.5), (0.5, 1.0)], output="profile")
     assert image.ndim == 3
