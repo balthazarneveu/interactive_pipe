@@ -115,6 +115,25 @@ def test_colorbar_keeps_both_ends_and_drops_overlapping_ticks(vmin, vmax, bar_h)
     assert all(b - a >= 15.0 for a, b in zip(ys, ys[1:])) or len(ends) == 2 and len(placed) == 2
 
 
+@pytest.mark.parametrize("height", [256, 512, 800, 1000])
+def test_end_label_and_nearest_tick_keep_a_clear_gap(height):
+    """vmin=1.0, vmax=4.2: '4.2' and '4.0' must not nearly touch."""
+    strip = colorbar_strip(matplotlib.colormaps["viridis"], 1.0, 4.2, height)
+    # rows holding label text (right of the bar): groups of dark rows separated by white
+    labels_area = strip[:, int(strip.shape[1] * 0.6) :]  # right of the bar and its ticks
+    dark_rows = (labels_area.mean(axis=-1) < 0.5).any(axis=1)
+    runs, start = [], None
+    for y, dark in enumerate(dark_rows):
+        if dark and start is None:
+            start = y
+        elif not dark and start is not None:
+            runs.append((start, y))
+            start = None
+    gaps = [b_start - a_end for (_, a_end), (b_start, _) in zip(runs, runs[1:])]
+    font_px = np.clip(round(height * 0.05), 12, 48)
+    assert min(gaps) >= 0.6 * font_px, (runs, gaps)
+
+
 def _strip_text_columns(strip):
     """Columns holding dark (text) pixels right of the bar."""
     dark = (strip.mean(axis=-1) < 0.5).any(axis=0)

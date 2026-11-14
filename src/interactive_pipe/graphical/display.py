@@ -261,6 +261,7 @@ COLORBAR_MAX_UPSCALE = 32
 COLORBAR_MAX_UPSCALED_WIDTH = 2048  # wide, flat maps are not blown up beyond this
 COLORBAR_FONT_FRACTION = 0.05  # label height relative to the map height
 COLORBAR_FONT_MIN, COLORBAR_FONT_MAX = 12, 48
+COLORBAR_LABEL_SPACING = 1.6  # labels at least this many font heights apart (an end and its nearest tick)
 
 
 def _heatmap_array(content: Any, style: Optional[dict]) -> Optional[np.ndarray]:
@@ -623,7 +624,7 @@ def _colorbar_strip(
     if side is not None:
         strip.paste(side, (width - gap - side.width, bar_top + (bar_h - side.height) // 2))
 
-    for y, text in place_colorbar_labels(labels, vmin, vmax, bar_top, bar_h, font_px * 1.15):
+    for y, text in place_colorbar_labels(labels, vmin, vmax, bar_top, bar_h, font_px * COLORBAR_LABEL_SPACING):
         draw.line([gap + bar_w, y, gap + bar_w + tick_len, y], fill=(0, 0, 0))
         box = draw.textbbox((0, 0), text, font=font)
         draw.text((label_x, y - (box[1] + box[3]) / 2.0), text, font=font, fill=(0, 0, 0))
