@@ -80,12 +80,12 @@ class TestFilterCoreExceptions:
             return (x, x * 2)  # Returns 2 outputs
 
         filter = FilterCore(apply_fn=multi_output, inputs=[0], outputs=[1, 2, 3])
-        with pytest.raises(ValueError, match="number of outputs"):
+        with pytest.raises(ValueError, match="returned 2 value\\(s\\) but the pipeline unpacks 3"):
             filter.run(np.array([1, 2, 3]))
 
     def test_run_raises_valueerror_when_single_output_but_multiple_expected(self):
         filter = FilterCore(apply_fn=simple_func, inputs=[0], outputs=[1, 2])
-        with pytest.raises(ValueError, match="returning a single element"):
+        with pytest.raises(ValueError, match="returned a single ndarray but the pipeline unpacks 2"):
             filter.run(np.array([1, 2, 3]))
 
     def test_run_handles_none_output(self):

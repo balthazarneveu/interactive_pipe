@@ -237,6 +237,8 @@ class HeadlessPipeline(PipelineCore):
                 for param_name, literal_value in literal_kwargs.items()
                 if not isinstance(params_to_analyze.get(param_name), Control)
             }
+            # the pipeline line calling this filter: output count checks and messages
+            filt.call_location = filt_dict.get("location")
             filters.append(filt)
             filters_names.append(filt_name)
             seen_function_ids.add(id(filt_dict["function_object"]))
