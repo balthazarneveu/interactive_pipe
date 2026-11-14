@@ -434,15 +434,13 @@ class HeadlessPipeline(PipelineCore):
         # threaded run reads them, or not-yet-merged controls after a GUI reset).
         PipelineCore.parameters.__set__(self, current_params)  # type: ignore[attr-defined]
 
-    def __run(self):
-        self.update_parameters_from_controls()
-        result_full = super().run()
-        output_indexes = self.outputs if self.outputs is not None else self.filters[-1].outputs
+    def _collect(self, result_full: dict, output_indexes: Any) -> Any:
+        """Outputs named by ``output_indexes`` (flat: a tuple; 2D: a list of rows)."""
         if not output_indexes:
             return None
         if isinstance(output_indexes[0], list):
             # 2D layout: keep None placeholders so (row, col) positions stay aligned
-            # with self.outputs (empty cells are skipped by the GUI)
+            # with the layout (empty cells are skipped by the GUI)
             return [
                 [None if out_index is None else result_full.get(out_index) for out_index in row]
                 for row in output_indexes
@@ -450,9 +448,24 @@ class HeadlessPipeline(PipelineCore):
             ]
         return tuple(result_full[idx] for idx in output_indexes if idx in result_full)
 
+    def _run_full(self) -> dict:
+        self.update_parameters_from_controls()
+        result_full = super().run()
+        self._last_result_full = result_full
+        return result_full
+
     def run(self):
-        self.results = self.__run()
+        """Run once; the outputs in the display layout (``self.outputs``, which
+        ``layout.grid`` and the GUIs change), as the windows and snapshots show them."""
+        result_full = self._run_full()
+        # read after the run: a layout.grid call during it changes the layout
+        output_indexes = self.outputs if self.outputs is not None else self.filters[-1].outputs
+        self.results = self._collect(result_full, output_indexes)
         return self.results
+
+    def _returned_results(self) -> Any:
+        """Outputs of the last run in the pipeline function's ``return`` order and shape."""
+        return self._collect(self._last_result_full, self.returned_outputs)
 
     def save(
         self,
@@ -489,10 +502,7 @@ class HeadlessPipeline(PipelineCore):
             The list of written output files (the tuning file excluded).
         """
         if output_indexes is None:
-            if self.outputs is not None:
-                output_indexes = self.outputs
-            else:
-                output_indexes = self.filters[-1].outputs
+            output_indexes = self.returned_outputs  # whatever layout.grid displays
         if save_entire_buffer:
             output_indexes = None  # you may force specific buffer index you'd like to save
         wanted = None if output_indexes is None else set(_flatten_outputs(output_indexes))
@@ -586,8 +596,9 @@ class HeadlessPipeline(PipelineCore):
                 is kept for the next runs.
 
         Returns:
-            A tuple of the outputs in ``return`` order (a list of rows for a 2D
-            layout), or None when the pipeline returns nothing.
+            A tuple of the outputs in ``return`` order (a list of rows when the
+            function returns a 2D list), or None when the pipeline returns
+            nothing. A ``layout.grid`` call changes what is displayed, not this.
 
         Raises:
             TypeError: unknown keyword / wrong number of inputs.
@@ -621,7 +632,9 @@ class HeadlessPipeline(PipelineCore):
                     current_params[filter_name] = {}
                 current_params[filter_name].update(params)
             self.parameters = current_params  # Calls setter to apply to filters
-        return self.run()
+        self.run()
+        # the pipeline's return order and shape, not the display layout (layout.grid)
+        return self._returned_results()
 
     def graph_representation(self, path=None, ortho=True, view=False):
         def find_previous_key(searched_out, current_index, input_indexes, debug=False):

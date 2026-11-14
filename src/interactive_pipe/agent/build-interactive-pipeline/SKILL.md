@@ -218,7 +218,7 @@ batch.export_tuning("/tmp/res/tuning.yaml")  # and load_tuning(...)
 
 ## Testing your filters
 
-A decorated filter stays a plain function: `amplify(img, gain=2.0)` returns the array, also when it calls `layout` (ignored) or `context` (a scratch dict for that call). `my_pipeline.headless(img, gain=2.0)` returns the outputs of a pipeline decorated with any `gui=` as a tuple (a `layout.grid` call makes it a list of rows); `snapshot(None, ...)` returns the rendered RGB array. Snapshots and sweeps start from a fresh `context` (`runs=N` to warm up a stateful pipeline). Run `interactive-pipe check script.py` in CI.
+A decorated filter stays a plain function: `amplify(img, gain=2.0)` returns the array, also when it calls `layout` (ignored) or `context` (a scratch dict for that call). `my_pipeline.headless(img, gain=2.0)` returns the outputs of a pipeline decorated with any `gui=` as a tuple in `return` order (whatever `layout.grid` displays); `snapshot(None, ...)` returns the rendered RGB array. Snapshots and sweeps start from a fresh `context` (`runs=N` to warm up a stateful pipeline). Run `interactive-pipe check script.py` in CI.
 
 <!-- code: continue -->
 ```python
