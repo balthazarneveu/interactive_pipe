@@ -319,3 +319,23 @@ before 11:30). Environment checked: the shared interpreter imports
   title and in the image, and the label mask with `draw.mask`. Checked with
   `INTERACTIVE_PIPE_SNAPSHOT`.
 - Tests: `test/test_draw.py`.
+
+### 5. `Image` data object as an output — done
+
+- `prepare_display` shows an `Image` as its array (with the output's
+  `layout.style` applied: an `Image` of a 2D array can be a heatmap);
+  `display_kind(Image)` is the kind of its array. Every backend, the snapshot
+  and `export_animation` get it through the shared conversion; `save()`
+  already handled `Image`. The Qt pixel readout reports the `Image`'s float
+  values (raw output unwrapped).
+- Title rule (decision): `layout.style(title=...)` wins, else
+  `Image.title`, else the output name. (A `Curve`'s own title keeps winning
+  over the style, as before: not changed.) Implemented once in
+  `InteractivePipeWindow.resolve_style` (also used by Qt's worker-thread
+  layout copy) and in `snapshot.output_title`.
+- Behaviour change on the way: a `layout.style` call without `title` (e.g.
+  only `colormap=`) used to blank the cell title on Qt / DPG / Gradio /
+  mpl; it now falls back to the output name like an unstyled output (the
+  snapshot already did). `title=""` still hides the title, now also in the
+  snapshot (it used to show the name there).
+- Tests: `test/test_image_output.py` (window, snapshot, Qt, DPG, mpl, Gradio).

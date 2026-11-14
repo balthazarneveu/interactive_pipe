@@ -5,9 +5,22 @@ from typing import Any, List, Optional, Tuple
 from interactive_pipe.graphical.display import (  # noqa: F401
     HEATMAP_STYLE_KEYS,
     apply_display_style,
+    content_title,
     display_kind,
     prepare_display,
 )
+
+
+def content_titles(grid: Any) -> dict:
+    """{(row, col): title} of the outputs carrying their own title (``Image``)."""
+    titles = {}
+    rows = grid if isinstance(grid, list) else [grid]
+    for row, cells in enumerate(rows):
+        for col, content in enumerate(cells if isinstance(cells, list) else [cells]):
+            title = content_title(content)
+            if title:
+                titles[(row, col)] = title
+    return titles
 
 
 def format_run_status(report) -> str:
@@ -89,8 +102,17 @@ class InteractivePipeWindow:
         if self.pipeline is None:
             raise RuntimeError("Pipeline is not set")
         img_name = self.pipeline.outputs[row][col]
-        current_style = self.pipeline.framework_state.output_styles.get(img_name, {"title": img_name})
-        return current_style
+        return self.resolve_style(img_name, self.pipeline.framework_state.output_styles, row, col)
+
+    def resolve_style(self, name: Any, styles: dict, row: int, col: int) -> dict:
+        """Style of the output `name` shown in cell (row, col), with its title:
+        ``layout.style(title=...)``, else the title carried by the output itself
+        (``Image(..., title=...)``), else the output name."""
+        style = dict(styles.get(name) or {})
+        if "title" not in style:
+            own_title = (getattr(self, "_content_titles", None) or {}).get((row, col))
+            style["title"] = own_title if own_title else name
+        return style
 
     def check_image_canvas_changes(self, expected_image_canvas_shape):
         if self.image_canvas is not None:
@@ -179,6 +201,7 @@ class InteractivePipeWindow:
         # In case no canvas has been provided
         if isinstance(_out, tuple):
             _out = [list(_out)]
+        self._content_titles = content_titles(_out)
         # Build a fresh grid of converted outputs: the pipeline results are left untouched
         # (no deep copy of the buffers - converting large images every frame is costly enough).
         out = []

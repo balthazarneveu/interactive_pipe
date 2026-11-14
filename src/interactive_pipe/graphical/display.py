@@ -18,6 +18,7 @@ from typing import Any, List, Optional, Tuple
 import numpy as np
 
 from interactive_pipe.data_objects.curves import Curve
+from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.table import Table
 
 
@@ -33,6 +34,8 @@ def display_kind(content: Any) -> Optional[str]:
     """
     if isinstance(content, np.ndarray):
         return "signal" if content.ndim == 1 else "image"
+    if isinstance(content, Image):
+        return display_kind(content.data) if isinstance(content.data, np.ndarray) else None
     if isinstance(content, Curve):
         return "curve"
     if isinstance(content, Table):
@@ -41,6 +44,22 @@ def display_kind(content: Any) -> Optional[str]:
         return "text"
     if figure_of(content) is not None:
         return "figure"
+    return None
+
+
+def display_data(content: Any) -> Any:
+    """The displayable payload of an output: an ``Image``'s array, else the
+    content itself."""
+    if isinstance(content, Image) and isinstance(content.data, np.ndarray):
+        return content.data
+    return content
+
+
+def content_title(content: Any) -> Optional[str]:
+    """Title carried by the output itself (``Image(..., title=...)``), used
+    when ``layout.style`` sets none; None otherwise."""
+    if isinstance(content, Image) and content.title:
+        return str(content.title)
     return None
 
 
@@ -393,9 +412,10 @@ def prepare_display(content: Any, style: Optional[dict] = None) -> Any:
     The single conversion point used by every backend and by the snapshot
     renderer: contents the backends draw natively (arrays, ``Curve``,
     ``Table``, ``str``) come out as such, with the style's display options
-    applied; a matplotlib ``Figure`` / ``Axes`` becomes an RGB image
-    (``rasterize_figure``). The pipeline result itself is never modified.
+    applied; an ``Image`` is shown as its array; a matplotlib ``Figure`` /
+    ``Axes`` becomes an RGB image (``rasterize_figure``). The pipeline result itself is never modified.
     """
+    content = display_data(content)
     if isinstance(content, np.ndarray):
         return apply_display_style(content, style)
     if figure_of(content) is not None:

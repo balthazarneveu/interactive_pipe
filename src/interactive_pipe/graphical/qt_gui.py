@@ -11,7 +11,7 @@ from interactive_pipe.core.engine import FilterError
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.graphical.actions import Action
 from interactive_pipe.graphical.columns import choose_column_count, split_into_columns
-from interactive_pipe.graphical.display import heatmap_geometry
+from interactive_pipe.graphical.display import display_data, heatmap_geometry
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.qt_audio import QtAudioPlayer
 
@@ -992,7 +992,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         cell["kind"] = kind
         if isinstance(image_array_original, np.ndarray):
             shown: np.ndarray = image_array_original
-            raw = self._raw_output(row, col)
+            raw = display_data(self._raw_output(row, col))  # Image -> its array
             # heatmap with a colorbar: report the scalar under the cursor, in data pixels
             readout = heatmap_geometry(raw, self.get_current_style(row, col))
             if readout is None and (not isinstance(raw, np.ndarray) or raw.shape[:2] != shown.shape[:2]):
@@ -1079,7 +1079,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             return super().get_current_style(row, col)
         outputs, styles = self._display_layout
         name = outputs[row][col]
-        return styles.get(name, {"title": name})
+        return self.resolve_style(name, styles, row, col)
 
     def error_cell_positions(self, error):
         if self._display_layout is None:
