@@ -112,7 +112,9 @@ Controls:
 - Range parameters (`RangeControl`) take `(lo, hi)` tuples as *one* value:
   sweep them with a list of pairs, `window=[(0.0, 0.5), (0.5, 1.0)]`.
 - `output=`: the output shown in each cell (default: the only output, else
-  the first image); `output="all"` shows the whole layout in every cell.
+  the first image the swept parameters change, so `return img, out` shows
+  `out`; else the last image); `output="all"` shows the whole layout in every
+  cell.
 
 ## Single filters
 

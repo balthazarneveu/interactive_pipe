@@ -220,3 +220,37 @@ def test_range_list_override_does_not_warn():
 def test_none_override_of_a_control_raises():
     with pytest.raises(TypeError, match="None"):
         make(sw_pipeline).snapshot(None, gain=None)
+
+
+@interactive(level=(0.5, [0.0, 1.0]))
+def sw_level(img, level=0.5):
+    return img * level
+
+
+@interactive(shift=(0.0, [0.0, 0.5]))
+def sw_shift(img, shift=0.0):
+    return np.clip(img + shift, 0.0, 1.0)
+
+
+def sw_input_first_pipeline(img):
+    leveled = sw_level(img)
+    shifted = sw_shift(img)
+    return img, leveled, shifted
+
+
+def test_default_output_is_the_image_the_swept_parameter_changes():
+    pipe = make(sw_input_first_pipeline)
+    default = pipe.sweep(None, level=[0.1, 1.0], caption=False)
+    leveled = pipe.sweep(None, level=[0.1, 1.0], output="leveled", caption=False)
+    np.testing.assert_array_equal(default, leveled)  # not 'img' (unchanged), not 'shifted'
+    shifted = pipe.sweep(None, shift=[0.0, 0.5], output="shifted", caption=False)
+    np.testing.assert_array_equal(pipe.sweep(None, shift=[0.0, 0.5], caption=False), shifted)
+
+
+def test_outputs_downstream_follow_the_data_flow():
+    from interactive_pipe.headless.explore import outputs_downstream_of
+
+    pipe = make(sw_pipeline)
+    assert outputs_downstream_of(pipe, {"sw_mode"}) == {"moded", "profile"}
+    assert outputs_downstream_of(pipe, {"sw_amplify"}) == {"amplified", "moded", "profile"}
+    assert outputs_downstream_of(pipe, set()) == set()

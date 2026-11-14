@@ -19,7 +19,7 @@ turns results into pictures:
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Collection, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -180,16 +180,25 @@ def select_cells(grid: Grid, output: OutputSelector) -> Grid:
     return [chosen]
 
 
-def default_sweep_cell(grid: Grid) -> int:
-    """Index (reading order) of the output shown by default in a sweep:
-    the only output, else the first image, else the first output."""
+def default_sweep_cell(grid: Grid, changed: Optional[Collection[Any]] = None) -> int:
+    """Index (reading order) of the output shown by default in a sweep.
+
+    The only output; else the first image among ``changed`` (the outputs of
+    the filters downstream of the swept parameters), else the first of
+    ``changed``; else (nothing known to change, e.g. a value passed through
+    ``context``) the last image, else the first output. The usual
+    ``return img, out`` thus shows ``out``, not the unchanged input."""
     cells = flat_cells(grid)
     if not cells:
         raise ValueError("The pipeline produced no output")
-    for index, cell in enumerate(cells):
-        if _cell_kind(cell.content) == "image":
-            return index
-    return 0
+    kinds = [_cell_kind(cell.content) for cell in cells]
+    if changed:
+        for wanted in ("image", None):
+            for index, cell in enumerate(cells):
+                if cell.name in changed and (wanted is None or kinds[index] == wanted):
+                    return index
+    images = [index for index, kind in enumerate(kinds) if kind == "image"]
+    return images[-1] if images else 0
 
 
 # ---------------------------------------------------------------------------

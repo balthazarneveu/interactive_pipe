@@ -84,9 +84,13 @@ def test_select_cells_by_name_index_and_list():
         select_cells(grid, [1.5])
 
 
-def test_default_sweep_cell_prefers_first_image():
-    grid = cells(Curve([np.arange(3)]), "text", gray(0.5))
-    assert default_sweep_cell(grid) == 2
+def test_default_sweep_cell_prefers_changed_image_then_last_image():
+    grid = cells(Curve([np.arange(3)]), "text", gray(0.5), gray(0.2))
+    assert default_sweep_cell(grid) == 3  # nothing known to change: the last image
+    names = [cell.name for row in grid for cell in row]
+    assert default_sweep_cell(grid, {names[2]}) == 2
+    assert default_sweep_cell(grid, {names[1], names[3]}) == 3  # images first
+    assert default_sweep_cell(grid, {names[1]}) == 1  # no changed image: the first changed output
     assert default_sweep_cell(cells("only text")) == 0
 
 
@@ -185,4 +189,5 @@ def test_int_names_of_index_routed_pipelines_win_over_positions():
     grid = result_grid(pipe, ("text", gray(0.5), gray(0.1)))
     assert [cell.name for cell in select_cells(grid, 2)[0]] == [2]
     assert [cell.name for cell in select_cells(grid, 0)[0]] == [1]  # not a name: reading order
-    assert default_sweep_cell(grid) == 1
+    assert default_sweep_cell(grid) == 2
+    assert default_sweep_cell(grid, {2}) == 1
