@@ -75,9 +75,13 @@ def parameter_targets(pipeline: Any) -> Dict[str, List[Target]]:
             targets.setdefault(param_name, []).append((filt.name, param_name))
             targets[f"{filt.name}.{param_name}"] = [(filt.name, param_name)]
     for ctrl in _controls(pipeline):
-        if ctrl.filter_to_connect is None or ctrl.parameter_name_to_connect is None:
-            continue
-        targets.setdefault(ctrl.name, [(ctrl.filter_to_connect.name, ctrl.parameter_name_to_connect)])
+        # a control shared by several filters sets all of them (one widget, one value)
+        found = targets.setdefault(ctrl.name, [])
+        for filt, param_name in ctrl.targets:
+            if (filt.name, param_name) not in found:
+                found.append((filt.name, param_name))
+        if not found:
+            del targets[ctrl.name]
     return targets
 
 
@@ -157,8 +161,7 @@ def _controls_for(pipeline: Any, targets: List[Target]) -> List[Control]:
     return [
         ctrl
         for ctrl in _controls(pipeline)
-        if ctrl.filter_to_connect is not None
-        and (ctrl.filter_to_connect.name, ctrl.parameter_name_to_connect) in targets
+        if any((filt.name, param_name) in targets for filt, param_name in ctrl.targets)
     ]
 
 
@@ -185,7 +188,9 @@ def apply_overrides(pipeline: Any, overrides: Dict[str, Any], method: str = "sna
                     stacklevel=4,
                 )
         for filter_name, param_name in targets:
-            controlled = [ctrl for ctrl in controls if ctrl.filter_to_connect.name == filter_name]  # type: ignore[union-attr]
+            controlled = [
+                ctrl for ctrl in controls if (filter_name, param_name) in [(f.name, p) for f, p in ctrl.targets]
+            ]
             final = controlled[0].value if controlled else value
             PipelineCore.parameters.__set__(pipeline, {filter_name: {param_name: final}})  # type: ignore[attr-defined]
 
@@ -279,6 +284,9 @@ def _caption(pipeline: Any, caption: Union[bool, str, None], exclude: Sequence[T
     if caption is True:
         parameters = PipelineCore.parameters.__get__(pipeline)  # type: ignore[attr-defined]
         excluded = set(exclude)
+        for ctrl in _controls(pipeline):
+            # a control shared by several filters is one value: shown once, at its first target
+            excluded.update((filt.name, param_name) for filt, param_name in ctrl.targets[1:])
         kept = {
             filter_name: {key: val for key, val in values.items() if (filter_name, key) not in excluded}
             for filter_name, values in parameters.items()

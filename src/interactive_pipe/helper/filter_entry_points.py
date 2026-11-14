@@ -23,7 +23,7 @@ working in its pipelines.
 """
 
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Union
 
 from interactive_pipe.core.context import _set_user_context
 from interactive_pipe.core.engine import FilterError
@@ -79,47 +79,39 @@ def single_filter_pipeline(
     """One-filter HeadlessPipeline around a decorated function.
 
     `input_values` None builds it without inputs nor dry run (outputs unknown).
-    The registered controls are connected to the throwaway filter for the
-    duration of the block, then given back their previous connection and value.
+    Like any pipeline, it works on clones of the declared controls: nothing
+    outside the block is changed.
     """
     input_names = analyze_apply_fn_signature(func)[0]
-    controls: Dict[str, Control] = dict(Control.get_controls(func))
-    saved: List[Tuple[Control, Any, Any, Any, Any]] = [
-        (ctrl, ctrl.filter_to_connect, ctrl.parameter_name_to_connect, ctrl.update_param_func, ctrl.value)
-        for ctrl in controls.values()
-    ]
-    try:
-        filt = FilterCore(
-            apply_fn=func,
-            name=func.__name__,
-            inputs=list(input_names),
-            outputs=None,
-            inplace=bool(getattr(func, "__interactive_pipe_inplace__", False)),
-        )
-        filt.values = {param_name: ctrl.value for param_name, ctrl in controls.items()}
-        pipeline = HeadlessPipeline(filters=[filt], name=func.__name__, inputs=list(input_names), outputs=[])
-        outputs: Optional[List[Union[int, str]]] = None
-        if input_values is not None:
-            # dry run with the pipeline's context set, so filters using `context` work
-            _set_user_context(pipeline._user_context)
-            try:
-                outputs = list(_deduce_outputs(filt, input_values))
-            finally:
-                _set_user_context(None)
-        filt.outputs = outputs
-        pipeline.outputs = outputs
-        for param_name, ctrl in controls.items():
-            ctrl.connect_filter(filt, param_name)
-        pipeline.controls = list(controls.values())
-        if input_values is not None:
-            pipeline.inputs = list(input_values)
-        yield pipeline
-    finally:
-        for ctrl, filter_to_connect, parameter_name, update_param_func, value in saved:
-            ctrl.filter_to_connect = filter_to_connect
-            ctrl.parameter_name_to_connect = parameter_name
-            ctrl.update_param_func = update_param_func
-            ctrl.value = value
+    controls: Dict[str, Control] = {
+        param_name: ctrl._clone_unconnected(ctrl.name, keep_value=True)
+        for param_name, ctrl in Control.get_controls(func).items()
+    }
+    filt = FilterCore(
+        apply_fn=func,
+        name=func.__name__,
+        inputs=list(input_names),
+        outputs=None,
+        inplace=bool(getattr(func, "__interactive_pipe_inplace__", False)),
+    )
+    filt.values = {param_name: ctrl.value for param_name, ctrl in controls.items()}
+    pipeline = HeadlessPipeline(filters=[filt], name=func.__name__, inputs=list(input_names), outputs=[])
+    outputs: Optional[List[Union[int, str]]] = None
+    if input_values is not None:
+        # dry run with the pipeline's context set, so filters using `context` work
+        _set_user_context(pipeline._user_context)
+        try:
+            outputs = list(_deduce_outputs(filt, input_values))
+        finally:
+            _set_user_context(None)
+    filt.outputs = outputs
+    pipeline.outputs = outputs
+    for param_name, ctrl in controls.items():
+        ctrl.connect_filter(filt, param_name)
+    pipeline.controls = list(controls.values())
+    if input_values is not None:
+        pipeline.inputs = list(input_values)
+    yield pipeline
 
 
 def attach_filter_entry_points(func: Callable) -> None:

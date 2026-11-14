@@ -34,4 +34,39 @@ Not yours: `graphical/display.py`, `headless/snapshot.py`, `data_objects/`, `dra
 
 ## Status
 
-(to fill)
+### Design of items 1 + 2 (written before coding)
+
+- **A pipeline owns its controls.** `HeadlessPipeline.from_function` clones every
+  registered control (`_clone_unconnected`, same name / default / panel) into the
+  pipeline; the registered control (`Control.get_controls(f)`) is a declaration
+  that no pipeline connects nor mutates. Two pipelines built from one filter
+  therefore never share values; a direct call `f(img)` uses the declared
+  defaults (a plain function, item 4). Repeats keep their `gain_1` clones,
+  literal kwargs their `_clone_with_default`.
+- **Sharing = the same declaration.** Clones are memoised per pipeline by a
+  *share key*: the identity of the declared `Control` object. The same object
+  passed to two decorators (`band = RangeControl(...)`; `@interactive(band=band)`
+  twice) is one key, so one clone, one widget, one value, bound to several
+  `(filter, parameter)` *targets* (parameter names may differ). Repeats of a
+  filter get their own key per instance (`band_1`, shared among the `_1`
+  instances).
+- **Annotation alias**: `Annotated[float, Control(...)]` is cloned per function
+  today and a plain alias (`Gain = Annotated[float, Control(1.0, [0, 3])]`) is a
+  reusable *type*: kept per filter. An alias whose control has an explicit
+  `name=` (`Band = Annotated[tuple, RangeControl(..., name="band")]`), which
+  raised `Duplicate control name` when used twice, is now shared (the per-function
+  clones carry the original's share key). Different signature defaults for one
+  shared control raise at build (one widget has one default).
+- **Control targets**: `Control.targets` (list of `(filter, parameter)`);
+  `filter_to_connect` / `parameter_name_to_connect` stay as the first target.
+  `update`, the parameters setter, `update_parameters_from_controls`, override
+  resolution (`pipe(img, band=...)`, snapshot, sweep), `describe` (`targets`
+  list, summary `-> a.band, b.bounds`), tuning import / export go through
+  `targets`.
+- **Two different controls with the same explicit name**: still an error; the
+  message now says how to share (pass the same object).
+- **Panels**: GUIs build a panel's widgets from `panel` members that are in the
+  window's own control list (`Panel.controls_among(controls)`), not from the
+  process-wide `Panel._controls`, so another pipeline's clones never show up.
+- Auto-renaming of colliding names (`f.gain`, `g.gain`) never renames a shared
+  control (it is renamed as a whole, keeping one clone).
