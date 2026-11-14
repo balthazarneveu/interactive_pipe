@@ -48,6 +48,7 @@ from interactive_pipe.graphical.qt_backend import (  # noqa: F401
     QWidget,
     SingleCurve,
     Table,
+    quiet_offscreen_messages,
 )
 from interactive_pipe.graphical.qt_control import ControlFactory
 from interactive_pipe.graphical.qt_image import (
@@ -216,6 +217,7 @@ class InteractivePipeQT(InteractivePipeGUI):
         if threaded and self.audio:
             # filters would drive the QMediaPlayer from the worker thread
             raise ValueError("threaded=True does not support audio=True: run the audio pipeline without threaded")
+        quiet_offscreen_messages()  # snapshots / the command line build windows never shown
         if not QApplication.instance():
             self.app = QApplication(sys.argv)
         else:
