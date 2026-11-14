@@ -142,6 +142,7 @@ SUPPORTED_STYLE_KEYS = (
     "dpi",
     "xlabel",
     "ylabel",
+    "extent",
 )
 _warned_style_keys: set = set()  # warn once per unknown key: layout.style runs on every frame
 _UNSET: Any = object()  # layout.style(title=...) not given (an explicit None removes the title)
@@ -216,8 +217,16 @@ class _LayoutProxy:
 
                 NaN and masked (``numpy.ma``) values of a styled 2D array are
                 shown in magenta; ``±inf`` go to the ends of the scale.
-                - ``xlabel`` / ``ylabel``: axis labels (matplotlib backend only;
-                  for curves prefer ``Curve(..., xlabel=...)``).
+                - ``extent``: ``(x0, x1, y0, y1)``, the coordinates of the left /
+                  right columns and bottom / top rows of a 2D array (as in
+                  ``imshow``): the heatmap gets axes with round ticks drawn
+                  into the displayed image (every backend and snapshots; the
+                  Qt readout then also shows these coordinates). ``extent``
+                  alone makes a 2D array a heatmap (data range, gray).
+                - ``xlabel`` / ``ylabel``: axis labels; on a heatmap they are
+                  drawn with its axes (pixel indices without ``extent``),
+                  elsewhere only by the matplotlib backend. For curves use
+                  ``Curve(..., xlabel=...)``.
 
                 Other keys are ignored, with a warning.
 

@@ -47,7 +47,7 @@ def test_large_maps_are_not_upscaled():
     big = np.random.default_rng(0).random((300, 400))
     out = apply_display_style(big, {"colormap": "magma", "colorbar": True})
     assert out.shape[0] == 300
-    assert heatmap_geometry(big, {"colorbar": True}) == (1, 300, 400)
+    assert heatmap_geometry(big, {"colorbar": True})[:3] == (1, 300, 400)
 
 
 def test_colorbar_text_height_stays_legible():
@@ -271,7 +271,7 @@ def test_qt_readout_reports_the_scalar_in_data_pixels():
     gui.window.refresh()
     view = gui.window.image_canvas[0][0]["image"]
     upscale = colorbar_upscale(16)
-    assert view.readout == (upscale, 16, 16)
+    assert view.readout[:3] == (upscale, 16, 16)
     x0, y0, _, _ = view.image_rect()
     scale = view.scale()
 
@@ -318,7 +318,7 @@ def test_registered_colormap_strips_are_cached():
 def test_wide_flat_maps_are_not_blown_up():
     out = apply_display_style(np.zeros((8, 2000)), {"colorbar": True})
     assert out.shape[1] < 2100
-    assert heatmap_geometry(np.zeros((8, 2000)), {"colorbar": True}) == (1, 8, 2000)
+    assert heatmap_geometry(np.zeros((8, 2000)), {"colorbar": True})[:3] == (1, 8, 2000)
 
 
 def test_numpy_integer_style_values_do_not_wrap():

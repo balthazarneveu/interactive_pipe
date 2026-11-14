@@ -54,7 +54,7 @@ def _object_fix(value: Any) -> str:
     return f"convert the {name} to a numpy array, a Curve or a Table in the filter"
 
 
-HEATMAP_STYLE_KEYS = ("colormap", "vmin", "vmax", "center", "colorbar")
+HEATMAP_STYLE_KEYS = ("colormap", "vmin", "vmax", "center", "colorbar", "extent")
 
 
 def array_problem(value: np.ndarray, style: Optional[dict] = None) -> Optional[Problem]:
