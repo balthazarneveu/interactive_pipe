@@ -22,6 +22,7 @@ Twelve short demos, one engineering lesson each. Every demo is a single file a s
 - `prompts/NN_name.md`: the request a user would type. It names the lesson, not the API.
 - `demos/name.py`: the reference implementation, written independently of the evaluated attempts.
 - `house_rules.md`: constraints shared by every prompt.
+- `lesson_guide.md`: what the rounds taught about writing a demo that teaches (caching, animation, quality bar), kept out of the agent skill so that it stays short.
 - `tools/grade.py`: runs a demo headless, sweeps every control, dumps the default outputs.
 
 ## Skill-improvement loop
