@@ -20,7 +20,25 @@ small focused commits; pipeline functions must contain only function calls.
 
 ## Open items
 
-None at the moment.
+From the November 2026 consolidation review (judgement calls, see
+`plan_consolidate.md` Status for reproducers):
+
+- **Unassigned call to a filter returning a value raises** (`f(img)` alone in
+  a pipeline body, `f` returning an array): `FilterError ... unpacks 0
+  values`. Same in 0.9.4. Python would drop the value; dropping it would also
+  hide a forgotten assignment. Decide and document.
+- **`params=` (snapshot / sweep, flat `{name: value}`) vs `parameters=`
+  (pipeline call, nested `{filter: {param: value}}`)**, `output=` (snapshot /
+  sweep) vs `output_indexes=` (`save`): names to align before the release.
+- **`DisplayError`** is raised to users but not exported from
+  `interactive_pipe` (`interactive_pipe.graphical.display.DisplayError`).
+- **`save()` has its own image normalisation** (`headless/pipeline.py::_as_image_array`,
+  keeps RGBA for PNG) next to `graphical/display.normalize_image` (composites
+  RGBA for display): different purposes, same dtype rules written twice.
+- **A figure laid out by the user (`fig.tight_layout()` at its `figsize`) is
+  not laid out again** when drawn at cell size: labels can be cut. Only a
+  figure with default margins gets `tight_layout` at the drawn size.
+- Pre-existing pyright errors (8, `qt_control.py`, `dpg_panels.py`).
 
 ## Done in the October 2026 review pass (don't redo)
 
