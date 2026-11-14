@@ -248,11 +248,9 @@ def test_unknown_target_is_reported_with_the_available_names():
         out = misplaced(img)
         return [img, out]
 
-    pipe = HeadlessPipeline.from_function(bad_pipeline, inputs=["img"])
+    # raised when the pipeline is built (before any GUI, describe or snapshot)
     with pytest.raises(ValueError, match=r"on='missing' is not an output .*Available outputs: \['img', 'out'\]"):
-        check_targets(pipe)
-    with pytest.raises(ValueError, match="on='missing'"):
-        pipe.describe()
+        HeadlessPipeline.from_function(bad_pipeline, inputs=["img"])
 
 
 def test_target_may_be_any_produced_variable():

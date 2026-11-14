@@ -88,6 +88,7 @@ def _prepared_result(pipeline: HeadlessPipeline, result: Any) -> Any:
     framework_state = getattr(pipeline, "framework_state", None)
     styles = framework_state.output_styles if framework_state is not None else {}
     names = getattr(pipeline, "outputs", None)
+    producers = {out: filt.name for filt in getattr(pipeline, "filters", []) for out in (filt.outputs or [])}
 
     def name_at(*index: int) -> Any:
         try:
@@ -103,7 +104,10 @@ def _prepared_result(pipeline: HeadlessPipeline, result: Any) -> Any:
             return None
         name = name_at(*index)
         style = styles.get(name) if isinstance(name, (str, int)) else None
-        return prepare_display(content, style)
+        # name the output and its filter in a DisplayError, like the GUIs and snapshots do
+        return prepare_display(
+            content, style, name=None if name is None else str(name), filter_name=producers.get(name)
+        )
 
     is_grid = isinstance(result, list) and any(isinstance(row, (list, tuple)) for row in result)
     if is_grid:
