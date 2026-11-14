@@ -213,9 +213,18 @@ def _export(fig: Any, path: PathLike) -> Union[Path, np.ndarray]:
     return save_figure(fig, path)
 
 
-def _caption(pipeline: Any, caption: Union[bool, str, None], exclude: Sequence[str] = ()) -> Optional[str]:
+def _caption(pipeline: Any, caption: Union[bool, str, None], exclude: Sequence[Target] = ()) -> Optional[str]:
+    """Caption listing the parameter values; ``exclude``: (filter, parameter) pairs left out
+    (the swept ones, shown in the cell labels). Another filter's parameter with the
+    same name stays."""
     if caption is True:
-        text = format_parameters(PipelineCore.parameters.__get__(pipeline), exclude=exclude)  # type: ignore[attr-defined]
+        parameters = PipelineCore.parameters.__get__(pipeline)  # type: ignore[attr-defined]
+        excluded = set(exclude)
+        kept = {
+            filter_name: {key: val for key, val in values.items() if (filter_name, key) not in excluded}
+            for filter_name, values in parameters.items()
+        }
+        text = format_parameters(kept)
         return text or None
     if isinstance(caption, str):
         return caption
@@ -463,11 +472,11 @@ def sweep(
     prepare_inputs(pipeline, input_values, inputs, "sweep")
     names = list(axes)
     combos = list(itertools.product(*(axes[name] for name in names)))
-    swept_params = sorted({param for name in names for _, param in parameter_targets(pipeline)[name]})
+    swept_targets = sorted({target for name in names for target in parameter_targets(pipeline)[name]})
     panels_flat: List[Grid] = []
     with preserved_state(pipeline):
         apply_overrides(pipeline, fixed, "sweep")
-        caption_text = _caption(pipeline, caption, exclude=swept_params)
+        caption_text = _caption(pipeline, caption, exclude=swept_targets)
         chosen_name: Any = None
         for combo in combos:
             apply_overrides(pipeline, dict(zip(names, combo)), "sweep")
