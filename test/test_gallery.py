@@ -145,6 +145,9 @@ def test_reaction_diffusion_frame_depends_on_the_clock_only(isolated_controls):
     for t in (0.5, 2.0, 1.5):  # other runs in between must not change the frame at t=1
         pipe.snapshot(None, t=t)
     np.testing.assert_array_equal(pipe.snapshot(None, t=1.0), first)
+    sheet = pipe.sweep(None, t=1.0, feed=[0.03, 0.05])
+    pipe.snapshot(None, t=3.0)
+    np.testing.assert_array_equal(pipe.sweep(None, t=1.0, feed=[0.03, 0.05]), sheet)
 
 
 def test_make_gallery_writes_small_pngs(tmp_path, isolated_controls):
