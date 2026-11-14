@@ -88,10 +88,18 @@ def discard_widget(widget) -> None:
     widget.setParent(None)
 
 
+MPL_CELL_MINIMUM_SIZE = (360, 270)  # pixels, for Curve and Table cells
+
+
 def _ensure_mpl_cell(cell: dict, grid_layout, row: int, col: int):
     """Create the FigureCanvas + axes for a canvas cell once; return the axes."""
     if cell["ax_placeholder"] is None:
-        canvas = FigureCanvas(Figure(figsize=(10, 10)))
+        # constrained layout keeps the title and the axis labels inside the cell
+        canvas = FigureCanvas(Figure(figsize=(10, 10), layout="constrained"))
+        # A plot stays legible whatever shares its row: without a minimum size the
+        # cell shrinks to the height of a small image, or to nothing when the window
+        # only holds plots.
+        canvas.setMinimumSize(*MPL_CELL_MINIMUM_SIZE)
         ax_placeholder = canvas.figure.subplots()
         previous_widget = cell.get("image")
         if previous_widget is not None and previous_widget is not canvas:
