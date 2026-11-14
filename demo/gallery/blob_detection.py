@@ -2,15 +2,15 @@
 
 What to look at: green boxes are true positives, red boxes false positives (noise specks, merged
 blobs), yellow circles are missed blobs. Lower the threshold and the faint blobs appear but so does
-noise; raise the minimal area to remove the specks. Precision / recall sum it up; the table lists
-every detection with its area and peak intensity.
+noise; raise the minimal area to remove the specks. Precision / recall (in the title) sum it up; the
+table lists every detection with its area and peak intensity.
 """
 
 from typing import Annotated
 
 import numpy as np
 
-from interactive_pipe import Table, draw, interactive, interactive_pipeline
+from interactive_pipe import Image, Table, draw, interactive, interactive_pipeline
 
 RNG = np.random.default_rng(3)
 CENTERS = RNG.uniform(16, 240, size=(14, 2))  # ground-truth blob centres (x, y)
@@ -49,40 +49,33 @@ def detect(
     min_area: Annotated[int, (1, 100), "Min area (px)"] = 20,
 ):
     comps = [c for c in label(img > threshold) if len(c[0]) >= min_area]
-    detections = [
-        dict(box=(xs.min(), ys.min(), xs.max(), ys.max()), area=len(xs), peak=img[ys, xs].max()) for ys, xs in comps
-    ]
-    return (detections,)  # a bare list would be read as one output per element
+    boxes = np.array([(xs.min(), ys.min(), xs.max(), ys.max()) for ys, xs in comps]).reshape(-1, 4)
+    return dict(box=boxes, area=[len(ys) for ys, _ in comps], peak=[img[c].max() for c in comps])  # a dict: one output
 
 
 @interactive
-def score(img, detections, max_dist: Annotated[float, (1.0, 15.0), "Match radius (px)"] = 6.0):
-    centers = np.array(
-        [[(d["box"][0] + d["box"][2]) / 2, (d["box"][1] + d["box"][3]) / 2] for d in detections]
-    ).reshape(-1, 2)
+def score(img, det, max_dist: Annotated[float, (1.0, 15.0), "Match radius (px)"] = 6.0):
+    centers = (det["box"][:, :2] + det["box"][:, 2:]) / 2
     dist = np.linalg.norm(centers[:, None] - CENTERS[None], axis=-1)  # detections x ground truth
     tp = dist.min(axis=1, initial=np.inf) < max_dist
     found = dist.min(axis=0, initial=np.inf) < max_dist
     overlay = draw.boxes(
-        img,
-        [d["box"] for d in detections],
-        labels=[str(i) for i in range(len(detections))],
-        color=["lime" if t else "red" for t in tp],
-    )
+        img, det["box"], labels=range(len(tp)), color=["lime" if t else "red" for t in tp] or None
+    )  # [] raises
     overlay = draw.points(overlay, CENTERS[~found], color="yellow", radius=6, filled=False)
-    precision = tp.mean() if len(tp) else 0.0
-    rows = [
-        dict(id=i, x=d["box"][0], y=d["box"][1], area=d["area"], peak=d["peak"], match=bool(t))
-        for i, (d, t) in enumerate(zip(detections, tp))
-    ]
-    return overlay, Table(rows, title="detections"), f"precision {precision:.2f}   recall {found.mean():.2f}"
+    title = f"precision {tp.mean() if len(tp) else 0:.2f}, recall {found.mean():.2f}"
+    columns = dict(
+        id=np.arange(len(tp)), x=det["box"][:, 0], y=det["box"][:, 1], area=det["area"], peak=det["peak"], match=tp
+    )
+    table = Table({name: np.asarray(values).tolist() for name, values in columns.items()})  # lists, not arrays
+    return Image(overlay, title=title), table if len(tp) else "no detection"  # an empty Table cannot be drawn
 
 
 @interactive_pipeline(gui="auto")
 def blob_detection(img):
     detections = detect(img)
-    overlay, table, metrics = score(img, detections)
-    return [[img, overlay], [table, metrics]]
+    overlay, table = score(img, detections)
+    return img, overlay, table
 
 
 if __name__ == "__main__":

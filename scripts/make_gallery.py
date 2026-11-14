@@ -19,7 +19,7 @@ EXAMPLES = {
     "camera_isp": ("make_scene", {}, None),
     "frequency_filtering": ("make_image", {}, None),
     "signal_filtering": (None, {"kind": "IIR"}, None),
-    "blob_detection": ("make_image", {}, dict(threshold=[0.2, 0.3], min_area=[1, 20], output=["overlay", "metrics"])),
+    "blob_detection": ("make_image", {}, dict(threshold=[0.2, 0.3], min_area=[1, 20], output="overlay")),
     "optimizer_trace": (None, {}, dict(optimizer=["gd", "momentum", "nesterov", "adam"], output="trajectory")),
     "lens_calibration": (None, {"k1": -0.15}, None),
     "pid_control": (None, {}, dict(kd=[0.0, 0.15, 0.4], u_max=[20.0, 2.0], output="response")),
