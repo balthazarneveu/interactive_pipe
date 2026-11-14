@@ -231,11 +231,12 @@ def _parse_function_source(func: Callable) -> Tuple[ast.AST, int, List[str]]:
     try:
         source_lines, first_lineno = inspect.getsourcelines(func)
     except (OSError, TypeError) as exc:
-        raise ValueError(
-            f"cannot read the source code of pipeline '{name}' ({exc}): a pipeline function is analyzed "
-            "statically, so it must be a regular `def` in a file or notebook cell "
-            "(not built with exec/eval, not a builtin or a callable object)"
-        ) from exc
+        raise PipelineSyntaxError(
+            f"cannot read the source code of the pipeline function ({exc}): its body is parsed, not executed",
+            pipeline_name=getattr(func, "__name__", None),
+            hint="define the pipeline function in a file or a notebook cell (not with exec(), python -c "
+            "or the plain interactive interpreter)",
+        ) from None
     source = "".join(source_lines)
     line_offset = first_lineno - 1
     try:

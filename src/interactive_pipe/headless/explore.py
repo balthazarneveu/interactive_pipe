@@ -23,7 +23,8 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence,
 import numpy as np
 
 from interactive_pipe.core.pipeline import PipelineCore
-from interactive_pipe.headless.control import Control, RangeControl
+from interactive_pipe.headless.control import Control, MappedChoiceControl, RangeControl
+from interactive_pipe.headless.output_check import output_problem, warn_output_problems
 from interactive_pipe.headless.snapshot import (
     Grid,
     OutputSelector,
@@ -80,23 +81,76 @@ def parameter_targets(pipeline: Any) -> Dict[str, List[Target]]:
     return targets
 
 
-def resolve_names(pipeline: Any, names: Sequence[str], method: str = "snapshot") -> Dict[str, List[Target]]:
-    """Map override names to filter parameters; unknown names raise TypeError
-    listing the available ones (with a close match when there is one)."""
+def unknown_names_error(pipeline: Any, unknown: Sequence[str], caller: str, reserved: Sequence[str] = ()) -> TypeError:
+    """The one message for parameter names that match nothing, used by
+    ``pipeline(img, gain=...)``, ``snapshot``, ``sweep`` and the single-filter entry points."""
     targets = parameter_targets(pipeline)
-    resolved = {}
-    for name in names:
-        if name in targets:
-            resolved[name] = targets[name]
+    available = sorted(key for key in targets if "." not in key)
+    message = (
+        f"{caller} got unexpected keyword argument(s) "
+        + ", ".join(repr(name) for name in unknown)
+        + f". Available parameters: {', '.join(available) or 'none'}"
+    )
+    if reserved:
+        message += f" (reserved keywords: {', '.join(reserved)})"
+    message += "."
+    suggestions = [
+        f"{name!r} -> {match[0]!r}"
+        for name in unknown
+        for match in [difflib.get_close_matches(name, list(targets), n=1)]
+        if match
+    ]
+    if suggestions:
+        message += " Did you mean " + ", ".join(suggestions) + "?"
+    dotted = sorted(key for key in targets if "." in key)
+    if dotted:
+        message += f" To set the parameter of one filter only, write 'filter.parameter' (e.g. {dotted[0]!r})."
+    return TypeError(message)
+
+
+def resolve_names(
+    pipeline: Any, names: Sequence[str], method: str = "snapshot", caller: Optional[str] = None, reserved=()
+) -> Dict[str, List[Target]]:
+    """Map override names to filter parameters; unknown names raise TypeError
+    listing the available ones (with a close match when there is one).
+
+    Accepted spellings: a parameter name (every filter having it), a control
+    name (``exposure``, ``gain_1``, ``amplify.gain``) and ``"filter.parameter"``.
+    """
+    targets = parameter_targets(pipeline)
+    unknown = [name for name in names if name not in targets]
+    if unknown:
+        raise unknown_names_error(pipeline, unknown, caller or f"{method}()", reserved)
+    return {name: targets[name] for name in names}
+
+
+def check_parameters_dict(pipeline: Any, parameters: Any, caller: str) -> None:
+    """Validate ``parameters={"filter": {"param": value}}`` before anything is changed."""
+    if not isinstance(parameters, dict):
+        raise TypeError(f"{caller}: parameters must be a dict {{filter_name: {{parameter: value}}}}")
+    filters = {filt.name: filt for filt in pipeline.filters}
+    problems = []
+    for filter_name, values in parameters.items():
+        if filter_name not in filters:
+            close = difflib.get_close_matches(str(filter_name), list(filters), n=1)
+            problems.append(f"no filter {filter_name!r}" + (f" (did you mean {close[0]!r}?)" if close else ""))
             continue
-        available = sorted(key for key in targets if "." not in key)
-        close = difflib.get_close_matches(name, list(targets), n=1)
-        hint = f" Did you mean {close[0]!r}?" if close else ""
+        if not isinstance(values, dict):
+            problems.append(f"parameters[{filter_name!r}] must be a dict {{parameter: value}}")
+            continue
+        known = list(filters[filter_name].values)
+        for param in values:
+            if param not in known:
+                close = difflib.get_close_matches(str(param), known, n=1)
+                problems.append(
+                    f"filter {filter_name!r} has no parameter {param!r}"
+                    + (f" (did you mean {close[0]!r}?)" if close else "")
+                    + f" - its parameters: {', '.join(known) or 'none'}"
+                )
+    if problems:
         raise TypeError(
-            f"{method}() got an unknown parameter {name!r}.{hint} "
-            f"Available parameters: {', '.join(available) or '(none)'}"
+            f"{caller} got invalid parameters={{...}}: " + "; ".join(problems) + f". Filters: {', '.join(filters)}."
         )
-    return resolved
 
 
 def _controls_for(pipeline: Any, targets: List[Target]) -> List[Control]:
@@ -123,7 +177,8 @@ def apply_overrides(pipeline: Any, overrides: Dict[str, Any], method: str = "sna
             if value is None:  # Control.value = None would silently reset to the default
                 raise TypeError(f"{method}(): {name}=None is not a valid value for control {ctrl.name!r}")
             ctrl.value = value  # may raise TypeError / ValueError (wrong type, unknown choice)
-            if not _same_value(ctrl.value, value):
+            expected = ctrl.to_label(value) if isinstance(ctrl, MappedChoiceControl) else value
+            if not _same_value(ctrl.value, expected):
                 warnings.warn(
                     f"{method}(): {name}={format_value(value)} is outside the range of control "
                     f"{ctrl.name!r} {ctrl.value_range}, clamped to {format_value(ctrl.value)}",
@@ -206,15 +261,29 @@ def prepare_inputs(
         pipeline.inputs = None
 
 
+def _output_styles(pipeline: Any) -> dict:
+    framework_state = getattr(pipeline, "framework_state", None)
+    return dict(framework_state.output_styles) if framework_state is not None else {}
+
+
 def _export(fig: Any, path: PathLike) -> Union[Path, np.ndarray]:
     if path is None:
         return figure_to_rgb(fig)
     return save_figure(fig, path)
 
 
-def _caption(pipeline: Any, caption: Union[bool, str, None], exclude: Sequence[str] = ()) -> Optional[str]:
+def _caption(pipeline: Any, caption: Union[bool, str, None], exclude: Sequence[Target] = ()) -> Optional[str]:
+    """Caption listing the parameter values; ``exclude``: (filter, parameter) pairs left out
+    (the swept ones, shown in the cell labels). Another filter's parameter with the
+    same name stays."""
     if caption is True:
-        text = format_parameters(PipelineCore.parameters.__get__(pipeline), exclude=exclude)  # type: ignore[attr-defined]
+        parameters = PipelineCore.parameters.__get__(pipeline)  # type: ignore[attr-defined]
+        excluded = set(exclude)
+        kept = {
+            filter_name: {key: val for key, val in values.items() if (filter_name, key) not in excluded}
+            for filter_name, values in parameters.items()
+        }
+        text = format_parameters(kept)
         return text or None
     if isinstance(caption, str):
         return caption
@@ -247,6 +316,9 @@ def run_snapshot(
         apply_overrides(pipeline, all_overrides, "snapshot")
         result = pipeline.run()
         grid = select_cells(result_grid(pipeline, result), output)
+        warn_output_problems(
+            ((cell.name, cell.content) for cell in flat_cells(grid)), "snapshot", _output_styles(pipeline)
+        )
         fig = render_grid(grid, figsize=figsize, dpi=dpi, title=title, caption=_caption(pipeline, caption))
     return _export(fig, path), result
 
@@ -461,15 +533,17 @@ def sweep(
     prepare_inputs(pipeline, input_values, inputs, "sweep")
     names = list(axes)
     combos = list(itertools.product(*(axes[name] for name in names)))
-    swept_params = sorted({param for name in names for _, param in parameter_targets(pipeline)[name]})
+    swept_targets = sorted({target for name in names for target in parameter_targets(pipeline)[name]})
     panels_flat: List[Grid] = []
+    run_styles: dict = {}
     with preserved_state(pipeline):
         apply_overrides(pipeline, fixed, "sweep")
-        caption_text = _caption(pipeline, caption, exclude=swept_params)
+        caption_text = _caption(pipeline, caption, exclude=swept_targets)
         chosen_name: Any = None
         for combo in combos:
             apply_overrides(pipeline, dict(zip(names, combo)), "sweep")
             grid = result_grid(pipeline, pipeline.run())
+            run_styles.update(_output_styles(pipeline))  # layout.style calls of this run
             if output is not None:
                 panels_flat.append(_panel(grid, output))
                 continue
@@ -480,6 +554,13 @@ def sweep(
                 chosen_name = cells[default_sweep_cell(grid)].name
             chosen_cell = next(cell for cell in cells if cell.name == chosen_name)
             panels_flat.append([[chosen_cell]])
+    styles = run_styles
+    shown = {}  # output name -> first value with a display problem (one warning per output)
+    for panel in panels_flat:
+        for cell in flat_cells(panel):
+            if cell.name not in shown and output_problem(cell.content, styles.get(cell.name)) is not None:
+                shown[cell.name] = cell.content
+    warn_output_problems(shown.items(), "sweep", styles)
     labels = [", ".join(f"{name}={format_value(val)}" for name, val in zip(names, combo)) for combo in combos]
     if len(names) == 1:
         count = len(panels_flat)

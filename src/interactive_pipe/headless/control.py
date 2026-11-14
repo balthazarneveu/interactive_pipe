@@ -3,7 +3,9 @@ from __future__ import annotations
 import logging
 from copy import copy, deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple, Union
+
+import numpy as np
 
 from interactive_pipe.core.filter import FilterCore
 
@@ -64,9 +66,8 @@ class Control:
         # is identical for a decorated function and its wrapper.
         qualname = getattr(func, "__qualname__", None)
         if qualname is None:
-            # functools.partial and callable instances have no qualname: key
-            # them by identity, they carry no decorator-registered controls
-            return f"{type(func).__module__}.{type(func).__qualname__}@{id(func)}"
+            # functools.partial and other callable objects: no declaration of their own
+            return f"{getattr(func, '__module__', type(func).__module__)}.<{type(func).__name__} at {id(func):#x}>"
         return f"{func.__module__}.{qualname}"
 
     @classmethod
@@ -137,8 +138,15 @@ class Control:
                     if self.step is None:
                         # Type narrowing: we know value_range contains numeric values here
                         self.step = (value_range[1] - value_range[0]) / 100.0  # type: ignore
+                if value_range[0] > value_range[1]:  # type: ignore[operator]
+                    # min == max stays allowed: an image selector (0, [0, len(images) - 1]) on one image
+                    raise ValueError(
+                        f"value_range {list(value_range)} must satisfy min <= max "
+                        f"(did you mean [{value_range[1]}, {value_range[0]}]?)"
+                    )
                 if not (value_range[0] <= value_default <= value_range[1]):  # type: ignore
                     raise ValueError(f"value_default {value_default} must be within value_range {value_range}")
+                self._validate_step(value_range)
         elif isinstance(value_default, str):
             # similar to an enum
             if value_range is None:
@@ -192,14 +200,36 @@ class Control:
         if self.panel is not None:
             self.panel._register_control(self)
 
+    def _validate_step(self, value_range) -> None:
+        """A slider step must be a positive number no larger than the range."""
+        step = self.step
+        if step is None:
+            return
+        if isinstance(step, bool) or not isinstance(step, (int, float)):
+            raise TypeError(f"step must be a number, got {step!r}")
+        span = value_range[1] - value_range[0]
+        if step <= 0:
+            raise ValueError(f"step {step!r} must be > 0 (slider over {list(value_range)})")
+        if span > 0 and step > span:
+            raise ValueError(
+                f"step {step!r} is larger than the range {list(value_range)}: the slider could not move. "
+                f"Use a step <= {span}"
+            )
+
     def check_value(self, value):
+        if isinstance(value, np.generic):
+            value = value.item()  # numpy scalars (np.float32(2.0), np.int64(3), np.str_...) are plain values
+        if isinstance(value, bool) and self._type in (int, float):
+            raise TypeError(f"control '{self.name}' expects a number, got {value!r}")
         if isinstance(value, int) and self._type is float:
             value = float(value)
         elif isinstance(value, float) and self._type is int:
             # Convert float to int (e.g., from matplotlib sliders that return floats)
             value = int(round(value))
         if self._type is not None and not isinstance(value, self._type):
-            raise TypeError(f"Expected {self._type}, got {type(value)}")
+            raise TypeError(
+                f"control '{self.name}' expects {self._type.__name__}, got {type(value).__name__} {value!r}"
+            )
         if isinstance(value, (float, int)) and self.value_range is not None:
             clamped = max(self.value_range[0], min(value, self.value_range[1]))  # type: ignore
             self._warn_clamped(value, clamped)
@@ -335,6 +365,56 @@ class Control:
         self.update_param_func = update_param_func
         self.parameter_name_to_connect = parameter_name
         self.filter_to_connect = filt
+
+
+class MappedChoiceControl(Control):
+    """Dropdown whose choices are string labels standing for arbitrary values.
+
+    Built from ``Enum`` and non-string ``Literal`` annotations: the widget
+    shows the labels (``Mode.DARK`` -> ``"DARK"``, ``Literal[3, 5]`` ->
+    ``"3"``, ``"5"``) and the ``@interactive`` wrapper hands the filter the
+    value itself (the enum member, the int). The control value stays the
+    label, so every backend, tuning file and ``describe()`` sees a plain
+    string dropdown. Setting the control accepts a label or a value.
+    """
+
+    def __init__(
+        self,
+        choices: dict,
+        value_default: Any = None,
+        name: Optional[str] = None,
+        group: Optional[Union[str, "Panel"]] = None,
+        tooltip: Optional[str] = None,
+    ) -> None:
+        if not choices:
+            raise ValueError("a dropdown needs at least one choice")
+        self._choice_values = dict(choices)
+        label = next(iter(self._choice_values)) if value_default is None else self.to_label(value_default)
+        super().__init__(label, list(self._choice_values), name=name, group=group, tooltip=tooltip)
+
+    def to_label(self, value):
+        """Label of a choice given as its value (or already as its label)."""
+        for label, choice in self._choice_values.items():
+            if choice is value:
+                return label
+        if type(value) is str and value in self._choice_values:
+            return value
+        for label, choice in self._choice_values.items():
+            if type(choice) is type(value) and choice == value:
+                return label
+        return value  # not a choice: the base validation names the choices
+
+    def to_value(self, value):
+        """Value handed to the filter for a label (anything else is passed through)."""
+        if type(value) is str and value in self._choice_values:
+            return self._choice_values[value]
+        return value
+
+    def check_value(self, value):
+        return super().check_value(self.to_label(value))
+
+    def _checked_default(self, value):
+        return super()._checked_default(self.to_label(value))
 
 
 class CircularControl(Control):

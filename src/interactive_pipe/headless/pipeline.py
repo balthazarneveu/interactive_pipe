@@ -1,4 +1,3 @@
-import difflib
 import logging
 from pathlib import Path
 from typing import Any, Callable, List, Optional
@@ -237,6 +236,8 @@ class HeadlessPipeline(PipelineCore):
                 for param_name, literal_value in literal_kwargs.items()
                 if not isinstance(params_to_analyze.get(param_name), Control)
             }
+            # the pipeline line calling this filter: output count checks and messages
+            filt.call_location = filt_dict.get("location")
             filters.append(filt)
             filters_names.append(filt_name)
             seen_function_ids.add(id(filt_dict["function_object"]))
@@ -491,45 +492,35 @@ class HeadlessPipeline(PipelineCore):
     def parameters_from_keyword_args(self, **kwargs) -> dict:
         """Map ``pipeline(img, gain=2.0)`` keyword arguments to ``{filter: {param: value}}``.
 
-        A keyword sets the parameter of that name in every filter that has one
-        (to target a single filter, use ``parameters={"filter": {"param": value}}``).
+        Same spellings as ``snapshot`` / ``sweep``: a parameter name sets it in
+        every filter that has one, a control name (``exposure``, ``gain_1``,
+        ``amplify.gain``) sets the parameter it drives, ``"filter.param"``
+        (``pipe(img, **{"amplify.gain": 2.0})``) sets one filter only.
 
         Raises:
-            TypeError: if a keyword is not a parameter of any filter.
+            TypeError: if a keyword matches no parameter.
         """
-        new_param_dict = {}
-        current_parameters = self.parameters
-        unknown = []
+        from interactive_pipe.headless.explore import resolve_names
+
+        resolved = resolve_names(
+            self,
+            list(kwargs),
+            caller=f"pipeline '{self.name}'",
+            reserved=("inputs", "parameters", "context"),
+        )
+        new_param_dict: dict = {}
         for key, value in kwargs.items():
-            matched = False
-            for filter_name, parameters_dict in current_parameters.items():
-                if key in parameters_dict:
-                    new_param_dict.setdefault(filter_name, {})[key] = value
-                    matched = True
-            if not matched:
-                unknown.append(key)
-        if unknown:
-            available = sorted({name for params in current_parameters.values() for name in params})
-            message = (
-                f"pipeline '{self.name}' got unexpected keyword argument(s) "
-                + ", ".join(f"'{key}'" for key in unknown)
-                + f". Available parameters: {', '.join(available) or 'none'}"
-                + " (reserved keywords: inputs, parameters, context)."
-            )
-            suggestions = [
-                f"'{key}' -> '{match[0]}'"
-                for key in unknown
-                for match in [difflib.get_close_matches(key, available, n=1)]
-                if match
-            ]
-            if suggestions:
-                message += " Did you mean " + ", ".join(suggestions) + "?"
-            raise TypeError(message)
+            for filter_name, param_name in resolved[key]:
+                new_param_dict.setdefault(filter_name, {})[param_name] = value
         return new_param_dict
 
     def __call__(self, *inputs_tuple, inputs=None, parameters=None, context=None, **kwargs) -> Any:
         # validated first: an unknown keyword raises before anything is changed
         kwargs_params = self.parameters_from_keyword_args(**kwargs)
+        if parameters is not None:
+            from interactive_pipe.headless.explore import check_parameters_dict
+
+            check_parameters_dict(self, parameters, f"pipeline '{self.name}'")
         if inputs is not None:
             if not isinstance(inputs, dict):
                 raise TypeError(f"inputs must be a dict, got {type(inputs)}")

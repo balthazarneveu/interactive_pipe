@@ -80,12 +80,12 @@ class TestFilterCoreExceptions:
             return (x, x * 2)  # Returns 2 outputs
 
         filter = FilterCore(apply_fn=multi_output, inputs=[0], outputs=[1, 2, 3])
-        with pytest.raises(ValueError, match="number of outputs"):
+        with pytest.raises(ValueError, match="returned 2 value\\(s\\) but the pipeline unpacks 3"):
             filter.run(np.array([1, 2, 3]))
 
     def test_run_raises_valueerror_when_single_output_but_multiple_expected(self):
         filter = FilterCore(apply_fn=simple_func, inputs=[0], outputs=[1, 2])
-        with pytest.raises(ValueError, match="returning a single element"):
+        with pytest.raises(ValueError, match="returned a single ndarray but the pipeline unpacks 2"):
             filter.run(np.array([1, 2, 3]))
 
     def test_run_handles_none_output(self):
@@ -147,36 +147,6 @@ class TestPipelineCoreExceptions:
         pipeline = PipelineCore(filters=[filter1], inputs=["input1", "input2"])
         with pytest.raises(ValueError, match=r"expects 2 inputs \(input1, input2\), got 1"):
             pipeline.inputs = np.array([1, 2, 3])
-
-
-class TestGraphExceptions:
-    """Test exception handling in graph.py"""
-
-    def test_get_call_graph_raises_keyerror_when_function_not_in_context(self):
-        # This test requires a function that calls a non-existent function
-        # The actual KeyError happens when the function is called, not when parsing
-        # So we skip this test as it's hard to trigger without mocking
-        pass
-
-    def test_get_call_graph_raises_keyerror_when_function_name_is_none(self):
-        # This is hard to test without mocking the AST parsing
-        # Skip for now as it requires complex setup
-        pass
-
-    def test_get_call_graph_raises_valueerror_when_function_body_empty(self):
-        # Empty function body is hard to test without AST manipulation
-        # Skip for now
-        pass
-
-    def test_get_call_graph_raises_typeerror_when_function_object_not_callable(self):
-        def test_func():
-            # This would require a function that references a non-callable
-            # In practice, this is caught by the KeyError check first
-            pass
-
-        # The TypeError is raised when function_object is not Callable or FilterCore
-        # This is harder to test without mocking the global context
-        pass  # Would need more complex setup
 
 
 class TestEngineExceptions:

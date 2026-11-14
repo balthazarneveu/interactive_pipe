@@ -40,6 +40,29 @@ Common mistakes in pipelines used to build something that ran and was wrong. The
 - `HeadlessPipeline.save()` used to log one traceback per numpy output and write nothing but curves; it also saved nothing for 2D output layouts.
 - A plain `FilterCore` instance used in a pipeline function no longer fails with `AttributeError: controls`.
 
+### Declare less: controls from type hints, runtime mistakes named
+
+Changes that can affect existing code:
+- A filter returning more values than the pipeline line assigns (`a = f(x)` with `return x, y`, or three values for `a, b = f(x)`) used to keep the first value(s) silently; it now raises a `FilterError` naming the pipeline line and the fix. A filter without any `return <value>` whose result is assigned raises likewise (an explicit `return None` is still accepted). `FilterCore` lists built by hand keep the old lenient behaviour.
+- Under `@interactive`, `Literal[...]` and `Enum` hints on a parameter with a default now make dropdowns (no such hint in the demos, samples or docs). Parameters without default stay inputs.
+- `Control` rejects a step `<= 0` or larger than the range and `min > max` (`min == max` stays allowed); a range of more than `[min, max, step]` raises; a bool given to a numeric control raises `TypeError` (it was taken as 0/1).
+- Re-decorating a function (a notebook cell run again) drops the controls that are no longer declared.
+- `snapshot()` / `sweep()` unknown-name errors now read like the pipeline call's: `snapshot() got unexpected keyword argument(s) 'gian'. Available parameters: ... Did you mean 'gian' -> 'gain'?`.
+
+New features:
+- **Controls from annotations**: `gain: Annotated[float, (0.0, 3.0)] = 1.0`, `Annotated[int, (1, 15, 2), "label", "group"]`, `Annotated[bool, "Flip"]`, `Annotated[T, Control(...)]` (any control class), `Annotated[Tuple[float, float], (0, 1)]` (range slider), `Literal["a", "b"]` and `Enum` hints (the filter receives the member). Defaults come from the signature and are validated at decoration; `from __future__ import annotations` works. See [Controls from type annotations](https://balthazarneveu.github.io/interactive_pipe/guide/controls/#controls-from-type-annotations).
+- `@interactive` works without parentheses.
+- `pipe(img, **{"amplify.gain": 2.0})` and control names are accepted by the pipeline call, like `snapshot` / `sweep`; `parameters={...}` is validated before running.
+- `snapshot()` / `sweep()` warn about outputs that cannot be displayed or are displayed misleadingly (dict, PIL, torch, `(C, H, W)`, `(H, W, 1|4)`, 4D, integer images, NaN/inf...) with the fix.
+
+Improvements & bug fixes:
+- `context["key"]` read before any filter wrote it: the error lists the keys present and explains that filters run in body order.
+- Control declaration errors name the filter and the parameter and report the real problem (not "max parameter should be numerical too" / "wrong abbreviation").
+- A positional value for a controlled parameter in a direct call wins (`amplify(img, 2.0)` raised "multiple values"); unknown keywords name the filter with a suggestion.
+- numpy scalars (`np.float32(2.0)`) are accepted as control values; type errors name the control.
+- `functools.partial` objects work as filters; a pipeline without readable source (`exec`) raises `PipelineSyntaxError` instead of `OSError`.
+- The sweep caption keeps another filter's parameter with the swept parameter's name.
+
 ## 0.9.4 (November 2026)
 
 ### New features

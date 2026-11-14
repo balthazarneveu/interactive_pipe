@@ -1,8 +1,11 @@
+import difflib
 import logging
-from typing import Callable, Union
+from contextlib import contextmanager
+from typing import Callable, Dict, Optional, Union
 
 from interactive_pipe.core.graph import analyze_apply_fn_signature
 from interactive_pipe.headless.control import Control
+from interactive_pipe.helper.annotation_controls import annotation_error, controls_from_annotations
 from interactive_pipe.helper.control_abbreviation import control_from_tuple
 
 
@@ -63,9 +66,12 @@ def __create_control_from_keyword_argument(
                     chosen_control = control_from_tuple((unknown_keyword_arg,), param_name=param_name)
                 except (TypeError, ValueError, IndexError) as exc:
                     logging.debug(f"could not build control from bare value {param_name}: {first_exc}")
+                    # report the error of the form the user wrote: a tuple is the
+                    # (default, range, ...) form, a list the ultra-short [min, max] one
+                    reported = first_exc if isinstance(unknown_keyword_arg, tuple) else exc
                     raise ValueError(
-                        f"Cannot create a control from {param_name}={unknown_keyword_arg!r}: {exc}"
-                    ) from exc
+                        f"Cannot create a control from {param_name}={unknown_keyword_arg!r}: {reported}"
+                    ) from reported
             # NOTE: in the function signature, a bare boolean default does not make a checkbox
             # (use (True,) there); in the decorator, a bare boolean does
     if chosen_control is not None:
@@ -75,45 +81,93 @@ def __create_control_from_keyword_argument(
     return chosen_control
 
 
-def get_controls_from_decorated_function_declaration(func: Callable, decorator_controls: dict):
-    controls = {}
-    seen_control_names = set()
+@contextmanager
+def _naming(func: Callable, param_name: str):
+    """Prefix control declaration errors with the filter and the parameter they concern."""
+    try:
+        yield
+    except (TypeError, ValueError) as exc:
+        message = str(exc)
+        if message.startswith("@interactive"):
+            raise
+        raise type(exc)(
+            f"@interactive filter '{getattr(func, '__qualname__', func)}', parameter '{param_name}': {message}"
+        ) from exc
+
+
+def analyze_filter_controls(
+    func: Callable, decorator_controls: dict, localns: Optional[dict] = None
+) -> Dict[str, Control]:
+    """Controls of a decorated filter.
+
+    Precedence: decorator keyword argument > declaration used as signature
+    default (``Control(...)`` or tuple shorthand) > annotation
+    (``Annotated[...]``, ``Literal``, ``Enum`` on a parameter with a plain default).
+    """
+    controls: Dict[str, Control] = {}
+    seen_control_names: set = set()
+    # re-decorating (notebook cell re-run, edited declaration) starts from a
+    # clean slate: controls removed from the declaration must not linger
+    Control._registry.pop(Control.registry_key(func), None)
+    annotated_controls = controls_from_annotations(func, skip=set(decorator_controls), localns=localns)
     keyword_args = analyze_apply_fn_signature(func)[1]
     keyword_names = list(keyword_args.keys())
 
-    # Analyze at 2 levels (function keyword args & decorator keyword args)  then register controls when necessary.
+    # Analyze at 3 levels (function keyword args, annotations & decorator keyword args)
+    # then register controls when necessary.
     # -------------------------------------------
     # @interactive(param_2=Control(...), )
-    # def func(img1, img2, param_1=Control(...)):
+    # def func(img1, img2, param_1=Control(...), param_3: Annotated[float, (0., 1.)] = 0.5):
     # -------------------------------------------
 
     # 1. Analyzing function keyword args
     # def func(img1, img2, param_1=Control(...))
-
     for param_name, unknown_keyword_arg in keyword_args.items():
-        if param_name in decorator_controls:
-            # The decorator wins: the signature default is then a plain value
-            # (e.g. ``window=(0.2, 0.8)`` next to ``window=RangeControl(...)``),
-            # not a tuple shorthand to turn into a second control.
+        if param_name in decorator_controls or param_name in annotated_controls:
+            # The decorator (or annotation) wins: the signature default is then a
+            # plain value (e.g. ``window=(0.2, 0.8)`` next to
+            # ``window=RangeControl(...)``), not a tuple shorthand to turn into a
+            # second control.
             continue
-        chosen_control = __create_control_from_keyword_argument(param_name, unknown_keyword_arg, seen_control_names)
+        with _naming(func, param_name):
+            chosen_control = __create_control_from_keyword_argument(param_name, unknown_keyword_arg, seen_control_names)
         if chosen_control is not None:
             controls[param_name] = chosen_control
 
-    # 2. Analyzing decorator keyword args
+    # 2. Annotations: def func(img, gain: Annotated[float, (0.0, 3.0)] = 1.0)
+    for param_name, chosen_control in annotated_controls.items():
+        if chosen_control.name in seen_control_names:
+            raise annotation_error(
+                func,
+                param_name,
+                f"the label {chosen_control.name!r} is already used by another control of this filter",
+                "use distinct labels",
+            )
+        seen_control_names.add(chosen_control.name)
+        controls[param_name] = chosen_control
+
+    # 3. Analyzing decorator keyword args
     # @interactive(param_2=Control(...))
     for param_name, unknown_keyword_arg in decorator_controls.items():
         if param_name not in keyword_names:
+            close = difflib.get_close_matches(param_name, keyword_names, n=1)
             raise ValueError(
                 f"typo: control {param_name} passed through the decorator "
-                f"does not match any of the function keyword args {keyword_names}"
+                f"does not match any of the function keyword args {keyword_names} "
+                f"(@interactive filter '{getattr(func, '__qualname__', func)}')"
+                + (f". Did you mean '{close[0]}'?" if close else "")
             )
-        chosen_control = __create_control_from_keyword_argument(
-            param_name, unknown_keyword_arg, seen_control_names, from_decorator=True
-        )
+        with _naming(func, param_name):
+            chosen_control = __create_control_from_keyword_argument(
+                param_name, unknown_keyword_arg, seen_control_names, from_decorator=True
+            )
         if chosen_control is not None:
             controls[param_name] = chosen_control
 
     for param_name, control in controls.items():
         Control.register(func, param_name, control)
     return controls
+
+
+def get_controls_from_decorated_function_declaration(func: Callable, decorator_controls: dict):
+    return analyze_filter_controls(func, decorator_controls)
