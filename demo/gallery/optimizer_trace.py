@@ -53,7 +53,7 @@ def optimize(
 
 @interactive()
 def contour(path):
-    fig = Figure(figsize=(5, 4.5))
+    fig = Figure()
     ax = fig.subplots()
     ax.contour(X, Y, np.log10(loss(np.stack([X, Y], axis=-1)) + 1e-3), levels=20, cmap="viridis")
     ax.plot(path[:, 0], path[:, 1], "r.-", markersize=3, linewidth=1)

@@ -85,7 +85,7 @@ def test_blob_detection_scores(isolated_controls):
     assert precision >= 0.8 and recall >= 0.6
     assert overlay.data.shape == img.shape + (3,) and len(table.values) == 11
     _, overlay, table = blobs(img, threshold=0.99)  # nothing detected: no crash
-    assert overlay.title == "precision 0.00, recall 0.00" and table == "no detection"
+    assert overlay.title == "precision 0.00, recall 0.00" and len(table.values) == 0  # an empty Table
 
 
 def test_signal_filters_have_unit_dc_gain(isolated_controls):
