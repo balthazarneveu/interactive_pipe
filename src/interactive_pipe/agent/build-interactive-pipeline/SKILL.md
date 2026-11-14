@@ -80,7 +80,26 @@ Same parameter in several filters: both `amplify` and `blend` declaring `gain` s
 
 ## Controls from type hints
 
-_Filled in at merge time (`feature/declare-less`)._
+Alternative to decorator arguments: under `@interactive` (parentheses optional) the signature declares widgets and defaults.
+
+<!-- code: continue -->
+```python
+from typing import Annotated, Literal
+
+
+@interactive
+def adjust(
+    img,
+    exposure: Annotated[float, (0.0, 3.0)] = 1.0,  # float slider: (min, max[, step]), then label, then group
+    radius: Annotated[int, (1, 15, 2), "Blur radius"] = 3,  # int slider with a step and a label
+    invert: Annotated[bool, "Invert"] = False,  # checkbox (the label is required)
+    mode: Literal["dark", "light"] = "light",  # dropdown; an Enum hint works too (the filter gets the member)
+):
+    out = img * exposure * (0.5 if mode == "dark" else 1.0)
+    return 1 - out if invert else out
+```
+
+Plain hints (`gain: float = 1.0`) make no widget; a decorator argument wins over the annotation; `Annotated[float, Control(...)]` takes any control class. A bad declaration raises at import, naming filter, parameter and fix.
 
 ## What a filter can return
 
@@ -88,7 +107,27 @@ numpy image (float `[0, 1]`, uint8, `(H, W)` gray or `(H, W, 3)`), 1D array (plo
 
 ## Figures and overlays
 
-_Filled in at merge time (`feature/scientific-outputs`)._
+<!-- code: continue -->
+```python
+from matplotlib.figure import Figure  # never pyplot: no global state, no leaked figures
+from interactive_pipe import draw
+
+
+@interactive(threshold=(0.5, [0.0, 1.0]))
+def detect(img, threshold=0.5):
+    ys, xs = np.nonzero(img.mean(axis=-1) > threshold)
+    boxes = [(xs.min(), ys.min(), xs.max(), ys.max())] if len(xs) else []  # x0, y0, x1, y1 in pixels
+    return draw.boxes(img, boxes, labels=["bright"] * len(boxes))  # also draw.points / lines / polygon / text / mask
+
+
+@interactive()
+def histogram(img):
+    fig = Figure(figsize=(4, 3))
+    fig.subplots().hist(img.ravel(), bins=32)
+    return fig  # a Figure or an Axes: rasterised identically on every backend and in snapshots
+```
+
+`draw.*` functions are pure (new array, same dtype and range, gray promoted to RGB), take `(x, y)` pixel coordinates and clip marks outside the image. A filter may also return an `interactive_pipe.Image` (its `title` titles the cell). Heatmaps (2D arrays): `layout.style("err", colormap="RdBu_r", center=0, colorbar=True, unit="px")` draws the scale into the image, also in snapshots; NaN shows magenta.
 
 ## Proxies: context, layout, events, audio
 

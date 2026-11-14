@@ -32,4 +32,4 @@ def test_skill_frontmatter():
     description = text.split("\n")[2]
     for keyword in ("GUI", "slider", "snapshot", "headless", "image"):
         assert keyword in description
-    assert len(text.splitlines()) < 200
+    assert len(text.splitlines()) < 225
