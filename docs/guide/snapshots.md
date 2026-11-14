@@ -160,4 +160,5 @@ An agent cannot see a Qt window, but it can read a PNG. The loop:
    choose defaults and ranges, or check a fix holds over the whole range.
 
 To look at a user's unmodified GUI script, run it with
-`INTERACTIVE_PIPE_SNAPSHOT=shots/`.
+`INTERACTIVE_PIPE_SNAPSHOT=shots/`, or with `interactive-pipe snapshot script.py`
+(one PNG per pipeline call, see [Command line](command-line.md#snapshot-look-at-a-gui-script-without-a-display)).
