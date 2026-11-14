@@ -15,6 +15,7 @@ import numpy as np
 from interactive_pipe.headless.control import CircularControl, Control, RangeControl, TextPrompt, TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.panel import Panel
+from interactive_pipe.headless.pointer import PointerControl, check_targets
 from interactive_pipe.headless.snapshot import format_value
 
 if TYPE_CHECKING:
@@ -42,7 +43,9 @@ def to_plain(value: Any) -> Any:
 
 
 def control_kind(ctrl: Control) -> str:
-    """Widget family: keyboard, time, range, text, checkbox, dropdown, slider or number."""
+    """Widget family: keyboard, time, range, point, region, text, checkbox, dropdown, slider or number."""
+    if isinstance(ctrl, PointerControl):
+        return ctrl.kind
     if isinstance(ctrl, KeyboardControl):
         return "keyboard"
     if isinstance(ctrl, TimeControl):
@@ -79,7 +82,11 @@ def describe_control(ctrl: Control) -> Dict[str, Any]:
         "default": to_plain(ctrl.value_default),
         "value": to_plain(ctrl.value),
     }
-    if ctrl.value_range is not None:
+    if isinstance(ctrl, PointerControl):
+        # fractions of the target image size; on=None: the first image output
+        entry["on"] = ctrl.on
+        entry["axes"] = list(ctrl.axes)
+    elif ctrl.value_range is not None:
         if ctrl._type is str:
             entry["choices"] = to_plain(ctrl.value_range)
         else:
@@ -128,7 +135,9 @@ def describe(pipeline: "HeadlessPipeline") -> Dict[str, Any]:
         filters: in execution order, each with its input / output variable
             names, current parameter values, control names and docstring line.
         controls: name, owning filter, parameter, kind (slider / number /
-            checkbox / dropdown / range / text / time / keyboard), type,
+            checkbox / dropdown / range / text / time / keyboard / point /
+            region, with ``on``: the target output, None for the first
+            image), type,
             default, current value, range or choices, step, group, key
             bindings and tooltip when present.
 
@@ -141,6 +150,7 @@ def describe(pipeline: "HeadlessPipeline") -> Dict[str, Any]:
         ```
     """
     controls = list(getattr(pipeline, "controls", None) or [])
+    check_targets(pipeline)
     controls_by_filter: Dict[str, List[str]] = {}
     for ctrl in controls:
         if ctrl.filter_to_connect is not None:
@@ -177,7 +187,11 @@ def _layout_text(outputs: Any) -> str:
 
 def _control_line(entry: Dict[str, Any], width: int) -> str:
     kind = entry["kind"] if entry["kind"] in ("checkbox", "dropdown", "text") else f"{entry['kind']}({entry['type']})"
+    if entry["kind"] in ("point", "region"):
+        kind = f"{entry['kind']}({', '.join(entry['axes'])} in [0, 1])"
     details = [kind, f"= {format_value(entry['value'])}"]
+    if "axes" in entry:
+        details.append("on " + (repr(entry["on"]) if entry["on"] is not None else "the first image"))
     if "range" in entry:
         details.append(f"in [{format_value(entry['range'][0])}, {format_value(entry['range'][1])}]")
     if "choices" in entry:
