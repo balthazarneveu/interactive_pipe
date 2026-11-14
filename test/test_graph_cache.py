@@ -12,6 +12,7 @@ Covers:
 import numpy as np
 import pytest
 
+from interactive_pipe import interactive, interactive_pipeline
 from interactive_pipe.core.context import context
 from interactive_pipe.core.engine import FilterError
 from interactive_pipe.core.filter import FilterCore
@@ -560,3 +561,46 @@ def test_failed_filter_cache_not_served_stale(cache):
     # nothing changed: served from cache again
     pip.run()
     assert counters["fa"] == 4
+
+
+# --- repeated headless calls ---------------------------------------------------
+
+
+@interactive()
+def _make_source():
+    return np.ones((4, 4))
+
+
+@interactive(offset=(0.0, [0.0, 1.0]))
+def _add_offset(img, offset=0.0):
+    return img + offset
+
+
+def _no_input_pipeline():
+    source = _make_source()
+    shifted = _add_offset(source)
+    return shifted
+
+
+def _one_input_pipeline(img):
+    shifted = _add_offset(img)
+    return shifted
+
+
+def test_repeated_calls_of_a_pipeline_without_inputs_keep_the_cache():
+    pipe = interactive_pipeline(gui=None, cache="graph")(_no_input_pipeline)
+    pipe()
+    assert pipe.last_run_report.cached == set()
+    pipe()
+    assert pipe.last_run_report.cached == {"_make_source", "_add_offset"}
+    (shifted,) = pipe(offset=0.5)
+    assert pipe.last_run_report.cached == {"_make_source"}
+    np.testing.assert_allclose(shifted, 1.5)
+
+
+def test_new_inputs_still_reset_the_cache():
+    pipe = interactive_pipeline(gui=None, cache="graph")(_one_input_pipeline)
+    pipe(np.zeros((2, 2)))
+    (shifted,) = pipe(np.ones((2, 2)), offset=0.0)  # the control is shared with the pipeline above
+    assert pipe.last_run_report.cached == set()
+    np.testing.assert_allclose(shifted, 1.0)

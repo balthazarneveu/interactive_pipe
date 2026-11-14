@@ -292,6 +292,7 @@ class PipelineCore:
 
     @inputs.setter
     def inputs(self, inputs: list):
+        had_no_inputs = self.__initialized_inputs and self.__inputs is None
         if inputs is not None:
             if isinstance(inputs, dict):
                 provided_keys = list(inputs.keys())
@@ -327,4 +328,8 @@ class PipelineCore:
                 raise ValueError(f"{self._expected_inputs()}, got 0")
             self.__inputs = None
         self.__initialized_inputs = True
-        self.reset_cache()
+        # New inputs invalidate every cached result. A pipeline without inputs called
+        # again has nothing new to process: keep its cache, so that repeated headless
+        # calls `pipe(gain=2.0)` only recompute what the parameter change affects.
+        if not (had_no_inputs and self.__inputs is None):
+            self.reset_cache()
