@@ -4,7 +4,8 @@ Subcommands::
 
     interactive-pipe skill [--install [--user | --project DIR] [--force]] [--agents-md]
     interactive-pipe doctor [--json]
-    interactive-pipe snapshot SCRIPT.py [-o OUT] [--max-calls N] [-- script args]
+    interactive-pipe snapshot SCRIPT.py [-o OUT] [--set NAME=VALUE] [--output NAME] [--pipeline NAME] [-- script args]
+    interactive-pipe sweep SCRIPT.py --param NAME=V1,V2 [--steps NAME=N] [--set ...] [--output NAME] [-o OUT]
     interactive-pipe describe SCRIPT.py [--json] [--max-calls N] [-- script args]
 
 Standard library only at import time: GUI toolkits are imported by ``doctor``
@@ -17,6 +18,7 @@ import sys
 from typing import List, Optional, Sequence, Tuple
 
 PROG = "interactive-pipe"
+SCRIPT_COMMANDS = ("snapshot", "sweep", "describe")
 
 
 def _split_script_args(argv: Sequence[str]) -> Tuple[List[str], List[str]]:
@@ -26,6 +28,13 @@ def _split_script_args(argv: Sequence[str]) -> Tuple[List[str], List[str]]:
         index = argv.index("--")
         return argv[:index], argv[index + 1 :]
     return argv, []
+
+
+PARAMETER_HELP = """parameter names: a parameter (gain), a control name or filter.parameter.
+values are converted to the control's type: numbers, true/false for checkboxes,
+the choice for dropdowns, comma-separated numbers for ranges, points and regions
+(--set seed=0.2,0.4). Swept values are comma-separated (--param gain=0.5,1,2), or
+';'-separated for ranges, points and regions (--param seed="0.1,0.1;0.6,0.4")."""
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -62,27 +71,61 @@ def build_parser() -> argparse.ArgumentParser:
     )
     doctor.add_argument("--json", action="store_true", help="machine-readable output")
 
-    for name, help_text in (
-        ("snapshot", "run a script and write a PNG for each pipeline call instead of opening a window"),
-        ("describe", "run a script headless and print the controls and outputs of its pipelines"),
-    ):
+    script_commands = {
+        "snapshot": "run a script and write a PNG for each pipeline call instead of opening a window",
+        "sweep": "run a script and write a contact sheet over parameter values for each pipeline call",
+        "describe": "run a script headless and print the controls and outputs of its pipelines",
+    }
+    for name, help_text in script_commands.items():
         command = commands.add_parser(
             name,
             help=help_text,
             description=help_text[0].upper() + help_text[1:] + ". The script is run unmodified, as __main__ "
             "(pass its own arguments after --). Pipelines decorated with a GUI are captured; gui=None pipelines "
-            "are not.",
+            "are not" + (" (check runs those taking no input)." if name == "check" else "."),
+            epilog=PARAMETER_HELP if name != "describe" else None,
+            formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         command.add_argument("script", help="python script calling an @interactive_pipeline function")
-        if name == "snapshot":
+        if name in ("snapshot", "sweep"):
             command.add_argument(
                 "-o",
-                "--output",
+                "--out",
+                dest="out",
+                metavar="PATH",
                 help="PNG file, folder (trailing /) or pattern with {name}; default: "
                 "<tmp>/interactive_pipe_snapshots/<script>/",
             )
-        else:
-            command.add_argument("--json", action="store_true", help="print describe() dicts as JSON")
+        if name in ("describe", "check"):
+            command.add_argument("--json", action="store_true", help="machine-readable output")
+        if name != "describe":
+            command.add_argument(
+                "--set",
+                action="append",
+                metavar="NAME=VALUE",
+                help="parameter value for the run (repeatable), e.g. --set gain=2 --set mode=dark --set seed=0.2,0.4",
+            )
+        if name == "sweep":
+            command.add_argument(
+                "--param",
+                action="append",
+                metavar="NAME=V1,V2",
+                help="values to sweep (one or two parameters), e.g. --param gain=0.5,1,2",
+            )
+            command.add_argument(
+                "--steps",
+                action="append",
+                metavar="NAME=N",
+                help="sweep N values over the control's declared range, e.g. --steps gain=5",
+            )
+        if name in ("snapshot", "sweep"):
+            command.add_argument(
+                "--output",
+                metavar="NAME",
+                help="output(s) to show: a name, an index or a comma-separated list"
+                + ("; 'all' shows every output in each cell" if name == "sweep" else ""),
+            )
+        command.add_argument("--pipeline", metavar="NAME", help="only this pipeline (when the script calls several)")
         command.add_argument(
             "--max-calls",
             type=int,
@@ -128,6 +171,9 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
 def _report(run, command: str, script: str) -> int:
     """What went wrong, on stderr, each error once; returns the exit code."""
     out = sys.stderr
+    if run.usage_error:
+        print(f"{PROG} {command}: {run.usage_error}", file=out)
+        return 2
     if run.error:
         print(f"\n{PROG}: the script failed:\n{run.error}", file=out)
     if run.stopped_early:
@@ -144,6 +190,11 @@ def _report(run, command: str, script: str) -> int:
             )
         return run.exit_code or 1
     if not run.calls:
+        if run.skipped:
+            print(
+                f"{PROG} {command}: the script called {', '.join(sorted(set(run.skipped)))}, not --pipeline", file=out
+            )
+            return 2
         print(
             f"{PROG} {command}: no GUI-decorated pipeline was called by {script} "
             "(gui=None pipelines and pipelines that are only defined are not captured)",
@@ -154,21 +205,38 @@ def _report(run, command: str, script: str) -> int:
 
 
 def _cmd_run(args: argparse.Namespace, script_args: List[str]) -> int:
-    from interactive_pipe.agent.run_script import run_script
+    from interactive_pipe.agent.parameters import (
+        ParameterError,
+        parse_assignments,
+        parse_steps,
+        parse_sweep_assignments,
+    )
+    from interactive_pipe.agent.run_script import CallOptions, run_script
 
-    describe = args.command == "describe"
+    command = args.command
+    try:
+        options = CallOptions(
+            mode=command,
+            settings=parse_assignments(getattr(args, "set", None), "--set"),
+            axes=parse_sweep_assignments(getattr(args, "param", None)),
+            steps=parse_steps(getattr(args, "steps", None)),
+            output=getattr(args, "output", None),
+            pipeline=args.pipeline,
+        )
+    except ParameterError as exc:
+        print(f"{PROG} {command}: {exc}", file=sys.stderr)
+        return 2
+    if command == "sweep" and not options.axes and not options.steps:
+        print(f"{PROG} sweep: nothing to sweep: add --param NAME=V1,V2,... or --steps NAME=N", file=sys.stderr)
+        return 2
     try:
         run = run_script(
-            args.script,
-            script_args,
-            output=None if describe else args.output,
-            describe=describe,
-            max_calls=args.max_calls,
+            args.script, script_args, output=getattr(args, "out", None), max_calls=args.max_calls, options=options
         )
     except (FileNotFoundError, ValueError) as exc:
-        print(f"{PROG} {args.command}: {exc}", file=sys.stderr)
+        print(f"{PROG} {command}: {exc}", file=sys.stderr)
         return 2
-    if describe:
+    if command == "describe":
         seen = set()
         unique = [call for call in run.calls if not (call.name in seen or seen.add(call.name))]
         if args.json:
@@ -178,11 +246,12 @@ def _cmd_run(args: argparse.Namespace, script_args: List[str]) -> int:
                 print(call.summary)
                 print()
     elif run.written:
-        print(f"\n{len(run.written)} snapshot(s) written:")
+        kind = "sweep(s)" if command == "sweep" else "snapshot(s)"
+        print(f"\n{len(run.written)} {kind} written:")
         for call in run.calls:
             if not call.failed:
                 print(f"  {call.path}  (pipeline {call.name!r})")
-    return _report(run, args.command, args.script)
+    return _report(run, command, args.script)
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -198,8 +267,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.command is None:
         parser.print_help()
         return 0
-    if script_args and args.command not in ("snapshot", "describe"):
-        parser.error(f"arguments after -- are only used by snapshot and describe: {script_args}")
+    if script_args and args.command not in SCRIPT_COMMANDS:
+        parser.error(f"arguments after -- are only used by the script commands: {script_args}")
     if args.command == "skill":
         return _cmd_skill(args)
     if args.command == "doctor":

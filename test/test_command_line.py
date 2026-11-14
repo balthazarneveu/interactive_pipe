@@ -167,10 +167,13 @@ def test_doctor_advice_without_display(monkeypatch):
 def test_doctor_opens_no_window():
     from interactive_pipe.agent.doctor import diagnose
 
+    # an earlier test of the session may have left a QApplication alive: doctor must not create one
+    qt_widgets = sys.modules.get("PyQt6.QtWidgets")
+    before = qt_widgets.QApplication.instance() if qt_widgets is not None else None
     diagnose()
     qt_widgets = sys.modules.get("PyQt6.QtWidgets")
     if qt_widgets is not None:
-        assert qt_widgets.QApplication.instance() is None
+        assert qt_widgets.QApplication.instance() is before
 
 
 # --- snapshot ---------------------------------------------------------------------------------
