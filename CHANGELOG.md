@@ -5,6 +5,7 @@
 Common mistakes in pipelines used to build something that ran and was wrong. They now either do what was meant or fail with an error naming the line and the fix.
 
 ### Changes that can affect existing code
+- **Each pipeline owns its controls**: two pipelines built from the same filter no longer share control values, and pipelines never connect nor change the declared `Control` object, so a direct call `f(img)` uses the declared default instead of the last value set in some pipeline. A pipeline starts from the declared control's value.
 - **2D arrays are shown in gray on the matplotlib backend too** (it used matplotlib's default colormap, viridis, while Qt, Dear PyGui, Gradio and snapshots showed gray). Use `layout.style(name, colormap="viridis")` for a false-colour view.
 - **Variables and inputs are checked when the pipeline is built**: an undefined variable passed to a filter or returned (`offset(amplifed)`), a filter call missing a required input (`blend(img)` when `blend` takes two), and a method called on a pipeline variable (`img.copy()`) raise `PipelineSyntaxError` at the line, with a suggestion. Before, they failed inside the engine on the first run (`KeyError`, `missing a required argument`) or silently resolved a module-level name.
 - **`parameters={...}` is validated before being applied**: an unknown filter or parameter name raises `ValueError` with a suggestion and leaves the pipeline untouched. Before, an unknown parameter was stored, every later run failed inside the filter, and the pipeline stayed unusable.
@@ -102,6 +103,10 @@ Improvements & bug fixes:
 - Where gestures are not available (notebook, Gradio regions, any backend that does not implement them) the controls are shown as sliders in [0, 1] (`seed x`, `seed y`, ...).
 - Headless they are ordinary parameters: `pipe(img, seed=(0.2, 0.4))`, `snapshot`, `sweep(seed=[...])`, tuning files, `describe()` (kinds `"point"` / `"region"` with the target output).
 - New demo: `demo/pointer_demo.py`. New guide page: [Mouse input](https://balthazarneveu.github.io/interactive_pipe/guide/mouse-input/).
+
+### Control semantics: shared controls, per-pipeline state
+- **One control for several filters**: pass the same `Control` object to several `@interactive` decorators (`band = RangeControl(...)`; `@interactive(band=band)` on two filters, the parameter names may differ): one widget, one value, set in all of them, on every backend, in `pipe(img, band=...)`, `snapshot`, `sweep` (one axis, caption once), tuning files and `describe()` (new `targets` list per control). An annotation alias whose control has a `name=` is shared the same way; an unnamed alias stays one control per filter. Two different controls with the same explicit name still raise, the message says how to share.
+- GUI panels list the controls of their own pipeline only (`Panel.controls_among`).
 
 ## 0.9.4 (November 2026)
 

@@ -117,6 +117,29 @@ class Panel:
         if control not in self._controls:
             self._controls.append(control)
 
+    def controls_among(self, controls: list) -> list:
+        """The controls of ``controls`` (a window's own list) placed in this panel, in that order.
+
+        GUIs build a panel's widgets from this, not from ``_controls``: a
+        pipeline works on clones of the declared controls, and the panel object
+        is shared by every pipeline using it (string groups are process-wide).
+        """
+        return [ctrl for ctrl in controls if getattr(ctrl, "panel", None) is self]
+
+    @staticmethod
+    def resolve_control(element, controls: list):
+        """The control of ``controls`` standing for ``element`` (a control placed
+        directly in ``Panel.elements``): the pipeline clone of that declaration,
+        None if the pipeline does not use it."""
+        for ctrl in controls:
+            if ctrl is element:
+                return ctrl
+        origin = getattr(element, "origin", element)
+        for ctrl in controls:
+            if getattr(ctrl, "origin", None) is origin:
+                return ctrl
+        return None
+
     def __repr__(self) -> str:
         name_str = f'"{self.name}"' if self.name else "None"
         controls_count = len(self._controls)

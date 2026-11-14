@@ -77,6 +77,8 @@ def describe_control(ctrl: Control) -> Dict[str, Any]:
         "name": ctrl.name,
         "filter": ctrl.filter_to_connect.name if ctrl.filter_to_connect is not None else None,
         "parameter": ctrl.parameter_name_to_connect,
+        # every "filter.parameter" it drives: several for a control shared by several filters
+        "targets": [f"{filt.name}.{param_name}" for filt, param_name in ctrl.targets],
         "kind": kind,
         "type": ctrl._type.__name__ if ctrl._type is not None else None,
         "default": to_plain(ctrl.value_default),
@@ -134,7 +136,9 @@ def describe(pipeline: "HeadlessPipeline") -> Dict[str, Any]:
             None = empty cell).
         filters: in execution order, each with its input / output variable
             names, current parameter values, control names and docstring line.
-        controls: name, owning filter, parameter, kind (slider / number /
+        controls: name, owning filter, parameter, ``targets`` (every
+            ``"filter.parameter"`` it drives: several for a control shared by
+            several filters), kind (slider / number /
             checkbox / dropdown / range / text / time / keyboard / point /
             region, with ``on``: the target output, None for the first
             image), type,
@@ -153,8 +157,8 @@ def describe(pipeline: "HeadlessPipeline") -> Dict[str, Any]:
     check_targets(pipeline)
     controls_by_filter: Dict[str, List[str]] = {}
     for ctrl in controls:
-        if ctrl.filter_to_connect is not None:
-            controls_by_filter.setdefault(ctrl.filter_to_connect.name, []).append(ctrl.name)
+        for filt, _param_name in ctrl.targets:
+            controls_by_filter.setdefault(filt.name, []).append(ctrl.name)
     filters = []
     for filt in pipeline.filters:
         entry: Dict[str, Any] = {
@@ -204,7 +208,7 @@ def _control_line(entry: Dict[str, Any], width: int) -> str:
         details.append("keys " + ", ".join(f"{key}={val!r}" for key, val in entry["keys"].items()))
     if "group" in entry:
         details.append(f"group {entry['group']!r}")
-    target = f"{entry['filter']}.{entry['parameter']}" if entry["filter"] else "(not connected)"
+    target = ", ".join(entry["targets"]) if entry["targets"] else "(not connected)"
     line = f"  {entry['name']:<{width}} " + " ".join(details) + f"  -> {target}"
     if "tooltip" in entry:
         line += f"  # {entry['tooltip']}"

@@ -133,7 +133,8 @@ def test_filter_error_propagates_and_controls_are_restored():
 
 def test_filter_calls_leave_the_pipeline_untouched():
     pipe = interactive_pipeline(gui=None)(fe_pipeline)
-    ctrl = gain_control()
+    ctrl = pipe.controls[0]  # the pipeline's own clone of the declared control
+    assert ctrl is not gain_control() and gain_control().filter_to_connect is None
     pipe_filter = ctrl.filter_to_connect
     assert pipe_filter is pipe.filters[0]
     ctrl.update(0.25)  # tuned in the pipeline

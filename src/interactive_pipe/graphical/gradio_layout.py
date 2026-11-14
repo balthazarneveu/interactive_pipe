@@ -39,7 +39,7 @@ def group_panels_by_position(window: "MainWindow") -> dict:
 
 def get_control_widget(window: "MainWindow", ctrl: Control):
     """Get the widget for a given control from the window's widget_list."""
-    if ctrl.name not in window.ctrl_keys_with_widgets:
+    if ctrl is None or ctrl.name not in window.ctrl_keys_with_widgets:
         return None
     idx = window.ctrl_keys_with_widgets.index(ctrl.name)
     return window.widget_list[idx]
@@ -84,7 +84,9 @@ def build_panel_widget(window: "MainWindow", panel: Panel) -> None:
                             if isinstance(element, Panel):
                                 build_panel_widget(window, element)
                             elif isinstance(element, Control):
-                                widget = get_control_widget(window, element)
+                                widget = get_control_widget(
+                                    window, Panel.resolve_control(element, list(window.ctrl.values()))
+                                )
                                 if widget is not None:
                                     _render_widget(widget)
         elif panel.elements:
@@ -93,12 +95,12 @@ def build_panel_widget(window: "MainWindow", panel: Panel) -> None:
                 if isinstance(element, Panel):
                     build_panel_widget(window, element)
                 elif isinstance(element, Control):
-                    widget = get_control_widget(window, element)
+                    widget = get_control_widget(window, Panel.resolve_control(element, list(window.ctrl.values())))
                     if widget is not None:
                         _render_widget(widget)
 
-        # Add controls assigned directly to this panel
-        for ctrl in panel._controls:
+        # Add controls assigned directly to this panel (this window's own controls)
+        for ctrl in panel.controls_among(list(window.ctrl.values())):
             widget = get_control_widget(window, ctrl)
             if widget is not None:
                 _render_widget(widget)
@@ -217,9 +219,9 @@ def collect_changing_inputs(window: "MainWindow") -> tuple:
             discard_reset_button = True  # Do not show reset button if there are lists of buttons
             # Disable the cache of the connected filter so clicking the same
             # button twice still triggers a run
-            if ctrl.filter_to_connect is not None:
-                ctrl.filter_to_connect.cache = False
-                ctrl.filter_to_connect.cache_mem = None
+            for filt, _param in ctrl.targets:
+                filt.cache = False
+                filt.cache_mem = None
         else:
             changing_inputs.append(widget)
     return changing_inputs, discard_reset_button

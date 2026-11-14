@@ -320,22 +320,19 @@ def shared_pipeline_two(img):
     return out
 
 
-def test_pipelines_built_from_one_filter_share_its_control():
-    """Documents the current behaviour (see docs/guide/controls.md, "One control
-    per filter"): the registered control is shared by every pipeline using the
-    filter and by direct calls, so a value set in one pipeline is the starting
-    value of the others. Per-pipeline clones need the GUIs to build their panel
-    widgets from the pipeline's controls instead of the process-wide
-    Panel._controls lists (see plan_robust_display.md, Status)."""
+def test_pipelines_built_from_one_filter_do_not_share_its_control():
+    """Each pipeline owns clones of the declared controls: a value set in one
+    pipeline does not leak into another one, nor into direct calls."""
     first = HeadlessPipeline.from_function(shared_pipeline_one)
     second = HeadlessPipeline.from_function(shared_pipeline_two)
-    try:
-        assert first.controls[0] is second.controls[0]
-        first.controls[0].update(2.0)
-        assert second.controls[0].value == 2.0
-        assert np.allclose(second(np.ones(1))[0], 2.0)
-        assert np.allclose(shared_level(np.ones(1)), 2.0)  # direct call too
-        # a pipeline built later starts from the value set in the first one
-        assert HeadlessPipeline.from_function(shared_pipeline_one).controls[0].value == 2.0
-    finally:
-        first.controls[0].reset()
+    declared = Control.get_controls(shared_level)["level"]
+    assert first.controls[0] is not second.controls[0]
+    assert declared not in (first.controls[0], second.controls[0])
+    first.controls[0].update(2.0)
+    assert second.controls[0].value == 1.0
+    assert np.allclose(first(np.ones(1))[0], 2.0)
+    assert np.allclose(second(np.ones(1))[0], 1.0)
+    assert np.allclose(shared_level(np.ones(1)), 1.0)  # direct call: the declared default
+    assert declared.value == 1.0 and declared.filter_to_connect is None
+    # a pipeline built later starts from the declared default
+    assert HeadlessPipeline.from_function(shared_pipeline_one).controls[0].value == 1.0

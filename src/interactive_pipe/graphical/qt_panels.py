@@ -42,7 +42,8 @@ class QtPanelBuilder:
         if isinstance(element, Panel):
             return self.build_panel_widget(element)
         elif isinstance(element, Control):
-            return self.create_control_widget(element)
+            ctrl = Panel.resolve_control(element, list(self.window.ctrl.values()))
+            return None if ctrl is None else self.create_control_widget(ctrl)
         return None
 
     def build_panel_widget(self, panel: Panel) -> QWidget:
@@ -74,8 +75,8 @@ class QtPanelBuilder:
             layout = QVBoxLayout()
             layout.setSpacing(8)  # Nice spacing between controls
 
-        # Add controls assigned directly to this panel
-        for ctrl in panel._controls:
+        # Add controls assigned directly to this panel (this window's own controls)
+        for ctrl in panel.controls_among(list(self.window.ctrl.values())):
             widget = self.create_control_widget(ctrl)
             if widget is not None:
                 layout.addWidget(widget)
@@ -139,9 +140,9 @@ class QtPanelBuilder:
             if slider_instance is None:
                 return None
             if ctrl._type is str and ctrl.icons is not None:
-                if ctrl.filter_to_connect is not None:
-                    ctrl.filter_to_connect.cache = False  # type: ignore[reportOptionalMemberAccess]
-                    ctrl.filter_to_connect.cache_mem = None  # type: ignore[reportOptionalMemberAccess]
+                for filt, _param in ctrl.targets:
+                    filt.cache = False
+                    filt.cache_mem = None
                 # Disable cache for dropdown menu with icons!
                 # Allows clicking on the same item multiple times
             slider_or_layout = slider_instance.create()
