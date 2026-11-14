@@ -90,9 +90,8 @@ def adjust(
     flip: Annotated[bool, "Flip"] = False,  # checkbox (a label is required)
     mode: Literal["dark", "light"] = "dark",  # dropdown
     style: Style = Style.FLAT,  # Enum dropdown, filter gets the member
-    angle: Annotated[float, CircularControl(0.0, [0.0, 360.0])] = 0.0,
-):  # any Control
-    ...
+    angle: Annotated[float, CircularControl(0.0, [0.0, 360.0])] = 0.0,  # any Control
+): ...
 ```
 
 - `Annotated` metadata = what the tuple shorthand takes after the default: `(min, max[, step])` or a list of str choices, then label, then group.
