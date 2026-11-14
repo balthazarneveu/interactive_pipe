@@ -6,6 +6,7 @@ import numpy as np
 
 from interactive_pipe import Curve, Table, interactive
 from interactive_pipe.data_objects.image import Image
+from interactive_pipe.data_objects.table import PANDAS_AVAILABLE
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 
 
@@ -75,7 +76,8 @@ def test_save_writes_each_output_in_a_matching_format(tmp_path, caplog):
             "out_line.csv",
             "out_vol.npy",
             "out_curve.png",
-            "out_table.csv",
+            # without pandas (the CI installs only the [pytest] extra) a Table is pickled
+            "out_table.csv" if PANDAS_AVAILABLE else "out_table.pkl",
             "out_text.txt",
         ]
     )

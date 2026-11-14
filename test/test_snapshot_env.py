@@ -113,7 +113,30 @@ def test_gui_object_failure_falls_back_to_headless(monkeypatch, tmp_path):
         raise ImportError("backend not installed")
 
     monkeypatch.setattr("interactive_pipe.helper.pipeline_decorator.get_interactive_pipeline_class", broken)
+    monkeypatch.setattr("interactive_pipe.helper.pipeline_decorator._windowless_gui_class", broken)
     launcher = interactive_pipeline(gui="qt")(env_pipeline)
     assert isinstance(launcher.pipeline, HeadlessPipeline)
     launcher(white())
     assert (tmp_path / "env_pipeline.png").is_file()
+
+
+def test_missing_backend_gives_a_windowless_gui_object(monkeypatch, tmp_path):
+    """A script configuring `demo.pipeline` (demo/key_event_demo.py) runs the same without the backend."""
+    from interactive_pipe.graphical.gui import InteractivePipeGUI
+
+    monkeypatch.setenv(SNAPSHOT_ENV_VAR, str(tmp_path) + "/")
+
+    def missing(*_args, **_kwargs):
+        raise ImportError("backend not installed")
+
+    monkeypatch.setattr("interactive_pipe.helper.pipeline_decorator.get_interactive_pipeline_class", missing)
+    launcher = interactive_pipeline(gui="qt", size=(800, 600), restore_session=True)(env_pipeline)
+    assert isinstance(launcher.pipeline, InteractivePipeGUI)
+    assert isinstance(launcher.pipeline.pipeline, HeadlessPipeline)
+    launcher.pipeline.bind_key_to_context("n", "noise", "a key event")
+    results = launcher(white(), gain=1.0)
+    assert (tmp_path / "env_pipeline.png").is_file()
+    # same results as with the real GUI object: a 2D layout (one row)
+    np.testing.assert_allclose(results[0][0], white())
+    with pytest.raises(RuntimeError, match="no window"):
+        launcher.pipeline.run()
