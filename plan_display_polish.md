@@ -33,4 +33,9 @@ Not yours: `core/`, `headless/` other than `snapshot.py`, `helper/`, the panel b
 
 ## Status
 
-(to fill)
+In progress (agent run of 2026-11-14, started 04:06 CET). Baseline: 1444 passed, 6 skipped.
+
+- Item 1 done: `53e3a0c`.
+- Item 2 done: `def0a61`.
+- Item 3 done: `bbb1910`.
+- Item 4 done: `9d09123`.
