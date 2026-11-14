@@ -160,16 +160,30 @@ class FloatSliderControl(BaseControl):
 
     def create(self, parent):
         value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
-        self.control_widget = dpg.add_slider_float(
-            parent=parent,
-            default_value=float(self.ctrl.value),
-            min_value=float(value_min),
-            max_value=float(value_max),
-            clamped=True,
-            width=-1,
-            format=printf_format(float(self.ctrl.value)),  # type: ignore[arg-type]
-            callback=self._on_change,
-        )
+        if self.ctrl.is_log:
+            # the slider moves over the position in [0, 1] (evenly over decades);
+            # its text is the real value (an ImGui format without %-field is shown as is)
+            self.control_widget = dpg.add_slider_float(
+                parent=parent,
+                default_value=self.ctrl.to_position(self.ctrl.value),
+                min_value=0.0,
+                max_value=1.0,
+                clamped=True,
+                width=-1,
+                format=_log_label(self.ctrl.value),
+                callback=self._on_change,
+            )
+        else:
+            self.control_widget = dpg.add_slider_float(
+                parent=parent,
+                default_value=float(self.ctrl.value),
+                min_value=float(value_min),
+                max_value=float(value_max),
+                clamped=True,
+                width=-1,
+                format=printf_format(float(self.ctrl.value)),  # type: ignore[arg-type]
+                callback=self._on_change,
+            )
         self._add_tooltip(self.control_widget)
         return self.control_widget
 
