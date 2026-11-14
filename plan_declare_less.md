@@ -236,6 +236,15 @@ Decisions:
   and bad direct calls raise `TypeError` naming the filter, with a close-match
   suggestion for an unknown keyword.
 - Tests: `test/test_annotation_controls.py`, `test/test_filter_direct_call.py`.
+- Follow-up `fd39edf`: a `None` default (`mode: Literal["a", "b"] = None`,
+  usually "automatic") or an `Optional[...]` hint makes no widget. It raised on
+  Python >= 3.11 but was ignored on 3.9/3.10 (`get_type_hints` wraps it in
+  `Optional` there); an explicit `Annotated` range/label with `None` logs a
+  warning.
+- Built the real Qt and matplotlib windows offscreen with every annotation
+  kind (slider, labelled int slider in a group, checkbox, Literal str / int,
+  Enum, range, circular, keyboard, text prompt): widgets are created, and the
+  Qt dropdowns hand the filter `Style.GLOSSY` and the int `3`.
 - Observed, not changed: registered controls are shared by every pipeline built
   from the same filter, so a value tuned in one pipeline is the starting value
   of the next one (pre-existing, same with decorator controls).
@@ -345,3 +354,35 @@ branch adds, or snapshot will warn about them.
   call's wording (quoted in SKILL.md's error table) rather than snapshot's
   `unknown parameter`; two tests pinning the old snapshot/sweep wording were
   updated. `parameters={...}` is validated at call time with the same style.
+
+### 4. Docs — done (`8ee11ae`, `a2fb126`)
+
+- `docs/guide/controls.md`: "Controls from type annotations" section next to
+  the decorator styles, with the rules and "which to prefer when" (annotations
+  for new typed code; decorator for functions that must not import
+  interactive_pipe, functions you do not own, prototyping). Its code block was
+  executed with a real body and rendered with `snapshot` / `sweep` (PNG
+  checked). The same-name section mentions `pipe(img, **{"blend.gain": 2.0})`.
+- `SKILL.md`: own section "Controls from type annotations" (with the new
+  runtime error messages, no edit to the shared error table);
+  `CHANGELOG.md`: own "Declare less" subsection at the end of "Unreleased",
+  changes that can affect existing code first. CLAUDE.md not changed.
+- `mkdocs` is not installed in the shared venv: the site build was not run.
+
+### Extra checks
+
+- **Python 3.9**: a throwaway venv on `/Data/venvs/ip39-declare-less`
+  (numpy, matplotlib, Pillow, PyYAML, pytest; no Qt). All new test files pass
+  (Qt test skipped). Full suite on 3.9: 7 failures, all environmental (no
+  opencv, no Qt / ipywidgets), and the same 7 fail on the base commit
+  (`git archive c515a6a`), so none come from this branch.
+- **Docs code blocks**: every python block of `docs/`, `readme.md` and the
+  skill mentioning `interactive` was executed under
+  `INTERACTIVE_PIPE_SNAPSHOT` (fragments re-run with an import header). No
+  error from this branch; fragments only miss names defined elsewhere. One
+  pre-existing crash found and fixed (`7ed2eeb`): a pipeline calling no filter
+  (`def my_pipeline(img): ...` in tips.md) raised `IndexError`, now a
+  `ValueError` naming the pipeline (`test_edge_cases.py` pinned the
+  `IndexError`; updated).
+- **Demos / samples**: all 17 demos and 3 samples run unmodified under
+  `INTERACTIVE_PIPE_SNAPSHOT` after the stricter output checks.
