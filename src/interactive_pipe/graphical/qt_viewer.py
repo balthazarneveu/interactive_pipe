@@ -147,6 +147,9 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         self.sync.register(self)
         self._pixmap: Optional[QPixmap] = None
         self.array: Optional[np.ndarray] = None
+        # (upscale, height, width) of the data area when the displayed image is
+        # not pixel-aligned with `array` (heatmap with a colorbar), else None
+        self.readout: Optional[Tuple[int, int, int]] = None
         self.hover_callback: Optional[HoverCallback] = None
         self._drag_origin = None
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -154,12 +157,21 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         self.setMouseTracking(True)
 
     # --- content -----------------------------------------------------------
-    def set_image(self, pixmap: QPixmap, array: Optional[np.ndarray] = None) -> None:
-        """Show `pixmap` (full resolution); `array` is the value source for hovering."""
+    def set_image(
+        self, pixmap: QPixmap, array: Optional[np.ndarray] = None, readout: Optional[Tuple[int, int, int]] = None
+    ) -> None:
+        """Show `pixmap` (full resolution); `array` is the value source for hovering.
+
+        `readout=(upscale, height, width)`: the pixmap shows `array` upscaled
+        by an integer factor in its top-left corner (plus decorations such as
+        a colorbar); hovering reports data coordinates and values there, and
+        nothing elsewhere.
+        """
         if self._pixmap is None:
             super().clear()  # drop a previous text
         self._pixmap = pixmap
         self.array = array
+        self.readout = readout
         self.updateGeometry()
         self.update()
 
@@ -176,6 +188,7 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         if self._pixmap is not None:
             self._pixmap = None
             self.array = None
+            self.readout = None
             self.updateGeometry()
         super().setText(text)
 
@@ -234,6 +247,12 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         """(x, y, value) of the image pixel under widget point (px, py)."""
         fx, fy = self.map_to_image(px, py)
         x, y = int(math.floor(fx)), int(math.floor(fy))
+        if self.readout is not None and self.array is not None:
+            upscale, height, width = self.readout
+            if not (0 <= x < width * upscale and 0 <= y < height * upscale):
+                return x, y, None  # colorbar / decoration: no data value
+            x, y = x // upscale, y // upscale
+            return x, y, pixel_value(self.array, x, y)
         source = self.array
         if source is None or source.shape[:2] != (self.image_size()[1], self.image_size()[0]):
             source = None

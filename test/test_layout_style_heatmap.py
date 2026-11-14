@@ -91,7 +91,7 @@ def test_every_backend_hook_applies_the_colormap():
 
 @interactive()
 def typo_style(img):
-    layout.style("out", colorbar=True, cmap="jet")
+    layout.style("out", colourbar=True, cmap="jet")
     return img
 
 
@@ -107,8 +107,10 @@ def test_unknown_style_keys_warn_once_listing_the_supported_ones(caplog, monkeyp
         pipe(np.zeros(3))
         pipe(np.zeros(3))
     assert caplog.text.count("unknown style key 'cmap'") == 1
-    assert caplog.text.count("unknown style key 'colorbar'") == 1
-    assert "Supported keys: title, subtitle, colormap, vmin, vmax, xlabel, ylabel" in caplog.text
+    assert caplog.text.count("unknown style key 'colourbar'") == 1
+    assert (
+        "Supported keys: title, subtitle, colormap, vmin, vmax, center, colorbar, unit, xlabel, ylabel" in caplog.text
+    )
 
 
 @interactive()
