@@ -181,13 +181,13 @@ class RecordingWindow(InteractivePipeWindow):
         return img
 
 
-def test_200_gui_refreshes_do_not_grow_pyplot_figures():
+def test_many_gui_refreshes_do_not_grow_pyplot_figures():
     plt.close("all")
     pipe = HeadlessPipeline.from_function(pyplot_pipeline)
     window = RecordingWindow(pipe)
     pipe.inputs = [INPUT_IMAGE.copy()]
     before = list(plt.get_fignums())
-    for k in range(200):
+    for k in range(50):  # a leak would leave 50 figures (was 200: 4 s, the slowest test)
         pipe.parameters = {"pyplot_axes": {"amp": k / 100.0}}
         window.refresh_display(pipe.run())
     assert plt.get_fignums() == before
