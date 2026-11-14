@@ -14,6 +14,14 @@
 
 ::: interactive_pipe.Panel
 
+## Mouse input: points and regions
+
+::: interactive_pipe.PointControl
+
+::: interactive_pipe.RegionControl
+
+::: interactive_pipe.to_pixels
+
 ## Controls from annotations
 
 Under `@interactive`, a parameter's type hint can declare its control instead
