@@ -50,9 +50,21 @@ Controls degrade gracefully: for example a [`KeyboardControl`](../guide/keyboard
 
 Switch backend or window size without editing your script.
 
+### Command line: `-b`, with no code
+
+Any script whose pipeline keeps the default `gui="auto"` accepts `-b` / `--backend` (alias `--gui`):
+
+```bash
+python my_script.py -b mpl
+python my_script.py --backend=dpg
+python my_script.py -b headless        # runs once without a window
+```
+
+The decorator only peeks at `sys.argv`: it does not parse or consume the command line, so your own argument handling is untouched (if you use `argparse`, declare the option with `add_gui_arguments` below so it is not rejected as unknown). A value that is not a backend name is ignored, so a script that uses `-b` for something else (say `-b 32`) is not affected. An explicit `gui="qt"` in the decorator is never overridden.
+
 ### Command line: `interactive_pipe.cli`
 
-`parse_gui_args()` adds `--gui {auto,qt,dpg,mpl,nb,gradio,headless}`, `--fullscreen`, `--maximized`, `--size WxH` and `--name` to an `argparse` parser and returns the parsed arguments together with the keyword arguments for `interactive_pipeline`. Only the options actually given end up in those kwargs, so with no flags you get `interactive_pipeline()` with all its defaults.
+`parse_gui_args()` adds `-b` / `--backend` / `--gui {auto,qt,dpg,mpl,nb,gradio,headless}`, `--fullscreen`, `--maximized`, `--size WxH` and `--name` to an `argparse` parser and returns the parsed arguments together with the keyword arguments for `interactive_pipeline`. Only the options actually given end up in those kwargs, so with no flags you get `interactive_pipeline()` with all its defaults.
 
 ```python
 from interactive_pipe import interactive_pipeline

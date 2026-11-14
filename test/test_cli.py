@@ -1,4 +1,5 @@
 import argparse
+import sys
 
 import pytest
 
@@ -6,6 +7,7 @@ import interactive_pipe.helper.pipeline_decorator as pipeline_decorator
 from interactive_pipe import Backend, interactive, interactive_pipeline
 from interactive_pipe.cli import (
     add_gui_arguments,
+    gui_from_argv,
     gui_from_env,
     gui_kwargs_from_args,
     parse_gui_args,
@@ -22,6 +24,7 @@ from interactive_pipe.helper.choose_backend import get_interactive_pipeline_clas
 def _clean_env(monkeypatch):
     monkeypatch.delenv("INTERACTIVE_PIPE_GUI", raising=False)
     monkeypatch.delenv("INTERACTIVE_PIPE_SIZE", raising=False)
+    monkeypatch.setattr(sys, "argv", ["script.py"])  # the decorator peeks at -b/--backend
 
 
 # --- parse_size ---------------------------------------------------------------
@@ -185,6 +188,52 @@ def test_resolve_gui(monkeypatch):
     assert resolve_gui("auto") is None
 
 
+# --- -b / --backend on the command line ---------------------------------------
+
+
+@pytest.mark.parametrize("flag", ["-b", "--backend", "--gui"])
+def test_backend_flag_aliases(flag):
+    _, kwargs = parse_gui_args([flag, "mpl"])
+    assert kwargs == {"gui": "mpl"}
+
+
+@pytest.mark.parametrize(
+    "argv, expected",
+    [
+        ([], None),
+        (["-b", "mpl"], "mpl"),
+        (["--backend", "DPG"], "dpg"),
+        (["--backend=qt"], "qt"),
+        (["--gui", "gradio"], "gradio"),
+        (["-b", "none"], "headless"),
+        (["-b", "headless"], "headless"),
+        (["out.gif", "-b", "mpl", "--verbose"], "mpl"),
+        (["-b", "mpl", "-b", "qt"], "qt"),  # last one wins
+        (["-b", "32"], None),  # not a backend: the flag belongs to the script
+        (["-b"], None),  # missing value
+        (["-b=mpl"], None),  # short flags take no "="
+        (["--backends", "mpl"], None),
+    ],
+)
+def test_gui_from_argv(argv, expected):
+    assert gui_from_argv(argv) == expected
+
+
+def test_gui_from_argv_reads_sys_argv(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["script.py", "-b", "mpl"])
+    assert gui_from_argv() == "mpl"
+
+
+def test_resolve_gui_command_line_wins_over_env(monkeypatch):
+    monkeypatch.setenv("INTERACTIVE_PIPE_GUI", "dpg")
+    monkeypatch.setattr(sys, "argv", ["script.py", "-b", "mpl"])
+    assert resolve_gui("auto") == "mpl"
+    assert resolve_gui("qt") == "qt"  # an explicit backend is never overridden
+    assert resolve_gui(None) is None
+    monkeypatch.setattr(sys, "argv", ["script.py", "--backend", "headless"])
+    assert resolve_gui("auto") is None
+
+
 # --- environment overrides in interactive_pipeline ----------------------------
 
 
@@ -218,6 +267,20 @@ def recorded(monkeypatch):
 
     monkeypatch.setattr(pipeline_decorator, "get_interactive_pipeline_class", fake_get_class)
     return calls
+
+
+def test_command_line_backend_overrides_auto(monkeypatch, recorded):
+    monkeypatch.setattr(sys, "argv", ["script.py", "-b", "mpl"])
+    interactive_pipeline()(_cli_pipeline)
+    interactive_pipeline(gui="qt")(_cli_pipeline)
+    assert recorded == ["mpl", "qt"]
+
+
+def test_command_line_headless_returns_headless_pipeline(monkeypatch, recorded):
+    monkeypatch.setattr(sys, "argv", ["script.py", "-b", "headless"])
+    pipeline = interactive_pipeline()(_cli_pipeline)
+    assert isinstance(pipeline, HeadlessPipeline)
+    assert recorded == []
 
 
 def test_env_gui_overrides_auto(monkeypatch, recorded):

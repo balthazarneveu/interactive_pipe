@@ -166,6 +166,9 @@ Demos and docs:
 - **Slider values are written like a person would**: `6`, `0.1`, `0.005`, `20000`, and `1e-05` only below 1e-4 / from 1e6 (Qt showed `6.000e+00`), the same on Qt, Dear PyGui, matplotlib, Gradio's range slider and in snapshot captions (`interactive_pipe.graphical.value_format`); the notebook uses ipywidgets' closest format (6 significant digits).
 - Errors raised while building a Gradio or notebook control widget name the control and its filter (`control 'gain' (filter 'amplify'): Expected int control type, ...`).
 
+### Show reel: -b on the command line, colormaps, Qt plot cells
+- **`-b` / `--backend` on every script**: a pipeline that keeps the default `gui="auto"` picks its backend from the command line with no code, `python my_script.py -b mpl` (also `--backend dpg`, `--backend=qt`, alias `--gui`; `-b headless` runs once without a window). The decorator only peeks at `sys.argv` (`interactive_pipe.cli.gui_from_argv`), values that are not backend names are ignored, and an explicit `gui=` is never overridden. Precedence: `parse_gui_args` values > explicit decorator arguments > `-b` > `INTERACTIVE_PIPE_GUI`. `parse_gui_args` / `add_gui_arguments` accept `-b` and `--backend` as aliases of `--gui`.
+
 ## 0.9.4 (November 2026)
 
 ### New features
