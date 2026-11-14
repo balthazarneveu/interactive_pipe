@@ -31,7 +31,7 @@ def radius(shape):
 
 @interactive()
 def spectrum(img):
-    layout.style("log_spectrum", title="log10 |FFT|", colormap="magma", vmin=1.0, colorbar=True)
+    layout.style("log_spectrum", title="spectrum", colormap="magma", vmin=1.0, colorbar="log10 |FFT|")
     f = np.fft.fftshift(np.fft.fft2(img))
     return f, np.log10(np.abs(f) + 1e-6)
 

@@ -50,7 +50,7 @@ def bode(kp: Kp = 2.0, ki: Ki = 3.0, kd: Kd = 0.15):
     s = 1j * w
     loop = (kp + ki / s + kd * s / (1 + TAU_D * s)) * WN**2 / (s**2 + 2 * ZETA * WN * s + WN**2)
     mag, phase = 20 * np.log10(np.abs(loop)), np.degrees(np.unwrap(np.angle(loop)))
-    fig = Figure(figsize=(4.5, 4))
+    fig = Figure()
     ax_mag, ax_phase = fig.subplots(2, 1, sharex=True)
     ax_mag.semilogx(w / (2 * np.pi), mag)
     ax_mag.axhline(0, color="gray", linewidth=0.8)
@@ -64,7 +64,6 @@ def bode(kp: Kp = 2.0, ki: Ki = 3.0, kd: Kd = 0.15):
         ax_mag.set_title(f"crossover {fc:.2f} Hz, margin {margin:.0f} deg")
     ax_mag.set_ylabel("gain (dB)")
     ax_phase.set(ylabel="phase (deg)", xlabel="frequency (Hz)")
-    fig.tight_layout()
     return fig
 
 
