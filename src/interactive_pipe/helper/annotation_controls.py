@@ -210,36 +210,12 @@ def _numeric_range(func: Callable, param_name: str, base, spec) -> Tuple[list, A
         low, high = int(low), int(high)
     elif base is float:
         low, high = float(low), float(high)
-    if low > high:
-        raise annotation_error(
-            func, param_name, f"the range ({low}, {high}) is reversed", f"write ({high}, {low}): (min, max)"
-        )
-    if step is not None:
-        if isinstance(step, bool) or not isinstance(step, _NUMBER) or step <= 0:
-            raise annotation_error(func, param_name, f"the step {step!r} is not a positive number", "use a step > 0")
-        if high > low and step > high - low:
-            raise annotation_error(
-                func,
-                param_name,
-                f"the step {step!r} is larger than the range ({low}, {high})",
-                f"use a step <= {high - low}",
-            )
-        if base is int and not float(step).is_integer():
+    # min <= max, the step (> 0, within the range) and the default are checked by Control
+    if base is int and isinstance(step, _NUMBER) and not isinstance(step, bool):
+        if not float(step).is_integer():
             raise annotation_error(func, param_name, f"the step {step!r} of an int slider is not an int", "use an int")
-        if base is int:
-            step = int(step)
+        step = int(step)
     return [low, high], "log" if log else step
-
-
-def _in_range(func: Callable, param_name: str, default, value_range: list) -> None:
-    low, high = value_range
-    if not low <= default <= high:
-        raise annotation_error(
-            func,
-            param_name,
-            f"the default {default!r} is outside the annotated range ({low}, {high})",
-            "change the default or widen the range",
-        )
 
 
 def _from_control(func: Callable, param_name: str, ctrl: Control, default) -> Tuple[Control, Any]:
@@ -394,7 +370,6 @@ def control_from_annotation(func: Callable, param_name: str, hint, default) -> O
         raise annotation_error(
             func, param_name, f"the default {default!r} is not a number", "use a number as default", TypeError
         )
-    _in_range(func, param_name, default, value_range)
     scale = "log" if step == "log" else "linear"
     try:
         control = Control(
