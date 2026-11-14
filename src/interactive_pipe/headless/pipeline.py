@@ -332,6 +332,11 @@ class HeadlessPipeline(PipelineCore):
             **kwargs,
         )
         data_class.controls = control_list
+        # a point / region control aimed (on=...) at an output the pipeline does not produce
+        # fails here, at build time, rather than when a GUI / snapshot is made
+        from interactive_pipe.headless.pointer import check_targets
+
+        check_targets(data_class)
         return data_class
 
     @staticmethod
@@ -454,7 +459,7 @@ class HeadlessPipeline(PipelineCore):
         path: Optional[Path] = None,
         data_wrapper_fn: Optional[Callable[..., Any]] = None,
         output_indexes: Optional[list] = None,
-        save_entire_buffer=False,
+        save_entire_buffer: bool = False,
     ) -> List[Path]:
         """Run the pipeline and write its outputs (and the tuning) next to ``path``.
 
