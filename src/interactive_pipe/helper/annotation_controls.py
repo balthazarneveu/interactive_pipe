@@ -26,7 +26,7 @@ import enum
 import inspect
 import logging
 import typing
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 from interactive_pipe.headless.control import Control, MappedChoiceControl, RangeControl
 from interactive_pipe.headless.panel import Panel
@@ -48,7 +48,9 @@ def _where(func: Callable) -> str:
         return ""
 
 
-def annotation_error(func: Callable, param_name: str, problem: str, fix: str, exc_type=ValueError) -> Exception:
+def annotation_error(
+    func: Callable, param_name: str, problem: str, fix: str, exc_type: Type[Exception] = ValueError
+) -> Exception:
     """Decoration-time error naming the filter, the parameter and the fix."""
     return exc_type(
         f"@interactive filter '{getattr(func, '__qualname__', func)}'{_where(func)}, "
