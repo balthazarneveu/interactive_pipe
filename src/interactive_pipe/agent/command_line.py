@@ -7,6 +7,7 @@ Subcommands::
     interactive-pipe snapshot SCRIPT.py [-o OUT] [--set NAME=VALUE] [--output NAME] [--pipeline NAME] [-- script args]
     interactive-pipe sweep SCRIPT.py --param NAME=V1,V2 [--steps NAME=N] [--set ...] [--output NAME] [-o OUT]
     interactive-pipe describe SCRIPT.py [--json] [--max-calls N] [-- script args]
+    interactive-pipe check SCRIPT.py [--json] [--set NAME=VALUE] [-- script args]
 
 Standard library only at import time: GUI toolkits are imported by ``doctor``
 (to check them) and by the user script, never for ``--help``.
@@ -18,7 +19,7 @@ import sys
 from typing import List, Optional, Sequence, Tuple
 
 PROG = "interactive-pipe"
-SCRIPT_COMMANDS = ("snapshot", "sweep", "describe")
+SCRIPT_COMMANDS = ("snapshot", "sweep", "describe", "check")
 
 
 def _split_script_args(argv: Sequence[str]) -> Tuple[List[str], List[str]]:
@@ -75,6 +76,7 @@ def build_parser() -> argparse.ArgumentParser:
         "snapshot": "run a script and write a PNG for each pipeline call instead of opening a window",
         "sweep": "run a script and write a contact sheet over parameter values for each pipeline call",
         "describe": "run a script headless and print the controls and outputs of its pipelines",
+        "check": "build and run every pipeline of a script once, without a window, and report problems",
     }
     for name, help_text in script_commands.items():
         command = commands.add_parser(
@@ -236,6 +238,12 @@ def _cmd_run(args: argparse.Namespace, script_args: List[str]) -> int:
     except (FileNotFoundError, ValueError) as exc:
         print(f"{PROG} {command}: {exc}", file=sys.stderr)
         return 2
+    if command == "check":
+        from interactive_pipe.agent.check import check_report, format_check
+
+        report = check_report(run)
+        print(json.dumps(report, indent=2) if args.json else format_check(report))
+        return report["exit_code"]
     if command == "describe":
         seen = set()
         unique = [call for call in run.calls if not (call.name in seen or seen.add(call.name))]

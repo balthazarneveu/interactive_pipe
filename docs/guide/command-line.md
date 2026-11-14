@@ -10,6 +10,7 @@ interactive-pipe doctor [--json]
 interactive-pipe snapshot SCRIPT.py [-o OUT] [--set NAME=VALUE ...] [--output NAME] [--pipeline NAME] [--max-calls N] [-- script arguments]
 interactive-pipe sweep SCRIPT.py --param NAME=V1,V2,... [--param ...] [--steps NAME=N] [--set ...] [--output NAME] [-o OUT] [-- script arguments]
 interactive-pipe describe SCRIPT.py [--json] [--max-calls N] [-- script arguments]
+interactive-pipe check SCRIPT.py [--json] [--set NAME=VALUE ...] [-- script arguments]
 ```
 
 ## `skill`: instructions for a coding agent
@@ -56,6 +57,45 @@ gui="auto" picks: mpl (first importable of qt, dpg, mpl)
 `--json` prints the same report as JSON. The backend choice follows the same
 order as `gui="auto"`: `INTERACTIVE_PIPE_GUI` first, Jupyter, then Qt, Dear
 PyGui and matplotlib.
+
+## `check`: run after every edit
+
+```text
+$ interactive-pipe check demo/matplotlib_figure_demo.py
+check demo/matplotlib_figure_demo.py: OK - 1 pipeline, 0 errors, 0 warnings
+pipeline 'field_pipeline' (inputs: none)
+  controls: separation = 1 slider(float) in [0.2, 2]
+            charge_ratio = -1 slider(float) in [-2, 2]
+  outputs : field      matplotlib.Figure
+            potential  (160, 160) float64 [-5, 5]
+```
+
+Builds every pipeline of the script and runs it once without a window — the
+pipelines the script calls with the values of that call, the pipelines it only
+defines with their defaults when they take no input — then reports, in one
+short screen that does not change from run to run:
+
+- the pipelines, their inputs and controls;
+- every output with its type, shape, dtype and value range;
+- every warning: outputs that would be displayed misleadingly (clipped
+  integers, values out of `[0, 1]`...), clamped values, anything the library or
+  the script logs;
+- errors with the file and line of your code: a `PipelineSyntaxError` in the
+  pipeline function, a filter that raises, an output that cannot be displayed.
+
+```text
+check script.py: FAILED - 1 pipeline, 1 error, 0 warnings
+pipeline 'process' (inputs: img)
+  controls: gain = 1 slider(float) in [0, 2]
+  outputs : not run (error)
+error: script.py:8: pipeline 'process': filter 'amplify' raised NameError: name 'undefined_name' is not defined
+```
+
+Exit code 1 on an error, 2 for a wrong `--set`, else 0 (warnings do not fail).
+`--json` prints the same report as a dictionary (`ok`, `exit_code`,
+`pipelines`, `errors` with `file` / `line`, `warnings`). The script's own
+prints go to stderr. A pipeline the script defines but does not call, and
+that needs inputs, is listed as `not run`.
 
 ## `snapshot`: look at a GUI script without a display
 

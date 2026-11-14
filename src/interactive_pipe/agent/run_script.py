@@ -446,11 +446,37 @@ class _Capture(logging.Handler):
         self.messages = messages
 
     def emit(self, record: logging.LogRecord) -> None:
-        self.messages.append(record.getMessage())
+        if _logged_for_the_pipeline(record):
+            self.messages.append(record.getMessage())
+
+
+def _logged_for_the_pipeline(record: logging.LogRecord) -> bool:
+    """interactive_pipe's own warnings and the user's code, not installed third-party packages.
+
+    matplotlib 3.9 logs "In .../classic.mplstyle: 'parseString' deprecated" with a recent
+    pyparsing: nothing the checked script can act on.
+    """
+    if record.name.split(".")[0] == "interactive_pipe":
+        return True
+    return not ({"site-packages", "dist-packages"} & set(Path(record.pathname).parts))
+
+
+def _concerns_the_script(item: warnings.WarningMessage, script: Path) -> bool:
+    """Deprecation warnings are for the code calling the deprecated API: keep only the script's own.
+
+    ``simplefilter("always")`` also surfaces what libraries tell each other (matplotlib's style
+    files using a deprecated pyparsing call), which says nothing about the pipeline checked.
+    """
+    if not issubclass(item.category, (DeprecationWarning, PendingDeprecationWarning)):
+        return True
+    try:
+        return Path(item.filename).resolve() == script.resolve()
+    except (OSError, ValueError):
+        return False
 
 
 @contextlib.contextmanager
-def _captured_warnings(messages: List[str]) -> Any:
+def _captured_warnings(messages: List[str], script: Path) -> Any:
     """Collect ``logging`` warnings and ``warnings.warn`` messages into ``messages``."""
     handler = _Capture(messages)
     root = logging.getLogger()
@@ -461,7 +487,7 @@ def _captured_warnings(messages: List[str]) -> Any:
             yield
         finally:
             root.removeHandler(handler)
-            messages.extend(str(item.message) for item in caught)
+            messages.extend(str(item.message) for item in caught if _concerns_the_script(item, script))
 
 
 def run_script(
@@ -563,7 +589,7 @@ def run_script(
     # describe / check: the script's own prints go to stderr, stdout is the report (--json stays parseable)
     quiet = options.mode in ("describe", "check")
     redirect = contextlib.redirect_stdout(sys.stderr) if quiet else contextlib.nullcontext()
-    capture = _captured_warnings(run.warnings) if options.mode == "check" else contextlib.nullcontext()
+    capture = _captured_warnings(run.warnings, script_path) if options.mode == "check" else contextlib.nullcontext()
     try:
         with redirect, capture:
             try:
