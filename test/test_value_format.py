@@ -18,8 +18,8 @@ from interactive_pipe import interactive  # noqa: E402
 from interactive_pipe.graphical.value_format import (  # noqa: E402
     D3_FORMAT,
     JS_FORMAT_NUMBER,
-    format_control_value,
     format_number,
+    format_value,
     printf_format,
 )
 from interactive_pipe.headless.pipeline import HeadlessPipeline  # noqa: E402
@@ -52,8 +52,9 @@ def test_integers_booleans_and_numpy_scalars():
     assert format_number(np.int64(4)) == "4"
     assert format_number(np.float32(0.1)) == "0.1"
     assert format_number(True) == "True"
-    assert format_control_value((0.1, 2.0)) == "(0.1, 2)"
-    assert format_control_value("median") == "median"
+    assert format_value((0.1, 2.0)) == "(0.1, 2)"
+    assert format_value("median") == "median"
+    assert format_value(np.int64(3)) == "3" and format_value(True) == "True"
 
 
 @pytest.mark.parametrize(
@@ -161,3 +162,13 @@ def test_snapshot_caption():
     assert format_value(6.0) == "6"
     assert format_value(1e-05) == "1e-05"
     assert format_value(20000.0) == "20000"
+
+
+@pytest.mark.parametrize("value", [0.005, 0.003162, 12.5, 1e-05, 2.5e07, 90.0])
+def test_dpg_log_slider_and_dial_texts_use_the_shared_formatter(value):
+    from types import SimpleNamespace
+
+    dpg_control = pytest.importorskip("interactive_pipe.graphical.dpg_control")
+    assert dpg_control._log_label(value) % () == format_number(value)
+    dial = SimpleNamespace(ctrl=SimpleNamespace(_type=float), value=value)
+    assert dpg_control.DialControl._label(dial) == format_number(value)

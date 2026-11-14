@@ -232,7 +232,7 @@ def draw_overlay(cell: Dict[str, Any], x0: float, y0: float, scale: float) -> No
         _delete(item)
     drawn: List[Any] = []
     parent = cell.get("content")
-    if not _exists(parent) or cell.get("kind") not in (None, "image"):
+    if parent is None or not _exists(parent) or cell.get("kind") not in (None, "image"):
         cell["overlay_drawn"] = drawn
         return
     black = (0, 0, 0, 255)

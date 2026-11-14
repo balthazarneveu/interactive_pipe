@@ -18,7 +18,7 @@ import warnings
 from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Collection, Dict, Iterator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -85,6 +85,16 @@ def parameter_targets(pipeline: Any) -> Dict[str, List[Target]]:
     return targets
 
 
+def outputs_downstream_of(pipeline: Any, filter_names: Collection[str]) -> set:
+    """Variable names produced by these filters and by every filter fed by
+    them (the data-flow graph; values passed through ``context`` are not seen)."""
+    changed: set = set()
+    for filt in pipeline.filters:  # source order is a topological order
+        if filt.name in filter_names or any(name in changed for name in filt.inputs or []):
+            changed.update(name for name in filt.outputs or [] if name is not None)
+    return changed
+
+
 def unknown_names_error(pipeline: Any, unknown: Sequence[str], caller: str, reserved: Sequence[str] = ()) -> TypeError:
     """The one message for parameter names that match nothing, used by
     ``pipeline(img, gain=...)``, ``snapshot``, ``sweep`` and the single-filter entry points."""
@@ -129,7 +139,13 @@ def resolve_names(
 
 
 def check_parameters_dict(pipeline: Any, parameters: Any, caller: str) -> None:
-    """Validate ``parameters={"filter": {"param": value}}`` before anything is changed."""
+    """Validate ``parameters={"filter": {"param": value}}`` before anything is changed.
+
+    Raises:
+        TypeError: ``parameters`` is not a dict.
+        ValueError: unknown filter / parameter names, or a filter's entry not
+            a dict (every problem in one message, with suggestions).
+    """
     if not isinstance(parameters, dict):
         raise TypeError(f"{caller}: parameters must be a dict {{filter_name: {{parameter: value}}}}")
     filters = {filt.name: filt for filt in pipeline.filters}
@@ -152,7 +168,7 @@ def check_parameters_dict(pipeline: Any, parameters: Any, caller: str) -> None:
                     + f" - its parameters: {', '.join(known) or 'none'}"
                 )
     if problems:
-        raise TypeError(
+        raise ValueError(
             f"{caller} got invalid parameters={{...}}: " + "; ".join(problems) + f". Filters: {', '.join(filters)}."
         )
 
@@ -179,7 +195,8 @@ def apply_overrides(pipeline: Any, overrides: Dict[str, Any], method: str = "sna
         for ctrl in controls:
             if value is None:  # Control.value = None would silently reset to the default
                 raise TypeError(f"{method}(): {name}=None is not a valid value for control {ctrl.name!r}")
-            ctrl.value = value  # may raise TypeError / ValueError (wrong type, unknown choice)
+            # may raise TypeError / ValueError (wrong type, unknown choice); clamping is warned below, once
+            ctrl._set_value_caller_reports_clamp(value)
             expected = ctrl.to_label(value) if isinstance(ctrl, MappedChoiceControl) else value
             if not _same_value(ctrl.value, expected):
                 warnings.warn(
@@ -547,7 +564,9 @@ def sweep(
         *input_values: Pipeline inputs (optional when reusing the previous ones).
         inputs: Inputs as a dict instead.
         output: Output shown in each cell: a name or an index. Default: the
-            only output, else the first image output. ``"all"`` shows the
+            only output, else the first image output that the swept
+            parameters change (downstream of their filters), else the last
+            image output. ``"all"`` shows the
             whole layout in every cell; a list shows several outputs.
         steps: ``{name: count}`` sweeps a control over its declared range
             (``count`` evenly spaced values, geometric for a log slider; every
@@ -591,7 +610,8 @@ def sweep(
             # (unless a layout.grid call removed it from this cell's layout)
             cells = flat_cells(grid)
             if chosen_name is None or chosen_name not in [cell.name for cell in cells]:
-                chosen_name = cells[default_sweep_cell(grid)].name
+                changed = outputs_downstream_of(pipeline, {filter_name for filter_name, _ in swept_targets})
+                chosen_name = cells[default_sweep_cell(grid, changed)].name
             chosen_cell = next(cell for cell in cells if cell.name == chosen_name)
             panels_flat.append([[chosen_cell]])
     styles = run_styles

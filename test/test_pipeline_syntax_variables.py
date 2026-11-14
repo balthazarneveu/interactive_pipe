@@ -144,19 +144,19 @@ def _pipeline():
 
 def test_unknown_parameter_in_parameters_dict_raises_with_suggestion():
     pipeline = _pipeline()
-    with pytest.raises(TypeError, match=r"filter 'amplify' has no parameter 'gian' \(did you mean 'gain'\?\)"):
+    with pytest.raises(ValueError, match=r"filter 'amplify' has no parameter 'gian' \(did you mean 'gain'\?\)"):
         pipeline(IMG, parameters={"amplify": {"gian": 2.0}})
 
 
 def test_rejected_parameters_leave_the_pipeline_usable():
     pipeline = _pipeline()
     before = pipeline.parameters
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         pipeline(IMG, parameters={"offset": {"sigma": 3}, "amplify": {"gian": 2.0}})
     assert pipeline.parameters == before  # nothing applied, not even the valid entry
     np.testing.assert_allclose(pipeline(IMG, gain=2.0)[0], 1.5)
 
 
 def test_unknown_filter_in_parameters_dict_suggests_a_name():
-    with pytest.raises(TypeError, match="did you mean 'amplify'"):
+    with pytest.raises(ValueError, match="did you mean 'amplify'"):
         _pipeline()(IMG, parameters={"amplif": {"gain": 2.0}})

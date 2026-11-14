@@ -61,6 +61,7 @@ __all__ = [
     "Signal",
     "SingleCurve",
     "Table",
+    "quiet_offscreen_messages",
 ]
 
 if TYPE_CHECKING:
@@ -230,3 +231,38 @@ else:
     # Base classes for widgets; a binding is guaranteed at this point
     QtWidgetBase = QWidget
     QtFrameBase = QFrame
+
+
+#: Qt messages that only say the platform plugin cannot do something a window
+#: never shown does not need (the offscreen plugin, used for snapshots / the CLI)
+OFFSCREEN_NOISE = ("This plugin does not support propagateSizeHints()",)
+_offscreen_filter_installed = False
+
+
+def quiet_offscreen_messages() -> None:
+    """With ``QT_QPA_PLATFORM=offscreen`` (snapshots, the command line, tests),
+    drop the plugin's ``propagateSizeHints()`` notice printed for every window
+    built; other Qt messages still go to stderr. Does nothing on a real display."""
+    global _offscreen_filter_installed
+    import os
+    import sys
+
+    if _offscreen_filter_installed or os.environ.get("QT_QPA_PLATFORM") != "offscreen":
+        return
+    if TYPE_CHECKING:
+        from PyQt6.QtCore import qInstallMessageHandler
+    elif PYQTVERSION == 6:
+        try:
+            from PyQt6.QtCore import qInstallMessageHandler
+        except ImportError:
+            from PySide6.QtCore import qInstallMessageHandler
+    else:
+        from PyQt5.QtCore import qInstallMessageHandler
+
+    def handler(mode, context, message):
+        if any(noise in message for noise in OFFSCREEN_NOISE):
+            return
+        sys.stderr.write(message + "\n")
+
+    qInstallMessageHandler(handler)
+    _offscreen_filter_installed = True

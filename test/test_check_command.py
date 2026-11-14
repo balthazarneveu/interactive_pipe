@@ -216,6 +216,7 @@ def test_set_and_clamp_warning(tmp_path, monkeypatch, capsys):
     assert code == 0
     assert "            out  (8, 12, 3) float64 [0.5, 0.5]" in out  # clamped to 2
     assert "warning: --set(): gain=5 is outside the range of control 'gain' [0.0, 2.0], clamped to 2" in out
+    assert out.count("outside") == 1  # once (the control's own log line is not repeated)
 
 
 def test_bad_set_is_a_usage_error(tmp_path, monkeypatch, capsys):

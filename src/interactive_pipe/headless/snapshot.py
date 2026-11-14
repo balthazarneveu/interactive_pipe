@@ -19,7 +19,7 @@ turns results into pictures:
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Collection, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -38,15 +38,17 @@ from interactive_pipe.data_objects.table import table_column_widths as _table_co
 from interactive_pipe.data_objects.table import table_text as _table_text
 from interactive_pipe.graphical.display import (
     TEXT_FONT_PT,
+    array_display_problem,
     content_title,
     display_kind,
     figure_of,
+    normalize_image,
     prepare_display,
     producer_of,
     rasterize_figure,
     wrap_text,
 )
-from interactive_pipe.graphical.value_format import format_number
+from interactive_pipe.graphical.value_format import format_value  # noqa: F401 - re-exported (describe, explore, check)
 
 # Natural cell sizes in inches (before the whole figure is scaled to fit MAX_WIDTH)
 CELL_HEIGHT = 3.2
@@ -180,40 +182,30 @@ def select_cells(grid: Grid, output: OutputSelector) -> Grid:
     return [chosen]
 
 
-def default_sweep_cell(grid: Grid) -> int:
-    """Index (reading order) of the output shown by default in a sweep:
-    the only output, else the first image, else the first output."""
+def default_sweep_cell(grid: Grid, changed: Optional[Collection[Any]] = None) -> int:
+    """Index (reading order) of the output shown by default in a sweep.
+
+    The only output; else the first image among ``changed`` (the outputs of
+    the filters downstream of the swept parameters), else the first of
+    ``changed``; else (nothing known to change, e.g. a value passed through
+    ``context``) the last image, else the first output. The usual
+    ``return img, out`` thus shows ``out``, not the unchanged input."""
     cells = flat_cells(grid)
     if not cells:
         raise ValueError("The pipeline produced no output")
-    for index, cell in enumerate(cells):
-        if _cell_kind(cell.content) == "image":
-            return index
-    return 0
+    kinds = [_cell_kind(cell.content) for cell in cells]
+    if changed:
+        for wanted in ("image", None):
+            for index, cell in enumerate(cells):
+                if cell.name in changed and (wanted is None or kinds[index] == wanted):
+                    return index
+    images = [index for index, kind in enumerate(kinds) if kind == "image"]
+    return images[-1] if images else 0
 
 
 # ---------------------------------------------------------------------------
 # Formatting helpers
 # ---------------------------------------------------------------------------
-
-
-def format_value(value: Any) -> str:
-    """Short human-readable value: 4 significant digits for floats."""
-    if isinstance(value, (bool, np.bool_)):
-        return str(bool(value))
-    if isinstance(value, (float, np.floating)):
-        return format_number(value)  # as next to the GUI sliders: "6", "0.1", "1e-05"
-    if isinstance(value, (int, np.integer)):
-        return str(int(value))
-    if isinstance(value, str):
-        return value
-    if isinstance(value, (tuple, list)):
-        inner = ", ".join(format_value(item) for item in value)
-        return f"({inner})" if isinstance(value, tuple) else f"[{inner}]"
-    if isinstance(value, np.ndarray):
-        return f"array{value.shape}"
-    text = repr(value)
-    return text if len(text) <= 40 else text[:37] + "..."
 
 
 def format_parameters(parameters: Dict[str, Dict[str, Any]], exclude: Sequence[str] = ()) -> str:
@@ -241,20 +233,13 @@ def _wrap(text: str, width_inches: float, fontsize: float) -> str:
 
 
 def _image_array(content: np.ndarray) -> Optional[np.ndarray]:
-    """Image ready for imshow (HxW or HxWx3/4; uint8 kept, rest clipped to [0, 1]),
-    None when the array cannot be shown as an image."""
-    img = content
-    if img.ndim == 3 and img.shape[-1] == 1:
-        img = img[..., 0]
-    if img.ndim not in (2, 3) or (img.ndim == 3 and img.shape[-1] not in (3, 4)):
+    """``(H, W, 3)`` float image in ``[0, 1]`` ready for imshow, None when the
+    array is no displayable image. Cells are already through ``prepare_display``;
+    this applies the same rules (``array_display_problem`` / ``normalize_image``)
+    to anything else."""
+    if content.ndim < 2 or array_display_problem(content) is not None:
         return None
-    if img.size == 0:
-        return None
-    if img.dtype == np.uint8:
-        return img
-    if not (np.issubdtype(img.dtype, np.number) or img.dtype == np.bool_):
-        return None
-    return np.clip(np.nan_to_num(img.astype(np.float32)), 0.0, 1.0)
+    return np.clip(np.nan_to_num(normalize_image(content).astype(np.float32, copy=False)), 0.0, 1.0)
 
 
 def _cell_kind(content: Any) -> str:
@@ -297,8 +282,6 @@ def _draw_image(ax: Any, content: np.ndarray, pixels_available: float) -> None:
     # small images (e.g. 8x8 test patterns): show the pixels, not a blur
     interpolation = "nearest" if img.shape[1] < pixels_available else "antialiased"
     kwargs: Dict[str, Any] = {"interpolation": interpolation}
-    if img.ndim == 2:
-        kwargs.update(cmap="gray", vmin=0, vmax=255 if img.dtype == np.uint8 else 1.0)
     ax.imshow(img, **kwargs)
     ax.set_xticks([])
     ax.set_yticks([])

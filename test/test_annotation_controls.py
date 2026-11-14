@@ -293,14 +293,14 @@ def test_signature_declaration_wins_over_hint():
 @pytest.mark.parametrize(
     "annotation, default, exc, match",
     [
-        (Annotated[float, (0.0, 3.0)], 5.0, ValueError, "outside the annotated range"),
+        (Annotated[float, (0.0, 3.0)], 5.0, ValueError, "the default 5.0 is outside the range \\[0.0, 3.0\\]"),
         (Annotated[int, (0, 3)], 1.5, TypeError, "not an int"),
         (Annotated[float, (0.0, 3.0)], "a", TypeError, "not a float"),
         (Annotated[float, (0.0, 3.0)], True, TypeError, "not a float"),
         (Annotated[bool, "Flip"], 1, TypeError, "not a bool"),
-        (Annotated[float, (3.0, 0.0)], 1.0, ValueError, "is reversed"),
+        (Annotated[float, (3.0, 0.0)], 1.0, ValueError, "must satisfy min <= max"),
         (Annotated[float, (0.0, 1.0, 5.0)], 0.5, ValueError, "larger than the range"),
-        (Annotated[float, (0.0, 1.0, -0.1)], 0.5, ValueError, "not a positive number"),
+        (Annotated[float, (0.0, 1.0, -0.1)], 0.5, ValueError, "step -0.1 must be > 0"),
         (Annotated[float, (0.0,)], 0.5, ValueError, "is not a range"),
         (Annotated[float, (0.0, 1.0, 0.5, 1.0)], 0.5, ValueError, "is not a range"),
         (Annotated[int, (0.5, 3)], 1, ValueError, "not made of ints"),

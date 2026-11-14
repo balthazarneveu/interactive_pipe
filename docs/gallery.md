@@ -58,7 +58,7 @@ The sweep chose the defaults: a low threshold needs a minimal area to reject noi
 
 ## Optimisation trace
 
-Watch gradient descent, momentum, Nesterov and Adam cross the Rosenbrock valley: contour figure with the trajectory, loss curve, a `Literal` dropdown for the optimiser and a log10 learning-rate slider.
+Watch gradient descent, momentum, Nesterov and Adam cross the Rosenbrock valley: contour figure with the trajectory, loss curve, a `Literal` dropdown for the optimiser and a log-scale learning-rate slider.
 
 ![Optimisation trace](images/gallery/optimizer_trace.png)
 
@@ -102,7 +102,7 @@ The sweep shows what the derivative gain and actuator saturation do to the step 
 
 ## Stateful simulation (edge case)
 
-A Gray-Scott reaction-diffusion animated by a clock. Pipelines are pure functions of their controls, simulations are not: the frame is made a function of the clock (`t`) with the context as a cache, so snapshots and sweeps stay reproducible.
+A Gray-Scott reaction-diffusion animated by a clock. Pipelines are pure functions of their controls, simulations are not: the state lives in `context` and each run advances it to the clock (`t`); snapshots and sweeps start each picture from a fresh context, so they stay reproducible.
 
 ![Stateful simulation (edge case)](images/gallery/reaction_diffusion.png)
 

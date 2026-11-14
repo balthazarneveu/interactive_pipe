@@ -194,7 +194,7 @@ report.snapshot("/tmp/report.png", img)  # curve, table and titled image side by
 ```
 
 - Unknown names raise `TypeError` listing the available ones; a parameter named like an option (`title`, `output`, `dpi`...) goes through `params={...}`. `path=None` returns the image as an array.
-- Inputs can be omitted after the first call; `output="name"`, `["a", "b"]` or `"all"` picks what a snapshot or a sweep cell shows (default: a snapshot shows the whole layout, a sweep cell the only output, else the first image — often the input: pass `output=`). Sweeps take any value a control takes: tuples for a `RangeControl`, strings for a dropdown.
+- Inputs can be omitted after the first call; `output="name"`, `["a", "b"]` or `"all"` picks what a snapshot or a sweep cell shows (default: a snapshot shows the whole layout, a sweep cell the first image the swept parameters change). Sweeps take any value a control takes: tuples for a `RangeControl`, strings for a dropdown.
 - Unmodified scripts: `interactive-pipe snapshot script.py -o /tmp/shots/ --set t=4 --set mode=dark` writes one PNG per pipeline call (`<pipeline>.png`, `<pipeline>_2.png`...) instead of opening a window; `interactive-pipe sweep script.py --param gain=0.5,1,2 [--param mode=dark,light] --output out -o /tmp/sweep.png` makes a contact sheet (`--output` takes a name, `a,b` or `all`); `interactive-pipe describe script.py` prints the controls. Values are typed by the control (`seed=0.2,0.4` for a point; swept ranges / points are `;`-separated); unknown names fail with the list. Without the CLI, `INTERACTIVE_PIPE_SNAPSHOT=/tmp/shots/ python script.py` writes `<pipeline>.png`.
 - Set `MPLBACKEND=Agg` and `QT_QPA_PLATFORM=offscreen` so nothing opens a display.
 
@@ -218,7 +218,7 @@ batch.export_tuning("/tmp/res/tuning.yaml")  # and load_tuning(...)
 
 ## Testing your filters
 
-A decorated filter stays a plain function: `amplify(img, gain=2.0)` returns the array, also when it calls `layout` (ignored) or `context` (a scratch dict for that call). `my_pipeline.headless(img, gain=2.0)` returns the outputs of a pipeline decorated with any `gui=` as a tuple (a `layout.grid` call makes it a list of rows); `snapshot(None, ...)` returns the rendered RGB array. Snapshots and sweeps start from a fresh `context` (`runs=N` to warm up a stateful pipeline). Run `interactive-pipe check script.py` in CI.
+A decorated filter stays a plain function: `amplify(img, gain=2.0)` returns the array, also when it calls `layout` (ignored) or `context` (a scratch dict for that call). `my_pipeline.headless(img, gain=2.0)` returns the outputs of a pipeline decorated with any `gui=` as a tuple in `return` order (whatever `layout.grid` displays); `snapshot(None, ...)` returns the rendered RGB array. Snapshots and sweeps start from a fresh `context` (`runs=N` to warm up a stateful pipeline). Run `interactive-pipe check script.py` in CI.
 
 <!-- code: continue -->
 ```python

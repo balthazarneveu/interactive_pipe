@@ -377,6 +377,34 @@ pipe(np.full((4, 4, 3), 0.25))
 written = pipe.save("/tmp/result.png")  # [PosixPath('/tmp/result_out.png')], was the base path
 ```
 
+### `layout.grid` no longer changes what a call returns
+
+A filter calling `layout.grid([...])` used to turn the result of later
+pipeline calls into the grid's list of rows, in the grid's order. Calls,
+`.headless(...)` and `save()` now follow the pipeline function's `return`;
+the window and snapshots still show the grid:
+
+```python
+import numpy as np
+from interactive_pipe import interactive, interactive_pipeline, layout
+
+
+@interactive()
+def half(img):
+    layout.grid([["out", "img"]])  # display: out first
+    return img * 0.5
+
+
+@interactive_pipeline(gui=None)
+def pipe(img):
+    out = half(img)
+    return img, out
+
+
+img, out = pipe(np.ones((4, 4)))  # was [[out, img]]
+assert out[0, 0] == 0.5
+```
+
 ## Declaring controls
 
 ### A bare value in `@interactive` raises

@@ -165,9 +165,12 @@ class PointerTargets:
         return float(shape[1]), float(shape[0])
 
 
-def _warn_once(message: str, _seen: set = set()) -> None:  # noqa: B006 - process-wide "warned" registry
-    if message not in _seen:
-        _seen.add(message)
+_WARNED: set = set()  # messages already logged (process-wide)
+
+
+def _warn_once(message: str) -> None:
+    if message not in _WARNED:
+        _WARNED.add(message)
         logging.warning(message)
 
 
@@ -197,7 +200,7 @@ def nearest(controls: Sequence[PointerControl], fraction: Tuple[float, float]) -
         return None
 
     def distance(ctrl: PointerControl) -> float:
-        value = ctrl.value
+        value: Any = ctrl.value
         if isinstance(ctrl, RegionControl):
             x0, y0, x1, y1 = value
             center = ((x0 + x1) / 2.0, (y0 + y1) / 2.0)
@@ -303,7 +306,7 @@ def overlay_items(targets: PointerTargets, cell: Cell, data_size: Tuple[float, f
     regions: List[Tuple[str, Any, str]] = []
     points: List[Tuple[str, Any, str]] = []
     for ctrl in targets.controls_at(cell):
-        value = ctrl.value
+        value: Any = ctrl.value
         if isinstance(ctrl, RegionControl):
             x0, y0, x1, y1 = value
             regions.append(("region", (x0 * width, y0 * height, x1 * width, y1 * height), ctrl.name))

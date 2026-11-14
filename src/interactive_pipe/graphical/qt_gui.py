@@ -48,6 +48,7 @@ from interactive_pipe.graphical.qt_backend import (  # noqa: F401
     QWidget,
     SingleCurve,
     Table,
+    quiet_offscreen_messages,
 )
 from interactive_pipe.graphical.qt_control import ControlFactory
 from interactive_pipe.graphical.qt_image import (
@@ -69,7 +70,7 @@ from interactive_pipe.graphical.qt_widgets import (  # noqa: F401
     DetachedPanelWindow,
     ElidedLabel,
 )
-from interactive_pipe.graphical.value_format import format_control_value
+from interactive_pipe.graphical.value_format import format_value
 from interactive_pipe.graphical.window import (
     InteractivePipeWindow,
     display_kind,
@@ -216,6 +217,7 @@ class InteractivePipeQT(InteractivePipeGUI):
         if threaded and self.audio:
             # filters would drive the QMediaPlayer from the worker thread
             raise ValueError("threaded=True does not support audio=True: run the audio pipeline without threaded")
+        quiet_offscreen_messages()  # snapshots / the command line build windows never shown
         if not QApplication.instance():
             self.app = QApplication(sys.argv)
         else:
@@ -685,7 +687,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
     def update_label(self, idx):
         # pass
         val = self.ctrl[idx].value
-        val_to_print = format_control_value(val)
+        val_to_print = format_value(val)
         if idx in self.result_label.keys():
             self.result_label[idx].setText(f"{val_to_print}")
         if idx in self.name_label.keys():
@@ -898,9 +900,9 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         targets = getattr(self, "pointer_targets", None)
         for row, cells in enumerate(self.image_canvas or []):
             for col, cell in enumerate(cells):
-                view = None if cell is None else cell.get("image")
-                if not isinstance(view, ImageView):
+                if cell is None or not isinstance(cell.get("image"), ImageView):
                     continue
+                view = cell["image"]
                 size = self._pointer_data_size(view, row, col)
                 if targets is None or size is None or cell.get("kind") != "image":
                     view.set_overlay([])

@@ -29,6 +29,21 @@ Hint: move the condition inside a filter: give the filter a control (e.g. `@inte
 
 Rejected constructs include `if` / `for` / `while` / `with` / `try`, arithmetic and any other expression that is not a call (`b = a * 2`, `img[0]`), `+=`, comprehensions, lambdas, a statement after `return`, `*args` / `**kwargs`, positional literals (`blur(img, 3)` — write `blur(img, radius=3)`), variables as keyword values (the body is not executed), builtins such as `print`, and unknown names (with a "did you mean" suggestion).
 
+## What a filter returns, what a call returns
+
+- A filter returning a tuple gives one value per name its pipeline line
+  assigns: `a, b = split(img)`. A mismatch (`a = split(img)` with
+  `return x, y`) raises `FilterError` naming the line.
+- A list is one value: `detections = detect(img)` receives the list whatever
+  its length (empty included). Return a tuple to unpack.
+- Calling a `gui=None` pipeline, or `my_pipeline.headless(img, gain=2.0)` for
+  any `gui=`, returns a tuple of the outputs in `return` order (a list of rows
+  when the function returns a 2D list), whatever `layout.grid` displays.
+  Keyword arguments set parameters like a slider move (kept for the next
+  calls); an unknown name raises `TypeError`.
+- `snapshot` / `sweep` start each picture from a fresh `context` (`runs=N` to
+  warm up a stateful pipeline), see [Snapshots](snapshots.md).
+
 ::: interactive_pipe.interactive
 
 ::: interactive_pipe.interactive_pipeline

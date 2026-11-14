@@ -90,6 +90,7 @@ Return a 2D `(H, W)` array and describe its display with
 | `vmin`, `vmax` | Values mapped to the ends of the colormap; each defaults to the data min / max. |
 | `center` | Widens the range to be symmetric around this value: `colormap="RdBu", center=0` for signed data. |
 | `colorbar` | `True` draws the scale on the right of the map: min, max and round ticks. A string, `colorbar="log10 \|F\|"`, also writes it vertically along the bar (for a longer description). |
+| `label` | With `colorbar=True`: the text written along the bar, same as `colorbar="..."`. |
 | `unit` | Short unit written once, above the bar, e.g. `unit="dB"`. |
 
 ```python
