@@ -337,3 +337,12 @@ def test_constant_map_takes_the_middle_colour_of_the_scale():
 
     shown = apply_display_style(np.zeros((8, 8)), {"colormap": "RdBu_r", "center": 0})
     np.testing.assert_allclose(shown[4, 4, :3], colormaps["RdBu_r"](0.5)[:3], atol=1 / 255)
+
+
+def test_label_key_is_supported_and_equals_a_colorbar_string(caplog):
+    from interactive_pipe.core.context import SUPPORTED_STYLE_KEYS
+
+    assert "label" in SUPPORTED_STYLE_KEYS  # layout.style(..., label=...) does not warn
+    by_label = apply_display_style(RAMP, {"colormap": "viridis", "colorbar": True, "label": "error (px)"})
+    by_string = apply_display_style(RAMP, {"colormap": "viridis", "colorbar": "error (px)"})
+    np.testing.assert_array_equal(by_label, by_string)
