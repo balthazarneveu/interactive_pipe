@@ -185,6 +185,20 @@ declaration could look like, and how it would behave headless and in
 
 ## Status
 
+**Summary (03:00 CET):** all six items done, plus an independent review
+pass and the mouse-input design note. Commits on `feature/scientific-outputs`
+after `c515a6a`: item 1 `f51a981`, item 2 `1c86784`, item 3 `3841cc0`,
+item 4 `8b5cadc`, item 5 `76da601`, item 6 `6f2e1f0`, mpl resize fix
+`f5ce1c7`, review fixes `7e6112e`, and the commit finishing this file.
+Final state: `957 passed, 6 skipped` (baseline 867 + 90 new tests), ruff
+format/check clean, pyright 8 errors — the same 8 as the base, all in the
+untouched `graphical/qt_control.py` and `graphical/dpg_panels.py`. Nothing
+pushed, no PR, no other branch or checkout touched. Not run: the mkdocs
+build (mkdocs not installed). Points for review: the NaN colour (magenta),
+the title rule for `Image`, the "style without title shows the name"
+change, `export_animation` now exporting styled heatmaps in colour, and the
+two items left open at the end of the review section.
+
 Agent run of 2026-11-14, started 02:02 CET, autonomous (nobody reachable
 before 11:30). Environment checked: the shared interpreter imports
 `interactive_pipe` from this worktree's `src/`; baseline `867 passed,

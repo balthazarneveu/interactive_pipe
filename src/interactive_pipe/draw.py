@@ -591,7 +591,7 @@ def text(
     font = canvas.font(size)
     font_size = font.size if hasattr(font, "size") else 12
     stroke = max(1, int(round(font_size / 10.0))) if outline is not None and background is None else 0
-    stroke_fill = canvas.rgba(to_rgb(outline)) if stroke else None
+    stroke_fill = canvas.rgba(to_rgb(outline)) if stroke and outline is not None else None
     for content, (x, y), rgb in zip(texts, positions, colors):
         if not _finite(x, y):
             continue
