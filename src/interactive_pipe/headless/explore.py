@@ -189,7 +189,8 @@ def apply_overrides(pipeline: Any, overrides: Dict[str, Any], method: str = "sna
         for ctrl in controls:
             if value is None:  # Control.value = None would silently reset to the default
                 raise TypeError(f"{method}(): {name}=None is not a valid value for control {ctrl.name!r}")
-            ctrl.value = value  # may raise TypeError / ValueError (wrong type, unknown choice)
+            # may raise TypeError / ValueError (wrong type, unknown choice); clamping is warned below, once
+            ctrl._set_value_caller_reports_clamp(value)
             expected = ctrl.to_label(value) if isinstance(ctrl, MappedChoiceControl) else value
             if not _same_value(ctrl.value, expected):
                 warnings.warn(

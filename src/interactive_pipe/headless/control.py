@@ -383,7 +383,7 @@ class Control:
 
     def _warn_clamped(self, value, clamped) -> None:
         """Out-of-range values are clamped (tuning files and sessions rely on it), but never silently."""
-        if clamped == value or self.value_range is None:
+        if clamped == value or self.value_range is None or self._clamp_reported_by_caller:
             return
         low, high = self.value_range[0], self.value_range[1]
         try:
@@ -431,6 +431,18 @@ class Control:
 
     def reset(self):
         self.value = None
+
+    #: True while a caller that reports the clamping itself sets the value
+    _clamp_reported_by_caller = False
+
+    def _set_value_caller_reports_clamp(self, value: Any) -> None:
+        """Set ``value`` without the control's own clamp warning: the caller
+        (``snapshot`` / ``sweep`` overrides) words it for its user, once."""
+        self._clamp_reported_by_caller = True
+        try:
+            self.value = value
+        finally:
+            del self._clamp_reported_by_caller
 
     def update(self, new_value):
         # Plug button
