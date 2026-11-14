@@ -312,3 +312,81 @@ def test_python_dash_m_skill():
     result = _run_module("-m", "interactive_pipe", "skill")
     assert result.returncode == 0, result.stderr
     assert result.stdout == skill_text()
+
+
+# --- review fixes -------------------------------------------------------------------------------
+
+FILTER_SCRIPT = """
+import numpy as np
+from interactive_pipe import interactive
+
+@interactive(gain=(1.0, [0.0, 2.0]))
+def amp(img, gain=1.0):
+    return img * gain
+
+for _ in range(2):
+    amp.interact(np.linspace(0, 1, 16).reshape(4, 4))
+"""
+
+
+def test_relative_output_survives_a_chdir_in_the_script(tmp_path, monkeypatch):
+    folder = tmp_path / "proj"
+    folder.mkdir()
+    script = folder / "moves.py"
+    script.write_text("import os\nos.chdir(os.path.dirname(os.path.abspath(__file__)))\n" + SCRIPT)
+    (folder / "helper_module.py").write_text("OFFSET = 0.0\n")
+    monkeypatch.chdir(tmp_path)
+    run = run_script(str(script), output="shots/")
+    assert run.written[0] == tmp_path / "shots" / "first.png"
+    assert all(path.is_file() for path in run.written)
+
+
+def test_name_pattern_then_folder_rule_like_the_variable(script, tmp_path):
+    run = run_script(str(script), output=f"{tmp_path}/{{name}}/")
+    assert run.written[:2] == [tmp_path / "first" / "first.png", tmp_path / "second" / "second.png"]
+
+
+def test_signal_handlers_are_restored(tmp_path):
+    import signal
+
+    script = tmp_path / "signals.py"
+    script.write_text("import signal\nsignal.signal(signal.SIGINT, signal.SIG_DFL)  # what the Qt backend does\n")
+    before = signal.getsignal(signal.SIGINT)
+    run_script(str(script), output=f"{tmp_path}/")
+    assert signal.getsignal(signal.SIGINT) is before
+
+
+def test_sibling_modules_are_forgotten(tmp_path):
+    outputs = []
+    for who in ("a", "b"):
+        folder = tmp_path / who
+        folder.mkdir()
+        (folder / "sibling_helpers.py").write_text(f"WHO = {who!r}\n")
+        (folder / "main.py").write_text("import sibling_helpers\nprint('WHO', sibling_helpers.WHO)\n")
+        run_script(str(folder / "main.py"), output=f"{tmp_path}/")
+        outputs.append(sys.modules.get("sibling_helpers"))
+    assert outputs == [None, None]
+
+
+def test_filter_interact_goes_through_the_hook(tmp_path, capsys):
+    script = tmp_path / "filter_only.py"
+    script.write_text(FILTER_SCRIPT)
+    assert main(["snapshot", str(script), "-o", f"{tmp_path}/shots/"]) == 0
+    assert (tmp_path / "shots" / "amp.png").is_file() and (tmp_path / "shots" / "amp_2.png").is_file()
+    assert "2 snapshot(s) written" in capsys.readouterr().out
+
+
+def test_interact_decorator_renders_instead_of_opening_a_window(tmp_path):
+    import interactive_pipe.helper.filter_decorator as filter_decorator
+
+    original = filter_decorator.get_interactive_pipeline_class
+    script = tmp_path / "one_shot.py"
+    script.write_text(
+        "import numpy as np\nfrom interactive_pipe import interact\n\n"
+        "@interact(np.linspace(0, 1, 16).reshape(4, 4), gain=(1.0, [0.0, 2.0]))\n"
+        "def scaled(img, gain=1.0):\n    return img * gain\n"
+    )
+    run = run_script(str(script), output=f"{tmp_path}/shots/")
+    assert run.exit_code == 0, run.error
+    assert [path.name for path in run.written] == ["scaled.png"]
+    assert filter_decorator.get_interactive_pipeline_class is original

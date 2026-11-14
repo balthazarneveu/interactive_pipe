@@ -171,12 +171,15 @@ def attach_filter_entry_points(func: Callable) -> None:
         control values are given back afterwards, so pipelines using this
         filter are not affected by the slider moves.
         """
-        from interactive_pipe.cli import snapshot_path_from_env
+        from interactive_pipe.cli import get_snapshot_hook, snapshot_path_from_env
         from interactive_pipe.headless.explore import snapshot_instead_of_gui
         from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
 
         values = _ordered_inputs(func, "interact", input_values, None)
         with single_filter_pipeline(func, values, "interact") as pipeline:
+            hook = get_snapshot_hook()  # `interactive-pipe snapshot`: names the file, counts the call
+            if hook is not None:
+                return hook(func.__name__, pipeline, lambda path: snapshot_instead_of_gui(pipeline, path, *values))
             snapshot_path = snapshot_path_from_env(func.__name__)
             if snapshot_path is not None:  # INTERACTIVE_PIPE_SNAPSHOT: no window
                 return snapshot_instead_of_gui(pipeline, snapshot_path, *values)
