@@ -205,3 +205,36 @@ before 11:30). Environment checked: the shared interpreter imports
 - Tests: `test/test_display_shared_style.py` (snapshot of a styled 2D array is
   not gray, snapshot cell == GUI conversion, result left raw, Gradio refresh).
 
+
+### 2. Colorbar, diverging range, NaN policy, readout — done
+
+- `layout.style(name, colorbar=True, unit="dB")`: the scale is drawn **into
+  the image** by `graphical/display.py` (Pillow + matplotlib's bundled
+  DejaVu Sans, `MaxNLocator` round ticks, both ends always labelled, interior
+  ticks skipped when they would overlap), so it is identical on every backend
+  and in snapshots. A map shorter than 256 px is first upscaled by an integer
+  factor (nearest, at most x32) so the labels are drawn >= 12 px tall; font
+  height is 5 % of the map height, 12-48 px. Strips are `lru_cache`d per
+  (colormap name, range, height, unit). `colorbar=True` without a colormap
+  uses `gray`.
+- `center=c` widens `[vmin, vmax]` (explicit or automatic) to be symmetric
+  around `c`.
+- NaN / masked policy (decision): NaN and `numpy.ma` masked pixels are drawn
+  in magenta `BAD_COLOR = (1, 0, 1)` — a colour no common colormap uses, so a
+  missing value never reads as a valid one — and are ignored by the automatic
+  range; `±inf` are clipped to the ends of the scale. A `Colormap` object with
+  its own `set_bad` colour (alpha > 0) wins. Without a colormap, a styled
+  array containing NaN is promoted to RGB to show them (without NaN it stays
+  a 2D windowed array, as before). Unstyled arrays are untouched.
+- `vmin` / `vmax` / `center` must be numbers (`TypeError` from
+  `layout.style`, surfaced as a `FilterError`). New keys added to
+  `SUPPORTED_STYLE_KEYS`; the existing unknown-key test used `colorbar` as
+  its example of an unknown key — switched to `colourbar`.
+- Qt readout: it already reported the raw scalar for a colormapped heatmap
+  (it keeps the raw outputs). With a colorbar the displayed image is
+  upscaled and wider, so it fell back to the RGB triplet: `ImageView` got an
+  optional `readout=(upscale, h, w)` mapping display pixels back to data
+  pixels (coordinates and value in data space, nothing over the colorbar),
+  set by `qt_gui.update_image` from `display.heatmap_geometry`. The DPG
+  viewer has no value readout today (zoom only), nothing to fix there.
+- Tests: `test/test_heatmap_colorbar.py`.
