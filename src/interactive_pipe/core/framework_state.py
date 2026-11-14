@@ -10,7 +10,7 @@ without cycles.
 
 import weakref
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional, Set
+from typing import Any, Callable, Dict, Optional, Set, Tuple
 
 
 def _noop(*_args, **_kwargs) -> None:
@@ -44,6 +44,11 @@ class FrameworkState:
     """
 
     output_styles: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    # layout.style merges the calls made on one output during one run: the
+    # run counter (bumped by PipelineCore.run) and, per output, the run of its
+    # last style plus the keyword arguments given so far in that run
+    run_count: int = 0
+    style_calls: Dict[str, Tuple[int, Dict[str, Any]]] = field(default_factory=dict)
     events: Dict[str, bool] = field(default_factory=dict)
     event_readers: Dict[str, Set[str]] = field(default_factory=dict)
     audio: AudioBindings = field(default_factory=AudioBindings)
@@ -78,6 +83,7 @@ class FrameworkState:
         """Restore contents in place from a snapshot() result."""
         self.output_styles.clear()
         self.output_styles.update({name: dict(style) for name, style in snapshot.output_styles.items()})
+        self.style_calls.clear()
         self.events.clear()
         self.events.update(snapshot.events)
         self.event_readers.clear()
