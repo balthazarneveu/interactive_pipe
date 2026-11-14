@@ -206,8 +206,8 @@ def pipe(img):
 pipe(np.ones((4, 4)))
 ```
 
-After: unpack every value, or return a tuple / list as one value with
-`return (values,)`:
+After: unpack every value, or return a tuple as one value with
+`return (values,)` (a list is always one value, see the next section):
 
 ```python
 import numpy as np
@@ -226,6 +226,42 @@ def pipe(img):
 
 
 left, right = pipe(np.ones((4, 4)))
+```
+
+### A list assigned to one name stays a list
+
+`dets = detect(img)` receives the list the filter returned, whatever its
+length. Before, a 1-item list silently became its item, and an empty or longer
+list raised. Several names (`a, b = f(img)`) still unpack a list, and tuples
+keep their rule (previous section). Nothing to change unless a filter relied on
+a 1-item list being unwrapped: return the item itself.
+
+```python
+import numpy as np
+from interactive_pipe import interactive, interactive_pipeline
+
+
+@interactive(count=(1, [0, 5]))
+def detect(img, count=1):
+    return [{"x": k, "y": k} for k in range(count)]  # 0, 1 or more detections
+
+
+@interactive()
+def report(detections):
+    return f"{len(detections)} detection(s)"
+
+
+@interactive_pipeline(gui=None)
+def pipe(img):
+    detections = detect(img)
+    text = report(detections)
+    return text
+
+
+for count in (0, 1, 3):
+    (text,) = pipe(np.ones((4, 4)), count=count)
+    if text != f"{count} detection(s)":
+        raise RuntimeError(text)
 ```
 
 ## Calling a pipeline
@@ -431,10 +467,74 @@ Controls are attached to the decorated function instead of a process-wide
 registry keyed by `module.qualname`. Two scripts run in one interpreter with
 same-named `__main__` filters, or filters made by a factory, no longer share
 or replace each other's controls. Re-decorating a function (a notebook cell run
-again) drops the controls it no longer declares. Pipelines built from the same
-filter still share its control (see "One control per filter" in the
-[controls guide](guide/controls.md)). Nothing to change unless you relied on
-that sharing.
+again) drops the controls it no longer declares. Nothing to change unless you relied on that sharing.
+
+### Each pipeline owns its controls
+
+Two pipelines built from the same filter no longer share control values: a
+value set in one used to be the starting value of the other. A pipeline starts
+from the declared default, and a direct call `amplify(img)` uses the declared
+default too. To drive several filters of one pipeline with a single widget,
+pass the same `Control` object to their decorators (see the
+[controls guide](guide/controls.md)).
+
+```python
+import numpy as np
+from interactive_pipe import interactive, interactive_pipeline
+
+
+@interactive(gain=(1.0, [0.0, 3.0]))
+def amplify(img, gain=1.0):
+    return img * gain
+
+
+@interactive_pipeline(gui=None)
+def first(img):
+    out = amplify(img)
+    return out
+
+
+@interactive_pipeline(gui=None)
+def second(img):
+    out = amplify(img)
+    return out
+
+
+first(np.ones((2, 2)), gain=3.0)
+(out,) = second(np.ones((2, 2)))  # 1.0: the value set in `first` stays there
+if out.max() != 1.0:
+    raise RuntimeError(out.max())
+```
+
+### Snapshots and sweeps start from a fresh context
+
+Each `snapshot` call and each `sweep` cell is rendered like a first run: the
+`context` holds only what the pipeline was given at construction, and the live
+pipeline's state is untouched afterwards. Before, a pipeline keeping state in
+`context` (a simulation, an accumulator) continued from wherever the previous
+call left it, so sweep cells depended on each other.
+
+```python
+import numpy as np
+from interactive_pipe import context, interactive, interactive_pipeline
+
+
+@interactive(gain=(1.0, [0.0, 3.0]))
+def count(gain=1.0):
+    context["n"] = context.get("n", 0) + 1
+    return np.full((8, 8), context["n"] / 10.0)
+
+
+@interactive_pipeline(gui=None)
+def pipe():
+    frame = count()
+    return frame
+
+
+first, second = pipe.snapshot(None, gain=1.0), pipe.snapshot(None, gain=2.0)
+if not np.array_equal(first[:20, :20], second[:20, :20]):  # same picture: both are a first run
+    raise RuntimeError("snapshots depend on each other")
+```
 
 ## Display
 

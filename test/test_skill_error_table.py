@@ -78,7 +78,7 @@ def _filter_error():
 def _returned_values():
     @interactive()
     def f(img):
-        return [1, 2, 3]
+        return 1, 2, 3  # a tuple; a list assigned to one name is kept whole
 
     @interactive_pipeline(gui=None)
     def p(img):
