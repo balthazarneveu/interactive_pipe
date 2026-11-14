@@ -212,7 +212,13 @@ def rasterize_figure(
     # Fitted in a cell, a figure with default margins is always laid out tight
     # (the same picture whatever its figsize).
     fitted = box is not None and min(box) >= MIN_FIGURE_BOX
-    auto_layout = fitted and _no_layout_engine(fig) and _default_subplot_margins(fig)
+    # a figure the filter laid out with fig.tight_layout() at its own figsize
+    # (placeholder engine left behind) is laid out again at the cell size; a
+    # bare subplots_adjust (no engine at all) is kept as the user's choice
+    auto_layout = (
+        fitted and _no_layout_engine(fig) and (_default_subplot_margins(fig) or fig.get_layout_engine() is not None)
+    )
+    margins = {key: getattr(fig.subplotpars, key) for key in _DEFAULT_MARGINS_KEYS}
     try:
         fig.set_dpi(dpi)
         if resized:
@@ -230,7 +236,7 @@ def rasterize_figure(
             rgb = rgb * weight + (1.0 - weight)
     finally:
         if auto_layout:
-            fig.subplots_adjust(**_default_margins())
+            fig.subplots_adjust(**margins)
         if resized:
             fig.set_size_inches(original_size, forward=False)
         fig.set_dpi(original_dpi)
