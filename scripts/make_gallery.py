@@ -14,7 +14,8 @@ ROOT = Path(__file__).resolve().parent.parent
 GALLERY = ROOT / "demo" / "gallery"
 OUT = ROOT / "docs" / "images" / "gallery"
 
-#: example -> (input factory or None, snapshot overrides, sweep arguments or None)
+#: example -> (input factory or None, snapshot overrides, sweep arguments or None);
+#: "*factory": the factory returns a tuple of inputs
 EXAMPLES = {
     "camera_isp": ("make_scene", {}, None),
     "frequency_filtering": ("make_image", {}, None),
@@ -24,6 +25,15 @@ EXAMPLES = {
     "lens_calibration": (None, {"k1": -0.15}, None),
     "pid_control": (None, {}, dict(kd=[0.0, 0.15, 0.4], u_max=[20.0, 2.0], output="response")),
     "reaction_diffusion": (None, {"t": 4.0}, None),
+    # second round
+    "g2_stereo_matching": ("*make_views", {}, {"window radius": [1, 3, 6, 9], "output": ["disparity", "error"]}),
+    "g2_segmentation": ("*make_image", {}, None),
+    "g2_kalman_tracking": ("*make_track", {}, {"process noise q": [0.01, 1, 100], "output": "all"}),
+    "g2_beamforming": (None, {}, dict(taper=["uniform", "hann"], elements=[4, 16], output="all")),
+    "g2_dct_compression": ("make_image", {}, dict(quality=[5, 20, 50, 90], output=["reconstruction", "error"])),
+    "g2_heat_diffusion": ("initial_plate", {}, {"time step": [0, 100, 1000], "edges": ["cold", "insulated"]}),
+    "g2_training_curves": ("make_runs", {}, dict(smoothing=[0.0, 0.9, 0.98], output="curves")),
+    "g2_audio_effects": ("make_chord", {}, dict(feedback=[0.0, 0.7], output="spectrogram")),
 }
 
 
@@ -52,7 +62,12 @@ def render(name, out_dir=OUT, sweeps=True):
     factory, overrides, sweep = EXAMPLES[name]
     namespace = load(name)
     pipe = namespace[name]
-    inputs = (namespace[factory](),) if factory else ()
+    if factory is None:
+        inputs = ()
+    elif factory.startswith("*"):
+        inputs = tuple(namespace[factory[1:]]())
+    else:
+        inputs = (namespace[factory](),)
     out_dir.mkdir(parents=True, exist_ok=True)
     written = [out_dir / f"{name}.png"]
     pipe.snapshot(str(written[0]), *inputs, **overrides)
