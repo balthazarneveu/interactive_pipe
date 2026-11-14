@@ -325,6 +325,24 @@ def test_mpl_backend_shows_the_figure_and_switches_kinds():
     gui.close()
 
 
+def test_mpl_backend_rebuilds_the_image_when_its_size_changes():
+    """image (4x4) -> figure (240x240) keeps kind "image": the extent must follow."""
+    mpl_gui = pytest.importorskip("interactive_pipe.graphical.mpl_gui")
+    pipe = HeadlessPipeline.from_function(figure_shifter_pipeline, inputs=["img"])
+    gui = mpl_gui.InteractivePipeMatplotlib(pipeline=pipe, name="mpl resize")
+    gui.pipeline.inputs = [INPUT_IMAGE.copy()]
+    gui.window.refresh()
+    gui.window.update_parameter("fig_kind", "image")  # controls are shared with the other tests
+    ax = gui.window.image_canvas[0][0]["ax"]
+    assert ax.images[0].get_extent() == [-0.5, 3.5, 3.5, -0.5]
+    gui.window.update_parameter("fig_kind", "figure")
+    size = 2 * FIGURE_DPI
+    assert len(ax.images) == 1
+    assert ax.images[0].get_extent() == [-0.5, size - 0.5, size - 0.5, -0.5]
+    assert ax.get_title() == "out"
+    gui.close()
+
+
 def test_nb_backend_shows_the_figure():
     nb_gui = pytest.importorskip("interactive_pipe.graphical.nb_gui")
     pipe = HeadlessPipeline.from_function(quiver_pipeline, inputs=["img"])
