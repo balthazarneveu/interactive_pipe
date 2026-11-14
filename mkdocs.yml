@@ -106,6 +106,7 @@ nav:
           - Keyboard: guide/keyboard.md
           - Mouse input: guide/mouse-input.md
       - Snapshots & sweeps: guide/snapshots.md
+      - Testing filters & pipelines: guide/testing.md
       - Command line & agents: guide/command-line.md
       - Tips & tricks: guide/tips.md
       - Examples gallery: guide/examples.md
