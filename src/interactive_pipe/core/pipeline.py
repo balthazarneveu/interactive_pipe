@@ -85,6 +85,11 @@ class PipelineCore:
 
         self.__initialized_inputs = False
         if outputs is None:
+            if not self.filters:
+                raise ValueError(
+                    f"pipeline '{name}' calls no filter and returns nothing: there is nothing to run or display. "
+                    "Call at least one filter in its body, e.g. `out = my_filter(img)` then `return out`"
+                )
             outputs = self.filters[-1].outputs
             logging.warning(f"Using last filter outputs {self.filters[-1]} {outputs}")
 
