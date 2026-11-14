@@ -369,3 +369,18 @@ def test_gradio_backend_shows_the_figure(monkeypatch):
     assert isinstance(converted, np.ndarray) and converted.dtype == np.uint8
     assert converted.shape == (3 * FIGURE_DPI, 4 * FIGURE_DPI, 3)
     assert _has_red(converted)
+
+
+def test_qt_worker_rasterises_figures_under_the_run_lock():
+    """Threaded Qt: a figure is drawn in the worker (next run may reuse it)."""
+    qt_gui = pytest.importorskip("interactive_pipe.graphical.qt_gui")
+    pipe = HeadlessPipeline.from_function(low_dpi_pipeline, inputs=["img"])
+    gui = qt_gui.InteractivePipeQT(pipeline=pipe, name="qt worker")
+    gui.pipeline.inputs = [INPUT_IMAGE.copy()]
+    _, out, error, _, _ = gui.window._run_pipeline_in_worker()
+    assert error is None
+    shown = out
+    while isinstance(shown, (tuple, list)):  # the GUI makes the layout 2D
+        shown = shown[0]
+    assert isinstance(shown, np.ndarray) and shown.shape == (100, 200, 3)  # dpi=50 from layout.style
+    gui.close()

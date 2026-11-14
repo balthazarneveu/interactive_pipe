@@ -316,3 +316,12 @@ def test_translucent_fill_on_uint8_direct_path():
     assert out.dtype == np.uint8
     np.testing.assert_allclose(out[20, 20], [128, 0, 0], atol=1)
     np.testing.assert_array_equal(out[35, 35], [0, 0, 0])
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.uint16, np.uint8])
+def test_non_contiguous_images_are_drawn_on(dtype):
+    """e.g. tensor.permute(1, 2, 0).numpy(): marks must not be lost."""
+    img = np.zeros((30, 40, 3), dtype=dtype).transpose(1, 0, 2)
+    reference = draw.boxes(np.ascontiguousarray(img), [5, 5, 20, 20], color="red")
+    np.testing.assert_array_equal(draw.boxes(img, [5, 5, 20, 20], color="red"), reference)
+    assert (draw.mask(img, np.ones((40, 30), bool)) != 0).any(axis=-1).all()

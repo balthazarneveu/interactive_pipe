@@ -163,7 +163,7 @@ def _as_rgb_copy(img: np.ndarray) -> np.ndarray:
         img = img[..., 0]
     if img.ndim == 2:
         return np.repeat(img[..., None], 3, axis=-1)
-    return np.array(img, copy=True)
+    return np.array(img, copy=True, order="C")  # C order: _blend writes through a reshape view
 
 
 class _Canvas:

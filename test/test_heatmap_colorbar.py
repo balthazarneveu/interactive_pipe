@@ -211,3 +211,46 @@ def test_qt_readout_reports_the_scalar_in_data_pixels():
     # in the colorbar: no value
     assert at(16 * upscale + 4, 3)[2] is None
     gui.close()
+
+
+# ---------------------------------------------------------------------------
+# Review fixes
+# ---------------------------------------------------------------------------
+
+
+def test_zero_valued_options_alone_make_a_heatmap():
+    """vmin=0 / center=0 are values, not "unset" (0 == False)."""
+    np.testing.assert_allclose(apply_display_style(np.array([[1.0, 2.0]]), {"center": 0}), [[0.75, 1.0]])
+    out = apply_display_style(np.array([[np.nan, 1.0]]), {"vmin": 0})
+    np.testing.assert_allclose(out[0, 0], BAD_COLOR)
+
+
+def test_custom_colormap_object_with_colorbar():
+    from matplotlib.colors import LinearSegmentedColormap, ListedColormap
+
+    for cmap in (ListedColormap(["red", "blue"]), LinearSegmentedColormap.from_list("mine", ["k", "y"])):
+        out = apply_display_style(RAMP, {"colormap": cmap, "colorbar": True})
+        assert out.shape[0] == 32 * colorbar_upscale(32)
+
+
+def test_registered_colormap_strips_are_cached():
+    from interactive_pipe.graphical.display import _cached_colorbar_strip
+
+    _cached_colorbar_strip.cache_clear()
+    apply_display_style(RAMP, {"colormap": "viridis", "colorbar": True})
+    apply_display_style(RAMP, {"colormap": "viridis", "colorbar": True})
+    assert _cached_colorbar_strip.cache_info().hits == 1
+
+
+def test_wide_flat_maps_are_not_blown_up():
+    out = apply_display_style(np.zeros((8, 2000)), {"colorbar": True})
+    assert out.shape[1] < 2100
+    assert heatmap_geometry(np.zeros((8, 2000)), {"colorbar": True}) == (1, 8, 2000)
+
+
+def test_numpy_integer_style_values_do_not_wrap():
+    from interactive_pipe.graphical.display import heatmap_range
+
+    data = np.zeros((2, 2))
+    style = {"vmin": np.uint8(10), "vmax": np.uint8(200), "center": 128}
+    assert heatmap_range(data, np.ones((2, 2), bool), style) == (10.0, 246.0)

@@ -361,3 +361,101 @@ before 11:30). Environment checked: the shared interpreter imports
 - Not touched (owned by `feature/agent-packaging`): `docs/index.md`,
   `readme.md` feature list, the skill's demo count.
 - Not run: the mkdocs build (mkdocs is not installed in the shared venv).
+
+### Extra fix found while testing — `f5ce1c7`
+
+- mpl / nb backends: an image output whose size changes between frames
+  (e.g. a small image -> a rasterised figure, both kind "image") was fed to
+  `AxesImage.set_data`, keeping the old extent: the figure was squeezed
+  into the previous axes limits. The axes image is now rebuilt when the
+  shape changes. Pre-existing for any size change, made common by figures.
+
+### Review pass — fixes in the commit after `f5ce1c7`
+
+An independent read-only review agent (given the diff, not my conclusions)
+verified findings by running code. Fixed, each with a regression test:
+1. `layout.style(..., center=0)` or `vmin=0` alone was ignored (`0 == False`
+   in the "is any heatmap key set" test). Now `is None` checks.
+2. A custom `Colormap` object (e.g. `ListedColormap`) with `colorbar=True`
+   raised `KeyError` (registry lookup of its name); the strip cache also
+   never hit, since the registry hands out copies. Now only registered,
+   equal colormaps are cached.
+3. `draw.*` dropped every mark on non-C-contiguous float / uint16 / RGBA
+   images (`tensor.permute(...).numpy()`): the copy kept the memory layout
+   and the flat-index write went to a temporary. Copies are now C-ordered.
+4. Colorbar upscaling ignored the width: an `(8, 2000)` map became
+   `(256, 64061, 3)` (394 MB, beyond Qt's pixmap limit). The factor is now
+   capped so the map stays <= 2048 px wide (a very flat map then gets a
+   short, cramped colorbar — acceptable for an edge case).
+5. Qt `threaded=True`: figures were rasterised in the GUI thread while the
+   worker could already be redrawing the same reused Figure (reproduced as
+   sporadic `TypeError` in a stress test). Figure outputs are now
+   rasterised in `_run_pipeline_in_worker`, under the run lock, with the
+   worker's layout snapshot (style `dpi`).
+6. Numpy-integer style values wrapped around in the `center` arithmetic
+   (`uint8`): values are converted to float.
+
+Left as is (noted): overlapping translucent fills compound on `uint8`
+(Pillow blends) but the last one wins on float (overlay replaces) — a small
+visual difference only for overlapping `fill_alpha` polygons. Pre-existing,
+not touched: the mpl backend shows a 2D array without colormap through
+`imshow`'s default colormap (viridis, autoscaled) instead of gray; fixing
+it changes what every existing grayscale output looks like on mpl, so it is
+left for a decision.
+
+Also checked: all 19 scripts of `demo/` run unmodified under
+`INTERACTIVE_PIPE_SNAPSHOT` (exit 0, PNG written, no new warning).
+
+### Design note: mouse input (not started, as planned)
+
+What exists today:
+- **Qt**: `ImageView.map_to_image` / `pixel_at` already map a widget point
+  to image pixels (zoom, pan and fit included) for the hover readout, and
+  with `readout=` (item 2) back to data pixels of an enlarged heatmap.
+  Left-drag pans, double-click resets the view.
+- **Dear PyGui**: global mouse handlers (`add_mouse_handlers`),
+  `image_cell_at(mouse_pos)` and `ViewState.image_rect(box, size)` give the
+  cell and the drawn rectangle: the inverse mapping is two lines. Left-drag
+  pans here too.
+- **matplotlib**: `fig.canvas.mpl_connect("button_press_event", ...)` gives
+  `event.inaxes` and `event.xdata / ydata`, which are already pixel
+  coordinates for `imshow` (only key presses are connected today).
+- **Gradio**: `gr.Image(...).select(fn)` passes `evt.index = [x, y]` in
+  image pixels.
+- **Notebook**: the figure is displayed as a static image (`display(fig)`):
+  no events without `ipympl`.
+
+Proposed declaration — a control, so everything else comes for free
+(parameters, tuning files, sessions, `describe`, snapshot/sweep overrides):
+
+```python
+@interactive(seed=PointControl((0.5, 0.5), on="img"))  # (x, y), fractions or pixels
+def region_grow(img, seed=(0.5, 0.5)): ...
+
+
+@interactive(roi=RegionControl((0.25, 0.25, 0.75, 0.75), on="img"))  # x0, y0, x1, y1
+def crop_stats(img, roi=(0.25, 0.25, 0.75, 0.75)): ...
+```
+
+- `on=` names the output cell that receives the clicks (default: the first
+  image cell); values in that output's data pixels (open question: store
+  fractions of the image size so a tuning survives a resolution change,
+  converting at the filter boundary).
+- Gesture: a click that moves less than ~3 screen pixels sets the point
+  (left-drag keeps panning); shift-drag draws a region. The window draws a
+  marker / rectangle overlay itself (not in the output), so the filter's
+  result stays pure.
+- Coordinates: through the same mappings as the readout — heatmaps with a
+  colorbar via `display.heatmap_geometry`; rasterised figures would need the
+  axes transform kept next to the raster to report data coordinates (or
+  report raster pixels only, first version).
+- Fallback where clicks are not available (notebook, and any backend before
+  it is implemented): two sliders (x, y) — or four for a region — like
+  `KeyboardControl` falls back to a slider.
+- Headless and `snapshot` / `sweep`: it is just a parameter —
+  `pipe(img, seed=(120, 40))`, `pipe.sweep(..., seed=[(10, 10), (60, 40)])`;
+  `describe()` reports kind `"point"` / `"region"` with the target output.
+  Snapshots show what the filter draws (e.g. with `draw.points`); the window
+  overlay is GUI-only.
+- Work order: control class + headless + describe/sweep, then mpl (cheapest,
+  native events), Qt, DPG, Gradio, notebook fallback.
