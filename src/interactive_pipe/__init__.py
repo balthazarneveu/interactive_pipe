@@ -38,6 +38,9 @@ from interactive_pipe.helper.pipeline_decorator import interactive_pipeline
 # Animation export (TimeControl pipelines -> GIF / PNG frames)
 from interactive_pipe.headless.animation import export_animation
 
+# Drawing on images (points, boxes, lines, polygons, text, masks): interactive_pipe.draw
+from interactive_pipe import draw
+
 # Allowing more straightforward naming convention
 block = interactive
 pipeline = interactive_pipeline
@@ -74,4 +77,5 @@ __all__ = [
     "block",
     "pipeline",
     "export_animation",
+    "draw",
 ]

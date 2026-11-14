@@ -281,8 +281,10 @@ def apply_display_style(content: Any, style: Optional[dict]) -> Any:
 # ---------------------------------------------------------------------------
 
 
-@lru_cache(maxsize=8)
-def _font(size: int) -> Any:
+@lru_cache(maxsize=32)
+def get_font(size: int) -> Any:
+    """Pillow font of `size` pixels: matplotlib's bundled DejaVu Sans (always
+    installed with matplotlib), Pillow's default font as a fallback."""
     from PIL import ImageFont
 
     try:
@@ -351,7 +353,7 @@ def _colorbar_strip(colormap: Any, vmin: float, vmax: float, height: int, unit: 
     from PIL import ImageDraw
 
     font_px = int(np.clip(round(height * COLORBAR_FONT_FRACTION), COLORBAR_FONT_MIN, COLORBAR_FONT_MAX))
-    font = _font(font_px)
+    font = get_font(font_px)
     gap = max(4, font_px // 2)
     bar_w = max(10, int(font_px * 1.2))
     tick_len = max(3, font_px // 4)
