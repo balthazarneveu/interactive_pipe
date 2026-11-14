@@ -58,7 +58,7 @@ class Table(Data):
             return
         elif _is_dataframe(data):
             # Handle pandas DataFrame input
-            data_dict = self._normalize_dataframe(data)
+            data_dict = self._normalize_dataframe(data)  # type: ignore[arg-type]  # a DataFrame (checked by _is_dataframe)
         else:
             data_dict = self._normalize_data(data, columns)
 
