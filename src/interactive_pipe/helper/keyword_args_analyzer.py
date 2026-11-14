@@ -108,7 +108,7 @@ def analyze_filter_controls(
     seen_control_names: set = set()
     # re-decorating (notebook cell re-run, edited declaration) starts from a
     # clean slate: controls removed from the declaration must not linger
-    Control._registry.pop(Control.registry_key(func), None)
+    Control.clear_controls(func)
     annotated_controls = controls_from_annotations(func, skip=set(decorator_controls), localns=localns)
     keyword_args = analyze_apply_fn_signature(func)[1]
     keyword_names = list(keyword_args.keys())

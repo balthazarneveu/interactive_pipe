@@ -85,6 +85,23 @@ Two filters may both declare a control on a parameter of the same name. In a pip
 
 Calling the pipeline with `pipe(img, gain=2.0)` sets `gain` in **every** filter that has it; target one filter with `pipe(img, **{"blend.gain": 2.0})` (the same spelling as `snapshot` / `sweep`, a control name works too) or `pipe(img, parameters={"blend": {"gain": 2.0}})`. An unknown keyword raises `TypeError` listing the available parameters, and a value outside a control's range is clamped with a warning.
 
+## One control per filter
+
+A filter's controls belong to the decorated function: every pipeline built from
+`amplify`, its direct calls (`amplify(img)`) and `amplify.snapshot(...)` share
+the same `gain` control. A value set in one pipeline (a slider move, or a call
+`pipe(img, gain=2.0)`, which keeps the value) is therefore the current value in
+the other pipelines and the starting value of the next one built from the same
+filter in the same process (`snapshot` / `sweep` overrides are restored after
+the call). To start a pipeline from known values, pass them at build time with a
+literal keyword argument in the body (`out = amplify(img, gain=1.0)` gives that
+instance its own control), load a tuning file, or reset the controls
+(`for ctrl in pipe.controls: ctrl.reset()`).
+
+Functions are told apart by identity, not by name: two scripts run in one
+interpreter, or filters made by a factory, may define functions with the same
+name without sharing controls.
+
 ## Declaration patterns
 
 | You want | Tuple shorthand | Explicit object |
