@@ -102,6 +102,7 @@ nav:
           - Panels: guide/panels.md
           - Keyboard: guide/keyboard.md
       - Snapshots & sweeps: guide/snapshots.md
+      - Command line & agents: guide/command-line.md
       - Tips & tricks: guide/tips.md
       - Examples gallery: guide/examples.md
   - API reference:

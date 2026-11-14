@@ -180,4 +180,4 @@ batch.load_tuning("/tmp/res/tuning.yaml")
 
 ## More
 
-Docs: https://balthazarneveu.github.io/interactive_pipe/ — guides for controls, layout, curves, tables, keyboard, audio, panels and snapshots; the whole site as one text file: https://balthazarneveu.github.io/interactive_pipe/llms-full.txt
+Docs: https://balthazarneveu.github.io/interactive_pipe/ — guides for controls, layout, curves, tables, keyboard, audio, panels, snapshots and the command line (`interactive-pipe --help`); the whole site as one text file: https://balthazarneveu.github.io/interactive_pipe/llms-full.txt
