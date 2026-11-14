@@ -199,8 +199,9 @@ export_animation(pipe, "frames/", duration=2.0, fps=25, output=1)  # frames/fram
   writes numbered PNG frames `<stem>_0000.png`, `<stem>_0001.png`, ...
 - `duration` (seconds) and `fps` set the number of frames (`int(duration * fps)`).
 - `output`: which output to record — an index into the outputs, a `(row, col)` cell of a 2D layout,
-  or `None` (default) for the first non-empty output. Outputs must be images (float arrays in `[0, 1]`,
-  grayscale or RGB); curves, tables and text raise a `TypeError`.
+  or `None` (default) for the first non-empty output. Outputs must be images — any array the GUI shows as an image (see
+  [What a filter can return](figures-and-overlays.md#what-a-filter-can-return)), styled heatmaps and
+  matplotlib figures included; curves, tables and text raise a `TypeError`.
 - `time_control`: the control name, needed only when the pipeline has several `TimeControl`s.
 - `loop`: GIF loop count (`0` = forever).
 

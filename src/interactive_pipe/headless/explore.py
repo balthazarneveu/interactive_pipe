@@ -514,7 +514,9 @@ def sweep(
             (``count`` evenly spaced values; every choice of a dropdown, both
             states of a checkbox).
         params: Overrides / axes as a dict (for names clashing with options).
-        figsize, dpi, title: As for ``snapshot``.
+        figsize: As for ``snapshot``.
+        dpi: As for ``snapshot``.
+        title: As for ``snapshot``.
         caption: True prints the fixed parameter values under the sheet.
         **overrides: Swept axes (lists) and fixed overrides (scalars).
 

@@ -14,4 +14,4 @@ The proxies importable from `interactive_pipe` for sharing state and controlling
 
 ::: interactive_pipe.Backend
 
-::: interactive_pipe.FilterError
+`FilterError` is documented with the other errors in [Pipelines](pipeline.md#errors).
