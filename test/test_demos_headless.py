@@ -17,32 +17,58 @@ from interactive_pipe.agent.run_script import run_script
 from interactive_pipe.headless.control import Control
 
 ROOT = Path(__file__).resolve().parent.parent
-SCRIPTS = sorted((ROOT / "demo").glob("*.py")) + sorted((ROOT / "samples").glob("*.py"))
+SCRIPTS = (
+    sorted((ROOT / "demo").glob("*.py"))
+    + sorted((ROOT / "samples").glob("*.py"))
+    + [ROOT / "samples" / "interact_sample" / "interact_sample.py"]  # @interact: one-filter GUI
+)
 
 #: script name -> reason: runs fine (exit code 0) but has no GUI pipeline to snapshot
 NO_GUI_PIPELINE = {
     "object_oriented_pipeline_declarations.py": "HeadlessPipeline built from FilterCore objects, no GUI",
 }
 
+#: script name -> reason: every output is a uniform image on purpose
+UNIFORM_BY_DESIGN = {
+    "color_demo.py": "a solid colour picked from a dropdown",
+    "decorated_pipeline.py": "the input is a constant colour",
+    "decorated_pipeline_abbreviated.py": "the input is a constant colour",
+}
+
 #: script name -> reason: not run at all
 NOT_RUN = {}
 
-#: Not collected (outside demo/*.py and samples/*.py): samples/interact_sample/ uses @interact,
-#: which opens its window at import time and ignores INTERACTIVE_PIPE_SNAPSHOT;
-#: demo/multi_image.ipynb is a notebook.
+#: Not collected: demo/multi_image.ipynb (a notebook).
 
 
-def _is_blank(path: Path) -> bool:
-    from matplotlib.image import imread
+def _flatten(results):
+    if isinstance(results, (list, tuple)):
+        for item in results:
+            yield from _flatten(item)
+    elif results is not None:
+        yield results
 
-    pixels = imread(str(path))[..., :3].astype(np.float64)
-    return float(pixels.std()) < 0.01
+
+def _shows_something(results) -> bool:
+    """At least one output is a non-uniform array, or a curve / table / text.
+
+    Checked on the outputs rather than on the PNG: titles, frames and the caption
+    make any snapshot non-uniform, even when every image in it is blank."""
+    for output in _flatten(results):
+        if not isinstance(output, np.ndarray):
+            return True
+        values = np.asarray(output, dtype=np.float64)
+        # one row per pixel (per sample for a 1D signal), one column per channel
+        pixels = values.reshape(values.shape[0] * values.shape[1], -1) if values.ndim >= 2 else values.reshape(-1, 1)
+        if pixels.size and np.ptp(pixels, axis=0).max() > 0:
+            return True
+    return False
 
 
 def test_every_listed_script_exists():
     names = {script.name for script in SCRIPTS}
-    assert set(NO_GUI_PIPELINE) <= names and set(NOT_RUN) <= names
-    assert len(SCRIPTS) >= 19
+    assert set(NO_GUI_PIPELINE) <= names and set(NOT_RUN) <= names and set(UNIFORM_BY_DESIGN) <= names
+    assert len(SCRIPTS) >= 21
 
 
 @pytest.mark.parametrize("script", SCRIPTS, ids=[f"{script.parent.name}/{script.name}" for script in SCRIPTS])
@@ -63,9 +89,19 @@ def test_script_renders_headless(script, tmp_path, monkeypatch):
         assert run.written == []
         return
     assert run.written, f"{script.name} called no GUI pipeline"
-    for path in run.written:
-        assert path.stat().st_size > 2000, path
-        assert not _is_blank(path), f"{path} is blank"
+    for call in run.calls:
+        assert call.path.stat().st_size > 2000, call.path
+        if script.name in UNIFORM_BY_DESIGN:
+            assert not _shows_something(call.results)  # keep the list honest
+        else:
+            assert _shows_something(call.results), f"{call.path}: every output is blank"
+
+
+def test_blank_outputs_are_detected():
+    assert not _shows_something([[np.ones((4, 4, 3))], np.zeros((2, 2))])
+    assert not _shows_something([np.ones((4, 4, 3)) * np.array([0.5, 0.0, 0.0])])  # a solid colour
+    assert _shows_something([np.ones((4, 4)), np.eye(3)])
+    assert _shows_something(["some text"])
 
 
 # --- demo fixes ---------------------------------------------------------------------------------
