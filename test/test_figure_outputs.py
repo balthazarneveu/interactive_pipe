@@ -321,12 +321,14 @@ def test_mpl_backend_shows_the_figure_and_switches_kinds():
         assert cell["kind"] == ("image" if kind == "figure" else kind)
         if kind == "figure":
             assert len(cell["ax"].images) == 1
-            assert cell["ax"].images[0].get_array().shape == (2 * FIGURE_DPI, 2 * FIGURE_DPI, 3)
+            # drawn at the size of its axes (square figure: square raster), not at figsize x FIGURE_DPI
+            height, width, _ = cell["ax"].images[0].get_array().shape
+            assert height == width and height != 2 * FIGURE_DPI
     gui.close()
 
 
 def test_mpl_backend_rebuilds_the_image_when_its_size_changes():
-    """image (4x4) -> figure (240x240) keeps kind "image": the extent must follow."""
+    """image (4x4) -> figure keeps kind "image": the extent must follow."""
     mpl_gui = pytest.importorskip("interactive_pipe.graphical.mpl_gui")
     pipe = HeadlessPipeline.from_function(figure_shifter_pipeline, inputs=["img"])
     gui = mpl_gui.InteractivePipeMatplotlib(pipeline=pipe, name="mpl resize")
@@ -336,7 +338,8 @@ def test_mpl_backend_rebuilds_the_image_when_its_size_changes():
     ax = gui.window.image_canvas[0][0]["ax"]
     assert ax.images[0].get_extent() == [-0.5, 3.5, 3.5, -0.5]
     gui.window.update_parameter("fig_kind", "figure")
-    size = 2 * FIGURE_DPI
+    size = ax.images[0].get_array().shape[0]  # drawn at the size of the axes
+    assert size > 4
     assert len(ax.images) == 1
     assert ax.images[0].get_extent() == [-0.5, size - 0.5, size - 0.5, -0.5]
     assert ax.get_title() == "out"

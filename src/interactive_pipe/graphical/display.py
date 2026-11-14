@@ -12,6 +12,7 @@ same everywhere:
 No GUI toolkit is imported here.
 """
 
+import warnings
 from functools import lru_cache
 from typing import Any, List, Optional, Sequence, Tuple
 
@@ -67,11 +68,31 @@ def content_title(content: Any) -> Optional[str]:
 # matplotlib figures, rasterised with Agg in one place for every backend
 # ---------------------------------------------------------------------------
 
-# Resolution of a rasterised figure: matplotlib's default 6.4 x 4.8 in figure
-# gives 768 x 576 px, sharp once fitted in a typical cell (shrunk rather than
-# blown up). ``layout.style(name, dpi=...)`` overrides it.
+# Resolution of a figure rasterised at its own ``figsize`` (Gradio, notebook,
+# export_animation, a window cell not laid out yet): matplotlib's default
+# 6.4 x 4.8 in figure gives 768 x 576 px. ``layout.style(name, dpi=...)``
+# overrides it.
 FIGURE_DPI = 120
+# A figure shown in a cell of known size (Qt window, snapshots) is drawn at
+# the cell size, keeping its aspect ratio, at this many pixels per inch: the
+# dpi of the matplotlib canvas drawing a ``Curve`` in the Qt window, so the
+# text of a figure and of a curve side by side come out the same size.
+FIGURE_SCREEN_DPI = 100
+MIN_FIGURE_BOX = 48  # smaller cells (not laid out yet): the figure keeps its figsize
 _RASTER_ATTRIBUTE = "_interactive_pipe_raster"
+
+Box = Tuple[float, float]
+
+
+def fitted_figure_size(figsize: Sequence[float], dpi: float, box: Optional[Box]) -> Tuple[float, float]:
+    """Size in inches at which a figure of `figsize` is rasterised: `figsize`
+    itself without a usable `box`, else the largest size with the same aspect
+    ratio fitting ``box`` = (width, height) pixels at `dpi`."""
+    width, height = float(figsize[0]), float(figsize[1])
+    if box is None or width <= 0 or height <= 0 or min(box) < MIN_FIGURE_BOX:
+        return width, height
+    factor = min(box[0] / (width * dpi), box[1] / (height * dpi))
+    return width * factor, height * factor
 
 
 def figure_of(content: Any) -> Any:
@@ -117,31 +138,89 @@ def release_pyplot_figure(fig: Any) -> None:
         pyplot.close(fig)
 
 
-def rasterize_figure(content: Any, dpi: Optional[float] = None) -> np.ndarray:
+_DEFAULT_MARGINS_KEYS = ("left", "right", "bottom", "top", "wspace", "hspace")
+
+
+def _default_margins() -> dict:
+    import matplotlib
+
+    return {key: matplotlib.rcParams[f"figure.subplot.{key}"] for key in _DEFAULT_MARGINS_KEYS}
+
+
+def _no_layout_engine(fig: Any) -> bool:
+    """No layout engine: None, or the placeholder ``Figure.tight_layout()``
+    leaves behind (a previous rasterisation)."""
+    from matplotlib.layout_engine import PlaceHolderLayoutEngine
+
+    engine = fig.get_layout_engine()
+    return engine is None or isinstance(engine, PlaceHolderLayoutEngine)
+
+
+def _default_subplot_margins(fig: Any) -> bool:
+    """True when the figure uses matplotlib's default subplot margins (no
+    ``subplots_adjust``, no layout engine): they may be replaced for drawing."""
+    params = fig.subplotpars
+    return all(abs(getattr(params, key) - value) < 1e-9 for key, value in _default_margins().items())
+
+
+def rasterize_figure(
+    content: Any, dpi: Optional[float] = None, box: Optional[Box] = None, pixel_ratio: float = 1.0
+) -> np.ndarray:
     """``(H, W, 3)`` float32 RGB image in ``[0, 1]`` of a matplotlib figure
-    (or the figure of an Axes), drawn with Agg at `dpi` (``FIGURE_DPI`` by
-    default), transparency composited on white.
+    (or the figure of an Axes), drawn with Agg, transparency composited on
+    white.
+
+    - Without `box`: at the figure's ``figsize`` and `dpi` (``FIGURE_DPI`` by
+      default): the text size relative to the figure depends on ``figsize``.
+    - With ``box=(width, height)`` in pixels (the cell it is shown in): at the
+      largest size of the same aspect ratio fitting the box, `dpi` defaulting
+      to ``FIGURE_SCREEN_DPI``: a 10 pt label is 10 / 72 * dpi pixels high
+      whatever the ``figsize``, like the text of a ``Curve``. The figure's own
+      size is restored afterwards. `pixel_ratio` (device pixels per logical
+      pixel, a HiDPI screen) multiplies the box and the dpi: same layout,
+      sharper.
 
     The figure is released from pyplot first (see ``release_pyplot_figure``).
     The raster is kept on the figure and reused while the figure is unchanged
-    (``fig.stale`` is False) — a cached filter output is not redrawn.
+    (``fig.stale`` is False) and asked for at the same size — a cached filter
+    output is not redrawn.
     """
     from matplotlib.backends.backend_agg import FigureCanvasAgg
 
     fig = figure_of(content)
     if fig is None:
         raise TypeError(f"Expected a matplotlib Figure or Axes, got {type(content).__name__}")
-    dpi = float(FIGURE_DPI if dpi is None else dpi)
+    if dpi is None:
+        dpi = FIGURE_DPI if box is None else FIGURE_SCREEN_DPI
+    if box is not None and pixel_ratio != 1.0:
+        dpi, box = dpi * pixel_ratio, (box[0] * pixel_ratio, box[1] * pixel_ratio)
+    dpi = float(dpi)
     if dpi <= 0:
         raise ValueError(f"dpi must be positive, got {dpi}")
     release_pyplot_figure(fig)
+    original_size = (float(fig.get_size_inches()[0]), float(fig.get_size_inches()[1]))
+    size = fitted_figure_size(original_size, dpi, box)
+    key = (dpi, round(size[0], 4), round(size[1], 4))
     cached = getattr(fig, _RASTER_ATTRIBUTE, None)
-    if cached is not None and cached[0] == dpi and not fig.stale:
+    if cached is not None and cached[0] == key and not fig.stale:
         return cached[1]
     canvas = fig.canvas if isinstance(fig.canvas, FigureCanvasAgg) else FigureCanvasAgg(fig)
     original_dpi = fig.dpi
+    resized = size != original_size
+    # a figure drawn smaller than its figsize keeps its text size: with the
+    # default margins (fractions of the figure) the axis labels would be cut.
+    # Fitted in a cell, a figure with default margins is always laid out tight
+    # (the same picture whatever its figsize).
+    fitted = box is not None and min(box) >= MIN_FIGURE_BOX
+    auto_layout = fitted and _no_layout_engine(fig) and _default_subplot_margins(fig)
     try:
         fig.set_dpi(dpi)
+        if resized:
+            fig.set_size_inches(size, forward=False)
+        if auto_layout:
+            with warnings.catch_warnings():  # "not compatible with tight_layout": keep the default margins
+                warnings.simplefilter("ignore", UserWarning)
+                fig.tight_layout()
         canvas.draw()
         rgba = np.asarray(canvas.buffer_rgba())
         rgb = rgba[..., :3].astype(np.float32) / np.float32(255.0)
@@ -150,10 +229,14 @@ def rasterize_figure(content: Any, dpi: Optional[float] = None) -> np.ndarray:
             weight = alpha[..., None].astype(np.float32) / np.float32(255.0)
             rgb = rgb * weight + (1.0 - weight)
     finally:
+        if auto_layout:
+            fig.subplots_adjust(**_default_margins())
+        if resized:
+            fig.set_size_inches(original_size, forward=False)
         fig.set_dpi(original_dpi)
-    fig.stale = False  # set_dpi marks it stale; the content did not change
+    fig.stale = False  # set_dpi / set_size_inches mark it stale; the content did not change
     rgb.setflags(write=False)  # shared with the cache
-    setattr(fig, _RASTER_ATTRIBUTE, (dpi, rgb))
+    setattr(fig, _RASTER_ATTRIBUTE, (key, rgb))
     return rgb
 
 
@@ -592,7 +675,12 @@ def normalize_image(array: np.ndarray) -> np.ndarray:
 
 
 def prepare_display(
-    content: Any, style: Optional[dict] = None, name: Optional[str] = None, filter_name: Optional[str] = None
+    content: Any,
+    style: Optional[dict] = None,
+    name: Optional[str] = None,
+    filter_name: Optional[str] = None,
+    box: Optional[Box] = None,
+    pixel_ratio: float = 1.0,
 ) -> Any:
     """What a backend should draw for one output, given its ``layout.style``.
 
@@ -600,7 +688,9 @@ def prepare_display(
     renderer: contents the backends draw natively (``Curve``, ``Table``,
     ``str``, 1D signals) come out as such; an ``Image`` is shown as its array;
     a matplotlib ``Figure`` / ``Axes`` becomes an RGB image
-    (``rasterize_figure``); a 2D / 3D array gets its heatmap style applied
+    (``rasterize_figure``, at the size of its cell when the caller knows it:
+    ``box=(width, height)`` logical pixels, `pixel_ratio` device pixels per
+    logical pixel); a 2D / 3D array gets its heatmap style applied
     (``apply_display_style``) and becomes an ``(H, W, 3)`` float RGB image
     (``normalize_image``: gray, uint8 / uint16 / bool scaling, RGBA on a
     checkerboard). An array whose layout cannot be guessed raises
@@ -615,7 +705,7 @@ def prepare_display(
         styled = apply_display_style(content, style)
         return normalize_image(styled)
     if figure_of(content) is not None:
-        return rasterize_figure(content, (style or {}).get("dpi"))
+        return rasterize_figure(content, (style or {}).get("dpi"), box, pixel_ratio)
     return content
 
 

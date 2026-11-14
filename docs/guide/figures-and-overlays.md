@@ -47,9 +47,27 @@ def flower_pipeline():
   call `pipe(...)` hands the figure back to you and leaves it alone).
 - The figure is rasterised with Agg in one shared place and shown as an
   image, so it looks the same everywhere and zooms like any image in the Qt
-  and Dear PyGui viewers. The default resolution is 120 dpi (a default
-  6.4 x 4.8 in figure gives 768 x 576 pixels); change it per output with
-  `layout.style("flower", dpi=200)`.
+  and Dear PyGui viewers.
+- **Text size does not depend on `figsize`**: where the size of the cell is
+  known, the figure is drawn *at the cell size* (keeping its aspect ratio),
+  so a 10 pt label is as big as the labels of a [`Curve`](curves.md) in the
+  next cell, whether you wrote `figsize=(4, 3)` or `(12, 9)`. `figsize` then
+  only sets the aspect ratio (and how much room the text takes relative to
+  the plot: none, it stays in points). This holds in snapshots and sweeps,
+  in the Qt window (drawn again when the window is resized, 150 ms after the
+  last resize event), in the matplotlib window, and in Dear PyGui (a figure
+  gets the natural size of a plot cell, 480 x 320, then the layout scales
+  both alike). A figure with matplotlib's default margins is laid out with
+  `tight_layout` for that drawing, so its axis labels are not cut; your own
+  `subplots_adjust` or `layout="constrained"` is kept. The figure object
+  itself is left unchanged.
+- `dpi` sets how many pixels an inch of the figure takes: 100 per inch in a
+  cell (the dpi of the Qt curves; times the screen's pixel ratio on HiDPI),
+  the snapshot's dpi in snapshots, 120 elsewhere (Gradio, notebook,
+  `export_animation`, where the figure keeps its `figsize`: a default
+  6.4 x 4.8 in figure gives 768 x 576 pixels). `layout.style("flower",
+  dpi=200)` makes the text of that figure twice as big as a curve's in a
+  cell, or sharper at its `figsize` elsewhere.
 - An unchanged figure (for instance a cached filter result) is not redrawn.
 - `pipe.save("out/result.png")` writes figures with `savefig`: ask for
   `.pdf` or `.svg` to keep vector output.

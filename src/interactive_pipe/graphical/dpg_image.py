@@ -25,6 +25,7 @@ from interactive_pipe.graphical.pointer_input import POINT_COLOR, REGION_COLOR
 
 __all__ = [
     "DEFAULT_PLOT_SIZE",
+    "FIGURE_CELL_SIZE",
     "DEFAULT_TABLE_SIZE",
     "DEFAULT_TEXT_SIZE",
     "clear_cell_content",
@@ -42,6 +43,9 @@ __all__ = [
 
 MARKER_HALF = 7  # half size of the point marker, screen pixels
 DEFAULT_PLOT_SIZE = (480, 320)
+# a matplotlib figure output is rasterised to fit this box (at 100 dpi: its
+# 10 pt text is ~14 px, the size of the plots' text), then laid out like a plot
+FIGURE_CELL_SIZE = DEFAULT_PLOT_SIZE
 DEFAULT_TABLE_SIZE = (320, 240)
 DEFAULT_TEXT_SIZE = (320, 80)
 
