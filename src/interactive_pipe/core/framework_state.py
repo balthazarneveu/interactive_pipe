@@ -52,6 +52,8 @@ class FrameworkState:
     events: Dict[str, bool] = field(default_factory=dict)
     event_readers: Dict[str, Set[str]] = field(default_factory=dict)
     audio: AudioBindings = field(default_factory=AudioBindings)
+    # temporary WAV written by audio.set(signal, rate), removed when replaced
+    audio_file: Optional[str] = None
     _pipeline_ref: Optional[weakref.ReferenceType] = field(default=None, repr=False)
 
     @property
