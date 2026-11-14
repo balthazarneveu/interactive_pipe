@@ -198,3 +198,33 @@ def test_gradio_shows_the_error_in_the_page_and_recovers(monkeypatch, capsys):
     values[index] = False
     converted = window.run_fn(*values)
     assert np.asarray(converted).dtype == np.uint8
+
+
+def test_interact_dry_run_failure_is_not_logged(monkeypatch, caplog):
+    # @interact runs the filter once to name its outputs, then opens the GUI:
+    # the dry run used to log the failure with a full traceback, and the GUI run
+    # reported it again. Now only the GUI run reports it.
+    import logging
+
+    from interactive_pipe.helper.filter_decorator import filter_from_function
+
+    def always_fails(img):
+        raise ValueError(MESSAGE)
+
+    filt = filter_from_function(always_fails)
+    opened = []
+
+    class StubGui:
+        pipeline = type("Stub", (), {})()
+
+        def __call__(self, *args):
+            opened.append(args)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(filt, "get_gui", lambda **kwargs: StubGui())
+    with caplog.at_level(logging.INFO):
+        filt.run_gui(IMG, gui=None)
+    assert opened  # the GUI still opens (and shows the error)
+    assert _count(caplog.text) == 0
