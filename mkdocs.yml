@@ -104,6 +104,7 @@ nav:
           - Controls: guide/controls.md
           - Panels: guide/panels.md
           - Keyboard: guide/keyboard.md
+          - Mouse input: guide/mouse-input.md
       - Snapshots & sweeps: guide/snapshots.md
       - Command line & agents: guide/command-line.md
       - Tips & tricks: guide/tips.md
