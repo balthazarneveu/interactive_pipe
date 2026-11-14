@@ -27,7 +27,7 @@ from matplotlib.figure import Figure
 
 from interactive_pipe.data_objects.curves import Curve
 from interactive_pipe.data_objects.table import Table
-from interactive_pipe.graphical.window import display_kind
+from interactive_pipe.graphical.display import display_kind, prepare_display
 
 # Natural cell sizes in inches (before the whole figure is scaled to fit MAX_WIDTH)
 CELL_HEIGHT = 3.2
@@ -87,7 +87,8 @@ def result_grid(pipeline: Any, result: Any) -> Grid:
     ``result`` is what ``HeadlessPipeline.run()`` returned: a tuple (one row)
     or a 2D list (grid, ``None`` placeholders for empty cells). Names come from
     ``pipeline.outputs`` *after* the run, so a ``layout.grid`` call inside a
-    filter is honored, like in the GUI.
+    filter is honored, like in the GUI. Each content goes through
+    ``prepare_display`` with its ``layout.style``, exactly as in the GUI.
     """
     values = _as_rows(result)
     names = _as_rows(getattr(pipeline, "outputs", None))
@@ -105,7 +106,9 @@ def result_grid(pipeline: Any, result: Any) -> Grid:
                 cells.append(None)
                 continue
             label = name if name is not None else f"output {row_idx}, {col_idx}"
-            cells.append(SnapshotCell(name=label, content=content, title=output_title(styles, label)))
+            # same display conversion as the GUI backends (heatmap colormap, ...)
+            shown = prepare_display(content, styles.get(label))
+            cells.append(SnapshotCell(name=label, content=shown, title=output_title(styles, label)))
         grid.append(cells)
     return grid
 
