@@ -1,8 +1,9 @@
 import logging
-from typing import Callable, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 from interactive_pipe.core.graph import analyze_apply_fn_signature
 from interactive_pipe.headless.control import Control
+from interactive_pipe.helper.annotation_controls import annotation_error, controls_from_annotations
 from interactive_pipe.helper.control_abbreviation import control_from_tuple
 
 
@@ -75,32 +76,55 @@ def __create_control_from_keyword_argument(
     return chosen_control
 
 
-def get_controls_from_decorated_function_declaration(func: Callable, decorator_controls: dict):
-    controls = {}
-    seen_control_names = set()
-    keyword_args = analyze_apply_fn_signature(func)[1]
-    keyword_names = list(keyword_args.keys())
+def analyze_filter_controls(
+    func: Callable, decorator_controls: dict, localns: Optional[dict] = None
+) -> Tuple[Dict[str, Control], Dict[str, Any]]:
+    """Controls of a decorated filter, and the defaults implied by its annotations.
 
-    # Analyze at 2 levels (function keyword args & decorator keyword args)  then register controls when necessary.
+    Precedence: decorator keyword argument > annotation > signature default
+    (``Control(...)`` or tuple shorthand used as a default). The second value maps
+    annotation-declared parameters without a signature default to the default
+    they get (see ``annotation_controls.signature_with_defaults``).
+    """
+    controls: Dict[str, Control] = {}
+    seen_control_names: set = set()
+    annotated_controls, filled_defaults = controls_from_annotations(func, skip=set(decorator_controls), localns=localns)
+    keyword_args = analyze_apply_fn_signature(func)[1]
+    keyword_names = list(keyword_args.keys()) + [name for name in filled_defaults if name not in keyword_args]
+
+    # Analyze at 3 levels (function keyword args, annotations & decorator keyword args)
+    # then register controls when necessary.
     # -------------------------------------------
     # @interactive(param_2=Control(...), )
-    # def func(img1, img2, param_1=Control(...)):
+    # def func(img1, img2, param_1=Control(...), param_3: Annotated[float, (0., 1.)] = 0.5):
     # -------------------------------------------
 
     # 1. Analyzing function keyword args
     # def func(img1, img2, param_1=Control(...))
-
     for param_name, unknown_keyword_arg in keyword_args.items():
-        if param_name in decorator_controls:
-            # The decorator wins: the signature default is then a plain value
-            # (e.g. ``window=(0.2, 0.8)`` next to ``window=RangeControl(...)``),
-            # not a tuple shorthand to turn into a second control.
+        if param_name in decorator_controls or param_name in annotated_controls:
+            # The decorator (or annotation) wins: the signature default is then a
+            # plain value (e.g. ``window=(0.2, 0.8)`` next to
+            # ``window=RangeControl(...)``), not a tuple shorthand to turn into a
+            # second control.
             continue
         chosen_control = __create_control_from_keyword_argument(param_name, unknown_keyword_arg, seen_control_names)
         if chosen_control is not None:
             controls[param_name] = chosen_control
 
-    # 2. Analyzing decorator keyword args
+    # 2. Annotations: def func(img, gain: Annotated[float, (0.0, 3.0)] = 1.0)
+    for param_name, chosen_control in annotated_controls.items():
+        if chosen_control.name in seen_control_names:
+            raise annotation_error(
+                func,
+                param_name,
+                f"the label {chosen_control.name!r} is already used by another control of this filter",
+                "use distinct labels",
+            )
+        seen_control_names.add(chosen_control.name)
+        controls[param_name] = chosen_control
+
+    # 3. Analyzing decorator keyword args
     # @interactive(param_2=Control(...))
     for param_name, unknown_keyword_arg in decorator_controls.items():
         if param_name not in keyword_names:
@@ -116,4 +140,8 @@ def get_controls_from_decorated_function_declaration(func: Callable, decorator_c
 
     for param_name, control in controls.items():
         Control.register(func, param_name, control)
-    return controls
+    return controls, filled_defaults
+
+
+def get_controls_from_decorated_function_declaration(func: Callable, decorator_controls: dict):
+    return analyze_filter_controls(func, decorator_controls)[0]
