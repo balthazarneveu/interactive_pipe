@@ -1,6 +1,8 @@
 import logging
 import math
 
+from interactive_pipe.graphical.control_errors import name_control_errors
+from interactive_pipe.graphical.value_format import D3_FORMAT
 from interactive_pipe.headless.control import Control, RangeControl, range_pair
 
 try:
@@ -56,6 +58,10 @@ class BaseControl:
 
     def check_control_type(self):
         raise NotImplementedError("This method should be overridden by subclass to check the right slider control type")
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        name_control_errors(cls)  # "control 'gain' (filter 'amplify'): Expected int control type, ..."
 
 
 class IntSliderNotebookControl(BaseControl):
@@ -114,6 +120,7 @@ class FloatSliderNotebookControl(BaseControl):
             max=self.ctrl.value_range[1],  # type: ignore[reportOptionalSubscript]
             value=self.ctrl.value_default,
             step=self.ctrl.step,
+            readout_format=D3_FORMAT,  # "6", "0.1", "0.005" as on the other backends
             style=style,
             layout=self.layout,
             tooltip=self.ctrl.tooltip,

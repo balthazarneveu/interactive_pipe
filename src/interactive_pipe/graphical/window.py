@@ -1,6 +1,5 @@
 import logging
 import sys
-import textwrap
 from typing import Any, List, Optional, Tuple
 
 # display_kind / apply_display_style / HEATMAP_STYLE_KEYS are re-exported for compatibility
@@ -9,13 +8,12 @@ from interactive_pipe.graphical.display import (  # noqa: F401
     DisplayError,
     apply_display_style,
     content_title,
+    display_data,
     display_kind,
+    figure_of,
     prepare_display,
     producer_of,
 )
-
-# characters per line of a display error shown in a cell (the mpl backend does not wrap text)
-DISPLAY_ERROR_WIDTH = 36
 
 
 def content_titles(grid: Any) -> dict:
@@ -219,7 +217,12 @@ class InteractivePipeWindow:
             pass
         errors = self.__dict__.setdefault("_display_errors", {})
         try:
-            shown = prepare_display(content, style, name, filter_name)
+            box = None
+            if figure_of(display_data(content)) is not None:
+                box = self._safe_figure_box(row, col)
+                if box is None:
+                    self.__dict__.setdefault("_unfitted_figures", set()).add((row, col))
+            shown = prepare_display(content, style, name, filter_name, box, self.figure_pixel_ratio())
         except DisplayError as error:
             # shown in the cell as text (every backend draws text): the window keeps running;
             # logged once, not on every slider move
@@ -227,9 +230,25 @@ class InteractivePipeWindow:
             if errors.get((row, col)) != message:
                 logging.error(message)
             errors[(row, col)] = message
-            return textwrap.fill(message, DISPLAY_ERROR_WIDTH, break_long_words=False)
+            return message  # each backend wraps text to its cell
         errors.pop((row, col), None)
         return shown
+
+    def figure_box(self, row: int, col: int) -> Optional[Tuple[float, float]]:
+        """(width, height) in logical pixels of the cell (row, col), where a
+        matplotlib figure output is drawn at that size (text the size of a
+        Curve's); None (the default) draws it at its own figsize."""
+        return None
+
+    def figure_pixel_ratio(self) -> float:
+        """Device pixels per logical pixel of the cells (HiDPI screens)."""
+        return 1.0
+
+    def _safe_figure_box(self, row: int, col: int) -> Optional[Tuple[float, float]]:
+        try:
+            return self.figure_box(row, col)
+        except (IndexError, KeyError, TypeError, AttributeError):  # cell not created yet
+            return None
 
     def convert_image(self, img):
         """Convert image to backend-specific format. Must be implemented by subclasses."""
@@ -259,3 +278,9 @@ class InteractivePipeWindow:
                 out.append([self.convert_image(self._styled(img_row, row, 0))])
         logging.debug(f"{len(out)} x {max((len(row) for row in out), default=0)} figures")
         self.set_images(out)
+        # figures shown before their cell existed: drawn again at the cell size, now known
+        for row, col in sorted(self.__dict__.pop("_unfitted_figures", set())):
+            if self._safe_figure_box(row, col) is not None:
+                content = _out[row][col] if isinstance(_out[row], list) else _out[row]
+                self.update_image(self.convert_image(self._styled(content, row, col)), row, col)
+        self.__dict__.pop("_unfitted_figures", None)

@@ -26,9 +26,10 @@ from typing import Any, Callable, List, Optional, Tuple
 
 import numpy as np
 
+from interactive_pipe.graphical.display import TEXT_FONT_PT
 from interactive_pipe.graphical.pointer_input import POINT_COLOR as POINT_RGB
 from interactive_pipe.graphical.pointer_input import REGION_COLOR as REGION_RGB
-from interactive_pipe.graphical.qt_backend import PYQTVERSION, QLabel, QPixmap, QSize, Qt
+from interactive_pipe.graphical.qt_backend import PYQTVERSION, QLabel, QPixmap, QSize, Qt, QTimer
 
 # Painting / geometry classes not re-exported by qt_backend: import them from
 # the very binding qt_backend picked (never mix two Qt bindings).
@@ -49,6 +50,7 @@ else:
 __all__ = ["ImageView", "PointerHandler", "ViewSync", "VIEW_MODES", "pixel_value"]
 
 VIEW_MODES = ("fit", "1:1")
+RESIZE_DEBOUNCE_MS = 150
 ZOOM_STEP = 1.25
 MIN_ZOOM = 1.0 / 64.0
 MAX_ZOOM = 256.0
@@ -179,6 +181,10 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         self.overlay: List[OverlayItem] = []
         self._pointer_gesture: Optional[str] = None
         self._drag_origin = None
+        # called once the view has stopped changing size for RESIZE_DEBOUNCE_MS
+        # (a figure output is drawn again at the new size)
+        self.resized_callback: Optional[Callable[[], None]] = None
+        self._resize_timer: Optional[QTimer] = None
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setMouseTracking(True)
@@ -218,11 +224,17 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         return super().pixmap()
 
     def setText(self, text: str) -> None:  # noqa: N802 - Qt API
+        """Text cell (a str output, an error): wrapped to the cell, TEXT_FONT_PT."""
         if self._pixmap is not None:
             self._pixmap = None
             self.array = None
             self.readout = None
             self.updateGeometry()
+        if self.font().pointSizeF() != TEXT_FONT_PT:
+            font = self.font()
+            font.setPointSizeF(TEXT_FONT_PT)
+            self.setFont(font)
+        self.setWordWrap(True)
         super().setText(text)
 
     def has_image(self) -> bool:
@@ -399,6 +411,26 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
         super().resizeEvent(event)
         self.update()  # the fit scale depends on the widget size
+        if self.resized_callback is not None:
+            if self._resize_timer is None:
+                self._resize_timer = QTimer(self)
+                self._resize_timer.setSingleShot(True)
+                self._resize_timer.setInterval(RESIZE_DEBOUNCE_MS)
+                self._resize_timer.timeout.connect(self._resized)
+            self._resize_timer.start()  # restarted while the window is being dragged
+
+    def _resized(self) -> None:
+        if self.resized_callback is not None:
+            self.resized_callback()
+
+    def logical_size(self) -> Tuple[int, int]:
+        return (self.width(), self.height())
+
+    def pixel_ratio(self) -> float:
+        try:
+            return float(self.devicePixelRatioF())
+        except (AttributeError, RuntimeError):  # pragma: no cover - deleted widget
+            return 1.0
 
     @staticmethod
     def _event_pos(event) -> Tuple[float, float]:
@@ -465,3 +497,6 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
     def detach(self) -> None:
         """Leave the shared sync (call when the view is removed from the grid)."""
         self.sync.unregister(self)
+        self.resized_callback = None
+        if self._resize_timer is not None:
+            self._resize_timer.stop()

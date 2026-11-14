@@ -11,10 +11,13 @@ from interactive_pipe import FilterError, interactive, layout
 from interactive_pipe.graphical.display import (
     BAD_COLOR,
     COLORBAR_MIN_HEIGHT,
-    _colorbar_labels,
     apply_display_style,
+    colorbar_header,
+    colorbar_scale,
+    colorbar_strip,
     colorbar_upscale,
     heatmap_geometry,
+    place_colorbar_labels,
 )
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 
@@ -65,14 +68,84 @@ def test_colorbar_without_colormap_uses_gray():
     np.testing.assert_allclose(right, [1.0, 1.0, 1.0])
 
 
-def test_colorbar_labels_have_ends_round_ticks_and_unit():
-    labels = _colorbar_labels(-1.0, 3.0, "dB")
+RANGES = [(1.0, 4.2), (-0.39, 0.39), (0.0, 255.0), (1e-4, 3e-3), (0.0, 1e6), (-3.7, 12.3), (0.0, 1.0), (2.0, 2.0)]
+
+
+def _decimals_of(text):
+    return len(text.split(".")[1]) if "." in text else 0
+
+
+@pytest.mark.parametrize("vmin, vmax", RANGES)
+def test_colorbar_labels_share_their_decimals(vmin, vmax):
+    labels, exponent = colorbar_scale(vmin, vmax)
     texts = [text for _, text, _ in labels]
+    assert len({_decimals_of(text) for text in texts}) == 1, texts
+    assert not any("e" in text for text in texts), texts  # large / small values: one multiplier instead
+    # each end is written close to its true value (4.2, not 4)
+    for value, text, is_end in labels:
+        if is_end and vmax > vmin:
+            assert abs(float(text) * 10.0**exponent - value) <= 0.005 * (vmax - vmin)
+
+
+def test_colorbar_labels_examples():
+    def texts(vmin, vmax):
+        labels, exponent = colorbar_scale(vmin, vmax)
+        return [text for _, text, _ in labels], exponent
+
+    assert texts(1.0, 4.2) == (["1.0", "4.2", "1.0", "2.0", "3.0", "4.0"], 0)
+    assert texts(-0.39, 0.39)[0][:2] == ["-0.39", "0.39"]
+    assert "0.00" in texts(-0.39, 0.39)[0]  # never "-0.00"
+    assert texts(0.0, 255.0)[0][:2] == ["0", "255"]
+    assert texts(1e-4, 3e-3) == (["0.1", "3.0", "1.0", "2.0", "3.0"], -3)
+    assert texts(0.0, 1e6)[1] == 6
+    assert texts(2.0, 2.0) == (["2"], 0)
+    assert colorbar_header(-3, "m") == "\u00d710\u207b\u00b3 m"
+    assert colorbar_header(0, "dB") == "dB"
+    assert colorbar_header(0, None) == ""
+
+
+@pytest.mark.parametrize("vmin, vmax", RANGES)
+@pytest.mark.parametrize("bar_h", [40, 230, 900])
+def test_colorbar_keeps_both_ends_and_drops_overlapping_ticks(vmin, vmax, bar_h):
+    labels, _ = colorbar_scale(vmin, vmax)
+    placed = place_colorbar_labels(labels, vmin, vmax, 10, bar_h, 15.0)
     ends = [text for _, text, is_end in labels if is_end]
-    assert ends == ["-1.0 dB", "3.0 dB"]
-    assert "1 dB" in texts
-    assert all(text.endswith(" dB") for text in texts)
-    assert _colorbar_labels(0.0, 1e6, None)[1][1] == "1e+06"
+    assert [text for _, text in placed[: len(ends)]] == ends
+    ys = sorted(y for y, _ in placed)
+    assert all(b - a >= 15.0 for a, b in zip(ys, ys[1:])) or len(ends) == 2 and len(placed) == 2
+
+
+def _strip_text_columns(strip):
+    """Columns holding dark (text) pixels right of the bar."""
+    dark = (strip.mean(axis=-1) < 0.5).any(axis=0)
+    return np.flatnonzero(dark)
+
+
+def test_unit_is_written_once_not_on_every_tick():
+    with_unit = colorbar_strip(matplotlib.colormaps["viridis"], 1.0, 4.2, 256, unit="log10 |F|")
+    without = colorbar_strip(matplotlib.colormaps["viridis"], 1.0, 4.2, 256)
+    # the tick labels keep their width: the unit sits above the bar
+    assert with_unit.shape[1] <= max(without.shape[1], 100)
+    # and the header row has text where the plain strip has none
+    top = slice(0, 6)  # above the top end label
+    assert (with_unit[top].mean(axis=-1) < 0.5).any() and not (without[top].mean(axis=-1) < 0.5).any()
+
+
+def test_colorbar_text_becomes_a_vertical_label():
+    plain = apply_display_style(RAMP, {"colormap": "viridis", "colorbar": True})
+    labelled = apply_display_style(RAMP, {"colormap": "viridis", "colorbar": "error (px)"})
+    assert labelled.shape[0] == plain.shape[0] and labelled.shape[1] > plain.shape[1]
+    np.testing.assert_array_equal(labelled[:, : plain.shape[1] - 10], plain[:, : plain.shape[1] - 10])
+
+
+@pytest.mark.parametrize("size", [16, 64, 300, 1200])
+@pytest.mark.parametrize("vmin, vmax", [(1.0, 4.2), (2.0, 2.0), (1e-4, 3e-3)])
+def test_colorbar_on_tiny_and_large_maps(size, vmin, vmax):
+    data = np.linspace(vmin, vmax, size * size).reshape(size, size)
+    out = apply_display_style(data, {"colormap": "viridis", "colorbar": True, "unit": "dB"})
+    upscale = colorbar_upscale(size, size)
+    assert out.shape[0] == size * upscale
+    assert out.shape[1] > size * upscale
 
 
 def test_constant_map_with_colorbar_does_not_fail():
@@ -177,7 +250,7 @@ def test_snapshot_shows_the_colorbar():
     pipe = HeadlessPipeline.from_function(diverging_pipeline)
     img = np.random.default_rng(2).random((32, 32, 3))
     rendered = pipe.snapshot(None, img)
-    assert rendered.shape[1] > rendered.shape[0] * 1.15  # wider than the square map: the bar is there
+    assert rendered.shape[1] > rendered.shape[0] * 1.1  # wider than the square map: the bar is there
 
 
 def test_non_numeric_center_raises():

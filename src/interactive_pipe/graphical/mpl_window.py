@@ -9,6 +9,7 @@ from matplotlib.figure import Figure
 from interactive_pipe.core.engine import FilterError
 from interactive_pipe.data_objects.curves import Curve
 from interactive_pipe.data_objects.table import Table
+from interactive_pipe.graphical.display import FIGURE_SCREEN_DPI, TEXT_FONT_PT, figure_of, wrap_text
 from interactive_pipe.graphical.pointer_input import (
     POINT_COLOR,
     REGION_COLOR,
@@ -112,10 +113,12 @@ class MatplotlibWindow(InteractivePipeWindow):
         elif isinstance(img, Table):
             ax_dict["data"] = img.create_table(ax=ax) if data is None else img.update_table(data, ax=ax)
         elif isinstance(img, str):
+            text = self.wrap_for_cell(img, ax, TEXT_FONT_PT)
             if data is None:
-                ax_dict["data"] = ax.text(0.5, 0.5, img, ha="center", va="center", fontsize=10)
+                ax.set_axis_off()
+                ax_dict["data"] = ax.text(0.5, 0.5, text, ha="center", va="center", fontsize=TEXT_FONT_PT)
             else:
-                data.set_text(img)
+                data.set_text(text)
         else:
             logging.warning(f"Unsupported output type for display: {type(img)}")
             return
@@ -142,9 +145,50 @@ class MatplotlibWindow(InteractivePipeWindow):
     # Point / region controls: target cells and overlay
 
     def refresh_display(self, _out) -> None:
+        self._last_out = _out
         super().refresh_display(_out)
         self.update_pointer_targets(_out)
         self.draw_pointer_overlays()
+
+    def wrap_for_cell(self, text: str, ax: Axes, fontsize: float) -> str:
+        """`text` wrapped to the width of `ax` (matplotlib does not wrap)."""
+        if self.fig is None:
+            return text
+        width_points = ax.get_position(original=True).width * self.fig.get_size_inches()[0] * 72.0
+        return wrap_text(text, 0.95 * width_points, fontsize)
+
+    # ------------------------------------------------------------------
+    # matplotlib figure outputs: drawn at the size of their axes
+
+    def figure_box(self, row: int, col: int):
+        """Pixel size of the axes of cell (row, col): a figure output is
+        drawn at that size, its text the size of a Curve's next to it."""
+        if self.fig is None or not self.image_canvas or self.image_canvas[row][col] is None:
+            return None
+        self._watch_resize()
+        position = self.image_canvas[row][col]["ax"].get_position(original=True)
+        # in logical pixels (FIGURE_SCREEN_DPI per inch): figure_pixel_ratio scales them to the window's dpi
+        width, height = self.fig.get_size_inches() * FIGURE_SCREEN_DPI
+        return (position.width * width, position.height * height)
+
+    def figure_pixel_ratio(self) -> float:
+        # the window's text is drawn at fig.dpi: a figure output at the same density
+        return float(self.fig.dpi) / FIGURE_SCREEN_DPI if self.fig is not None else 1.0
+
+    def _watch_resize(self) -> None:
+        if getattr(self, "_resize_watched", False) or self.fig is None:
+            return
+        self._resize_watched = True
+        self.fig.canvas.mpl_connect("resize_event", lambda _event: self._redraw_figures())
+
+    def _redraw_figures(self) -> None:
+        """The window was resized: draw the figure outputs again at their new size."""
+        out = getattr(self, "_last_out", None)
+        grid = [list(out)] if isinstance(out, tuple) else out
+        if not grid or not any(figure_of(item) is not None for row in grid if isinstance(row, list) for item in row):
+            return
+        self.refresh_display(out)
+        self.fig.canvas.draw_idle()  # type: ignore[union-attr]
 
     def _cell_styles(self) -> dict:
         styles = {}
@@ -265,7 +309,13 @@ class MatplotlibWindow(InteractivePipeWindow):
             ax.clear()
             ax.set_axis_off()
             ax_dict["data"] = ax.text(
-                0.5, 0.5, format_error_message(error), color="red", ha="center", va="center", wrap=True, fontsize=10
+                0.5,
+                0.5,
+                self.wrap_for_cell(format_error_message(error), ax, 10),
+                color="red",
+                ha="center",
+                va="center",
+                fontsize=10,
             )
             # not a display kind: the next good output starts from clean axes
             ax_dict["kind"] = "error"

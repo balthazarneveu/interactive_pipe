@@ -2,6 +2,7 @@ import logging
 
 from matplotlib.widgets import CheckButtons, RadioButtons, RangeSlider, Slider, TextBox
 
+from interactive_pipe.graphical.value_format import format_number
 from interactive_pipe.headless.control import Control, RangeControl, range_pair
 
 
@@ -47,6 +48,8 @@ class SliderMatplotlibControl(BaseControl):
             valinit=float(valinit),
             valstep=self.ctrl.step,
         )
+        slider._format = format_number  # type: ignore[attr-defined] - value text as everywhere: "6", "0.1", "1e-05"
+        slider.valtext.set_text(format_number(slider.val))
         slider.on_changed(lambda val: self.update_func(self.name, val))
         return slider
 

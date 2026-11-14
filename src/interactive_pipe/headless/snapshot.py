@@ -27,21 +27,36 @@ if TYPE_CHECKING:  # matplotlib is imported when something is rendered
     from matplotlib.figure import Figure
 
 from interactive_pipe.data_objects.curves import Curve
-from interactive_pipe.data_objects.table import Table
-from interactive_pipe.graphical.display import content_title, display_kind, prepare_display, producer_of
+from interactive_pipe.data_objects.table import (
+    TABLE_FONTSIZE,  # noqa: F401  (re-exported: snapshot constants)
+    TABLE_MAX_ROWS,  # noqa: F401
+    TABLE_ROW_HEIGHT,
+    Table,
+    draw_table,
+)
+from interactive_pipe.data_objects.table import table_column_widths as _table_column_widths
+from interactive_pipe.data_objects.table import table_text as _table_text
+from interactive_pipe.graphical.display import (
+    TEXT_FONT_PT,
+    content_title,
+    display_kind,
+    figure_of,
+    prepare_display,
+    producer_of,
+    rasterize_figure,
+    wrap_text,
+)
+from interactive_pipe.graphical.value_format import format_number
 
 # Natural cell sizes in inches (before the whole figure is scaled to fit MAX_WIDTH)
 CELL_HEIGHT = 3.2
 PLOT_SIZE = (4.4, CELL_HEIGHT)
-TEXT_SIZE = (3.6, 1.6)
+TEXT_SIZE = (4.4, 1.6)
 PLACEHOLDER_SIZE = (3.0, 1.6)
 TITLE_HEIGHT = 0.32  # room above each cell for its title
 MAX_WIDTH = 22.0  # widest figure (inches) before scaling everything down
 MIN_DPI, MAX_DPI = 80, 150
 TITLE_FONTSIZE = 10
-TABLE_FONTSIZE = 9
-TABLE_ROW_HEIGHT = 0.26  # inches per table row
-TABLE_MAX_ROWS = 30  # longer tables are truncated (with a "... N more rows" line)
 CAPTION_FONTSIZE = 8
 
 OutputSelector = Union[None, str, int, Sequence[Union[str, int]]]
@@ -55,6 +70,7 @@ class SnapshotCell:
     content: Any
     title: Optional[str]
     raw: Any = None  # the output as the filter returned it (``content`` is converted for display)
+    style: Optional[dict] = None  # its layout.style (figures are re-drawn at the cell size)
 
 
 Grid = List[List[Optional[SnapshotCell]]]
@@ -116,7 +132,13 @@ def result_grid(pipeline: Any, result: Any) -> Grid:
                 content, styles.get(label), label, producer_of(getattr(pipeline, "filters", None), name)
             )
             cells.append(
-                SnapshotCell(name=label, content=shown, title=output_title(styles, label, content), raw=content)
+                SnapshotCell(
+                    name=label,
+                    content=shown,
+                    title=output_title(styles, label, content),
+                    raw=content,
+                    style=styles.get(label),
+                )
             )
         grid.append(cells)
     return grid
@@ -180,7 +202,7 @@ def format_value(value: Any) -> str:
     if isinstance(value, (bool, np.bool_)):
         return str(bool(value))
     if isinstance(value, (float, np.floating)):
-        return f"{float(value):.4g}"
+        return format_number(value)  # as next to the GUI sliders: "6", "0.1", "1e-05"
     if isinstance(value, (int, np.integer)):
         return str(int(value))
     if isinstance(value, str):
@@ -258,64 +280,14 @@ def natural_size(content: Any) -> Tuple[float, float]:
         widths = _table_column_widths(header, rows)
         return min(max(sum(widths), 2.0), 12.0), max(TABLE_ROW_HEIGHT * n_rows, 0.8)
     if kind == "text":
-        n_lines = content.count("\n") + 1
-        return TEXT_SIZE[0], max(TEXT_SIZE[1], 0.25 * n_lines + 0.4)
+        n_lines = wrap_text(content, 0.95 * TEXT_SIZE[0] * 72.0, TEXT_FONT_PT).count("\n") + 1
+        return TEXT_SIZE[0], max(TEXT_SIZE[1], TEXT_FONT_PT / 72.0 * 1.4 * n_lines + 0.4)
     return PLACEHOLDER_SIZE
 
 
-def _table_text(table: Table) -> Tuple[List[str], List[List[str]]]:
-    """Header (empty when the table has none) and formatted rows, truncated
-    to TABLE_MAX_ROWS rows."""
-    header = [str(col) for col in table.columns]
-    if not any(header):
-        header = []
-    rows = table._format_values()
-    n_cols = max([len(header)] + [len(row) for row in rows] + [1])
-    rows = [list(row) + [""] * (n_cols - len(row)) for row in rows]
-    if len(rows) > TABLE_MAX_ROWS:
-        hidden = len(rows) - (TABLE_MAX_ROWS - 1)
-        rows = rows[: TABLE_MAX_ROWS - 1] + [[f"... {hidden} more rows"] + [""] * (n_cols - 1)]
-    return header, rows
-
-
-def _table_column_widths(header: List[str], rows: List[List[str]]) -> List[float]:
-    """Column widths in inches from the longest text of each column."""
-    columns = list(zip(*([header] if header else []), *rows)) if rows else [(name,) for name in header]
-    char_width = TABLE_FONTSIZE / 72.0 * 0.62
-    widths = []
-    for idx, column in enumerate(columns):
-        texts = [text for text in column if not (rows and text.startswith("... ") and idx == 0)]
-        longest = max((len(text) for text in texts), default=1)
-        widths.append(min(longest, 30) * char_width + 0.2)
-    return widths or [1.0]
-
-
 def _draw_table(ax: Any, table: Table, height_inches: float) -> None:
-    """Table filling its cell (the GUI's create_table overflows small axes)."""
-    ax.set_axis_off()
-    header, rows = _table_text(table)
-    if not rows and not header:
-        ax.text(0.5, 0.5, "(empty table)", ha="center", va="center", color="dimgray", transform=ax.transAxes)
-        return
-    widths = _table_column_widths(header, rows)
-    total = sum(widths)
-    natural_height = TABLE_ROW_HEIGHT * (len(rows) + (1 if header else 0))
-    fraction = min(1.0, natural_height / max(height_inches - TITLE_HEIGHT, 0.1))
-    mpl_table = ax.table(
-        cellText=rows or None,
-        colLabels=header or None,
-        colWidths=[width / total for width in widths],
-        cellLoc="center",
-        # natural row height, top-aligned: a short table next to a tall image is not stretched
-        bbox=[0.0, 1.0 - fraction, 1.0, fraction],
-    )
-    mpl_table.auto_set_font_size(False)
-    mpl_table.set_fontsize(TABLE_FONTSIZE)
-    for (row_idx, _), cell in mpl_table.get_celld().items():
-        cell.set_linewidth(0.5)
-        if header and row_idx == 0:
-            cell.set_facecolor("#e8e8e8")
-            cell.get_text().set_fontweight("bold")
+    """Table filling its cell, top-aligned (same renderer as the GUI windows)."""
+    draw_table(ax, table, height_inches=height_inches - TITLE_HEIGHT)
 
 
 def _draw_image(ax: Any, content: np.ndarray, pixels_available: float) -> None:
@@ -347,19 +319,22 @@ def draw_cell(ax: Any, cell: SnapshotCell, width_inches: float, dpi: float, heig
     if kind == "image":
         _draw_image(ax, content, pixels_available=width_inches * dpi)
         _set_title(ax, cell.title, width_inches)
+        if figure_of(cell.raw) is not None:
+            # drawn again at the size of its axes once the layout is known (_redraw_figure_cells)
+            setattr(ax, _FIGURE_CELL, (cell.raw, (cell.style or {}).get("dpi")))
     elif kind in ("signal", "curve"):
         curve = Curve([content]) if kind == "signal" else content
         curve.create_plot(ax=ax)
         # like the GUI: a Curve's own title wins over the layout style
         own_title = curve.title if kind == "curve" else None
         _set_title(ax, own_title or cell.title, width_inches)
-        ax.tick_params(labelsize=8)
     elif kind == "table":
         _draw_table(ax, content, height_inches)
         _set_title(ax, content.title or cell.title, width_inches)
     elif kind == "text":
         ax.set_axis_off()
-        ax.text(0.5, 0.5, content, ha="center", va="center", fontsize=10, wrap=True, transform=ax.transAxes)
+        text = wrap_text(content, 0.95 * width_inches * 72.0, TEXT_FONT_PT)
+        ax.text(0.5, 0.5, text, ha="center", va="center", fontsize=TEXT_FONT_PT, transform=ax.transAxes)
         _set_title(ax, cell.title, width_inches)
     else:
         ax.set_axis_off()
@@ -414,9 +389,43 @@ def auto_dpi(cells: Sequence[SnapshotCell], scale: float = 1.0) -> int:
     """Resolution showing the largest image close to its native size (bounded)."""
     dpi = 100.0
     for cell in cells:
-        if _cell_kind(cell.content) == "image":
+        # a figure is drawn at whatever size its cell gets: its raster size does not count
+        if _cell_kind(cell.content) == "image" and figure_of(cell.raw) is None:
             dpi = max(dpi, cell.content.shape[0] / (CELL_HEIGHT * scale))
     return int(min(max(dpi, MIN_DPI), MAX_DPI))
+
+
+_FIGURE_CELL = "_interactive_pipe_figure_cell"
+FIGURE_OVERSAMPLE = 2  # figures are drawn twice as large (same layout), then smoothly reduced: no jaggies
+
+
+def _all_axes(container: Any) -> List[Any]:
+    axes = list(container.axes)
+    for subfig in getattr(container, "subfigs", []):
+        axes += _all_axes(subfig)
+    return axes
+
+
+def _redraw_figure_cells(fig: "Figure", dpi: float) -> None:
+    """Draw each matplotlib figure output again at the pixel size of its
+    axes, at the snapshot dpi: its text comes out the size of a Curve's in
+    the next cell, whatever its figsize (see ``rasterize_figure``)."""
+    axes = [ax for ax in _all_axes(fig) if getattr(ax, _FIGURE_CELL, None) is not None]
+    if not axes:
+        return
+    fig.draw_without_rendering()  # runs the (constrained) layout
+    width_px, height_px = fig.get_size_inches() * fig.dpi
+    for ax in axes:
+        figure, style_dpi = getattr(ax, _FIGURE_CELL)
+        position = ax.get_position(original=True)
+        box = (
+            FIGURE_OVERSAMPLE * position.width * width_px,
+            FIGURE_OVERSAMPLE * position.height * height_px,
+        )
+        raster = rasterize_figure(figure, FIGURE_OVERSAMPLE * (style_dpi or dpi), box=box)
+        for image in list(ax.images):
+            image.remove()
+        _draw_image(ax, raster, pixels_available=position.width * width_px)
 
 
 def draw_grid(container: Any, grid: Grid, scale: float, dpi: float) -> None:
@@ -486,6 +495,7 @@ def render_grid(
     fig = _new_figure(figsize[0], figsize[1], dpi)
     draw_grid(fig, grid, scale, dpi)
     _decorate(fig, figsize[0], title, caption)
+    _redraw_figure_cells(fig, dpi)
     return fig
 
 
@@ -557,6 +567,7 @@ def render_sweep(
             if cell_labels is not None and cell_labels[row_idx][col_idx]:
                 subfig.suptitle(cell_labels[row_idx][col_idx], fontsize=11, fontweight="bold")
     _decorate(fig, figsize[0], title, caption)
+    _redraw_figure_cells(fig, dpi)
     return fig
 
 

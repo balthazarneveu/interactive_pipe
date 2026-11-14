@@ -1,5 +1,7 @@
 import logging
 
+from interactive_pipe.graphical.control_errors import name_control_errors
+from interactive_pipe.graphical.value_format import JS_FORMAT_NUMBER
 from interactive_pipe.headless.control import Control, RangeControl, range_pair
 from interactive_pipe.headless.pointer import PointerControl
 
@@ -30,6 +32,10 @@ class BaseControl:
 
     def check_control_type(self):
         raise NotImplementedError("This method should be overridden by subclass to check the right slider control type")
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        name_control_errors(cls)  # "control 'gain' (filter 'amplify'): Expected int control type, ..."
 
 
 class ControlFactory:
@@ -199,8 +205,7 @@ _RANGE_JS = """
 const lo = element.querySelector('.ip-lo'), hi = element.querySelector('.ip-hi');
 const fill = element.querySelector('.ip-fill'), readout = element.querySelector('.ip-readout');
 const vmin = parseFloat(lo.min), vmax = parseFloat(lo.max);
-const decimals = (String(lo.step).split('.')[1] || '').length;
-const fmt = (v) => Number(v).toFixed(decimals);
+__FORMAT_NUMBER__
 function draw(a, b) {
   lo.value = a; hi.value = b;
   fill.style.left = (100 * (a - vmin) / (vmax - vmin)) + '%';
@@ -226,7 +231,7 @@ for (const input of [lo, hi]) {
 // thumbs overlap at the ends: keep the one that can still move on top
 lo.addEventListener('pointerdown', () => { lo.style.zIndex = 2; hi.style.zIndex = 1; });
 hi.addEventListener('pointerdown', () => { hi.style.zIndex = 2; lo.style.zIndex = 1; });
-"""
+""".replace("__FORMAT_NUMBER__", JS_FORMAT_NUMBER)  # same value text as every backend
 
 
 class RangeSliderControl(BaseControl):

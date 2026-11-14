@@ -1,7 +1,7 @@
 import importlib.util
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -24,6 +24,26 @@ def _require_pandas(feature_name: str):
     """Raise RuntimeError if pandas is not available."""
     if not PANDAS_AVAILABLE:
         raise RuntimeError(f"{feature_name} requires pandas. Install with: pip install pandas")
+
+
+def _as_cell(value: Any) -> Any:
+    """Plain Python value for a cell: numpy scalars become int / float / bool."""
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
+def _as_column(name: Any, value: Any) -> List[Any]:
+    """One column of a dict input: a list, a tuple, a 1D numpy array or a pandas Series."""
+    if isinstance(value, (str, bytes, dict)) or not hasattr(value, "__len__"):
+        raise TypeError(
+            f"Dict input must map each column name to a list of values; column {name!r} got {type(value).__name__}"
+        )
+    if isinstance(value, np.ndarray):
+        if value.ndim != 1:
+            raise ValueError(f"Column {name!r} must be 1D, got an array of shape {value.shape}")
+        return value.tolist()
+    return [_as_cell(item) for item in value]
 
 
 class Table(Data):
@@ -77,19 +97,17 @@ class Table(Data):
     ) -> Dict[str, Any]:
         """Convert various input formats to internal format."""
         if isinstance(data, dict):
-            # Dict of lists: {"col1": [1,2,3], "col2": [4,5,6]}
-            if not all(isinstance(v, list) for v in data.values()):
-                raise TypeError("Dict input must have list values")
-            col_names = list(data.keys())
+            # Dict of columns: {"col1": [1, 2, 3], "col2": np.array([4, 5, 6])}
+            col_names = [str(name) for name in data.keys()]
             if not col_names:
                 return {"columns": [], "values": []}
-            # Check all lists have same length
-            lengths = [len(v) for v in data.values()]
+            column_values = [_as_column(name, value) for name, value in data.items()]
+            lengths = [len(v) for v in column_values]
             if len(set(lengths)) > 1:
-                raise ValueError(f"All columns must have the same length. Got lengths: {lengths}")
-            # Convert to row-major format
-            num_rows = lengths[0]
-            values = [[data[col][row] for col in col_names] for row in range(num_rows)]
+                detail = ", ".join(f"{name}: {length}" for name, length in zip(col_names, lengths))
+                raise ValueError(f"All columns must have the same length. Got lengths: {detail}")
+            # Convert to row-major format (zero rows keeps the headers)
+            values = [list(row) for row in zip(*column_values)]
             return {"columns": col_names, "values": values}
 
         elif isinstance(data, list):
@@ -104,7 +122,7 @@ class Table(Data):
                         raise ValueError(
                             f"Row {i} has different keys. Expected {col_names}, got {list(row_dict.keys())}"
                         )
-                values = [[row_dict[col] for col in col_names] for row_dict in data]
+                values = [[_as_cell(row_dict[col]) for col in col_names] for row_dict in data]
                 return {"columns": col_names, "values": values}
             else:
                 raise TypeError(
@@ -133,8 +151,8 @@ class Table(Data):
     def _normalize_dataframe(self, df: "pd.DataFrame") -> Dict[str, Any]:
         """Convert pandas DataFrame to internal format."""
         _require_pandas("DataFrame input")
-        col_names = list(df.columns)
-        values = df.values.tolist()
+        col_names = [str(name) for name in df.columns]
+        values = [[_as_cell(value) for value in row] for row in df.itertuples(index=False, name=None)]
         return {"columns": col_names, "values": values}
 
     @property
@@ -266,7 +284,7 @@ class Table(Data):
         for row in self.values:
             formatted_row = []
             for val in row:
-                if isinstance(val, float):
+                if isinstance(val, (float, np.floating)):
                     formatted_row.append(f"{val:.{self.precision}f}")
                 else:
                     formatted_row.append(str(val))
@@ -274,50 +292,23 @@ class Table(Data):
         return formatted
 
     def create_table(self, ax: Optional[Any] = None) -> Any:
-        """Create matplotlib table, returns table object.
+        """Draw the table in a matplotlib axes (created if None), top-aligned
+        with its natural row height, as in snapshots.
 
         Args:
             ax: matplotlib Axes object (optional, will create if None)
 
         Returns:
-            matplotlib Table object
+            matplotlib Table object (None for a table without columns)
         """
-        try:
-            import matplotlib.pyplot as plt
-        except ImportError:
-            raise RuntimeError("Matplotlib is required for table rendering. Install with: pip install matplotlib")
-
         if ax is None:
-            fig, ax = plt.subplots()
-
-        ax.axis("off")
-
-        # Check if this is a headerless table (all columns are empty strings)
-        has_headers = any(col != "" for col in self.columns)
-
-        if has_headers:
-            table = ax.table(
-                cellText=self._format_values(),
-                colLabels=self.columns,
-                loc="center",
-                cellLoc="center",
-            )
-        else:
-            # Headerless table - don't show column labels
-            table = ax.table(
-                cellText=self._format_values(),
-                loc="center",
-                cellLoc="center",
-            )
-
-        table.auto_set_font_size(False)
-        table.set_fontsize(9)
-        table.scale(1, 2)  # Make cells taller for better readability
-
-        if self.title:
-            ax.set_title(self.title, pad=20)
-
-        return table
+            try:
+                import matplotlib.pyplot as plt
+            except ImportError:
+                raise RuntimeError("Matplotlib is required for table rendering. Install with: pip install matplotlib")
+            _, ax = plt.subplots()
+        ax.clear()
+        return draw_table(ax, self, title=self.title)
 
     def update_table(self, _table_obj: Optional[Any] = None, ax: Optional[Any] = None) -> Any:
         """Update existing matplotlib table.
@@ -336,3 +327,123 @@ class Table(Data):
             raise ValueError("ax parameter is required for update_table()")
         ax.clear()
         return self.create_table(ax=ax)
+
+
+# ---------------------------------------------------------------------------
+# Rendering (shared by the GUI windows and snapshots)
+# ---------------------------------------------------------------------------
+TABLE_FONTSIZE = 9
+TABLE_ROW_HEIGHT = 0.26  # inches per table row
+TABLE_MAX_ROWS = 30  # longer tables are truncated (with a "... N more rows" line)
+
+
+def table_text(table: Table) -> Tuple[List[str], List[List[str]]]:
+    """Header (empty when the table has none) and formatted rows, truncated
+    to TABLE_MAX_ROWS rows."""
+    header = [str(col) for col in table.columns]
+    if not any(header):
+        header = []
+    rows = table._format_values()
+    n_cols = max([len(header)] + [len(row) for row in rows] + [1])
+    rows = [list(row) + [""] * (n_cols - len(row)) for row in rows]
+    if len(rows) > TABLE_MAX_ROWS:
+        hidden = len(rows) - (TABLE_MAX_ROWS - 1)
+        rows = rows[: TABLE_MAX_ROWS - 1] + [[f"... {hidden} more rows"] + [""] * (n_cols - 1)]
+    return header, rows
+
+
+def table_column_widths(header: List[str], rows: List[List[str]]) -> List[float]:
+    """Column widths in inches from the longest text of each column."""
+    columns = list(zip(*([header] if header else []), *rows)) if rows else [(name,) for name in header]
+    char_width = TABLE_FONTSIZE / 72.0 * 0.62
+    widths = []
+    for idx, column in enumerate(columns):
+        texts = [text for text in column if not (rows and text.startswith("... ") and idx == 0)]
+        longest = max((len(text) for text in texts), default=1)
+        widths.append(min(longest, 30) * char_width + 0.2)
+    return widths or [1.0]
+
+
+def _axes_height_inches(ax: Any) -> float:
+    figure = ax.figure
+    return float(ax.get_position().height * figure.get_size_inches()[1])
+
+
+TABLE_TITLE_HEIGHT = 0.3  # inches reserved inside the axes for the title (GUI windows)
+
+
+def draw_table(ax: Any, table: Table, height_inches: Optional[float] = None, title: Optional[str] = None) -> Any:
+    """Draw `table` in `ax`: natural row height, top-aligned (a short table
+    next to a tall image is not stretched), header row in bold on gray.
+
+    Zero rows shows the header and "(no rows)"; no columns shows
+    "(empty table)". `height_inches` is the height available; by default
+    the axes height, read again at each draw so that the rows keep their
+    height when a window is resized. `title` is written inside the axes,
+    above the table (a title above the axes is cut when the axes touches
+    the top of the window). Returns the matplotlib table, or None.
+    """
+    ax.set_axis_off()
+    header, rows = table_text(table)
+    top_inches = TABLE_TITLE_HEIGHT if title else 0.0
+
+    def available() -> float:
+        return max((_axes_height_inches(ax) if height_inches is None else height_inches), 0.1)
+
+    title_artist = None
+    if title:
+        title_artist = ax.text(
+            0.5, 1.0, title, ha="center", va="top", fontsize=TABLE_FONTSIZE + 1, transform=ax.transAxes
+        )
+    if not rows and not header:
+        ax.text(0.5, 0.5, "(empty table)", ha="center", va="center", color="dimgray", transform=ax.transAxes)
+        return None
+    widths = table_column_widths(header, rows)
+    total = sum(widths)
+    natural_height = TABLE_ROW_HEIGHT * (len(rows) + (1 if header else 0))
+    note = None
+    if not rows:  # "nothing found": the header row, then a note (matplotlib refuses a table without cells)
+        note = ax.text(
+            0.5,
+            0.5,
+            "(no rows)",
+            ha="center",
+            va="top",
+            color="dimgray",
+            fontsize=TABLE_FONTSIZE,
+            transform=ax.transAxes,
+        )
+    mpl_table = ax.table(
+        cellText=rows or [header],
+        colLabels=header if (header and rows) else None,
+        colWidths=[width / total for width in widths],
+        cellLoc="center",
+        bbox=[0.0, 0.0, 1.0, 1.0],
+    )
+
+    def place() -> None:
+        height = available()
+        top = 1.0 - min(top_inches / height, 0.5)
+        fraction = min(top, natural_height / height)
+        mpl_table._bbox = [0.0, top - fraction, 1.0, fraction]  # read by matplotlib at draw time
+        if note is not None:
+            note.set_y(top - fraction - 0.5 * TABLE_ROW_HEIGHT / height)
+
+    place()
+    if height_inches is None:  # GUI: follow the window size
+        table_draw = mpl_table.draw
+
+        def draw(renderer: Any) -> None:
+            place()
+            table_draw(renderer)
+
+        mpl_table.draw = draw  # type: ignore[method-assign]
+    mpl_table.auto_set_font_size(False)
+    mpl_table.set_fontsize(TABLE_FONTSIZE)
+    for (row_idx, _), cell in mpl_table.get_celld().items():
+        cell.set_linewidth(0.5)
+        if header and row_idx == 0:
+            cell.set_facecolor("#e8e8e8")
+            cell.get_text().set_fontweight("bold")
+    del title_artist
+    return mpl_table

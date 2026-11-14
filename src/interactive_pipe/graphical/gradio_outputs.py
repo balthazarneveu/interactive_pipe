@@ -45,6 +45,16 @@ def build_output_container(out_item, title: str) -> Tuple[gr.components.Componen
     raise NotImplementedError(f"output type {type(out_item)} not supported")
 
 
+def with_label(value: Any, title: Optional[str], cell: Optional[dict]) -> Any:
+    """`value`, or a gradio update also setting the component label when the
+    output's title (``layout.style(name, title=f"PSNR {psnr:.2f} dB")``)
+    differs from the label shown (``cell["label"]``, updated)."""
+    if title is None or cell is None or title == cell.get("label"):
+        return value
+    cell["label"] = title
+    return gr.update(value=value, label=title)
+
+
 def convert_output_value(out_item, *, audio_sampling_rate: int, convert_image: Callable) -> Any:
     """Convert one pipeline output into the value its gradio container expects."""
     if MPL_SUPPORT and isinstance(out_item, Curve):
@@ -57,15 +67,17 @@ def convert_output_value(out_item, *, audio_sampling_rate: int, convert_image: C
         Curve._plot_curve(out_item.data, ax=fig.subplots())
         return fig
     elif isinstance(out_item, Table):
-        # Convert to format expected by gr.Dataframe
-        # Format: list of lists with first row as headers
-        # Use _format_values() to apply precision formatting
-        # Check if this is a headerless table (all columns are empty)
+        # gr.Dataframe takes {"headers", "data"}: a list of lists would show the
+        # column names as a first data row under "1", "2", ... headers.
+        # _format_values() applies the precision; zero rows keeps the headers.
         has_headers = any(col != "" for col in out_item.columns)
         if has_headers:
-            return [out_item.columns] + out_item._format_values()
-        # Headerless table - just show values
-        return out_item._format_values()
+            return {"headers": [str(col) for col in out_item.columns], "data": out_item._format_values()}
+        # Headerless table - just show values (gradio numbers the columns)
+        values = out_item._format_values()
+        if not values:
+            return {"headers": [str(k + 1) for k in range(max(len(out_item.columns), 1))], "data": []}
+        return values
     elif isinstance(out_item, np.ndarray):
         if len(out_item.shape) == 1:
             logging.debug("CONVERTING AUDIO")

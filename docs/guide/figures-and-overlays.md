@@ -47,9 +47,28 @@ def flower_pipeline():
   call `pipe(...)` hands the figure back to you and leaves it alone).
 - The figure is rasterised with Agg in one shared place and shown as an
   image, so it looks the same everywhere and zooms like any image in the Qt
-  and Dear PyGui viewers. The default resolution is 120 dpi (a default
-  6.4 x 4.8 in figure gives 768 x 576 pixels); change it per output with
-  `layout.style("flower", dpi=200)`.
+  and Dear PyGui viewers.
+- **Text size does not depend on `figsize`**: where the size of the cell is
+  known, the figure is drawn *at the cell size* (keeping its aspect ratio),
+  so a 10 pt label is as big as the labels of a [`Curve`](curves.md) in the
+  next cell, whether you wrote `figsize=(4, 3)` or `(12, 9)`. `figsize` then
+  only sets the aspect ratio (and how much room the text takes relative to
+  the plot: none, it stays in points). This holds in snapshots and sweeps,
+  in the Qt window (drawn again when the window is resized, 150 ms after the
+  last resize event), in the matplotlib window and the notebook, and in Dear
+  PyGui (a figure
+  gets the natural size of a plot cell, 480 x 320, then the layout scales
+  both alike). A figure with matplotlib's default margins is laid out with
+  `tight_layout` for that drawing, so its axis labels are not cut; your own
+  `subplots_adjust` or `layout="constrained"` is kept. The figure object
+  itself is left unchanged.
+- `dpi` sets how many pixels an inch of the figure takes: 100 per inch in a
+  cell (the dpi of the Qt curves; times the screen's pixel ratio on HiDPI),
+  the snapshot's dpi in snapshots, 120 elsewhere (Gradio,
+  `export_animation`, where the figure keeps its `figsize`: a default
+  6.4 x 4.8 in figure gives 768 x 576 pixels). `layout.style("flower",
+  dpi=200)` makes the text of that figure twice as big as a curve's in a
+  cell, or sharper at its `figsize` elsewhere.
 - An unchanged figure (for instance a cached filter result) is not redrawn.
 - `pipe.save("out/result.png")` writes figures with `savefig`: ask for
   `.pdf` or `.svg` to keep vector output.
@@ -70,8 +89,8 @@ Return a 2D `(H, W)` array and describe its display with
 | `colormap` | matplotlib colormap name or `Colormap` object. |
 | `vmin`, `vmax` | Values mapped to the ends of the colormap; each defaults to the data min / max. |
 | `center` | Widens the range to be symmetric around this value: `colormap="RdBu", center=0` for signed data. |
-| `colorbar` | `True` draws the scale on the right of the map: min, max and round ticks. |
-| `unit` | Text appended to the colorbar labels, e.g. `unit="dB"`. |
+| `colorbar` | `True` draws the scale on the right of the map: min, max and round ticks. A string, `colorbar="log10 \|F\|"`, also writes it vertically along the bar (for a longer description). |
+| `unit` | Short unit written once, above the bar, e.g. `unit="dB"`. |
 
 ```python
 import numpy as np
@@ -103,6 +122,12 @@ heatmap_pipeline.snapshot("docs/images/figures_heatmap_colorbar.png")
   every backend and in snapshots. A small map (like this 32 x 32 one) is
   first enlarged (nearest neighbour, integer factor) so the labels stay
   legible; large maps are not resampled.
+- **Labels**: both ends of the range are always labelled (with enough
+  decimals to be within 0.5 % of the true value: `4.2`, not `4`), round
+  ticks in between are dropped when they would overlap an end, and every
+  label of a bar has the same number of decimals. Very large (>= 1e5) or
+  very small (< 1e-2) values are written once as a multiplier above the bar
+  (`×10⁻³ m`) instead of `0.0024 m` on every tick.
 - **NaN and masked values** (`numpy.ma`) are shown in **magenta**, a colour
   no common colormap uses, so a missing value never reads as a valid one;
   they are ignored when computing the automatic range. A `Colormap` with

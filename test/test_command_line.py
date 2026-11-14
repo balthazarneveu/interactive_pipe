@@ -165,12 +165,32 @@ def test_doctor_advice_without_display(monkeypatch):
 
 
 def test_doctor_opens_no_window():
+    """diagnose() creates no QApplication. Checked in a fresh interpreter: in
+    this one, any earlier Qt test (InteractivePipeQT) may have left the
+    process-wide QApplication alive, depending on garbage collection."""
+    code = (
+        "import sys\n"
+        "from interactive_pipe.agent.doctor import diagnose\n"
+        "diagnose()\n"
+        "for name in ('PyQt6.QtWidgets', 'PyQt5.QtWidgets', 'PySide6.QtWidgets'):\n"
+        "    module = sys.modules.get(name)\n"
+        "    if module is not None and module.QApplication.instance() is not None:\n"
+        "        sys.exit(name + ': a QApplication was created')\n"
+    )
+    env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env, timeout=120)
+    assert done.returncode == 0, done.stderr
+
+
+def test_doctor_creates_no_qapplication_in_this_process():
     from interactive_pipe.agent.doctor import diagnose
 
+    qt_widgets = sys.modules.get("PyQt6.QtWidgets")
+    before = qt_widgets.QApplication.instance() if qt_widgets is not None else None
     diagnose()
     qt_widgets = sys.modules.get("PyQt6.QtWidgets")
     if qt_widgets is not None:
-        assert qt_widgets.QApplication.instance() is None
+        assert qt_widgets.QApplication.instance() is before  # none created (one left by an earlier test is fine)
 
 
 # --- snapshot ---------------------------------------------------------------------------------

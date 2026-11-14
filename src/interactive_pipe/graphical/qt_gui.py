@@ -69,6 +69,7 @@ from interactive_pipe.graphical.qt_widgets import (  # noqa: F401
     DetachedPanelWindow,
     ElidedLabel,
 )
+from interactive_pipe.graphical.value_format import format_control_value
 from interactive_pipe.graphical.window import (
     InteractivePipeWindow,
     display_kind,
@@ -108,9 +109,20 @@ def _normalize_output_grid(_out):
     return [list(row) if isinstance(row, list) else [row] for row in _out]
 
 
-def _rasterize_figures(out, layout):
+def _figure_positions(grid) -> dict:
+    """(row, col) -> matplotlib figure output of a normalized output grid."""
+    return {
+        (row, col): content
+        for row, cells in enumerate(grid or [])
+        for col, content in enumerate(cells)
+        if figure_of(content) is not None
+    }
+
+
+def _rasterize_figures(out, layout, boxes=None, pixel_ratio=1.0):
     """`out` with matplotlib figure outputs replaced by their raster (same
-    structure), using each output's ``layout.style(dpi=...)``."""
+    structure), using each output's ``layout.style(dpi=...)``, at the size of
+    their cell (`boxes`: (row, col) -> view size) when known."""
     outputs, styles = layout
 
     def name_at(*index):
@@ -127,7 +139,8 @@ def _rasterize_figures(out, layout):
             return content
         name = name_at(*index)
         style = styles.get(name) if isinstance(name, (str, int)) else None
-        return rasterize_figure(content, (style or {}).get("dpi"))
+        box = (boxes or {}).get(index if len(index) == 2 else (0, index[0]))
+        return rasterize_figure(content, (style or {}).get("dpi"), box, pixel_ratio)
 
     is_grid = isinstance(out, list) and any(isinstance(cells, (list, tuple)) for cells in out)
     if is_grid:
@@ -440,6 +453,9 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         self._run_seq = 0  # incremented by each run; stale worker results are dropped
         self._displayed_seq = 0
         self._runner: Optional[PipelineRunner] = None
+        self._figure_boxes: Dict[Any, Any] = {}  # (row, col) -> view size, read by the worker
+        self._figure_sources: Dict[Any, Any] = {}  # (row, col) -> Figure displayed there
+        self._figure_ratio = 1.0
         # (outputs, output_styles) captured by the worker with the run being
         # displayed: the next run may already be changing the live ones
         self._display_layout: Optional[tuple] = None
@@ -669,9 +685,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
     def update_label(self, idx):
         # pass
         val = self.ctrl[idx].value
-        val_to_print = val
-        if isinstance(val, float):
-            val_to_print = f"{val:.3e}"
+        val_to_print = format_control_value(val)
         if idx in self.result_label.keys():
             self.result_label[idx].setText(f"{val_to_print}")
         if idx in self.name_label.keys():
@@ -766,6 +780,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         view = ImageView(self, sync=self._view_sync())
         view.hover_callback = lambda x, y, value: self._on_view_hover(view, row, col, x, y, value)
         view.pointer_handler = _CellPointerHandler(self, view, row, col)
+        view.resized_callback = lambda: self._refit_figure(view, row, col)
         self.image_grid_layout.addWidget(view, 2 * row + 1, col)
         return view
 
@@ -845,6 +860,9 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         # Keep the raw (float) outputs so the views report true pixel values;
         # convert_image only produces the 8-bit display copy.
         self._raw_outputs = _normalize_output_grid(_out)
+        figures = _figure_positions(self._raw_outputs)
+        if figures or self._runner is None:  # worker runs: recorded by the worker (figures already rasterised)
+            self._figure_sources = figures
         super().refresh_display(_out)
         self._update_pointer_targets()
 
@@ -893,6 +911,29 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         """A gesture set a new value: move the overlay now, run the pipeline (coalesced)."""
         self._update_pointer_overlays()
         self.update_parameter(ctrl.name, ctrl.value)
+
+    # --- matplotlib figure outputs: drawn at the size of their cell ---
+    def figure_box(self, row, col):
+        """Size of the view of cell (row, col): a figure output is drawn at
+        that size, its text the size of a Curve's (None before layout)."""
+        return self._figure_boxes.get((row, col))
+
+    def figure_pixel_ratio(self) -> float:
+        return self._figure_ratio  # read by the worker: cached on the GUI thread
+
+    def _refit_figure(self, view, row, col) -> None:
+        """The view of (row, col) was resized: draw its figure output again at the new size."""
+        self._figure_boxes[(row, col)] = view.logical_size()
+        self._figure_ratio = view.pixel_ratio()
+        figure = self._figure_sources.get((row, col))
+        cell = (self.image_canvas or [[]])[row][col] if row < len(self.image_canvas or []) else None
+        if figure is None or cell is None or cell.get("image") is not view or cell.get("kind") != "image":
+            return
+        dpi = (self.get_current_style(row, col) or {}).get("dpi")
+        shown = self.run_synchronously(
+            lambda: rasterize_figure(figure, dpi, view.logical_size(), self.figure_pixel_ratio())
+        )
+        view.set_image(numpy_to_pixmap(self.convert_image(shown)), shown)
 
     def _raw_output(self, row, col) -> Any:
         grid = getattr(self, "_raw_outputs", None)
@@ -1201,7 +1242,8 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         if out is not None:
             # draw matplotlib figures here, under the run lock: the next run may
             # reuse (clear and redraw) the same Figure while the GUI thread displays
-            out = _rasterize_figures(out, layout)
+            self._figure_sources = _figure_positions(_normalize_output_grid(out))
+            out = _rasterize_figures(out, layout, self._figure_boxes, self.figure_pixel_ratio())
         return (seq, out, error, report, layout)
 
     def _snapshot_layout(self) -> tuple:
