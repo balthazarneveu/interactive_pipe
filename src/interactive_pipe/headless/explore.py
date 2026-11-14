@@ -219,17 +219,19 @@ def _same_value(left: Any, right: Any) -> bool:
 
 @contextmanager
 def preserved_state(pipeline: Any) -> Iterator[None]:
-    """Restore parameters, control values, output layout, styles and last
-    results on exit (also when the body raises)."""
+    """Restore parameters, control values, output layout, styles, last
+    results, context and events on exit (also when the body raises)."""
     # per-filter dict copies are enough: overrides replace values, never mutate them
     parameters = PipelineCore.parameters.__get__(pipeline)  # type: ignore[attr-defined]
     control_values = [(ctrl, ctrl.value) for ctrl in _controls(pipeline)]
     outputs = deepcopy(pipeline.outputs)
     framework_state = pipeline.framework_state.snapshot()
     results = getattr(pipeline, "results", None)
+    run_state = pipeline.save_run_state()
     try:
         yield
     finally:
+        pipeline.restore_run_state(run_state)
         PipelineCore.parameters.__set__(pipeline, parameters)  # type: ignore[attr-defined]
         for ctrl, value in control_values:
             ctrl.value = value
@@ -303,6 +305,17 @@ def _caption(pipeline: Any, caption: Union[bool, str, None], exclude: Sequence[T
 # ---------------------------------------------------------------------------
 
 
+def fresh_run(pipeline: Any, runs: int = 1, method: str = "snapshot") -> Any:
+    """Run like the first run: context back to what was given from outside, events off,
+    no cache (``PipelineCore.restart_run_state``), then ``runs`` runs; the last one's results."""
+    if isinstance(runs, bool) or not isinstance(runs, int) or runs < 1:
+        raise ValueError(f"{method}(): runs must be a positive int (warm-up runs + 1), got {runs!r}")
+    pipeline.restart_run_state()
+    for _ in range(runs - 1):
+        pipeline.run()
+    return pipeline.run()
+
+
 def run_snapshot(
     pipeline: "HeadlessPipeline",
     path: PathLike,
@@ -314,6 +327,7 @@ def run_snapshot(
     dpi: Optional[float] = None,
     title: Optional[str] = None,
     caption: Union[bool, str, None] = True,
+    runs: int = 1,
     **overrides: Any,
 ) -> Tuple[Union[Path, np.ndarray], Any]:
     """`snapshot` returning (written path or image, run results)."""
@@ -322,7 +336,7 @@ def run_snapshot(
     prepare_inputs(pipeline, input_values, inputs, "snapshot")
     with preserved_state(pipeline):
         apply_overrides(pipeline, all_overrides, "snapshot")
-        result = pipeline.run()
+        result = fresh_run(pipeline, runs, "snapshot")
         grid = select_cells(result_grid(pipeline, result), output)
         warn_output_problems(((cell.name, cell.raw) for cell in flat_cells(grid)), "snapshot", _output_styles(pipeline))
         fig = render_grid(grid, figsize=figsize, dpi=dpi, title=title, caption=_caption(pipeline, caption))
@@ -340,9 +354,17 @@ def snapshot(
     dpi: Optional[float] = None,
     title: Optional[str] = None,
     caption: Union[bool, str, None] = True,
+    runs: int = 1,
     **overrides: Any,
 ) -> Union[Path, np.ndarray]:
     """Run the pipeline once and render what the GUI would show to a PNG.
+
+    Each call starts like a first run: the ``context`` holds only what was given
+    from outside (``context=`` at construction or in a call), not what filters
+    wrote in earlier runs; key-bound events are off and nothing is served from
+    the cache. The pipeline's own context, events and cache are put back
+    afterwards. A pipeline that needs warm-up runs (an accumulator, a
+    simulation) takes ``runs=N``: N runs from that fresh start, the last one shown.
 
     Example:
         ```python
@@ -367,6 +389,7 @@ def snapshot(
         title: Figure title.
         caption: True (default) prints the parameter values used under the
             grid, False hides them, a string replaces them.
+        runs: Number of runs from the fresh start (default 1); the last one is shown.
         **overrides: Parameter values for this call only: a keyword-argument
             name (``gain=2.0``), a control name or ``"filter.param"``.
 
@@ -389,6 +412,7 @@ def snapshot(
         dpi=dpi,
         title=title,
         caption=caption,
+        runs=runs,
         **overrides,
     )
     return written
@@ -495,9 +519,13 @@ def sweep(
     dpi: Optional[float] = None,
     title: Optional[str] = None,
     caption: Union[bool, str, None] = True,
+    runs: int = 1,
     **overrides: Any,
 ) -> Union[Path, np.ndarray]:
     """Run the pipeline for several parameter values and render a contact sheet.
+
+    Every cell starts like a first run (see ``snapshot``): cells are
+    independent of each other and of the runs before the call.
 
     Example:
         ```python
@@ -526,6 +554,7 @@ def sweep(
         dpi: As for ``snapshot``.
         title: As for ``snapshot``.
         caption: True prints the fixed parameter values under the sheet.
+        runs: Runs per cell from the fresh start (default 1); the last one is shown.
         **overrides: Swept axes (lists) and fixed overrides (scalars).
 
     Returns:
@@ -550,7 +579,7 @@ def sweep(
         chosen_name: Any = None
         for combo in combos:
             apply_overrides(pipeline, dict(zip(names, combo)), "sweep")
-            grid = result_grid(pipeline, pipeline.run())
+            grid = result_grid(pipeline, fresh_run(pipeline, runs, "sweep"))
             run_styles.update(_output_styles(pipeline))  # layout.style calls of this run
             if output is not None:
                 panels_flat.append(_panel(grid, output))

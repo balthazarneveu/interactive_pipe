@@ -70,6 +70,9 @@ class PipelineCore:
 
         # Initialize user context (separate from global_params for clean API)
         self._user_context = dict(context) if isinstance(context, dict) else {}
+        # what was given from outside (construction, `context=` arguments), without
+        # what filters wrote: the starting point of snapshot / sweep runs
+        self._context_seed = dict(self._user_context)
         if self._graph_cache_mode:
             # dependency-aware cache: track context reads/writes per filter so
             # context-based data dependencies invalidate the right cached results
@@ -180,6 +183,34 @@ class PipelineCore:
         if not isinstance(context, dict):
             raise TypeError(f"context must be a dict, got {type(context)}")
         self._user_context.update(context)
+        self._context_seed.update(context)
+
+    def save_run_state(self) -> tuple:
+        """Context contents, event values and cache state, for ``restore_run_state``."""
+        return dict(self._user_context), dict(self.framework_state.events)
+
+    def restore_run_state(self, saved: tuple) -> None:
+        """Put back what ``save_run_state`` returned (contents replaced in place)."""
+        context, events = saved
+        self._user_context.clear()
+        self._user_context.update(context)
+        self.framework_state.events.clear()
+        self.framework_state.events.update(events)
+        self.reset_cache()  # cached results may come from another state
+
+    def restart_run_state(self) -> None:
+        """Start the next run like the first one: the context back to what was given
+        from outside (construction and ``context=`` arguments, not what filters
+        wrote), every key-bound event off, no cached result.
+
+        Used by ``snapshot`` / ``sweep`` so each picture is independent of the
+        runs before it.
+        """
+        self._user_context.clear()
+        self._user_context.update(self._context_seed)
+        for name in self.framework_state.events:
+            self.framework_state.events[name] = False
+        self.reset_cache()
 
     def _reset_global_params(self):
         for filt in self.filters:
