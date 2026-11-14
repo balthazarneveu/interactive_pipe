@@ -179,4 +179,8 @@ def test_notebook_fallback_sliders(capsys):
     gui(IMAGE)
     gui.window._interact_fn(**{"fb_seed x": 0.0, "fb_seed y": 1.0})
     assert gui.pipeline.parameters["fb_probe"]["fb_seed"] == (0.0, 1.0)
+    # the figure shows where the sliders put the point and the region
+    artists = gui.window.image_canvas[0][0]["pointer_artists"]
+    marker = next(artist for artist in artists if hasattr(artist, "get_xdata"))
+    assert (marker.get_xdata()[0], marker.get_ydata()[0]) == pytest.approx((-0.5, 19.5))
     capsys.readouterr()
