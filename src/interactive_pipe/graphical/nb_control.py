@@ -1,4 +1,5 @@
 import logging
+import math
 
 from interactive_pipe.headless.control import Control, RangeControl, range_pair
 
@@ -6,6 +7,7 @@ try:
     from ipywidgets import (
         Checkbox,
         Dropdown,
+        FloatLogSlider,
         FloatRangeSlider,
         FloatSlider,
         FloatText,
@@ -21,6 +23,7 @@ except ImportError:
     IPYWIDGETS_AVAILABLE = False
     # Create dummy classes to allow import even when ipywidgets is not available
     Dropdown = None
+    FloatLogSlider = None
     FloatSlider = None
     FloatRangeSlider = None
     IntRangeSlider = None
@@ -92,6 +95,20 @@ class FloatSliderNotebookControl(BaseControl):
         if self.ctrl.value_range is None:
             raise ValueError("value_range must be set for FloatSliderNotebookControl")
         style = {"description_width": "initial"}
+        if self.ctrl.is_log and FloatLogSlider is not None:
+            # min / max are exponents, the value and its readout are the real value
+            low, high = (math.log10(bound) for bound in self.ctrl.value_range)  # type: ignore[arg-type,union-attr]
+            return FloatLogSlider(  # type: ignore[reportOptionalCall]
+                base=10,
+                min=low,
+                max=high,
+                value=self.ctrl.value_default,
+                step=(high - low) / 200,
+                readout_format=".3g",
+                style=style,
+                layout=self.layout,
+                tooltip=self.ctrl.tooltip,
+            )
         return FloatSlider(  # type: ignore[reportOptionalCall]
             min=self.ctrl.value_range[0],  # type: ignore[reportOptionalSubscript]
             max=self.ctrl.value_range[1],  # type: ignore[reportOptionalSubscript]

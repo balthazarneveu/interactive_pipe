@@ -463,7 +463,10 @@ def values_over_range(pipeline: Any, name: str, targets: List[Target], count: in
     low, high = ctrl.value_range[0], ctrl.value_range[1]
     if count == 1:
         return [ctrl.value_default]
-    values = np.linspace(float(low), float(high), count)  # type: ignore[arg-type]
+    if getattr(ctrl, "is_log", False):  # log slider: geometric steps, 3 significant digits
+        values = np.array([float(f"{val:.3g}") for val in np.geomspace(float(low), float(high), count)])  # type: ignore[arg-type]
+    else:
+        values = np.linspace(float(low), float(high), count)  # type: ignore[arg-type]
     if ctrl._type is int:
         return list(dict.fromkeys(int(round(val)) for val in values))
     return [float(val) for val in values]
@@ -547,8 +550,8 @@ def sweep(
             only output, else the first image output. ``"all"`` shows the
             whole layout in every cell; a list shows several outputs.
         steps: ``{name: count}`` sweeps a control over its declared range
-            (``count`` evenly spaced values; every choice of a dropdown, both
-            states of a checkbox).
+            (``count`` evenly spaced values, geometric for a log slider; every
+            choice of a dropdown, both states of a checkbox).
         params: Overrides / axes as a dict (for names clashing with options).
         figsize: As for ``snapshot``.
         dpi: As for ``snapshot``.

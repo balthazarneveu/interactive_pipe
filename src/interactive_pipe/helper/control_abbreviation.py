@@ -18,6 +18,7 @@ def control_from_tuple(short_params: Tuple, param_name: Optional[str] = None) ->
 
     - Classic mode:
         - `(default_value, value_range: [min, max, step], optional_name, optional_group)`
+        - `(default_value, [min, max, "log"], ...)`: a log slider (``"log"`` in the step slot)
         - `(default_string, value_choices: [A, B, C...], optional_name, optional_group)`
         - `(True/False, optional_name, optional_group)`
     - Ultra short mode:
@@ -53,6 +54,7 @@ def control_from_tuple(short_params: Tuple, param_name: Optional[str] = None) ->
     name = None
     step = None
     group = None
+    scale = "linear"
     if isinstance(value_default, bool):
         # BOOLEAN: (bool, name, group)
         # No keyboard support in abbreviations - use KeyboardControl directly
@@ -100,6 +102,8 @@ def control_from_tuple(short_params: Tuple, param_name: Optional[str] = None) ->
                 if isinstance(value_default, (float, int)) and len(value_range) >= 3:
                     step = value_range[2]
                     value_range = value_range[:2]
+                    if step == "log":  # (1e-2, [1e-4, 1e-1, "log"]): a log slider
+                        step, scale = None, "log"
         else:
             # ["cat", "dog", "tree"] -> default value = "cat"
             # [-10, 10, 1] -> default val = average(-10, 10), step=1
@@ -127,11 +131,15 @@ def control_from_tuple(short_params: Tuple, param_name: Optional[str] = None) ->
                 if len(special_list) >= 3:
                     # [-10, 10, 1] -> default val = average(-10, 10), step=1
                     step = special_list[2]
+                    if step == "log":  # [1e-4, 1e-1, "log"]: a log slider
+                        step, scale = None, "log"
                     if step is not None and not isinstance(step, (int, float)):
                         raise TypeError(f"{step} has to be numerical")
                     if len(special_list) == 4:
                         # [-10, 10, 1] -> default val = average(-10, 10), step=1
                         value_default = special_list[3]
+                if value_default is None and scale == "log":
+                    value_default = float(f"{(value_range[0] * value_range[1]) ** 0.5:.3g}")  # geometric middle
                 if value_default is None:
                     if isinstance(value_range[0], int) and isinstance(value_range[1], int):
                         value_default = (value_range[0] + value_range[1]) // 2
@@ -172,7 +180,7 @@ def control_from_tuple(short_params: Tuple, param_name: Optional[str] = None) ->
 
     # Keyboard controls are no longer supported via abbreviations
     # Users should use KeyboardControl(...) directly
-    control = Control(value_default, value_range=value_range, name=name, step=step, group=group)
+    control = Control(value_default, value_range=value_range, name=name, step=step, group=group, scale=scale)
     # named after the parameter, not by the user: may be disambiguated in a pipeline
     control._auto_named = control._auto_named or auto_named
     return control

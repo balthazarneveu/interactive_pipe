@@ -95,6 +95,8 @@ def describe_control(ctrl: Control) -> Dict[str, Any]:
             entry["range"] = to_plain(ctrl.value_range)
     if ctrl.step is not None and kind not in ("checkbox", "text"):
         entry["step"] = to_plain(ctrl.step)
+    if getattr(ctrl, "is_log", False):
+        entry["scale"] = "log"
     if isinstance(ctrl, CircularControl):
         entry["circular"] = True
     if ctrl.panel is not None:
@@ -142,7 +144,8 @@ def describe(pipeline: "HeadlessPipeline") -> Dict[str, Any]:
             checkbox / dropdown / range / text / time / keyboard / point /
             region, with ``on``: the target output, None for the first
             image), type,
-            default, current value, range or choices, step, group, key
+            default, current value, range or choices, step, ``scale: "log"`` for a
+            log slider, group, key
             bindings and tooltip when present.
 
     Example:
@@ -202,6 +205,8 @@ def _control_line(entry: Dict[str, Any], width: int) -> str:
         details.append("in {" + ", ".join(str(choice) for choice in entry["choices"]) + "}")
     if "step" in entry and entry["kind"] in ("slider", "keyboard", "range"):
         details.append(f"step {format_value(entry['step'])}")
+    if entry.get("scale") == "log":
+        details.append("log scale")
     if entry["default"] != entry["value"]:
         details.append(f"(default {format_value(entry['default'])})")
     if "keys" in entry:
