@@ -25,15 +25,20 @@ from interactive_pipe.graphical.gradio_outputs import (  # noqa: F401
     convert_output_value,
 )
 from interactive_pipe.graphical.gui import InteractivePipeGUI
+from interactive_pipe.graphical.pointer_input import PointerTargets, clamp, inside, nearest, overlay_items, to_fraction
 from interactive_pipe.graphical.window import InteractivePipeWindow, format_error_message
 from interactive_pipe.headless.control import Control
 from interactive_pipe.headless.panel import Panel
 from interactive_pipe.headless.pipeline import HeadlessPipeline
+from interactive_pipe.headless.pointer import PointControl, pointer_controls
 
 GRADIO_INTERFACE_MODE = False
 
 
 class InteractivePipeGradio(InteractivePipeGUI):
+    # a click on an image (gr.Image.select) sets a PointControl; regions keep their sliders
+    pointer_gestures = ("point",)
+
     def init_app(self, **kwargs):
         self.window = MainWindow(
             controls=self.controls,
@@ -171,6 +176,7 @@ class MainWindow(InteractivePipeWindow):
         if out is None:
             logging.warning("No output to display")
             return tuple()
+        self.update_pointer_targets(out)
         for idx in range(len(self.image_canvas)):  # type: ignore[reportArgumentType]
             if idx >= len(out) or out[idx] is None:
                 continue
@@ -182,20 +188,114 @@ class MainWindow(InteractivePipeWindow):
                     if idy >= len(out[idx]) or out[idx][idy] is None:
                         flat_out.append("")
                     else:
-                        flat_out.append(
-                            convert_output_value(
-                                # same layout.style display options as every backend
-                                self._styled(out[idx][idy], idx, idy),
-                                audio_sampling_rate=self.audio_sampling_rate,
-                                convert_image=self.convert_image,
-                            )
+                        value = convert_output_value(
+                            # same layout.style display options as every backend
+                            self._styled(out[idx][idy], idx, idy),
+                            audio_sampling_rate=self.audio_sampling_rate,
+                            convert_image=self.convert_image,
                         )
+                        flat_out.append(self.with_pointer_overlay(value, idx, idy))
             else:
                 logging.debug(f"CONVERTING IMAGE  {idx} ")
-                flat_out.append(self.convert_image(self._styled(out[idx], idx, 0)))
+                flat_out.append(self.with_pointer_overlay(self.convert_image(self._styled(out[idx], idx, 0)), idx, 0))
         if len(flat_out) == 1:
             return flat_out[0]
         return tuple(flat_out)
+
+    # ------------------------------------------------------------------
+    # Point controls: a click on an image output (gr.Image.select)
+
+    def update_pointer_targets(self, out) -> None:
+        controls = pointer_controls(getattr(self.pipeline, "controls", None))
+        if not controls or self.pipeline is None:
+            self.pointer_targets = None
+            return
+        grid = [list(out)] if isinstance(out, tuple) else out
+        if grid and not isinstance(grid[0], list):
+            grid = [grid]
+        styles = {}
+        for row, cells in enumerate(self.image_canvas or []):
+            for col, cell in enumerate(cells or []):
+                if cell is not None:
+                    try:
+                        styles[(row, col)] = self.get_current_style(row, col)
+                    except (IndexError, KeyError, TypeError, RuntimeError):
+                        pass
+        self.pointer_targets = PointerTargets(controls, self.pipeline.outputs, grid, styles)
+        self._shown_shapes = {}
+
+    def refresh_display(self, _out) -> None:
+        super().refresh_display(_out)
+        self.update_pointer_targets(_out)  # the dry run: clicks work before the first refresh
+
+    def with_pointer_overlay(self, value, row: int, col: int):
+        """The displayed image with the marks of its point / region controls drawn on a copy."""
+        targets = getattr(self, "pointer_targets", None)
+        if targets is None or not isinstance(value, np.ndarray) or value.ndim < 2:
+            return value
+        self._shown_shapes[(row, col)] = value.shape[:2]
+        size = targets.data_size((row, col), value.shape[:2])
+        items = [] if size is None else overlay_items(targets, (row, col), size)
+        if not items:
+            return value
+        from interactive_pipe import draw
+        from interactive_pipe.graphical.pointer_input import POINT_COLOR, REGION_COLOR
+
+        for kind, coords, label in items:
+            if kind == "region":
+                value = draw.boxes(value, [coords], labels=[label], color=REGION_COLOR, width=2, text_size=11)
+            else:
+                u, v = coords
+                half = 7
+                cross = [[(u - half, v), (u + half, v)], [(u, v - half), (u, v + half)]]
+                value = draw.lines(value, cross, color=(0, 0, 0), width=4)
+                value = draw.lines(value, cross, color=POINT_COLOR, width=2)
+                value = draw.text(value, label, (u + half + 2, v), color=POINT_COLOR, anchor="left", size=11)
+        return value
+
+    def select_point(self, row: int, col: int, index) -> bool:
+        """Set the point control of cell (row, col) nearest to the clicked pixel
+        ``index = [x, y]`` of the displayed image. Returns whether one changed."""
+        targets = getattr(self, "pointer_targets", None)
+        if targets is None or index is None or len(index) < 2:
+            return False
+        points = [ctrl for ctrl in targets.controls_at((row, col)) if isinstance(ctrl, PointControl)]
+        shape = getattr(self, "_shown_shapes", {}).get((row, col))
+        size = targets.data_size((row, col), shape)
+        if not points or size is None:
+            return False
+        fraction = to_fraction(float(index[0]) + 0.5, float(index[1]) + 0.5, size)
+        if not inside(fraction):
+            return False  # e.g. on the colorbar of a heatmap
+        point = nearest(points, fraction)
+        if point is None:
+            return False
+        point.update(clamp(fraction))
+        return True
+
+    def select_handler(self, row: int, col: int):
+        """gradio ``select`` callback of the image output in cell (row, col)."""
+
+        def on_select(evt: gr.SelectData, *values):
+            self.select_point(row, col, getattr(evt, "index", None))
+            return self.run_fn(*values)
+
+        return on_select
+
+    def bind_pointer_events(self, changing_inputs: list, outputs: list) -> None:
+        if not pointer_controls(getattr(self.pipeline, "controls", None)):
+            return
+        for row, cells in enumerate(self.image_canvas or []):
+            for col, cell in enumerate(cells or []):
+                if cell is None or cell.get("type") != "image":
+                    continue
+                container = outputs[row * len(cells) + col]
+                container.select(
+                    fn=self.select_handler(row, col),
+                    inputs=changing_inputs,
+                    outputs=outputs,
+                    show_progress="minimal",
+                )
 
     def process_inputs(self, *args) -> list:
         """Update controls from widget values and run the pipeline."""
@@ -301,6 +401,7 @@ class MainWindow(InteractivePipeWindow):
             changing_inputs, discard_reset_button = collect_changing_inputs(self)
             render_reset_and_description(self, changing_inputs, discard_reset_button)
             bind_events(self, io, changing_inputs, outputs)
+            self.bind_pointer_events(changing_inputs, outputs)
 
         self.io = io
 

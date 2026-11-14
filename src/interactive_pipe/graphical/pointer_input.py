@@ -14,7 +14,7 @@ fractions and draws the overlay with its own primitives:
 """
 
 import logging
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -27,13 +27,21 @@ CLICK_TOLERANCE_PX = 3.0
 Cell = Tuple[int, int]
 
 
-def controls_for_backend(controls: Iterable[Any], gestures: bool) -> List[Any]:
+def handles(gestures: Union[bool, Iterable[str]], ctrl: PointerControl) -> bool:
+    """Whether a backend declaring ``pointer_gestures=gestures`` drives ``ctrl`` with the mouse."""
+    if isinstance(gestures, bool):
+        return gestures
+    return ctrl.kind in tuple(gestures)
+
+
+def controls_for_backend(controls: Iterable[Any], gestures: Union[bool, Iterable[str]]) -> List[Any]:
     """The controls a backend builds widgets for.
 
     Without gestures each point / region control is replaced by its
     coordinate sliders (``x``, ``y`` / ``x0``, ``y0``, ``x1``, ``y1``), in the
     control list and in its panel. With gestures the control itself stays
-    (the backend binds the mouse and draws no widget for it).
+    (the backend binds the mouse and draws no widget for it). ``gestures`` is
+    a bool or the kinds the backend handles (``("point",)``).
     """
     result: List[Any] = []
     for ctrl in controls:
@@ -41,7 +49,7 @@ def controls_for_backend(controls: Iterable[Any], gestures: bool) -> List[Any]:
             result.append(ctrl)
             continue
         sliders = ctrl.fallback_controls()
-        shown = [ctrl] if gestures else list(sliders)
+        shown = [ctrl] if handles(gestures, ctrl) else list(sliders)
         if ctrl.panel is not None:
             _place_in_panel(ctrl.panel._controls, [ctrl, *sliders], shown)
         result += shown
