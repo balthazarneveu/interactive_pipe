@@ -135,8 +135,12 @@ class InteractivePipeGUI:
     def __call__(self, *args, inputs=None, parameters=None, context=None, **kwargs) -> list:
         if parameters is None:
             parameters = {}
-        # validated first: an unknown keyword raises before anything is changed
+        # validated first: an unknown keyword or parameters={...} entry raises before anything is changed
         keyword_parameters = self.pipeline.parameters_from_keyword_args(**kwargs)
+        if parameters:
+            from interactive_pipe.headless.explore import check_parameters_dict
+
+            check_parameters_dict(self.pipeline, parameters, f"pipeline '{self.pipeline.name}'")
         # Handle context parameter - update user context if provided
         self.pipeline.update_user_context(context)
         self.pipeline.parameters = parameters
