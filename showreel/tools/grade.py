@@ -33,6 +33,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import numpy as np  # noqa: E402
 
+from interactive_pipe.graphical.window import apply_colormap  # noqa: E402
+
 REMOVED_KWARGS = {"global_params", "global_parameters", "global_state", "global_context", "context", "state"}
 PIPELINE_DECORATORS = {"interactive_pipeline", "pipeline"}
 SLOW_RUN_SECONDS = 1.0
@@ -186,6 +188,13 @@ def dump(obj, path: Path) -> None:
         path.with_suffix(".txt").write_text(str(obj))
 
 
+def output_styles(pipe) -> list:
+    """Style (title, colormap...) of each displayed output, in the order of the flattened outputs."""
+    names = [name for name in flatten(pipe.outputs) if name is not None]
+    styles = pipe.framework_state.output_styles
+    return [styles.get(name, {}) if isinstance(name, str) else {} for name in names]
+
+
 def sweep_values(ctrl) -> list:
     from interactive_pipe import RangeControl, TimeControl
 
@@ -247,11 +256,13 @@ def dynamic_checks(script: Path, out_dir: Path) -> dict:
     if seconds_warm > SLOW_RUN_SECONDS:
         report["warnings"].append(f"default run takes {seconds_warm:.2f} s: sliders will lag")
     reference_prints = [fingerprint(out) for out in reference]
+    styles = output_styles(pipe)
     for index, out in enumerate(reference):
         report["outputs"].append(describe(out))
         if "NOT FINITE" in report["outputs"][-1]:
             report["problems"].append(f"output {index} holds NaN or inf at default parameters")
-        dump(out, out_dir / f"default_{index}")
+        dump(apply_colormap(out, styles[index] if index < len(styles) else None), out_dir / f"default_{index}")
+    report["titles"] = [style.get("title") for style in styles]
     if not reference:
         report["problems"].append("the pipeline returns nothing")
 

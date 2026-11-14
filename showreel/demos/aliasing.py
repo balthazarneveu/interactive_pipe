@@ -58,7 +58,7 @@ def mark_nyquist(img, factor):
     return rgb
 
 
-@interactive_pipeline()
+@interactive_pipeline(cache="graph")
 def aliasing():
     pattern = zone_plate()
     factor = downsampling_factor()

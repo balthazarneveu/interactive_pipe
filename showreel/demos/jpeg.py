@@ -95,7 +95,7 @@ def rate_distortion(original, coefficients, levels, decoded):
     )
 
 
-@interactive_pipeline()
+@interactive_pipeline(cache="graph")
 def jpeg():
     original = test_image()
     coefficients = block_dct(original)
