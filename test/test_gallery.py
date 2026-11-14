@@ -61,14 +61,14 @@ def test_camera_isp_white_balance_maximises_psnr(isolated_controls):
     @interactive_pipeline(gui=None)
     def isp(gt):
         out = gamma(white_balance(demosaic(mosaic(gt))))
-        error, psnr = compare(out, gt)
-        return psnr
+        error = compare(out, gt)
+        return error
 
     scene = ns["make_scene"]()
 
     def psnr(method="bilinear", red=1.8, blue=1.4):
-        (text,) = isp(scene, method=method, red=red, blue=blue)
-        return float(text.split()[1])
+        (error,) = isp(scene, method=method, red=red, blue=blue)
+        return float(error.title.split()[2])  # "error, PSNR 29.72 dB"
 
     assert psnr() > psnr(red=1.0, blue=1.0) + 5  # the defaults undo the sensor colour cast
     assert psnr() > psnr(method="nearest")
@@ -83,12 +83,21 @@ def test_lens_calibration_residual_vanishes_at_the_true_coefficients(isolated_co
 
 def test_blob_detection_scores(isolated_controls):
     ns = _load("blob_detection")
+    detect, score = ns["detect"], ns["score"]
+
+    @interactive_pipeline(gui=None)
+    def blobs(img):
+        detections = detect(img)
+        overlay, table = score(img, detections)
+        return overlay, table
+
     img = ns["make_image"]()
-    (detections,) = ns["detect"](img)
-    overlay, table, metrics = ns["score"](img, detections)
-    precision, recall = float(metrics.split()[1]), float(metrics.split()[3])
+    overlay, table = blobs(img)
+    precision, recall = (float(word) for word in overlay.title.replace(",", "").split()[1::2])
     assert precision >= 0.8 and recall >= 0.6
-    assert overlay.shape == img.shape + (3,) and len(table.values) == len(detections)
+    assert overlay.data.shape == img.shape + (3,) and len(table.values) == 11
+    overlay, table = blobs(img, threshold=0.99)  # nothing detected: no crash
+    assert overlay.title == "precision 0.00, recall 0.00" and table == "no detection"
 
 
 def test_signal_filters_have_unit_dc_gain(isolated_controls):

@@ -64,7 +64,7 @@ def correct(k1=0.0, k2=0.0, arrow_scale=3.0):
     estimated = undistort(distort(truth, K_TRUE), (k1, k2))  # detected corners, undistorted with (k1, k2)
     start, end = to_pixels(truth), to_pixels(truth + arrow_scale * (estimated - truth))
     rms = np.sqrt(((to_pixels(estimated) - start) ** 2).sum(-1).mean())
-    out = draw.lines(np.dstack([corrected] * 3), np.stack([start, end], 1), color="red", width=2)
+    out = draw.lines(corrected, np.stack([start, end], 1), color="red", width=2)
     out = draw.points(out, start, color="lime", radius=2)
     return Image(out, title=f"corrected, residual RMS {rms:.2f} px (x{arrow_scale:g})")
 

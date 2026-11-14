@@ -9,7 +9,7 @@ ringing that a hard mask edge produces as you lower the softness.
 import numpy as np
 from matplotlib.figure import Figure
 
-from interactive_pipe import RangeControl, context, interactive, interactive_pipeline, layout
+from interactive_pipe import RangeControl, interactive, interactive_pipeline, layout
 
 
 def make_image(n=256):
@@ -36,12 +36,15 @@ def spectrum(img):
     return f, np.log10(np.abs(f) + 1e-6)
 
 
-@interactive(band=RangeControl((0.1, 0.3), [0.0, 0.71], name="band (cycles/px)"), softness=(0.01, [0.0, 0.05]))
-def band_pass(f, band=(0.1, 0.3), softness=0.01):
-    r = radius(f.shape)
-    low, high = context["band"] = band  # one slider, read again by radial_profile
-    s = max(softness, 1e-4)
-    mask = 1 / (1 + np.exp(-(r - low) / s)) * 1 / (1 + np.exp((r - high) / s))
+@interactive(band=RangeControl((0.1, 0.3), [0.0, 0.71], name="band (cycles/px)"))
+def choose_band(band=(0.1, 0.3)):
+    return (band,)  # one slider for band_pass and radial_profile; (band,): a bare tuple would be 2 outputs
+
+
+@interactive(softness=(0.01, [0.0, 0.05]))
+def band_pass(f, band, softness=0.01):
+    r, s = radius(f.shape), max(softness, 1e-4)
+    mask = 1 / (1 + np.exp(-(r - band[0]) / s)) / (1 + np.exp((r - band[1]) / s))
     return f * mask, mask
 
 
@@ -52,30 +55,25 @@ def inverse(f):
 
 
 @interactive()
-def radial_profile(f):
-    r = radius(f.shape).ravel()
-    bins = np.linspace(0, 0.71, 72)
-    idx = np.digitize(r, bins)
-    power = np.array(
-        [np.mean(np.abs(f.ravel()[idx == i]) ** 2) if np.any(idx == i) else np.nan for i in range(1, len(bins))]
-    )
-    fig = Figure(figsize=(5, 3.5))
+def radial_profile(f, band):
+    idx = np.round(radius(f.shape) * 100).astype(int).ravel()  # 0.01 cycle/px bins
+    power = np.bincount(idx, np.abs(f.ravel()) ** 2) / np.maximum(np.bincount(idx), 1)
+    fig = Figure(figsize=(5, 3.5), layout="tight")
     ax = fig.subplots()
-    ax.semilogy(bins[1:], power)
-    ax.axvspan(*context["band"], color="tab:orange", alpha=0.25, label="band")
-    ax.set_xlabel("radius (cycles / pixel)")
-    ax.set_ylabel("mean power")
+    ax.semilogy(np.arange(power.size) / 100, power)
+    ax.axvspan(*band, color="tab:orange", alpha=0.25, label="band")
+    ax.set(xlabel="radius (cycles / pixel)", ylabel="mean power")
     ax.legend()
-    fig.tight_layout()
     return fig
 
 
 @interactive_pipeline(gui="auto")
 def frequency_filtering(img):
     f, log_spectrum = spectrum(img)
-    filtered_f, mask = band_pass(f)
+    band = choose_band()
+    filtered_f, mask = band_pass(f, band)
     filtered = inverse(filtered_f)
-    profile = radial_profile(f)
+    profile = radial_profile(f, band)
     return [[img, log_spectrum, mask], [filtered, profile]]
 
 
