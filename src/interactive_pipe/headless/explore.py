@@ -139,7 +139,13 @@ def resolve_names(
 
 
 def check_parameters_dict(pipeline: Any, parameters: Any, caller: str) -> None:
-    """Validate ``parameters={"filter": {"param": value}}`` before anything is changed."""
+    """Validate ``parameters={"filter": {"param": value}}`` before anything is changed.
+
+    Raises:
+        TypeError: ``parameters`` is not a dict.
+        ValueError: unknown filter / parameter names, or a filter's entry not
+            a dict (every problem in one message, with suggestions).
+    """
     if not isinstance(parameters, dict):
         raise TypeError(f"{caller}: parameters must be a dict {{filter_name: {{parameter: value}}}}")
     filters = {filt.name: filt for filt in pipeline.filters}
@@ -162,7 +168,7 @@ def check_parameters_dict(pipeline: Any, parameters: Any, caller: str) -> None:
                     + f" - its parameters: {', '.join(known) or 'none'}"
                 )
     if problems:
-        raise TypeError(
+        raise ValueError(
             f"{caller} got invalid parameters={{...}}: " + "; ".join(problems) + f". Filters: {', '.join(filters)}."
         )
 

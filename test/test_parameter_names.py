@@ -58,8 +58,8 @@ def test_snapshot_accepts_the_same_spellings(pipe, kwargs, expected, tmp_path):
     assert result[0][0, 0] == pytest.approx(pipe(IMG * 0.1, **kwargs)[0][0, 0])
 
 
-def _message(callable_, *args, **kwargs):
-    with pytest.raises(TypeError) as info:
+def _message(callable_, *args, exception=TypeError, **kwargs):
+    with pytest.raises(exception) as info:
         callable_(*args, **kwargs)
     return str(info.value)
 
@@ -85,12 +85,22 @@ def test_unknown_filter_parameter_spelling(pipe):
 
 def test_parameters_dict_is_validated_before_running(pipe):
     pipe(IMG, gain=2.0)
-    message = _message(pipe, IMG, parameters={"pn_amplify": {"gian": 1.0}})
+    message = _message(pipe, IMG, parameters={"pn_amplify": {"gian": 1.0}}, exception=ValueError)
     assert "filter 'pn_amplify' has no parameter 'gian' (did you mean 'gain'?)" in message
-    message = _message(pipe, IMG, parameters={"pn_amplfy": {"gain": 1.0}})
+    message = _message(pipe, IMG, parameters={"pn_amplfy": {"gain": 1.0}}, exception=ValueError)
     assert "no filter 'pn_amplfy' (did you mean 'pn_amplify'?)" in message
-    message = _message(pipe, IMG, parameters={"pn_amplify": 2.0})
+    message = _message(pipe, IMG, parameters={"pn_amplify": 2.0}, exception=ValueError)
     assert "parameters['pn_amplify'] must be a dict" in message
     # nothing changed by the rejected calls
     assert pipe.parameters["pn_amplify"]["gain"] == 2.0
     assert pipe(IMG, parameters={"pn_amplify": {"gain": 0.5}})[0][0, 0] == pytest.approx(1.0)
+
+
+def test_parameters_dict_errors_are_the_same_through_a_gui_call():
+    mpl_gui = pytest.importorskip("interactive_pipe.graphical.mpl_gui")
+    gui = mpl_gui.InteractivePipeMatplotlib(pipeline=HeadlessPipeline.from_function(names_pipeline), name="pn gui")
+    try:
+        with pytest.raises(ValueError, match=r"has no parameter 'gian' \(did you mean 'gain'\?\)"):
+            gui(IMG, parameters={"pn_amplify": {"gian": 1.0}})
+    finally:
+        gui.close()
