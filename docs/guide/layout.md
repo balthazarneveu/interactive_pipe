@@ -60,7 +60,8 @@ Live layout switching (e.g. going from a side-by-side comparison to a 2x2 grid w
 | `colorbar` | `True` draws the scale (min, max, round ticks) to the right of a 2D array, inside the image: same on every backend and in snapshots. A string is also written along the bar as its label. |
 | `unit` | Short unit written once above the colorbar (`unit="dB"`). |
 | `dpi` | Pixels per inch of a matplotlib figure output (see [figure text size](figures-and-overlays.md#matplotlib-figures)). |
-| `xlabel`, `ylabel` | Axis labels — matplotlib backend only (for curves use `Curve(..., xlabel=...)`). |
+| `extent` | `(x_left, x_right, y_bottom, y_top)` of a 2D array (as in `imshow`): the heatmap gets axes with round ticks, drawn into the image like the colorbar ([heatmap axes](figures-and-overlays.md#heatmap-axes-extent-xlabel-ylabel)). |
+| `xlabel`, `ylabel` | Axis labels: drawn with the axes of a heatmap (pixel indices without `extent`); for other images, matplotlib backend only. For curves use `Curve(..., xlabel=...)`. |
 
 ```python
 @interactive()
@@ -68,6 +69,12 @@ def depth_map(img):
     layout.style("depth", title="Depth", colormap="magma", vmin=0.0, vmax=10.0)
     return estimate_depth(img)  # (H, W) float array
 ```
+
+Calls on one output during a run **add up**: a later call changes only the
+keys it gives, so styling once and setting a readout title later keeps the
+colormap; `key=None` removes a key. The first call of the next run starts
+from nothing again. Any displayed name can be styled from any filter, a
+pipeline input included (`layout.style("truth", colormap="viridis")`).
 
 ### Metric readouts
 

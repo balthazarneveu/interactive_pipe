@@ -10,7 +10,7 @@ PROGRAMS = extract_programs(PAGE)
 
 
 def test_page_has_runnable_blocks():
-    assert sum(program.skip_reason is None for program in PROGRAMS) == 3
+    assert sum(program.skip_reason is None for program in PROGRAMS) == 4
 
 
 @pytest.mark.parametrize("program", PROGRAMS, ids=[program.test_id for program in PROGRAMS])
