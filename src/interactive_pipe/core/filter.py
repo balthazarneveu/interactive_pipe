@@ -1,6 +1,9 @@
+import ast
+import inspect
 import logging
+import textwrap
 from copy import deepcopy
-from typing import Any, Callable, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from interactive_pipe.core.cache import CachedResults
 from interactive_pipe.core.context import REMOVED_CONTEXT_KWARGS, _set_current_filter, _set_framework_state
@@ -9,6 +12,57 @@ from interactive_pipe.core.signature import analyze_apply_fn_signature
 
 # Sentinel object to distinguish between "not provided" and "explicitly None"
 _SENTINEL = object()
+
+
+class FilterOutputError(ValueError):
+    """A filter returned something that does not fit the pipeline line calling it
+    (wrong number of values, or ``None`` from a filter without ``return``).
+
+    Raised by the framework, not by user code: ``FilterError`` shows the
+    pipeline line instead of a framework traceback.
+    """
+
+    framework_check = True
+
+
+_RETURNS_VALUE_CACHE: Dict[Any, bool] = {}
+
+
+def _returns_a_value(func: Callable) -> bool:
+    """True unless the function source provably has no ``return <value>`` (nor ``yield``).
+
+    Unknown (no source, builtins, lambdas...) counts as True: only a sure
+    "forgot the return" is reported.
+    """
+    func = inspect.unwrap(func)
+    code = getattr(func, "__code__", None)
+    if code is None:
+        return True
+    if code in _RETURNS_VALUE_CACHE:
+        return _RETURNS_VALUE_CACHE[code]
+    result = True
+    try:
+        tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
+        function_node = next(
+            node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        )
+        nested = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
+
+        def walk(node):
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, nested):
+                    continue
+                yield child
+                yield from walk(child)
+
+        result = any(
+            (isinstance(node, ast.Return) and node.value is not None) or isinstance(node, (ast.Yield, ast.YieldFrom))
+            for node in walk(function_node)
+        )
+    except (OSError, TypeError, SyntaxError, StopIteration, IndentationError):
+        result = True
+    _RETURNS_VALUE_CACHE[code] = result
+    return result
 
 
 class PureFilter:
@@ -146,21 +200,60 @@ class FilterCore(PureFilter):
         else:
             filter_in = imgs
         out = super().run(*filter_in)
+        # Filters built from a pipeline body know the line calling them: the
+        # returned values must match the names it assigns. Filters assembled by
+        # hand keep the historical lenient behaviour (extra values dropped).
+        strict = getattr(self, "call_location", None) is not None
+        expected = len(self.outputs) if self.outputs else 0
         if out is None:
+            if strict and expected and not _returns_a_value(self.apply):
+                raise self._output_error(
+                    "returned None: the function has no `return` statement",
+                    f"add `return <result>` at the end of '{self.name}'",
+                )
             return None
         if isinstance(out, (tuple, list)):
             if self.outputs is not None and len(out) < len(self.outputs):
-                raise ValueError(
-                    f"number of outputs ({len(out)}) shall be at least greater or equal "
-                    f"to what's expected by the filter ({len(self.outputs)})"
+                raise self._output_error(
+                    f"returned {len(out)} value(s) but the pipeline unpacks {len(self.outputs)}",
+                    self._count_fix(len(out)),
+                )
+            if strict and expected and len(out) > expected:
+                raise self._output_error(
+                    f"returned {len(out)} values but the pipeline assigns {expected} name(s)",
+                    self._count_fix(len(out)),
                 )
             return out  # type: ignore
 
         else:
             logging.debug(f"need to return a tuple when you have a single element out {type(out)}")
             if self.outputs is not None and len(self.outputs) != 1:
-                raise ValueError(f"returning a single element but expected {len(self.outputs)} outputs!")
+                raise self._output_error(
+                    f"returned a single {type(out).__name__} but the pipeline unpacks {len(self.outputs)} values",
+                    self._count_fix(1),
+                )
             return (out,)
+
+    def _count_fix(self, returned: int) -> str:
+        names = ", ".join(f"out{idx}" for idx in range(returned)) if returned > 0 else "..."
+        inputs = ", ".join(str(name) for name in (self.inputs or []))
+        return (
+            f"unpack exactly what the filter returns (`{names} = {self.name}({inputs})`) or change its `return`; "
+            "to keep a tuple/list as one value, return it wrapped: `return (values,)`"
+        )
+
+    def _output_error(self, problem: str, fix: str) -> "FilterOutputError":
+        message = f"filter '{self.name}' {problem}"
+        location = getattr(self, "call_location", None)
+        if location:
+            where = (
+                f"pipeline '{location.get('pipeline_name')}', {location.get('filename')}, line {location.get('lineno')}"
+            )
+            message += f"\n    at {where}"
+            if location.get("source_line"):
+                message += f": {location['source_line'].strip()}"
+        message += f"\n    Fix: {fix}"
+        return FilterOutputError(message)
 
     def __repr__(self) -> str:
         descr = f"{self.name}: "
