@@ -131,11 +131,9 @@ class HeadlessPipeline(PipelineCore):
         # Update control values to match the new parameters
         if hasattr(self, "controls"):
             for ctrl in self.controls:
-                if ctrl.filter_to_connect is not None:
-                    filter_name = ctrl.filter_to_connect.name
-                    param_name = ctrl.parameter_name_to_connect
-                    if filter_name in new_parameters and param_name in new_parameters[filter_name]:
-                        ctrl.value = new_parameters[filter_name][param_name]
+                for filt, param_name in ctrl.targets:
+                    if filt.name in new_parameters and param_name in new_parameters[filt.name]:
+                        ctrl.value = new_parameters[filt.name][param_name]
 
     @staticmethod
     def routing_indexes(inputs_names, all_variables):
@@ -172,6 +170,28 @@ class HeadlessPipeline(PipelineCore):
         filters_names = []
         bindings = []  # (filter, parameter name, control), connected once names are resolved
         seen_function_ids = set()
+        # The pipeline owns clones of the declared controls (two pipelines built
+        # from one filter never share values). One clone per share key and
+        # filter instance suffix: the same declared Control object used by
+        # several filters is one widget driving all of them.
+        pipeline_clones: dict = {}
+
+        def pipeline_control(declared: Control, suffix: str, filter_name: str, param_name: str) -> Control:
+            key = (declared.share_key, suffix)
+            clone = pipeline_clones.get(key)
+            if clone is None:
+                # first instance: starts from the declared control's value; repeats from the default
+                clone = declared._clone_unconnected(declared.name + suffix, keep_value=not suffix)
+                clone._declared_by = f"{filter_name}.{param_name}"  # type: ignore[attr-defined]
+                pipeline_clones[key] = clone
+            elif clone.value_default != declared.value_default:
+                raise ValueError(
+                    f"control '{clone.name}' is shared by {clone._declared_by} and {filter_name}.{param_name} "  # type: ignore[attr-defined]
+                    f"with different defaults ({clone.value_default!r} and {declared.value_default!r}): "
+                    "one widget has one default, give both parameters the same default"
+                )
+            return clone
+
         for filt_dict in graph["call_graph"]:
             # avoid duplicate filters names
             filt_name = filt_dict["function_name"]
@@ -205,25 +225,28 @@ class HeadlessPipeline(PipelineCore):
                     inplace=bool(getattr(filt_dict["function_object"], "__interactive_pipe_inplace__", False)),
                 )
                 func_kwargs = analyze_apply_fn_signature(filt_dict["function_object"])[1]
+                declared_controls = Control.get_controls(filt_dict["function_object"])
                 if id(filt_dict["function_object"]) not in seen_function_ids:
-                    registered_controls = Control.get_controls(filt_dict["function_object"])
+                    suffix = ""
                 else:
-                    # Repeated filter: the registered Control objects already
-                    # drive the first instance, so each repeat gets clones
-                    # suffixed like the filter name ("amount" -> "amount_1").
-                    # Key/timer-bound controls are not cloned - their key
-                    # bindings would collide - so repeats run those with
-                    # default values.
-                    instance_suffix = f"_{filters_count[filt_dict['function_name']]}"
-                    registered_controls = {
-                        param_name: ctrl._clone_unconnected(ctrl.name + instance_suffix)
-                        for param_name, ctrl in Control.get_controls(filt_dict["function_object"]).items()
+                    # Repeated filter: each repeat gets its own clones, suffixed
+                    # like the filter name ("amount" -> "amount_1"). Key/timer-bound
+                    # controls are not cloned - their key bindings would collide -
+                    # so repeats run those with default values.
+                    suffix = f"_{filters_count[filt_dict['function_name']]}"
+                    declared_controls = {
+                        param_name: ctrl
+                        for param_name, ctrl in declared_controls.items()
                         if not isinstance(ctrl, (KeyboardControl, TimeControl))
                     }
+                registered_controls = {
+                    param_name: pipeline_control(ctrl, suffix, filt_name, param_name)
+                    for param_name, ctrl in declared_controls.items()
+                }
                 params_to_analyze = {**func_kwargs, **registered_controls}
             # Literal keyword arguments in the pipeline body (`amplify(img, gain=2.5)`)
             # set this instance's value; a bound control gets a per-instance clone
-            # with that default so the shared registered control is never mutated.
+            # with that default so the other instances keep theirs.
             literal_kwargs = filt_dict.get("kwargs") or {}
             for param_name, literal_value in literal_kwargs.items():
                 bound_control = params_to_analyze.get(param_name)
@@ -254,10 +277,15 @@ class HeadlessPipeline(PipelineCore):
 
         bindings = cls._disambiguate_control_names(bindings)
         control_list = []
+        connected = set()
         for filt, param_name, ctrl in bindings:
-            ctrl.connect_filter(filt, param_name)
+            if id(ctrl) in connected:
+                ctrl._add_target(filt, param_name)  # one control shared by several filters
+            else:
+                ctrl.connect_filter(filt, param_name)
+                connected.add(id(ctrl))
+                control_list.append(ctrl)
             filt.values = {param_name: ctrl.value_default}
-            control_list.append(ctrl)
 
         # GUI widgets are keyed by control name: distinct controls sharing a
         # name within one pipeline would silently drive the wrong filter.
@@ -265,10 +293,13 @@ class HeadlessPipeline(PipelineCore):
         for ctrl in control_list:
             previous = controls_by_name.get(ctrl.name)
             if previous is not None and previous is not ctrl:
+                where = ", ".join(f"{f.name}.{p}" for f, p in previous.targets + ctrl.targets)
                 raise ValueError(
-                    f"Duplicate control name '{ctrl.name}' in pipeline '{pipe.__name__}': "
-                    "control names must be unique within a pipeline. "
-                    "Pass name=... to one of the controls to disambiguate."
+                    f"Duplicate control name '{ctrl.name}' in pipeline '{pipe.__name__}' ({where}): "
+                    "two different controls cannot have the same name. "
+                    "To drive several filters with one widget, declare the control once and pass the same object "
+                    f"to each filter (band = Control(...); @interactive(band=band) on both); "
+                    "otherwise pass a distinct name=... to one of them."
                 )
             controls_by_name[ctrl.name] = ctrl
 
@@ -311,10 +342,13 @@ class HeadlessPipeline(PipelineCore):
         suffixes. Controls named explicitly (``name=...``) are never renamed;
         if they still collide, the caller raises.
 
-        Renamed controls are per-pipeline clones: the registered control
-        shared by every pipeline using the filter is never mutated, and
-        building the same pipeline twice gives the same names.
+        A control shared by several filters (the same declared object) is
+        never renamed. Renamed controls are clones: the declared control is
+        never mutated, and building the same pipeline twice gives the same names.
         """
+        uses: dict = {}
+        for _filt, _param, ctrl in bindings:
+            uses[id(ctrl)] = uses.get(id(ctrl), 0) + 1
         by_name: dict = {}
         for binding in bindings:
             ctrl = binding[2]
@@ -326,13 +360,14 @@ class HeadlessPipeline(PipelineCore):
             if len(group) < 2:
                 continue
             for _filt, param_name, ctrl in group:
-                if ctrl._auto_named:
+                # a control shared by several filters keeps its name (it is one widget)
+                if ctrl._auto_named and uses[id(ctrl)] == 1:
                     colliding_params.add(param_name)
         if not colliding_params:
             return bindings
         renamed = []
         for filt, param_name, ctrl in bindings:
-            if ctrl._auto_named and param_name in colliding_params:
+            if ctrl._auto_named and uses[id(ctrl)] == 1 and param_name in colliding_params:
                 ctrl = ctrl._clone_unconnected(f"{filt.name}.{param_name}")
             renamed.append((filt, param_name, ctrl))
         return renamed
@@ -380,10 +415,8 @@ class HeadlessPipeline(PipelineCore):
         # Merge control values into existing parameters instead of replacing
         current_params = self.parameters  # Get current parameters
         for ctrl in self.controls:
-            if ctrl.filter_to_connect is None or ctrl.parameter_name_to_connect is None:
-                continue
-            logging.debug(f"{ctrl.filter_to_connect.name}, {ctrl.parameter_name_to_connect}, {ctrl.value}")
-            current_params.setdefault(ctrl.filter_to_connect.name, {})[ctrl.parameter_name_to_connect] = ctrl.value
+            for filt, param_name in ctrl.targets:
+                current_params.setdefault(filt.name, {})[param_name] = ctrl.value
         # Assign once, after every control has been merged, and to the filters only:
         # the HeadlessPipeline setter also writes the values back into the controls,
         # which would overwrite a control changed meanwhile (GUI thread while a

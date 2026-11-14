@@ -354,19 +354,62 @@ class Control:
         if self.update_param_func is not None:
             self.update_param_func(self.value)
 
-    def _clone_unconnected(self, name: str) -> "Control":
-        """Shallow clone for a repeated filter instance: same value spec,
-        panel and widget type, but a fresh name, the default value and no
-        filter connection (the pipeline connects it to the repeat)."""
+    def _clone_unconnected(self, name: str, keep_value: bool = False) -> "Control":
+        """Shallow clone for one pipeline (or one repeated filter instance): same
+        value spec, panel and widget type, but a fresh name, the default value
+        (unless ``keep_value``: a pipeline starts from the declared control's
+        current value) and no filter connection (the pipeline connects it).
+
+        The clone is not added to its panel's ``_controls``: a GUI lists the
+        controls of a panel among its own pipeline's controls
+        (``Panel.controls_among``), so clones made by other pipelines never
+        show up there (and are not kept alive by the panel)."""
         clone = copy(self)
         clone.name = name
         clone.filter_to_connect = None
         clone.parameter_name_to_connect = None
+        clone._extra_targets = []
         clone.update_param_func = None
-        clone.reset()
-        if clone.panel is not None:
-            clone.panel._register_control(clone)
+        clone._origin = self.origin
+        if not keep_value:
+            clone.reset()
         return clone
+
+    @property
+    def origin(self) -> "Control":
+        """The declared control this one was cloned from (itself if it is a declaration)."""
+        return self.__dict__.get("_origin") or self
+
+    @property
+    def share_key(self) -> int:
+        """Controls with the same key are one widget within a pipeline.
+
+        The declared object itself: the same ``Control`` passed to two
+        ``@interactive`` decorators is shared. Per-function clones of an
+        explicitly named annotation control carry the key of the annotation
+        object (see ``helper/annotation_controls.py``).
+        """
+        key = self.__dict__.get("_share_key")
+        return key if key is not None else id(self)
+
+    @property
+    def targets(self) -> List[Tuple[FilterCore, str]]:
+        """``(filter, parameter)`` pairs this control drives in its pipeline.
+
+        One pair for a control declared in one filter; several when the same
+        control object is declared by several filters of the pipeline
+        (``band = RangeControl(...)``; ``@interactive(band=band)`` twice).
+        """
+        if self.filter_to_connect is None or self.parameter_name_to_connect is None:
+            return []
+        return [(self.filter_to_connect, self.parameter_name_to_connect), *self.__dict__.get("_extra_targets", [])]
+
+    def _add_target(self, filt: FilterCore, parameter_name: str) -> None:
+        """Drive one more filter parameter (a control shared by several filters)."""
+        if self.filter_to_connect is None:
+            self.connect_filter(filt, parameter_name)
+            return
+        self.__dict__.setdefault("_extra_targets", []).append((filt, parameter_name))
 
     def _checked_default(self, value):
         """Validate a new default value for this control (no clamping: out of range raises)."""
@@ -414,13 +457,16 @@ class Control:
         self.update_param_func = update_param_func
 
     def connect_filter(self, filt: FilterCore, parameter_name):
-        def update_param_func(val):
-            logging.debug(f"update filter {filt.name} - param {parameter_name} - value {val}")
-            filt.values = {parameter_name: val}
-
-        self.update_param_func = update_param_func
+        """Drive ``parameter_name`` of ``filt`` (replaces any previous target)."""
+        self.update_param_func = self._update_targets
         self.parameter_name_to_connect = parameter_name
         self.filter_to_connect = filt
+        self._extra_targets = []
+
+    def _update_targets(self, val) -> None:
+        for filt, parameter_name in self.targets:
+            logging.debug(f"update filter {filt.name} - param {parameter_name} - value {val}")
+            filt.values = {parameter_name: val}
 
 
 class MappedChoiceControl(Control):
