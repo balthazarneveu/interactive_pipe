@@ -60,6 +60,23 @@ def _as_image_array(array: np.ndarray) -> Optional[np.ndarray]:
     return None
 
 
+def _release_pyplot_figures(values: Any) -> None:
+    """Close in pyplot the figures filters made with ``plt.figure()`` / ``plt.subplots()``.
+
+    pyplot keeps every figure until it is closed: a filter written with pyplot
+    would otherwise leave one open figure per run (and ``plt.show()`` in the
+    user's script would pop them all up). The figures stay usable: they are
+    displayed, saved and returned as before.
+    """
+    for value in values:
+        if isinstance(value, (list, tuple)):
+            _release_pyplot_figures(value)
+            continue
+        figure = figure_of(value) if type(value).__module__.startswith("matplotlib") else None
+        if figure is not None:
+            release_pyplot_figure(figure)
+
+
 def _save_output(result: Any, path: Path) -> Optional[Path]:
     """Write one pipeline output in a format matching its type; None if the type is not supported."""
     if isinstance(result, Image):
@@ -467,6 +484,7 @@ class HeadlessPipeline(PipelineCore):
     def _run_full(self) -> dict:
         self.update_parameters_from_controls()
         result_full = super().run()
+        _release_pyplot_figures(result_full.values())
         self._last_result_full = result_full
         return result_full
 

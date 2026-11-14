@@ -703,7 +703,11 @@ After: return channels last (`np.moveaxis(chw, 0, -1)`).
 A filter returning a figure made with `pyplot` sees it closed after it is
 rasterised (no leak while a slider moves). Keep no reference to it between
 runs, or build figures with `matplotlib.figure.Figure()`, which needs no
-closing:
+closing. Headless runs (`pipe(img)`, `my_pipeline.headless(img)`) close them
+too: a returned figure can still be saved (`fig.savefig(...)`), but a later
+`plt.show()` no longer shows it; a direct call of the filter
+(`histogram(img)`) is plain Python and leaves it open.
+
 
 ```python
 from matplotlib.figure import Figure
