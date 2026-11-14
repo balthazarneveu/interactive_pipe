@@ -21,6 +21,9 @@ SCRIPTS = (
     sorted((ROOT / "demo").glob("*.py"))
     + sorted((ROOT / "samples").glob("*.py"))
     + [ROOT / "samples" / "interact_sample" / "interact_sample.py"]  # @interact: one-filter GUI
+    # ports of plain matplotlib scripts; their originals (demo/porting/before_*.py) have no
+    # pipeline and call plt.show(): not demos, run by test_porting_originals_run below
+    + sorted((ROOT / "demo" / "porting").glob("after_*.py"))
 )
 
 #: script name -> reason: runs fine (exit code 0) but has no GUI pipeline to snapshot
@@ -69,6 +72,21 @@ def test_every_listed_script_exists():
     names = {script.name for script in SCRIPTS}
     assert set(NO_GUI_PIPELINE) <= names and set(NOT_RUN) <= names and set(UNIFORM_BY_DESIGN) <= names
     assert len(SCRIPTS) >= 21
+
+
+@pytest.mark.parametrize("script", sorted((ROOT / "demo" / "porting").glob("before_*.py")), ids=lambda p: p.name)
+def test_porting_originals_run(script, tmp_path, monkeypatch):
+    """The plain scripts the ports start from still run (Agg: plt.show() opens nothing)."""
+    import runpy
+
+    import matplotlib.pyplot as plt
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(plt, "show", lambda *args, **kwargs: None)
+    try:
+        runpy.run_path(str(script), run_name="__main__")
+    finally:
+        plt.close("all")
 
 
 @pytest.mark.parametrize("script", SCRIPTS, ids=[f"{script.parent.name}/{script.name}" for script in SCRIPTS])
