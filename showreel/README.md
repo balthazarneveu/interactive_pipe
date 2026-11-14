@@ -37,6 +37,39 @@ The grader only tells whether a demo works; after the first skill revision every
 
 `11_attention` and `03_jpeg` were held out of the first two skill revisions and attempted for the first time in round 3; both passed the grader on the first try.
 
+## Evaluation results (November 2026)
+
+Sonnet, one attempt per prompt and per round, skill as only documentation. Judged scores are the sum of five 1-5 axes (lesson, completeness, idiom, readability, polish), so 25 is the maximum.
+
+| Round | Skill | Passes the grader | Judged total (of 300) | Mean per axis |
+|---|---|---|---|---|
+| 1 (3 prompts) | 0.9.4 skill | 3 / 3, with a hardcoded backend, no cache and one hand-rolled cache | not judged | |
+| 2-3 (12 prompts) | v2-v3: API facts | 12 / 12 | 205 | 3.4 |
+| 4 | v4: lesson design rules | 12 / 12 | 224 | 3.7 |
+| 5 | v6: more quality rules | 11 / 12 | 224 | 3.7 |
+
+| Prompt | Rounds 2-3 | Round 4 | Round 5 |
+|---|---|---|---|
+| 01 aliasing | 20 | 22 | 21 |
+| 02 camera_isp | 17 | 19 | 17 |
+| 03 jpeg | 17 | 19 | 21 |
+| 04 integrator_stability | 16 | 20 | 19 |
+| 05 camera_rotation | 18 | 19 | 20 |
+| 06 gyro_stabilization | 19 | 19 | 19 |
+| 07 volume_rendering | 15 | 17 | 18 |
+| 08 fourier_features | 14 | 15 | 14 |
+| 09 mlp_decision_boundary | 17 | 17 | 18 |
+| 10 signal_propagation | 17 | 19 | 18 |
+| 11 attention | 17 | 20 | 20 |
+| 12 diffusion | 18 | 18 | 19 |
+
+What this says, with the caveat that each cell is a single run scored by a single judge, so a point or two is noise:
+
+- **Stating API facts fixed correctness.** Before, agents hardcoded `gui="qt"`, did not know `cache=`, `Curve` or how to share a slider, and one wrote its own cache. Afterwards every attempt ran, used the cache and the default backend.
+- **Lesson design rules gave the one measurable quality gain** (3.4 to 3.7): show how to do it wrong, sweep a trade-off into a curve with the current setting marked, pick content the effect can bite on.
+- **More rules after that did not help** (round 5 equals round 4). What is left is specific to each subject (a missing bias term, a loss that mixes forward and backward effects, a title that does not match its frame) or is already in the skill and was not applied. The references score higher because their authors checked the maths and looked at the window, not because they knew more API.
+- **The window has to be looked at.** Every reference passed the grader while its plots were 100 px high with their titles cut off in the Qt window. `tools/screenshot.py` exists for that reason.
+
 ## Running
 
 ```bash
