@@ -276,7 +276,8 @@ def apply_display_style(content: Any, style: Optional[dict]) -> Any:
         invalid |= mask
     vmin, vmax = heatmap_range(data, ~invalid, style)
     span = vmax - vmin
-    normalized = (data - vmin) / span if span != 0 else np.zeros_like(data)
+    # a constant map sits in the middle of the scale, where the colorbar puts its only label
+    normalized = (data - vmin) / span if span != 0 else np.full_like(data, 0.5)
     normalized = np.clip(normalized, 0.0, 1.0)
     has_invalid = bool(invalid.any())
     if has_invalid:
@@ -390,7 +391,7 @@ def _colorbar_strip(colormap: Any, vmin: float, vmax: float, height: int, unit: 
     labels = _colorbar_labels(vmin, vmax, unit)
     probe = ImageDraw.Draw(PILImage.new("RGB", (1, 1)))
     text_w = max((probe.textbbox((0, 0), text, font=font)[2] for _, text, _ in labels), default=0)
-    label_x = gap + bar_w + tick_len + 2
+    label_x = gap + bar_w + tick_len + max(3, font_px // 3)  # clear of the tick: '-0.5' must not read '--0.5'
     width = int(label_x + text_w + gap)
 
     strip = PILImage.new("RGB", (width, height), (255, 255, 255))
