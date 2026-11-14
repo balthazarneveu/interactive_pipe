@@ -1,3 +1,4 @@
+import importlib
 import logging
 import sys
 import threading
@@ -199,6 +200,44 @@ class _CellPointerHandler(PointerHandler):
         changed = self._gesture().release(targets, fraction, screen)
         if changed is not None:
             self.window._pointer_changed(changed)
+
+
+def _sip_module():
+    """The sip module of the PyQt binding in use; None for PySide (no ownership API used)."""
+    package = QApplication.__module__.split(".")[0]
+    if not package.startswith("PyQt"):
+        return None
+    try:
+        return importlib.import_module(f"{package}.sip")
+    except ImportError:
+        return None
+
+
+def defer_deletion(widget) -> bool:
+    """Hand a garbage-collected top-level widget to Qt and delete it from the event loop.
+
+    A window the program dropped without closing it stays on screen, owned by
+    its Python wrapper in a reference cycle (gui <-> window), so the cyclic
+    garbage collector deletes it whenever it happens to run: possibly inside
+    one of the window's own paint events (matplotlib canvases and image views
+    paint in Python, which allocates), which then go on painting a deleted
+    widget and crash the process (``QPaintDevice: Cannot destroy paint device
+    that is being painted``, ``Fatal Python error: Segmentation fault``).
+    Called from ``__del__``: ownership goes to C++ (sip keeps the wrapper alive
+    until then) and ``deleteLater`` deletes the widget outside any event
+    handler. True when the deletion was deferred.
+    """
+    sip = _sip_module()
+    try:
+        if sip is None or sip.isdeleted(widget) or not sip.ispyowned(widget):
+            return False
+        if QApplication.instance() is None:
+            return False  # no event loop to delete it later: deleted now, as before
+        sip.transferto(widget, None)
+        widget.deleteLater()
+        return True
+    except Exception:  # broad on purpose: called by the garbage collector, never raise there
+        return False
 
 
 def _format_pixel_value(value) -> str:
@@ -1367,6 +1406,12 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             self.request_refresh()
         else:
             self.refresh()
+
+    def __del__(self):
+        # garbage collected while possibly still shown: never delete it mid-paint (see defer_deletion)
+        for detached_window in getattr(self, "detached_windows", []):
+            defer_deletion(detached_window)
+        defer_deletion(self)
 
     def closeEvent(self, event):
         """Handle main window close event - close all detached windows."""
