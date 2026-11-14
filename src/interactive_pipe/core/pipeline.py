@@ -1,3 +1,4 @@
+import difflib
 import logging
 from typing import Any, Dict, List, Optional, Union
 
@@ -209,10 +210,30 @@ class PipelineCore:
         `param2_2` will stay untouched
         """
         available_filters_names = [filt.name for filt in self.filters]
-        for filter_name in new_parameters.keys():
+        # validate everything first: a rejected update must leave the pipeline untouched
+        for filter_name, filter_parameters in new_parameters.items():
             if filter_name not in available_filters_names:
-                raise ValueError(f"filter {filter_name} does not exist {available_filters_names}")
-            self.filters[available_filters_names.index(filter_name)].values = new_parameters[filter_name]
+                close = difflib.get_close_matches(str(filter_name), available_filters_names, n=1)
+                hint = f" Did you mean '{close[0]}'?" if close else ""
+                raise ValueError(f"filter {filter_name} does not exist {available_filters_names}.{hint}")
+            if not isinstance(filter_parameters, dict):
+                raise TypeError(
+                    f"parameters of filter '{filter_name}' must be a dict {{parameter: value}}, "
+                    f"got {type(filter_parameters).__name__}"
+                )
+            known = getattr(self.filters[available_filters_names.index(filter_name)], "_kwargs_names", None)
+            if not isinstance(known, dict):
+                continue
+            for parameter_name in filter_parameters:
+                if parameter_name not in known:
+                    close = difflib.get_close_matches(str(parameter_name), list(known), n=1)
+                    hint = f" Did you mean '{close[0]}'?" if close else ""
+                    raise ValueError(
+                        f"filter '{filter_name}' has no parameter '{parameter_name}'.{hint} "
+                        f"Available parameters: {', '.join(known) or 'none'}"
+                    )
+        for filter_name, filter_parameters in new_parameters.items():
+            self.filters[available_filters_names.index(filter_name)].values = filter_parameters
 
     @property
     def inputs(self):
