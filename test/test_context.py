@@ -27,6 +27,25 @@ def test_layout_style_outside_pipeline_raises_error():
         layout.style("test", title="Test")
 
 
+def test_outside_filter_errors_name_the_call_and_show_the_fix():
+    with pytest.raises(RuntimeError) as info:
+        layout.style("heat", colormap="viridis")
+    message = str(info.value)
+    assert message.startswith("layout.style('heat', ...) called outside of filter execution")
+    assert "    @interactive()\n    def my_filter(img):\n        layout.style('heat', ...)\n" in message
+    with pytest.raises(RuntimeError) as info:
+        context["threshold"] = 0.5
+    message = str(info.value)
+    assert message.startswith("context['threshold'] = ... called outside of pipeline execution")
+    assert "        context['threshold'] = ...\n" in message
+    with pytest.raises(RuntimeError, match=r"^context.gain called outside"):
+        context.gain
+    with pytest.raises(RuntimeError, match=r"^events\['boost'\] called outside"):
+        events["boost"]
+    with pytest.raises(RuntimeError, match=r"^ctx = get_context\(\) called outside"):
+        get_context()
+
+
 def test_layout_grid_outside_pipeline_raises_error():
     """Test that layout.grid() raises error when called outside pipeline."""
     with pytest.raises(RuntimeError, match="outside of filter execution"):

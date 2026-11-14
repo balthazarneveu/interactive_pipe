@@ -34,19 +34,30 @@ _current_filter: ContextVar[Optional[str]] = ContextVar("_ip_current_filter", de
 # ============================================================================
 
 
-def _get_framework_state() -> FrameworkState:
+def _outside_message(operation: str, scope: str) -> str:
+    """Error for a framework call made outside a running filter: which call,
+    and the fix (the two lines that put it inside a filter)."""
+    return (
+        f"{operation} called outside of {scope} execution: it only works inside an @interactive filter "
+        "while a pipeline runs it. Move the call into a filter:\n\n"
+        "    @interactive()\n"
+        "    def my_filter(img):\n"
+        f"        {operation}\n"
+        "        return img\n"
+    )
+
+
+def _get_framework_state(operation: str = "This framework operation") -> FrameworkState:
     """Internal: Get the typed framework state.
+
+    ``operation``: the user call (``layout.style('out', ...)``), named in the error.
 
     Raises:
         RuntimeError: If called outside of filter execution context.
     """
     state = _framework_state.get()
     if state is None:
-        raise RuntimeError(
-            "Framework operation called outside of filter execution. "
-            "This function must be called from within a filter decorated with @interactive "
-            "and executed through an interactive pipeline."
-        )
+        raise RuntimeError(_outside_message(operation, "filter"))
     return state
 
 
@@ -151,7 +162,7 @@ class _LayoutProxy:
             RuntimeError: If called outside of filter execution context.
             ValueError: If ``colormap`` is not a known matplotlib colormap.
         """
-        state = _get_framework_state()
+        state = _get_framework_state(f"layout.style({name!r}, ...)")
 
         style = {}
         if title is not None:
@@ -204,7 +215,7 @@ class _LayoutProxy:
         Raises:
             RuntimeError: If called outside of filter execution context.
         """
-        state = _get_framework_state()
+        state = _get_framework_state("layout.grid([...])")
         pipeline = state.pipeline
         if pipeline is not None:
             # Convert flat list to nested list (single row)
@@ -257,7 +268,7 @@ class _AudioProxy:
         Raises:
             RuntimeError: If called outside of filter execution context.
         """
-        state = _get_framework_state()
+        state = _get_framework_state("audio.set(...)")
         # AudioBindings defaults to no-ops, so this silently does nothing
         # outside a GUI (same behavior as before)
         state.audio.set_audio(audio_path)
@@ -273,7 +284,7 @@ class _AudioProxy:
         Raises:
             RuntimeError: If called outside of filter execution context.
         """
-        state = _get_framework_state()
+        state = _get_framework_state("audio.play()")
         state.audio.play()
 
     def pause(self) -> None:
@@ -287,7 +298,7 @@ class _AudioProxy:
         Raises:
             RuntimeError: If called outside of filter execution context.
         """
-        state = _get_framework_state()
+        state = _get_framework_state("audio.pause()")
         state.audio.pause()
 
     def stop(self) -> None:
@@ -301,7 +312,7 @@ class _AudioProxy:
         Raises:
             RuntimeError: If called outside of filter execution context.
         """
-        state = _get_framework_state()
+        state = _get_framework_state("audio.stop()")
         state.audio.stop()
 
 
@@ -346,7 +357,7 @@ class _EventsProxy:
         Raises:
             RuntimeError: If called outside of filter execution context.
         """
-        state = _get_framework_state()
+        state = _get_framework_state(f"events[{name!r}]")
         self._record_read(state, name)
         return state.events[name]
 
@@ -356,19 +367,19 @@ class _EventsProxy:
         Raises:
             RuntimeError: If called outside of filter execution context.
         """
-        state = _get_framework_state()
+        state = _get_framework_state(f"events.get({name!r})")
         self._record_read(state, name)
         return state.events.get(name, default)
 
     def __contains__(self, name: str) -> bool:
         """Check whether an event name is bound."""
-        state = _get_framework_state()
+        state = _get_framework_state(f"{name!r} in events")
         self._record_read(state, name)
         return name in state.events
 
     def keys(self):
         """Names of all bound events (registers the filter as a reader of each)."""
-        state = _get_framework_state()
+        state = _get_framework_state("events.keys()")
         for name in state.events:
             self._record_read(state, name)
         return state.events.keys()
@@ -418,12 +429,14 @@ def get_context() -> Dict[str, Any]:
             return analysis_result
         ```
     """
+    return _require_context("ctx = get_context()")
+
+
+def _require_context(operation: str) -> Dict[str, Any]:
+    """The user context, or a RuntimeError naming `operation` and the fix."""
     ctx = _user_context.get()
     if ctx is None:
-        raise RuntimeError(
-            "get_context() called outside of pipeline execution. "
-            "This function must be called from within a filter executed through an interactive pipeline."
-        )
+        raise RuntimeError(_outside_message(operation, "pipeline"))
     return ctx
 
 
@@ -458,11 +471,11 @@ class _ContextProxy:
 
     def __getitem__(self, key: str) -> Any:
         """Get item from context using dict-style access."""
-        return get_context()[key]
+        return _require_context(f"context[{key!r}]")[key]
 
     def __setitem__(self, key: str, value: Any) -> None:
         """Set item in context using dict-style access."""
-        get_context()[key] = value
+        _require_context(f"context[{key!r}] = ...")[key] = value
 
     def __getattr__(self, name: str) -> Any:
         """Get item from context using attribute-style access."""
@@ -471,7 +484,7 @@ class _ContextProxy:
             # (copy, pickle, IPython completion...), never from user context keys
             raise AttributeError(name)
         try:
-            return get_context()[name]
+            return _require_context(f"context.{name}")[name]
         except KeyError:
             raise AttributeError(
                 f"Context has no attribute '{name}'. Available keys: {list(get_context().keys())}"
@@ -479,47 +492,47 @@ class _ContextProxy:
 
     def __setattr__(self, name: str, value: Any) -> None:
         """Set item in context using attribute-style access."""
-        get_context()[name] = value
+        _require_context(f"context.{name} = ...")[name] = value
 
     def __delitem__(self, key: str) -> None:
         """Delete item from context."""
-        del get_context()[key]
+        del _require_context(f"del context[{key!r}]")[key]
 
     def __contains__(self, key: str) -> bool:
         """Check if key exists in context."""
-        return key in get_context()
+        return key in _require_context(f"{key!r} in context")
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get item from context with default value."""
-        return get_context().get(key, default)
+        return _require_context(f"context.get({key!r})").get(key, default)
 
     def setdefault(self, key: str, default: Any = None) -> Any:
         """Set default value if key doesn't exist."""
-        return get_context().setdefault(key, default)
+        return _require_context(f"context.setdefault({key!r}, ...)").setdefault(key, default)
 
     def pop(self, key: str, *args) -> Any:
         """Pop item from context."""
-        return get_context().pop(key, *args)
+        return _require_context(f"context.pop({key!r})").pop(key, *args)
 
     def keys(self):
         """Get context keys."""
-        return get_context().keys()
+        return _require_context("context.keys()").keys()
 
     def values(self):
         """Get context values."""
-        return get_context().values()
+        return _require_context("context.values()").values()
 
     def items(self):
         """Get context items."""
-        return get_context().items()
+        return _require_context("context.items()").items()
 
     def update(self, *args, **kwargs) -> None:
         """Update context with dict or kwargs."""
-        get_context().update(*args, **kwargs)
+        _require_context("context.update(...)").update(*args, **kwargs)
 
     def clear(self) -> None:
         """Clear context."""
-        get_context().clear()
+        _require_context("context.clear()").clear()
 
     def __repr__(self) -> str:
         """String representation."""
