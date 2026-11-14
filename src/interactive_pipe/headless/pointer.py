@@ -241,14 +241,15 @@ class PointerAxisControl(Control):
 
     @property
     def value(self):
-        return float(self.parent.value[self.index])
+        coordinates: Any = self.parent.value
+        return float(coordinates[self.index])
 
     @value.setter
     def value(self, value=None) -> None:
         if not self._bound:
             return
         checked = self.value_default if value is None else self.check_value(value)
-        coordinates = list(self.parent.value)
+        coordinates = list(self.parent.value)  # type: ignore[arg-type] - a point / region value is a tuple
         coordinates[self.index] = checked
         if isinstance(self.parent, RegionControl):
             # dragging x0 past x1 pushes x1 along instead of swapping the sliders

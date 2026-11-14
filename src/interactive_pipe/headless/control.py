@@ -88,6 +88,12 @@ class Control:
 
     counter = 0
     _registry = {}  # controls of callables that cannot hold attributes (see register)
+    # set on some instances only (read with __dict__.get): the declared control a
+    # pipeline clone comes from, the key sharing one widget, the parameter an
+    # auto-named control was named after
+    _origin: "Control"
+    _share_key: Any
+    _named_after_parameter: str
     # Process-wide by design: same-named string groups share one Panel across filters
     _panel_cache = {}
 

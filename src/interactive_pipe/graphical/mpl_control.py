@@ -55,6 +55,8 @@ class SliderMatplotlibControl(BaseControl):
 
     def _create_log_slider(self):
         """Slider over the position in [0, 1] (evenly over decades), showing the real value."""
+        if self.ax_control is None:
+            raise ValueError("ax_control must be provided for SliderMatplotlibControl")
         slider = Slider(self.ax_control, self.name, 0.0, 1.0, valinit=self.ctrl.to_position(self.ctrl.value))
         slider.valtext.set_text(format_number(self.ctrl.value))
 

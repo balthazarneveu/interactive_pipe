@@ -900,9 +900,9 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         targets = getattr(self, "pointer_targets", None)
         for row, cells in enumerate(self.image_canvas or []):
             for col, cell in enumerate(cells):
-                view = None if cell is None else cell.get("image")
-                if not isinstance(view, ImageView):
+                if cell is None or not isinstance(cell.get("image"), ImageView):
                     continue
+                view = cell["image"]
                 size = self._pointer_data_size(view, row, col)
                 if targets is None or size is None or cell.get("kind") != "image":
                     view.set_overlay([])
