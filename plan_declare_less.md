@@ -178,6 +178,20 @@ else you hit while probing — spend real time probing, the list is a seed.
 
 ## Status
 
+**Summary (03:07 CET):** all four items done, plus a review pass, on
+`feature/declare-less` (`b08b787`..HEAD, nothing pushed, no PR, no other
+checkout touched). Final state: `1026 passed, 6 skipped` (baseline 867),
+ruff clean, pyright 8 errors (the pre-existing ones in `dpg_panels.py` /
+`qt_control.py`); new tests also pass on Python 3.9; all 17 demos and 3
+samples run unmodified under `INTERACTIVE_PIPE_SNAPSHOT`. Decisions that
+deviate from the plan: parameters without default stay inputs (the plan's
+"first choice when there is none" broke existing input parameters); bare
+`Literal`/`Enum` hints are opt-in; GUI backend crashes on odd arrays are
+documented for the scientific-outputs branch, not fixed (their files). Left for
+review: merge notes in item 2 (`output_check` must learn the new output types
+of the scientific-outputs branch), the shared-registry behaviour noted in
+item 1, mkdocs build not run (not installed).
+
 Agent run of 2026-11-14, started 02:02 CET (autonomous, nobody reachable
 before 11:30). Environment check: the shared interpreter imports
 `interactive_pipe` from this worktree's `src/`; baseline `867 passed, 6 skipped`
