@@ -27,7 +27,7 @@ from matplotlib.figure import Figure
 
 from interactive_pipe.data_objects.curves import Curve
 from interactive_pipe.data_objects.table import Table
-from interactive_pipe.graphical.display import content_title, display_kind, prepare_display
+from interactive_pipe.graphical.display import content_title, display_kind, prepare_display, producer_of
 
 # Natural cell sizes in inches (before the whole figure is scaled to fit MAX_WIDTH)
 CELL_HEIGHT = 3.2
@@ -53,6 +53,7 @@ class SnapshotCell:
     name: Any
     content: Any
     title: Optional[str]
+    raw: Any = None  # the output as the filter returned it (``content`` is converted for display)
 
 
 Grid = List[List[Optional[SnapshotCell]]]
@@ -110,8 +111,12 @@ def result_grid(pipeline: Any, result: Any) -> Grid:
                 continue
             label = name if name is not None else f"output {row_idx}, {col_idx}"
             # same display conversion as the GUI backends (heatmap colormap, ...)
-            shown = prepare_display(content, styles.get(label))
-            cells.append(SnapshotCell(name=label, content=shown, title=output_title(styles, label, content)))
+            shown = prepare_display(
+                content, styles.get(label), label, producer_of(getattr(pipeline, "filters", None), name)
+            )
+            cells.append(
+                SnapshotCell(name=label, content=shown, title=output_title(styles, label, content), raw=content)
+            )
         grid.append(cells)
     return grid
 

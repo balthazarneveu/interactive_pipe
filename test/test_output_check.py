@@ -23,6 +23,11 @@ from interactive_pipe.headless.pipeline import HeadlessPipeline
         np.linspace(0, 1, 5),
         np.eye(3, dtype=bool),
         np.full((4, 4), 1.3),  # mild saturation is the expected display
+        np.zeros((8, 8, 1)),  # shown as (8, 8) everywhere
+        np.zeros((8, 8, 4)),  # RGBA: composited on a checkerboard everywhere
+        np.zeros((4, 4), dtype=np.uint8),  # scaled by 1/255
+        np.zeros((4, 4), dtype=np.uint16),  # scaled by 1/65535
+        np.array([[0, 1]], dtype=np.int64),  # integers taken as values: 0/1 masks are fine
         Curve([np.linspace(0, 1, 4)]),
         Table({"a": [1, 2]}),
     ],
@@ -40,13 +45,11 @@ def test_displayable_values(value):
         (np.zeros((0, 0)), "unsupported", "empty array", "non-empty"),
         (np.zeros((2, 4, 4, 3)), "unsupported", "4D array", "batch[0]"),
         (np.zeros((3, 8, 8)), "unsupported", "channel-first", "np.moveaxis"),
-        (np.zeros((1, 8, 8)), "unsupported", "channel-first", "np.moveaxis"),
-        (np.zeros((8, 8, 1)), "gui", "single-channel", "img[..., 0]"),
-        (np.zeros((8, 8, 4)), "gui", "RGBA", "img[..., :3]"),
+        (np.zeros((1, 8, 8)), "unsupported", "channel-first", "img[0]"),
         (np.zeros((8, 8, 2)), "unsupported", "2-channel", "(H, W, 3)"),
-        (np.zeros((4, 4), dtype=complex), "unsupported", "complex128", "np.abs"),
-        (np.zeros((4, 4), dtype=np.uint8), "gui", "uint8 image", "img / 255.0"),
-        (np.zeros((4, 4), dtype=np.uint16), "gui", "uint16 image", "65535"),
+        (np.zeros((4, 4), dtype=complex), "unsupported", "complex array", "np.abs"),
+        (np.array([[1, "a"]], dtype=object), "unsupported", "not numbers", "astype"),
+        (np.full((4, 4), 200, dtype=np.int64), "misleading", "int64 image in [200, 200]", "img / 255.0"),
         (np.array([[np.nan, 0.5]]), "misleading", "NaN/inf", "np.nan_to_num"),
         (np.full((4, 4), 200.0), "misleading", "is clipped to [0, 1]", "normalize"),
     ],
@@ -64,22 +67,31 @@ def test_third_party_objects():
     problem = output_problem(pil.new("RGB", (4, 4)))
     assert problem is not None and "PIL.Image" in problem[1] and "np.asarray" in problem[2]
     import matplotlib.figure
+    import matplotlib.lines
 
-    problem = output_problem(matplotlib.figure.Figure().add_subplot())
-    assert problem is not None and "matplotlib" in problem[1]
+    assert output_problem(matplotlib.figure.Figure().add_subplot()) is None  # rasterised
+    problem = output_problem(matplotlib.lines.Line2D([0], [0]))
+    assert problem is not None and "matplotlib" in problem[1] and "Figure" in problem[2]
+
+
+def test_image_objects_are_checked_by_their_array():
+    from interactive_pipe import Image
+
+    assert output_problem(Image(np.zeros((4, 4)))) is None
+    assert output_problem(Image(np.full((4, 4), 300.0)))[0] == "misleading"  # type: ignore[index]
 
 
 def test_messages_name_the_output():
-    messages = output_problems([("ok", np.zeros((4, 4))), ("mask", np.zeros((8, 8, 1)))])
+    messages = output_problems([("ok", np.zeros((4, 4))), ("hot", np.full((8, 8), 255.0))])
     assert messages == [
-        "output 'mask' is drawn by snapshot but not by every GUI backend: single-channel array (8, 8, 1) "
-        "(the Qt and Dear PyGui backends raise on it). Fix: drop the channel axis: img[..., 0]."
+        "output 'hot' is displayed misleadingly: float image in [255, 255] is clipped to [0, 1]. Fix: normalize it "
+        "(e.g. (img - img.min()) / (img.max() - img.min())) or use layout.style(name, vmin=..., vmax=...) / a colormap."
     ]
 
 
 @interactive()
 def checked_source(img):
-    return (img * 255).astype(np.uint8), {"meta": 1}
+    return img * 255.0, {"meta": 1}
 
 
 def checked_pipeline(img):
@@ -92,7 +104,7 @@ def test_snapshot_logs_display_problems(tmp_path, caplog):
     with caplog.at_level(logging.WARNING):
         pipe.snapshot(tmp_path / "out.png", np.ones((4, 4)) * 0.5)
     text = caplog.text
-    assert "snapshot(): output 'raw' is drawn by snapshot but not by every GUI backend: uint8 image" in text
+    assert "snapshot(): output 'raw' is displayed misleadingly: float image in [128, 128]" in text
     assert "output 'meta' cannot be displayed: dict is not a displayable type" in text
     assert SUPPORTED_OUTPUTS in text
     assert (tmp_path / "out.png").exists()
@@ -114,7 +126,7 @@ def test_snapshot_of_good_outputs_is_quiet(tmp_path, caplog):
 
 @interactive(gain=(1.0, [0.0, 3.0]))
 def checked_gain(img, gain=1.0):
-    return np.repeat((img * gain)[..., None], 4, axis=-1)
+    return img * 255.0 * gain
 
 
 def checked_gain_pipeline(img):
@@ -126,7 +138,7 @@ def test_sweep_logs_each_problem_once(tmp_path, caplog):
     pipe = HeadlessPipeline.from_function(checked_gain_pipeline)
     with caplog.at_level(logging.WARNING):
         pipe.sweep(tmp_path / "sweep.png", np.ones((4, 4)) * 0.2, gain=[0.5, 1.0, 2.0])
-    assert caplog.text.count("output 'out' is drawn by snapshot but not by every GUI backend: RGBA array") == 1
+    assert caplog.text.count("output 'out' is displayed misleadingly") == 1
 
 
 def test_heatmap_style_silences_range_warnings():
