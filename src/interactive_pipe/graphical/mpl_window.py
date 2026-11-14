@@ -9,7 +9,14 @@ from matplotlib.figure import Figure
 from interactive_pipe.core.engine import FilterError
 from interactive_pipe.data_objects.curves import Curve
 from interactive_pipe.data_objects.table import Table
+from interactive_pipe.graphical.pointer_input import (
+    POINT_COLOR,
+    REGION_COLOR,
+    PointerTargets,
+    overlay_items,
+)
 from interactive_pipe.graphical.window import InteractivePipeWindow, display_kind, format_error_message
+from interactive_pipe.headless.pointer import pointer_controls
 
 
 class MatplotlibWindow(InteractivePipeWindow):
@@ -130,6 +137,123 @@ class MatplotlibWindow(InteractivePipeWindow):
         if self.need_redraw:
             plt.draw()
         self.need_redraw = False
+
+    # ------------------------------------------------------------------
+    # Point / region controls: target cells and overlay
+
+    def refresh_display(self, _out) -> None:
+        super().refresh_display(_out)
+        self.update_pointer_targets(_out)
+        self.draw_pointer_overlays()
+
+    def _cell_styles(self) -> dict:
+        styles = {}
+        for row, cells in enumerate(self.image_canvas or []):
+            for col, cell in enumerate(cells):
+                if cell is None:
+                    continue
+                try:
+                    styles[(row, col)] = self.get_current_style(row, col)
+                except (IndexError, KeyError, TypeError, RuntimeError):
+                    pass
+        return styles
+
+    def update_pointer_targets(self, raw_out) -> None:
+        """Which cell each point / region control is attached to, for this frame."""
+        controls = pointer_controls(getattr(self.pipeline, "controls", None))
+        if not controls or self.pipeline is None:
+            self.pointer_targets = None
+            return
+        grid = [list(raw_out)] if isinstance(raw_out, tuple) else raw_out
+        self.pointer_targets = PointerTargets(controls, self.pipeline.outputs, grid, self._cell_styles())
+
+    def _shown_shape(self, row: int, col: int):
+        cell = (self.image_canvas or [[]])[row][col]
+        artist = None if cell is None else cell.get("data")
+        if artist is None or not hasattr(artist, "get_array"):
+            return None
+        return np.shape(artist.get_array())
+
+    def cell_data_size(self, row: int, col: int):
+        targets = getattr(self, "pointer_targets", None)
+        if targets is None:
+            return None
+        return targets.data_size((row, col), self._shown_shape(row, col))
+
+    def draw_pointer_overlays(self) -> None:
+        """Marker / rectangle of each point / region control over its target image
+        (drawn by the window: the filter outputs are left untouched)."""
+        from matplotlib import patheffects
+        from matplotlib.patches import Rectangle
+
+        outline = [patheffects.withStroke(linewidth=2, foreground="black")]
+
+        targets = getattr(self, "pointer_targets", None)
+        for row, cells in enumerate(self.image_canvas or []):
+            for col, cell in enumerate(cells):
+                if cell is None:
+                    continue
+                for artist in cell.pop("pointer_artists", []):
+                    try:
+                        artist.remove()
+                    except (ValueError, NotImplementedError, AttributeError):
+                        pass  # already gone with an ax.clear()
+                if targets is None or cell.get("kind") != "image":
+                    continue
+                size = self.cell_data_size(row, col)
+                if size is None:
+                    continue
+                ax = cell["ax"]
+                artists = []
+                point_color = tuple(channel / 255.0 for channel in POINT_COLOR)
+                region_color = tuple(channel / 255.0 for channel in REGION_COLOR)
+                for kind, coords, label in overlay_items(targets, (row, col), size):
+                    if kind == "point":
+                        u, v = coords
+                        # imshow puts pixel centres on integers: displayed pixel u -> data x = u - 0.5
+                        (marker,) = ax.plot(
+                            [u - 0.5],
+                            [v - 0.5],
+                            marker="+",
+                            markersize=14,
+                            mew=2,
+                            color=point_color,
+                            scalex=False,
+                            scaley=False,
+                        )
+                        artists.append(marker)
+                        artists.append(
+                            ax.annotate(
+                                label,
+                                (u - 0.5, v - 0.5),
+                                xytext=(6, 6),
+                                textcoords="offset points",
+                                color=point_color,
+                                fontsize=8,
+                                path_effects=outline,
+                            )
+                        )
+                    else:
+                        u0, v0, u1, v1 = coords
+                        rect = Rectangle(
+                            (u0 - 0.5, v0 - 0.5), u1 - u0, v1 - v0, fill=False, edgecolor=region_color, linewidth=1.5
+                        )
+                        ax.add_patch(rect)
+                        artists.append(rect)
+                        artists.append(
+                            ax.annotate(
+                                label,
+                                (u0 - 0.5, v0 - 0.5),
+                                xytext=(2, 2),
+                                textcoords="offset points",
+                                color=region_color,
+                                fontsize=8,
+                                path_effects=outline,
+                            )
+                        )
+                cell["pointer_artists"] = artists
+                if artists:
+                    self.need_redraw = True
 
     def show_error(self, error: FilterError):
         """Draw a pipeline error in red in the failing filter's axes (or the first ones)."""

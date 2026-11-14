@@ -30,6 +30,9 @@ from interactive_pipe.headless.control import (
 )
 from interactive_pipe.headless.keyboard import KeyboardControl
 
+# Mouse input: a clicked point / a dragged region, as fractions of the image size
+from interactive_pipe.headless.pointer import PointControl, RegionControl, to_pixels
+
 # Panels
 from interactive_pipe.headless.panel import Panel
 from interactive_pipe.helper.filter_decorator import interact, interactive
@@ -73,6 +76,9 @@ __all__ = [
     "TextPrompt",
     "TimeControl",
     "KeyboardControl",
+    "PointControl",
+    "RegionControl",
+    "to_pixels",
     "Panel",
     "interact",
     "interactive",

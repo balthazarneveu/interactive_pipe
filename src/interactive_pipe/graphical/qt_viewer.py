@@ -26,6 +26,8 @@ from typing import Any, Callable, List, Optional, Tuple
 
 import numpy as np
 
+from interactive_pipe.graphical.pointer_input import POINT_COLOR as POINT_RGB
+from interactive_pipe.graphical.pointer_input import REGION_COLOR as REGION_RGB
 from interactive_pipe.graphical.qt_backend import PYQTVERSION, QLabel, QPixmap, QSize, Qt
 
 # Painting / geometry classes not re-exported by qt_backend: import them from
@@ -33,18 +35,18 @@ from interactive_pipe.graphical.qt_backend import PYQTVERSION, QLabel, QPixmap, 
 _BINDING = QLabel.__module__.split(".")[0]
 if _BINDING == "PyQt5":
     from PyQt5.QtCore import QPointF, QRectF  # type: ignore[no-redef]
-    from PyQt5.QtGui import QPainter  # type: ignore[no-redef]
+    from PyQt5.QtGui import QColor, QPainter, QPen  # type: ignore[no-redef]
     from PyQt5.QtWidgets import QSizePolicy  # type: ignore[no-redef]
 elif _BINDING == "PySide6":
     from PySide6.QtCore import QPointF, QRectF  # type: ignore[no-redef]
-    from PySide6.QtGui import QPainter  # type: ignore[no-redef]
+    from PySide6.QtGui import QColor, QPainter, QPen  # type: ignore[no-redef]
     from PySide6.QtWidgets import QSizePolicy  # type: ignore[no-redef]
 else:
     from PyQt6.QtCore import QPointF, QRectF
-    from PyQt6.QtGui import QPainter
+    from PyQt6.QtGui import QColor, QPainter, QPen
     from PyQt6.QtWidgets import QSizePolicy
 
-__all__ = ["ImageView", "ViewSync", "VIEW_MODES", "pixel_value"]
+__all__ = ["ImageView", "PointerHandler", "ViewSync", "VIEW_MODES", "pixel_value"]
 
 VIEW_MODES = ("fit", "1:1")
 ZOOM_STEP = 1.25
@@ -61,6 +63,28 @@ MAX_HINT = QSize(800, 600)
 MIN_HINT = QSize(320, 240)
 
 HoverCallback = Callable[[int, int, Any], None]
+# overlay item: ("point", (u, v), label) or ("region", (u0, v0, u1, v1), label), in image pixels
+OverlayItem = Tuple[str, Any, str]
+MARKER_HALF = 7  # screen pixels
+
+
+class PointerHandler:
+    """Mouse gestures an ImageView forwards (point / region controls).
+
+    Positions are continuous image pixel coordinates (``map_to_image``) plus
+    the widget position. ``press`` returns None when it does not want the
+    gesture, "point" (the view keeps panning while the mouse moves) or
+    "region" (no panning: the drag draws the region).
+    """
+
+    def press(self, u: float, v: float, screen: Tuple[float, float], shift: bool) -> Optional[str]:
+        return None
+
+    def move(self, u: float, v: float, screen: Tuple[float, float]) -> None:
+        pass
+
+    def release(self, u: float, v: float, screen: Tuple[float, float]) -> None:
+        pass
 
 
 def _clamp_center(center: float, drawn: float, room: float) -> float:
@@ -151,6 +175,9 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         # not pixel-aligned with `array` (heatmap with a colorbar), else None
         self.readout: Optional[Tuple[int, int, int]] = None
         self.hover_callback: Optional[HoverCallback] = None
+        self.pointer_handler: Optional[PointerHandler] = None
+        self.overlay: List[OverlayItem] = []
+        self._pointer_gesture: Optional[str] = None
         self._drag_origin = None
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -174,6 +201,12 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         self.readout = readout
         self.updateGeometry()
         self.update()
+
+    def set_overlay(self, items: List[OverlayItem]) -> None:
+        """Marks painted over the image (points / rectangles, image pixel coordinates)."""
+        if items != self.overlay:
+            self.overlay = list(items)
+            self.update()
 
     def setPixmap(self, pixmap: QPixmap) -> None:  # noqa: N802 - Qt API
         self.set_image(pixmap)
@@ -335,7 +368,33 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
             painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         x, y, w, h = self.image_rect()
         painter.drawPixmap(QRectF(x, y, w, h), self._pixmap, QRectF(self._pixmap.rect()))  # type: ignore[arg-type]
+        if self.overlay:
+            self._paint_overlay(painter, x, y, self.scale())
         painter.end()
+
+    def _paint_overlay(self, painter, x0: float, y0: float, s: float) -> None:
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        for kind, coords, label in self.overlay:
+            color = QColor(*(POINT_RGB if kind == "point" else REGION_RGB))
+            if kind == "point":
+                cx, cy = x0 + coords[0] * s, y0 + coords[1] * s
+                anchor = QPointF(cx + MARKER_HALF, cy - MARKER_HALF)
+                for pen_color, width in ((QColor(0, 0, 0), 4), (color, 2)):  # dark outline first
+                    painter.setPen(QPen(pen_color, width))
+                    painter.drawLine(QPointF(cx - MARKER_HALF, cy), QPointF(cx + MARKER_HALF, cy))
+                    painter.drawLine(QPointF(cx, cy - MARKER_HALF), QPointF(cx, cy + MARKER_HALF))
+            else:
+                u0, v0, u1, v1 = coords
+                rect = QRectF(x0 + u0 * s, y0 + v0 * s, (u1 - u0) * s, (v1 - v0) * s)
+                anchor = QPointF(rect.left() + 2, rect.top() - 3)
+                for pen_color, width in ((QColor(0, 0, 0), 3), (color, 1.5)):
+                    painter.setPen(QPen(pen_color, width))
+                    painter.drawRect(rect)
+            if label:
+                painter.setPen(QPen(QColor(0, 0, 0), 1))
+                painter.drawText(anchor + QPointF(1, 1), label)
+                painter.setPen(QPen(color, 1))
+                painter.drawText(anchor, label)
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
         super().resizeEvent(event)
@@ -362,7 +421,13 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
 
     def mousePressEvent(self, event) -> None:  # noqa: N802 - Qt API
         if self.has_image() and event.button() == Qt.MouseButton.LeftButton:
-            self._drag_origin = self._event_pos(event)
+            pos = self._event_pos(event)
+            self._pointer_gesture = None
+            if self.pointer_handler is not None:
+                shift = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+                self._pointer_gesture = self.pointer_handler.press(*self.map_to_image(*pos), pos, shift)
+            # a region drag draws instead of panning; a click on a point target still pans if it moves
+            self._drag_origin = None if self._pointer_gesture == "region" else pos
             event.accept()
             return
         super().mousePressEvent(event)
@@ -375,6 +440,8 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         if self._drag_origin is not None:
             self.pan_by(pos[0] - self._drag_origin[0], pos[1] - self._drag_origin[1])
             self._drag_origin = pos
+        if self._pointer_gesture is not None and self.pointer_handler is not None:
+            self.pointer_handler.move(*self.map_to_image(*pos), pos)
         if self.hover_callback is not None:
             self.hover_callback(*self.pixel_at(*pos))
         event.accept()
@@ -382,6 +449,10 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802 - Qt API
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_origin = None
+            if self._pointer_gesture is not None and self.pointer_handler is not None:
+                self._pointer_gesture = None
+                pos = self._event_pos(event)
+                self.pointer_handler.release(*self.map_to_image(*pos), pos)
         super().mouseReleaseEvent(event)
 
     def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 - Qt API

@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, List, Optional, cast
 
 from interactive_pipe.headless.control import CircularControl, Control, RangeControl, range_pair
+from interactive_pipe.headless.pointer import PointerControl
 
 try:
     from interactive_pipe.graphical.dpg_backend import INSTALL_HINT, dpg
@@ -81,6 +82,8 @@ class ControlFactory:
         # single-choice dropdowns have nothing to show
         if control_type is str and control.value_range is not None and len(control.value_range) == 1:
             return None
+        if isinstance(control, PointerControl):
+            return None  # set with the mouse on its image (MainWindow.pointer_press)
         if isinstance(control, RangeControl):
             control_class = RangeSliderControl
         elif control_type is bool:
