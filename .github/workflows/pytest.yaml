@@ -5,6 +5,11 @@ on:
     branches: [master]
   pull_request:
 
+# No display on the runners: render headless (snapshots, demos, doc code blocks)
+env:
+  MPLBACKEND: Agg
+  QT_QPA_PLATFORM: offscreen
+
 jobs:
   build:
 
@@ -24,5 +29,32 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[pytest]"
       - name: Test with pytest
+        # GUI backends are not installed here: their smoke tests are skipped (see gui-backends)
         run: |
           pytest
+      - name: Command line entry point
+        run: |
+          interactive-pipe --version
+          interactive-pipe doctor
+          interactive-pipe skill --path
+
+  gui-backends:
+    # Every optional backend installed, so the Qt / Dear PyGui / notebook / gradio
+    # smoke tests run instead of being skipped (Qt on its offscreen platform)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: System libraries for the Qt offscreen platform
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libxkbcommon0 libfontconfig1
+      - name: Install interactive-pipe[full]
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[full]"
+      - name: Test with pytest
+        run: |
+          pytest -rs

@@ -3,7 +3,13 @@ import logging
 import os
 from typing import Any, Callable, Optional, Union
 
-from interactive_pipe.cli import resolve_gui, size_from_env, snapshot_path_from_env, snapshot_requested
+from interactive_pipe.cli import (
+    get_snapshot_hook,
+    resolve_gui,
+    size_from_env,
+    snapshot_path_from_env,
+    snapshot_requested,
+)
 from interactive_pipe.core.backend import Backend
 from interactive_pipe.core.context import REMOVED_CONTEXT_ALIASES
 from interactive_pipe.headless.pipeline import HeadlessPipeline
@@ -38,6 +44,13 @@ def _snapshot_launcher(
 
     @functools.wraps(pipeline_function)
     def inner(*args: Any, **kwargs: Any) -> Any:
+        hook = get_snapshot_hook()  # set by `interactive-pipe snapshot` / `describe`
+        if hook is not None:
+            return hook(
+                pipeline_function.__name__,
+                headless_pipeline,
+                lambda path: snapshot_instead_of_gui(headless_pipeline, path, *args, **kwargs),
+            )
         path = snapshot_path_from_env(pipeline_function.__name__)
         if path is None:  # unset after decoration
             raise RuntimeError("INTERACTIVE_PIPE_SNAPSHOT was unset after the pipeline was decorated")
@@ -59,8 +72,10 @@ def _gui_for_snapshot(
     pipeline_function: Callable[..., Any],
     gui_options: dict,
 ) -> Any:
-    """GUI object that is configured but never run (INTERACTIVE_PIPE_SNAPSHOT),
-    or None when it cannot be built here (backend not installed, no display...)."""
+    """GUI object that is configured but never run (INTERACTIVE_PIPE_SNAPSHOT).
+
+    When the backend cannot be built here (not installed, no display...), a
+    windowless stand-in with the same configuration API; None if even that fails."""
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")  # the window is never shown
     try:
         gui_class = get_interactive_pipeline_class(selected_gui)
@@ -72,8 +87,40 @@ def _gui_for_snapshot(
         )
     except Exception as exc:
         # Broad on purpose: the snapshot only needs the headless pipeline
-        logging.warning(f"INTERACTIVE_PIPE_SNAPSHOT: GUI object not built ({exc}), using the headless pipeline")
+        reason = str(exc)
+    try:
+        # Same API as a backend (bind_key_to_context...), so the script still runs
+        windowless = _windowless_gui_class()(
+            pipeline=headless_pipeline, name=name if name is not None else pipeline_function.__name__
+        )
+    except Exception as exc:  # noqa: BLE001 - last resort: the headless pipeline
+        logging.warning(
+            f"INTERACTIVE_PIPE_SNAPSHOT: GUI object not built ({reason}; {exc}), using the headless pipeline"
+        )
         return None
+    logging.warning(
+        f"INTERACTIVE_PIPE_SNAPSHOT: {selected_gui!r} GUI not built ({reason}), using a windowless stand-in"
+    )
+    return windowless
+
+
+def _windowless_gui_class() -> type:
+    """``InteractivePipeGUI`` of no backend: scripts can configure it, it never runs.
+
+    Stands in for the GUI object under INTERACTIVE_PIPE_SNAPSHOT when the
+    requested backend cannot be built (not installed, no display), so a script
+    calling ``demo.pipeline.bind_key_to_context(...)`` behaves the same with or
+    without the backend."""
+    from interactive_pipe.graphical.gui import InteractivePipeGUI
+
+    class WindowlessGUI(InteractivePipeGUI):
+        def init_app(self, **kwargs: Any) -> None:
+            pass
+
+        def run(self) -> list:
+            raise RuntimeError("this GUI object has no window: it only stands in under INTERACTIVE_PIPE_SNAPSHOT")
+
+    return WindowlessGUI
 
 
 def interactive_pipeline(

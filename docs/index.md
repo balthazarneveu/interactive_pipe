@@ -67,6 +67,12 @@ Head to the [Quickstart](getting-started/quickstart.md) for the full walkthrough
 - [Panel system](guide/panels.md): group controls into nested, collapsible, detachable panels.
 - MIT license.
 
+## Without a display, and with coding agents
+
+- `my_pipeline.snapshot("out.png", img, coeff=1.5)` renders what the window would show to a PNG, and `my_pipeline.sweep(...)` compares parameter values side by side — over SSH, in CI, or for an agent that cannot see windows ([Snapshots](guide/snapshots.md)).
+- `interactive-pipe snapshot my_script.py` does the same for an unmodified GUI script; `interactive-pipe describe my_script.py` lists its controls.
+- `interactive-pipe skill --install` gives Claude Code (or, with `interactive-pipe skill`, any agent) instructions for building and checking pipelines; `interactive-pipe doctor` explains why no window shows up ([Command line & agents](guide/command-line.md)).
+
 ## Agent-friendly docs
 
 Coding agents can fetch the whole documentation in one shot:
