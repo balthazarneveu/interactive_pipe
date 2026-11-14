@@ -33,6 +33,7 @@ def generate_curve(frequency=2.0, amplitude=1.0) -> Curve:
 ```
 
 - `Curve(...)` accepts axis labels, `title`, `grid`, and `xlim`/`ylim` — fixing the limits avoids the axes jumping around while you move sliders.
+- `xscale=` / `yscale=`: `"linear"` (default), `"log"` or `"symlog"` — `Curve(losses, yscale="log")` for a training loss, on every backend and in snapshots.
 - Each entry can also be a `SingleCurve(x, y, style=..., label=..., linewidth=..., alpha=...)` for finer control, a bare numpy array (plotted against its indices), or a dict of `SingleCurve` kwargs.
 - Arrange curves next to images with [`layout.grid`](layout.md).
 

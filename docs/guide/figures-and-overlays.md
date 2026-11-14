@@ -140,6 +140,41 @@ heatmap_pipeline.snapshot("docs/images/figures_heatmap_colorbar.png")
 - The pipeline result stays the raw 2D array: `save()` writes the data,
   not the colours.
 
+### Heatmap axes: `extent`, `xlabel`, `ylabel`
+
+A heatmap has no axes by default. `extent=(x_left, x_right, y_bottom, y_top)`
+(the coordinates of the outer columns and rows, as in matplotlib's `imshow`)
+draws a frame, round ticks and the `xlabel` / `ylabel` around the map, into
+the displayed image like the colorbar: the same on every backend and in
+snapshots. Without `extent` the labels come with pixel-index axes; `extent`
+alone makes a 2D array a (gray) heatmap.
+
+```python
+@interactive()
+def spectrogram(seconds=2.0):
+    t = np.linspace(0, seconds, 200)
+    f = np.linspace(0, 3000, 80)[:, None]
+    power = -60 * np.abs(f / 3000 - 0.4 * (1 + np.sin(4 * t)) / 2)  # rows: frequency, bottom to top
+    layout.style("power", colormap="magma", colorbar="dB", extent=(0, seconds, 0, 3000))
+    layout.style("power", xlabel="time (s)", ylabel="frequency (Hz)")  # calls on one output add up
+    return power[::-1]  # row 0 is the top row: the highest frequency
+
+
+@interactive_pipeline(gui=None)
+def axes_pipeline():
+    power = spectrogram()
+    return power
+
+
+axes_pipeline.snapshot("docs/images/figures_heatmap_axes.png")
+```
+
+![heatmap with axes](../images/figures_heatmap_axes.png)
+
+The Qt pixel readout and point / region controls still map to the data
+pixels (the margins are skipped); the Qt status line also shows the
+`extent` coordinates of the pixel under the cursor (`x=1.2, y=1500 (120, 40)`).
+
 ## Drawing on images: `interactive_pipe.draw`
 
 Small pure functions (numpy + Pillow, no OpenCV) that return a new image with
