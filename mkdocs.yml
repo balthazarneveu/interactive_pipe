@@ -83,6 +83,7 @@ plugins:
         Meta:
           - faq.md
           - changelog.md
+          - upgrade-from-0.9.md
 
 nav:
   - Home: index.md
@@ -121,4 +122,5 @@ nav:
   - FAQ: faq.md
   - Roadmap: roadmap.md
   - Changelog: changelog.md
+  - Upgrading from 0.9: upgrade-from-0.9.md
   - Contributing: contributing.md
