@@ -201,6 +201,18 @@ fail or be silently skipped in CI. Do not add a publishing step.
 
 ## Status
 
+**Summary (03:10 CET):** all 6 items done, plus a review pass. Commits on
+`feature/agent-packaging` after `c515a6a`: skill rewrite `df426b5`, skill in
+the wheel `152d4de`, CLI `820bbfd`, demo test `c614709`, demo fixes `844f3e4`,
+docs `ead18ad` `5c95beb`, windowless GUI stand-in `44001de`, CI `8d7a38e`,
+review fixes `c042a95` `5a68af0` `9e29f4a`, and the commits of this file.
+Final state: `950 passed, 6 skipped` (shared venv), `761 passed, 47 skipped` in
+a CI-like Python 3.9 env with only the `[pytest]` dependencies and no display;
+ruff format / check clean; pyright 8 errors, the same as the base (all in
+`graphical/`); `mkdocs build --strict` clean. Nothing pushed, no PR, no other
+branch or checkout touched, nothing installed in the shared venv (throwaway
+venvs in the scratch folder only).
+
 Agent run of 2026-11-14, started 02:02 CET, autonomous (nobody reachable
 before 11:30). Environment check: the shared interpreter imports
 `interactive_pipe` from this worktree's `src/`; baseline `867 passed, 6 skipped`
@@ -411,3 +423,51 @@ reproduced before any change.
     ubuntu-24.04 but may need adjusting on the first run.
 - No publishing step added. The docs workflow already runs
   `mkdocs build --strict` with the `docs` extra (verified locally, item 5).
+
+### Review pass — done (`c042a95`, `5a68af0`, `9e29f4a`)
+
+An independent read-only review of the whole diff (separate agent, every
+finding reproduced by running code) found 9 defects, all fixed with tests:
+1. relative `-o` resolved after the script's own `os.chdir` → made absolute first;
+2. `@interact` scripts made `interactive-pipe snapshot` hang (invisible Qt event
+   loop): during a run, `filter_decorator.get_interactive_pipeline_class` is
+   swapped (at runtime, no edit of that file, which `feature/declare-less` owns)
+   for a GUI class whose `run` goes through the snapshot hook; restored after.
+   `samples/interact_sample/` is now in the demo test;
+3. `my_filter.interact()` bypassed the hook → it now uses it when installed
+   (`helper/filter_entry_points.py`, not owned by the other branches);
+4. the demo test's "not blank" check could not fail (the PNG's titles and
+   caption are never uniform) → checks the returned outputs instead
+   (`PipelineCall.results`), with a `UNIFORM_BY_DESIGN` list of 3 scripts;
+5. SIGINT / SIGTERM handlers (reset by the Qt backend) restored after a run;
+6. modules imported from the script's folder are dropped from `sys.modules`;
+7. `{name}/` followed a different rule than the environment variable;
+8. skill claimed the bare environment variable writes one PNG per call (it
+   overwrites `<pipeline>.png`) → corrected;
+9. skill error table quoted the `Control(...)` message for an out-of-range
+   default; the tuple form says something else (below) → corrected.
+
+### Left for review
+
+- **Library issues seen, not fixed (owned by the other branches):**
+  - snapshot renderer ignores `layout.style(colormap=...)` (heatmaps rendered
+    gray in PNGs) — `headless/snapshot.py`;
+  - `@interactive(gain=(5, [0, 3]))` (default outside the range) raises
+    `Cannot create a control from gain=(5, [0, 3]): min=5 max=[0, 3] - max
+    parameter should be numerical too`: the abbreviation parser reads the
+    default as a min — `helper/control_abbreviation.py`;
+  - the control registry is keyed by `module.qualname`, so two `__main__`
+    scripts run in one process share same-named filters' controls (the tests
+    isolate it; the CLI runs one script per process);
+  - `import interactive_pipe` imports `matplotlib.pyplot` (and cv2), so
+    `interactive-pipe --help` takes ~1-3 s — `data_objects/curves.py`.
+- Merge notes: the `.claude/skills/` copy must equal the packaged skill (test);
+  the placeholder headings "Controls from type hints" / "Figures and overlays"
+  in the skill are to be filled by the other branches; `run_script` swaps
+  `filter_decorator.get_interactive_pipeline_class` by name (if that import is
+  renamed, `@interact` scripts are no longer intercepted —
+  `test_interact_decorator_renders_instead_of_opening_a_window` would fail).
+- The new `gui-backends` CI job was not run on GitHub (apt package list may
+  need adjusting on the first run).
+- `docs/guide/snapshots.md`'s code block is not in the doc-block test (it
+  regenerates `docs/images/`).
