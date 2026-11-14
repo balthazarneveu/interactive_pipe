@@ -213,11 +213,12 @@ Decisions:
   shared by several filters must not share one Control); when the signature
   default differs from the Control's default, the signature default wins and is
   validated against the control (out of range raises).
-- Missing signature default: first choice for `Literal`/`Enum`, midpoint for a
-  range (like the `[min, max]` ultra-short form), `False` for a checkbox, full
-  span for a range slider. The wrapper's `__signature__` gets the filled
-  default, so the parameter is a control, not a pipeline input. If inputs
-  without default follow it, decoration raises with the fix.
+- ~~Missing signature default: first choice / midpoint~~ — **reversed after
+  the review** (see "Review pass"): a parameter without default stays a
+  pipeline input whatever its hint. The plan asked for "first choice when there
+  is none", but `def apply(img, mode: Mode)` fed by an upstream filter, or
+  `img: Annotated[np.ndarray, (480, 640, 3)]`, broke; the ground rule
+  (keep existing code working) wins.
 - int default for a float hint is coerced (numeric tower); a float default for
   an int hint, a bool for a number, a non-choice default, an out-of-range
   default, an empty range, a step <= 0 or larger than the range, label clashes
@@ -227,7 +228,9 @@ Decisions:
   locals of the frame applying the decorator (aliases defined inside `main()`
   resolve); if that fails, each hint is evaluated alone and unresolvable ones
   are skipped (warning when the text mentions `Annotated` / `Literal`).
-- Precedence: decorator argument > annotation > signature-default shorthand.
+- Precedence: decorator argument > declaration used as signature default
+  (`Control(...)`, tuple shorthand) > annotation (changed after the review:
+  `mode: Literal["a", "b"] = ("a", ["a", "b"])` raised).
 - Bare `@interactive` (no parentheses) now works (it returned a broken wrapper).
 - `filter_from_function` / `@interact` read annotations too.
 - Also in this commit (same wrapper rewrite, tested in
@@ -285,7 +288,7 @@ Seed list:
   `"graph"` modes; regression tests added, no change.
 - **Control declarations.** int default + float range (and reverse) gives a
   float slider, as documented: kept. Fixed: step <= 0 and step larger than the
-  range were accepted (now `ValueError` in `Control`), `min >= max` gave
+  range were accepted (now `ValueError` in `Control`), `min > max` gave
   "value_default must be within", a 4-element range dropped values, and the
   shorthand reported the ultra-short fallback's error ("max parameter should
   be numerical too", "wrong abbreviation") instead of the real one. Every
@@ -386,3 +389,34 @@ branch adds, or snapshot will warn about them.
   `IndexError`; updated).
 - **Demos / samples**: all 17 demos and 3 samples run unmodified under
   `INTERACTIVE_PIPE_SNAPSHOT` after the stricter output checks.
+
+### Review pass — done
+
+An independent read-only review of the branch (separate agent, verifying by
+running scripts against this tree and against `git archive c515a6a`) found six
+bugs, all fixed with regression tests in one commit:
+1. **Annotated inputs became controls** (my "missing default" decision):
+   `def apply(img, mode: Mode)` with `mode` from an upstream filter failed with
+   "multiple values"; `img: Annotated[np.ndarray, (480, 640, 3)]` became a
+   slider. Now parameters without default are never controls (the filled
+   `__signature__` machinery is removed).
+2. `mode: Literal["a","b"] = ("a", ["a","b"])` / `style: Mode = Control(...)`
+   (pre-branch declarations in the signature) raised at decoration: a
+   declaration used as default now wins over the hint.
+3. `Control` rejected `min == max` — the single-image selector
+   `(0, [0, len(images) - 1])` of `demo/multi_image.py`: only `min > max`
+   raises now (step check skipped for an empty span).
+4. A direct call of `f(*imgs, gain=1.0)` ignored the live control value
+   (parameters after `*args` were counted as positional).
+5. Spurious "clamped" warnings from `snapshot`/`sweep` for Enum / Literal-int
+   values (compared the label with the member).
+6. Output checker false positives: a 2D output styled as a heatmap
+   (`layout.style(colormap=..., vmin, vmax)`) was reported as clipped; uint8,
+   `(H, W, 1)` and RGBA, which the snapshot renderer draws correctly, were
+   called "cannot be displayed". The styles of the run are now taken into
+   account, and those cases are reported as "drawn by snapshot but not by
+   every GUI backend".
+Design note from the review, not changed: a shared alias
+`Annotated[float, Control(..., name="gain")]` used by two filters of one
+pipeline raises "Duplicate control name", the same rule as explicitly named
+decorator controls (auto-named ones are disambiguated).
