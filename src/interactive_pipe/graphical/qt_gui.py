@@ -13,6 +13,7 @@ from interactive_pipe.graphical.actions import Action
 from interactive_pipe.graphical.columns import choose_column_count, split_into_columns
 from interactive_pipe.graphical.display import display_data, figure_of, heatmap_geometry, rasterize_figure
 from interactive_pipe.graphical.gui import InteractivePipeGUI
+from interactive_pipe.graphical.pointer_input import Gesture, PointerTargets, overlay_items, to_fraction
 from interactive_pipe.graphical.qt_audio import QtAudioPlayer
 
 # Qt binding detection lives in qt_backend (raises ModuleNotFoundError
@@ -58,7 +59,7 @@ from interactive_pipe.graphical.qt_image import (
 )
 from interactive_pipe.graphical.qt_panels import QtPanelBuilder
 from interactive_pipe.graphical.qt_runner import PipelineRunner
-from interactive_pipe.graphical.qt_viewer import ImageView, ViewSync
+from interactive_pipe.graphical.qt_viewer import ImageView, PointerHandler, ViewSync
 
 # Re-exported: interactive_pipe.graphical.qt_gui.CollapsibleBox etc. are public paths
 from interactive_pipe.graphical.qt_widgets import (  # noqa: F401
@@ -78,6 +79,7 @@ from interactive_pipe.headless.control import Control, TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.panel import Panel
 from interactive_pipe.headless.pipeline import HeadlessPipeline
+from interactive_pipe.headless.pointer import pointer_controls
 
 # seconds within which a smaller size after a resize request is the window
 # manager's answer (rather than the user resizing the window)
@@ -140,6 +142,51 @@ def _rasterize_figures(out, layout):
     return convert(out, 0)
 
 
+class _CellPointerHandler(PointerHandler):
+    """Gestures of the ImageView of cell (row, col), in fractions of its data area."""
+
+    def __init__(self, window, view, row: int, col: int) -> None:
+        self.window, self.view, self.cell = window, view, (row, col)
+
+    def _fraction(self, u: float, v: float):
+        size = self.window._pointer_data_size(self.view, *self.cell)
+        return None if size is None else to_fraction(u, v, size)
+
+    def _gesture(self) -> Gesture:
+        gesture = getattr(self.window, "pointer_gesture", None)
+        if gesture is None:
+            gesture = self.window.pointer_gesture = Gesture()
+        return gesture
+
+    def press(self, u, v, screen, shift):
+        targets = getattr(self.window, "pointer_targets", None)
+        fraction = self._fraction(u, v)
+        if targets is None or fraction is None:
+            return None
+        gesture = self._gesture()
+        if not gesture.press(targets, self.cell, fraction, screen, shift):
+            return None
+        return "region" if gesture.drawing_region else "point"
+
+    def move(self, u, v, screen):
+        fraction = self._fraction(u, v)
+        if fraction is None:
+            return
+        changed = self._gesture().move(fraction, screen)
+        if changed is not None:
+            self.window._pointer_changed(changed)
+
+    def release(self, u, v, screen):
+        targets = getattr(self.window, "pointer_targets", None)
+        fraction = self._fraction(u, v)
+        if targets is None or fraction is None:
+            self._gesture().cancel()
+            return
+        changed = self._gesture().release(targets, fraction, screen)
+        if changed is not None:
+            self.window._pointer_changed(changed)
+
+
 def _format_pixel_value(value) -> str:
     if isinstance(value, tuple):
         return "(" + ", ".join(f"{v:.4g}" for v in value) + ")"
@@ -147,6 +194,9 @@ def _format_pixel_value(value) -> str:
 
 
 class InteractivePipeQT(InteractivePipeGUI):
+    # click (< 3 px of movement) sets a PointControl, shift-drag draws a RegionControl
+    pointer_gestures = True
+
     def init_app(self, threaded: bool = False, **kwargs):
         """`threaded=True` runs the pipeline in a worker thread (widgets stay
         live during slow runs, results are displayed when ready)."""
@@ -715,6 +765,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
     def _new_image_view(self, row, col) -> ImageView:
         view = ImageView(self, sync=self._view_sync())
         view.hover_callback = lambda x, y, value: self._on_view_hover(view, row, col, x, y, value)
+        view.pointer_handler = _CellPointerHandler(self, view, row, col)
         self.image_grid_layout.addWidget(view, 2 * row + 1, col)
         return view
 
@@ -795,6 +846,53 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         # convert_image only produces the 8-bit display copy.
         self._raw_outputs = _normalize_output_grid(_out)
         super().refresh_display(_out)
+        self._update_pointer_targets()
+
+    # --- point / region controls: gestures on the image views, overlay ---
+    def _update_pointer_targets(self) -> None:
+        controls = pointer_controls(getattr(self.pipeline, "controls", None))
+        if not controls:
+            self.pointer_targets = None
+            return
+        if self._display_layout is not None:
+            names = self._display_layout[0]
+        else:
+            names = self.pipeline.outputs  # type: ignore[reportOptionalMemberAccess]
+        styles = {}
+        for row, cells in enumerate(self.image_canvas or []):
+            for col, cell in enumerate(cells):
+                if cell is not None:
+                    try:
+                        styles[(row, col)] = self.get_current_style(row, col)
+                    except (IndexError, KeyError, TypeError, RuntimeError):
+                        pass
+        self.pointer_targets = PointerTargets(controls, names, self._raw_outputs, styles)
+        self._update_pointer_overlays()
+
+    def _pointer_data_size(self, view: ImageView, row: int, col: int):
+        targets = getattr(self, "pointer_targets", None)
+        if targets is None or not view.has_image():
+            return None
+        width, height = view.image_size()
+        return targets.data_size((row, col), (height, width))
+
+    def _update_pointer_overlays(self) -> None:
+        targets = getattr(self, "pointer_targets", None)
+        for row, cells in enumerate(self.image_canvas or []):
+            for col, cell in enumerate(cells):
+                view = None if cell is None else cell.get("image")
+                if not isinstance(view, ImageView):
+                    continue
+                size = self._pointer_data_size(view, row, col)
+                if targets is None or size is None or cell.get("kind") != "image":
+                    view.set_overlay([])
+                else:
+                    view.set_overlay(overlay_items(targets, (row, col), size))
+
+    def _pointer_changed(self, ctrl) -> None:
+        """A gesture set a new value: move the overlay now, run the pipeline (coalesced)."""
+        self._update_pointer_overlays()
+        self.update_parameter(ctrl.name, ctrl.value)
 
     def _raw_output(self, row, col) -> Any:
         grid = getattr(self, "_raw_outputs", None)
