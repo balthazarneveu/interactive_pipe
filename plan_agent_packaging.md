@@ -1,0 +1,233 @@
+# Plan: make the library easy for coding agents to pick up — packaged skill, CLI, docs
+
+Branch: `feature/agent-packaging`, cut from `integration/next-level`.
+
+## Why
+
+An agent working in *someone else's* repository only has
+`pip install interactive-pipe`. Today the agent skill lives in this
+repository's `.claude/` folder and is not in the wheel, there is no command
+line entry point, and the skill predates tonight's changes. The goal: after
+`pip install`, one command gives an agent accurate instructions, and one
+command lets it look at what a script displays.
+
+## Environment — read this first
+
+This is a git worktree at `/home/bneveu/code/interactive_pipe_packaging`. It has **no `venv/`**; the shared venv's
+editable install points at another checkout. Replace `CLAUDE.md`'s
+`./venv/bin/python` commands by:
+
+```bash
+cd /home/bneveu/code/interactive_pipe_packaging
+export PYTHONPATH=$PWD/src QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg
+PY=/home/bneveu/code/interactive_pipe/venv/bin/python
+$PY -c "import interactive_pipe; print(interactive_pipe.__file__)"   # must print a path inside THIS worktree
+$PY -m pytest test/ -q --tb=short        # baseline on this base: 867 passed, 6 skipped
+$PY -m ruff format . && $PY -m ruff check --fix .
+```
+
+Check the printed path before trusting any test result. Do not `pip install`
+into the shared venv. Do not read, edit or run git commands in any other
+checkout (`/home/bneveu/code/interactive_pipe`, `..._snapshot`,
+`..._integration`, and the sibling worktrees of the other agents).
+
+## Context
+
+Base branch `integration/next-level` already contains two pieces of work done
+tonight; read their plans' Status sections first, they describe the code you
+build on: `plan_fix_silent_failures.md` (strict pipeline parser,
+`PipelineSyntaxError`, call validation, control renaming, `save`,
+`layout.style` colormap) and `plan_agent_snapshot_loop.md`
+(`snapshot` / `sweep` / `describe` on pipelines and single filters,
+`INTERACTIVE_PIPE_SNAPSHOT`).
+
+Two other agents work in parallel on sibling branches:
+- `feature/declare-less` owns `helper/keyword_args_analyzer.py`,
+  `helper/control_abbreviation.py`, `helper/filter_decorator.py`,
+  `headless/control.py`, `core/engine.py`, `core/filter.py`,
+  `headless/explore.py`. It is adding controls declared through
+  `typing.Annotated` / `Literal` annotations.
+- `feature/scientific-outputs` owns `graphical/`, `headless/snapshot.py`,
+  `data_objects/`, `core/context.py`. It is adding matplotlib figures as an
+  output type, heatmap colorbars, and a `interactive_pipe.draw` overlay
+  module.
+Their features are not in your base. Do not document them as existing; leave
+a clearly marked placeholder heading in the skill for each ("Controls from
+type hints", "Figures and overlays") with one line saying it is filled in at
+merge time. You own `pyproject.toml`, `cli.py`, a new `__main__.py` and its
+helpers, the skill, `readme.md`, `docs/index.md`, `docs/faq.md`,
+`docs/guide/examples.md`, and the `.github/workflows/` files.
+Stay out of the files they own. Keep edits to shared files (`CHANGELOG.md`,
+`CLAUDE.md`, `SKILL.md`, `__init__.py`, `mkdocs.yml`, `readme.md`) to small
+additive hunks in your own section, so the three branches merge cleanly.
+
+## Ground rules
+
+- Follow `CLAUDE.md` otherwise: ruff format + check and the full suite before
+  every commit, small focused commits bundled with their tests, exceptions
+  not `assert`, no mutable defaults.
+- Work only on this branch in this worktree. Do not push, open a PR, merge,
+  bump the version, publish, or comment on GitHub.
+- Never open a real window (`QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg`).
+- **Hard stop: 11:30 CET on 2026-11-14.** Check `date` regularly. By 11:15
+  stop starting new work, leave the tree clean and the suite green, and fill
+  in the Status section.
+- Nobody can answer questions. When a decision here proves wrong once you
+  read the code, pick the option that keeps existing user code working and
+  record it in Status.
+- Backward compatibility: every pipeline in `demo/`, `samples/`, docs code
+  blocks and `test/` must keep working unchanged.
+- Each item needs tests in new test files. Items are ordered by value and
+  each is shippable alone.
+- When you produce anything visual, render it with `pipeline.snapshot(...)`
+  and look at the PNG with the Read tool before calling it done.
+
+## Work items
+
+### 1. Rewrite the skill against the code as it is now
+
+`.claude/skills/build-interactive-pipeline/SKILL.md` got additive patches
+from two branches tonight. Rewrite it as one coherent document, verified
+against the code — run every code block in it (extract them in a test, see
+item 5). It must cover, briefly and correctly:
+
+- the scaffold, and what the pipeline body accepts and rejects now
+  (`PipelineSyntaxError`; literal kwargs, nested calls, `return f(x)`,
+  indented scopes, dotted calls);
+- the control table, including `flip=True`, colliding names
+  (`amplify.gain`), and how to target one filter's parameter;
+- outputs a filter can return and how they are displayed;
+- `context` / `layout` / `events` / `audio`, with `layout.style` colormap;
+- **the check-your-work loop without a display** — `describe()` →
+  `snapshot()` → read the PNG → `sweep()` — as the default way for an agent
+  to work, at pipeline level and at single-filter level;
+- headless use, `save()`, tuning files, `INTERACTIVE_PIPE_GUI` /
+  `INTERACTIVE_PIPE_SNAPSHOT`;
+- an up-to-date table of error messages and fixes.
+
+Keep it short enough to be read in full each time (aim for under 200 lines);
+move depth into the docs and link it. Have the frontmatter `description`
+say when to use it in terms an agent will match on (GUI from functions,
+sliders, visual debugging, image / signal processing tuning, headless
+snapshot).
+
+### 2. Ship the skill and agent docs in the wheel
+
+- The skill must be one source of truth: move it under
+  `src/interactive_pipe/` as package data and keep
+  `.claude/skills/build-interactive-pipeline/SKILL.md` working for this
+  repository (a symlink does not survive wheels or Windows checkouts —
+  prefer a test asserting the two files are identical, or generate one from
+  the other; decide and document).
+- `pyproject.toml` package-data so it lands in both the wheel and the sdist.
+  Verify by building the wheel into a temporary directory
+  (`$PY -m build` if available, otherwise `$PY -m pip wheel . --no-deps -w <tmp>`)
+  and listing its contents. Do not install anything into the shared venv; a
+  throwaway venv under the scratch directory is fine if you need one.
+- `interactive_pipe.skill_path()` (or similar) returns the installed file.
+
+### 3. Command line: `python -m interactive_pipe` and an `interactive-pipe` script
+
+Standard library `argparse` only, no new dependency, fast to import (do not
+import GUI toolkits or matplotlib for `--help`).
+
+- `interactive-pipe skill` — print the skill to stdout;
+  `interactive-pipe skill --install [--user | --project DIR]` — copy it to
+  `~/.claude/skills/build-interactive-pipeline/` or `DIR/.claude/skills/...`,
+  refusing to overwrite a different existing file without `--force`. Also
+  offer `--agents-md` to print a short block suitable for pasting into an
+  `AGENTS.md` / `CLAUDE.md` of a project that uses the library.
+- `interactive-pipe doctor` — version, Python, which backends are importable
+  (qt binding found, dpg, mpl, ipywidgets, gradio) with the pip extra to
+  install for each missing one, whether a display is available, and which
+  backend `gui="auto"` would pick. This answers most "nothing shows up"
+  questions. Importing a backend must not open anything.
+- `interactive-pipe snapshot SCRIPT.py [-o OUT.png] [-- script args]` — run
+  an unmodified user script with `INTERACTIVE_PIPE_SNAPSHOT` set (the
+  mechanism exists, see `cli.py` and `plan_agent_snapshot_loop.md` item 7)
+  and print the written paths. Decide what happens when the script builds
+  several pipelines or calls one several times, and make sure a script whose
+  pipeline call sits under `if __name__ == "__main__":` works (`runpy` with
+  `run_name="__main__"`).
+- `interactive-pipe describe SCRIPT.py [--json]` — print the controls and
+  outputs of the pipelines the script builds, without running a GUI. If this
+  needs a hook that does not exist yet, add the smallest one.
+- `interactive-pipe demo [NAME]` — list and run the bundled demos only if the
+  demos can be shipped cheaply (they are outside the package today; the
+  audio/image assets are large). Otherwise skip and say so.
+- Register the console script in `pyproject.toml`. Tests call the CLI
+  in-process (`main(argv)`) and once through `python -m interactive_pipe`.
+
+### 4. Run every demo headless and fix what is stale
+
+- A test (parametrised over `demo/*.py` and `samples/*.py`) that runs each
+  script with `INTERACTIVE_PIPE_SNAPSHOT` pointing to a temp folder and
+  asserts a non-blank PNG is produced — or that the script is in an explicit
+  skip list with a reason (needs audio hardware, needs user input...). This
+  is the regression net the library was missing for its examples.
+- Look at each produced snapshot with the Read tool. Fix demos that are
+  broken or misleading; note anything that looks like a library bug in
+  Status rather than fixing library code owned by another branch.
+- Regenerate nothing under `docs/images/` except what you add yourself.
+
+### 5. Docs that agents and newcomers land on
+
+- A test that extracts the python code blocks of `readme.md`, the skill and
+  `docs/getting-started/quickstart.md` and executes those that are
+  self-contained, headless (`INTERACTIVE_PIPE_GUI=headless` or the snapshot
+  variable). Mark non-runnable fragments explicitly rather than skipping
+  silently. Fix the blocks that fail.
+- `readme.md`: after the quick taste, a short "Works without a display"
+  section (three lines: `snapshot`, `sweep`, the CLI) and a "Using it with a
+  coding agent" section pointing to `interactive-pipe skill --install`.
+- `docs/index.md` and `docs/faq.md`: same pointers; add FAQ entries for the
+  new error messages people will hit (`PipelineSyntaxError`, unknown
+  parameter, renamed controls).
+- The docs build has never been run tonight (`mkdocs` is not in the shared
+  venv). Create a throwaway venv outside the repository (under
+  `/tmp/claude-1000/` or `$TMPDIR`), install the `docs` extra there, run
+  `mkdocs build --strict` against this worktree, and fix what it reports
+  (broken links, missing nav entries, bad `:::` references). Check that
+  `llms.txt` / `llms-full.txt` are generated and contain the new guide pages.
+  If network access is unavailable, say so in Status and move on.
+- `CHANGELOG.md` "Unreleased": your own bullets.
+
+### 6. CI
+
+Check `.github/workflows/pytest.yaml`: do the new tests (snapshots need
+matplotlib only; GUI smoke tests need offscreen Qt) run there with the right
+environment variables and extras? Adjust the workflow if a new test would
+fail or be silently skipped in CI. Do not add a publishing step.
+
+## Status
+
+Agent run of 2026-11-14, started 02:02 CET, autonomous (nobody reachable
+before 11:30). Environment check: the shared interpreter imports
+`interactive_pipe` from this worktree's `src/`; baseline `867 passed, 6 skipped`
+reproduced before any change.
+
+### 1. Skill rewrite — done
+
+- `SKILL.md` rewritten as one document (under 200 lines): scaffold, what the
+  pipeline body accepts / rejects, control table (checkbox shorthand, name
+  collisions, targeting one filter), outputs, proxies (with `layout.style`
+  colormap), the describe → snapshot → read → sweep loop (pipeline and single
+  filter), headless / `save` / tuning / environment variables / CLI, and an
+  error table whose messages were copied from the code's actual output.
+  Placeholder headings "Controls from type hints" and "Figures and overlays"
+  say they are filled in at merge time.
+- Frontmatter `description` rewritten around what an agent matches on (GUI from
+  functions, sliders, image / signal / audio tuning, visual debugging,
+  headless snapshot).
+- Every python block runs: `test/doc_code_blocks.py` (helper, reused in item 5)
+  extracts the blocks; an HTML comment above a block marks it
+  `code: skip <reason>` (reason mandatory), `code: continue` (appended to the
+  previous plain block) or `code: raises <Exception>`. Blocks run as scripts in
+  a temp folder with `INTERACTIVE_PIPE_SNAPSHOT` set and `/tmp/` redirected.
+  Tests: `test/test_skill_code_blocks.py`.
+- Snapshots of the skill example looked at (out, sweep, single-filter sweep).
+- **Library issue noticed (not fixed, `headless/snapshot.py` belongs to
+  `feature/scientific-outputs`)**: the snapshot renderer ignores
+  `layout.style(colormap=...)` — the skill's "Luma" heatmap is rendered gray in
+  the PNG while every GUI backend shows it in viridis. An agent following the
+  loop would think its colormap call is broken.
