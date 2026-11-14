@@ -111,7 +111,7 @@ interactive_pipe = ["py.typed", "agent/*/SKILL.md"]
 [tool.ruff]
 line-length = 120
 target-version = "py39"
-exclude = ["__init__.py", "*/__pycache__/*", "*venv*/*"]
+exclude = ["__init__.py", "*/__pycache__/*", "*venv*/*", "plan_*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]  # E/F/W = flake8 rules, I = isort
