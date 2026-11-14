@@ -137,7 +137,7 @@ amplify.sweep("/tmp/amp_sweep.png", img, steps={"gain": 4})
 
 - Unknown names raise `TypeError` listing the available ones; a parameter named like an option (`title`, `output`, `dpi`...) goes through `params={...}`. `path=None` returns the image as an array.
 - Inputs can be omitted after the first call; `output="name"` / `"all"` picks what a sweep cell shows.
-- Unmodified scripts: `interactive-pipe snapshot script.py -o /tmp/shots/` (or `INTERACTIVE_PIPE_SNAPSHOT=/tmp/shots/ python script.py`) writes one PNG per pipeline call instead of opening a window; `interactive-pipe describe script.py` prints the controls.
+- Unmodified scripts: `interactive-pipe snapshot script.py -o /tmp/shots/` writes one PNG per pipeline call (`<pipeline>.png`, `<pipeline>_2.png`...) instead of opening a window, and prints the paths; `interactive-pipe describe script.py` prints the controls. Without the CLI, `INTERACTIVE_PIPE_SNAPSHOT=/tmp/shots/ python script.py` writes `<pipeline>.png` (a repeated call overwrites it).
 - Set `MPLBACKEND=Agg` and `QT_QPA_PLATFORM=offscreen` so nothing opens a display.
 
 ## Headless use, saving, tuning
@@ -170,7 +170,7 @@ batch.load_tuning("/tmp/res/tuning.yaml")
 | `TypeError: pipeline 'p' got unexpected keyword argument(s) 'gian'` | Use a name from the listed parameters |
 | `ValueError: pipeline 'p' expects 1 input (img), got 0` | Pass every pipeline input (once; later calls reuse them) |
 | `ValueError: @interactive(gain=1.0): a bare value cannot make a widget` | `gain=(1.0, [0.0, 2.0])`, or keep the default in the signature only |
-| `ValueError: value_default 5 must be within value_range [0, 3]` | Fix the default or the range |
+| `ValueError: Cannot create a control from gain=(5, [0, 3]): min=5 max=[0, 3] ...` | The default is outside the range: fix one of them (`Control(5, [0, 3])` says `value_default 5 must be within value_range [0, 3]`) |
 | `TypeError: Filter 'f' declares keyword argument 'global_params'` | Remove it, use `context` / `layout` |
 | `Duplicate control name 'x'` | Two controls explicitly `name=`d alike in one pipeline: rename one |
 | Log `Control 'gain': value 99.0 is outside its range ... clamped` | Widen the range or fix the value |

@@ -83,8 +83,12 @@ interactive_pipe: snapshot of 'key_event_pipeline' written to shots/key_event_pi
   `interactive-pipe snapshot demo/color_demo.py -- --color blue`.
 - A failing script prints its traceback and exits with code 1; the snapshots
   written before the failure are listed.
+- Single-filter GUIs are captured too: `my_filter.interact(img)` and `@interact`
+  write `<filter>.png`.
 - Pipelines decorated with `gui=None` (headless) are not captured: the script
   already runs them without a window.
+- A relative `-o` is relative to the folder you run the command from, even if
+  the script changes directory.
 
 This is the command-line form of the `INTERACTIVE_PIPE_SNAPSHOT` environment
 variable, which still works on its own:
