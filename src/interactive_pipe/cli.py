@@ -28,7 +28,7 @@ This module only depends on the standard library and has no side effects on impo
 import argparse
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 GUI_ENV_VAR = "INTERACTIVE_PIPE_GUI"
 SIZE_ENV_VAR = "INTERACTIVE_PIPE_SIZE"
@@ -154,6 +154,28 @@ def snapshot_path_from_env(name: str) -> Optional[Path]:
         return Path(raw) / f"{safe_name}.png"
     path = Path(raw)
     return path if path.suffix else path.with_suffix(".png")
+
+
+#: Callback replacing the INTERACTIVE_PIPE_SNAPSHOT rendering of a GUI-decorated
+#: pipeline call: ``hook(pipeline_name, headless_pipeline, render)`` where
+#: ``render(path)`` writes the snapshot and returns the results. Installed by
+#: ``interactive-pipe snapshot / describe`` (``interactive_pipe.agent.run_script``)
+#: to choose file names and collect what the script builds.
+SnapshotHook = Callable[[str, Any, Callable[[Path], Any]], Any]
+_snapshot_hook: Optional[SnapshotHook] = None
+
+
+def set_snapshot_hook(hook: Optional[SnapshotHook]) -> Optional[SnapshotHook]:
+    """Install (or remove with None) the snapshot hook; returns the previous one."""
+    global _snapshot_hook
+    previous = _snapshot_hook
+    _snapshot_hook = hook
+    return previous
+
+
+def get_snapshot_hook() -> Optional[SnapshotHook]:
+    """The installed snapshot hook, or None (the default: write to INTERACTIVE_PIPE_SNAPSHOT)."""
+    return _snapshot_hook
 
 
 def add_gui_arguments(

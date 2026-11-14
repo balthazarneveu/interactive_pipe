@@ -142,6 +142,15 @@ options (`colormap`, `vmin`, `vmax`, `center`, `colorbar`, `unit`, `dpi`) go
 through `layout.style`. `interactive_pipe.draw` draws marks on images. See
 `docs/guide/figures-and-overlays.md`.
 
+## Agent skill and `interactive-pipe` command
+
+- The agent skill's source of truth is `src/interactive_pipe/agent/build-interactive-pipeline/SKILL.md`
+  (shipped in the wheel). `.claude/skills/build-interactive-pipeline/SKILL.md` is a copy kept identical
+  by a test: edit the packaged file, then `python -m interactive_pipe skill --install --project . --force`.
+  Its code blocks run in `test/test_skill_code_blocks.py` (markers: `test/doc_code_blocks.py`).
+- `python -m interactive_pipe` / `interactive-pipe`: `skill`, `doctor`, `snapshot SCRIPT.py`,
+  `describe SCRIPT.py` (`src/interactive_pipe/agent/command_line.py`).
+
 ## Project Structure
 
 - Source code: `src/interactive_pipe/`
