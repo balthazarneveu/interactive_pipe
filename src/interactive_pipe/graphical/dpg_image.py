@@ -471,7 +471,7 @@ def _text_font() -> Any:
         from matplotlib import font_manager
 
         path = font_manager.findfont(font_manager.FontProperties(family="DejaVu Sans"), fallback_to_default=True)
-        with dpg.font_registry():
+        with dpg.font_registry():  # type: ignore[reportGeneralTypeIssues]
             font = dpg.add_font(path, round(TEXT_FONT_PT * 96 / 72))
     except Exception:  # broad on purpose: a font is a nicety, never a failure
         logging.debug("Dear PyGui: text font not loaded", exc_info=True)

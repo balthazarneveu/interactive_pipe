@@ -48,7 +48,7 @@ class SliderMatplotlibControl(BaseControl):
             valinit=float(valinit),
             valstep=self.ctrl.step,
         )
-        slider._format = format_number  # value text as everywhere: "6", "0.1", "1e-05"
+        slider._format = format_number  # type: ignore[attr-defined] - value text as everywhere: "6", "0.1", "1e-05"
         slider.valtext.set_text(format_number(slider.val))
         slider.on_changed(lambda val: self.update_func(self.name, val))
         return slider
