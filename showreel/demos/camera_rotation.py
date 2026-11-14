@@ -78,7 +78,7 @@ def rotate_camera(source, yaw=15.0, pitch=0.0, roll=0.0, focal_mm=20.0):
     return rotated
 
 
-@interactive_pipeline()
+@interactive_pipeline(cache="graph")
 def camera_rotation():
     source = scene()
     rotated = rotate_camera(source)
