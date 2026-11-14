@@ -61,6 +61,17 @@ Note: [`InteractivePipeGUI`](/src/interactive_pipe/graphical/gui.py) & [`Interac
 
 
 
+## Modules added in November 2026 (0.9.4 -> next)
+- **Pipeline body parser** ([`core/graph.py`](/src/interactive_pipe/core/graph.py)): every top-level statement of a pipeline function is validated; anything else raises `PipelineSyntaxError` (file, line, hint). Names are resolved in the function's real scope (closure, then module globals).
+- **Display conversion** ([`graphical/display.py`](/src/interactive_pipe/graphical/display.py)): `prepare_display` is the single place turning an output into what is drawn (figures rasterised, heatmap style and colorbar, uint8 / uint16 / bool / RGBA normalised, `DisplayError` for arrays whose layout cannot be guessed). Used by every backend, snapshots, Gradio and `export_animation`. [`headless/output_check.py`](/src/interactive_pipe/headless/output_check.py) warns about outputs that display misleadingly.
+- **Value text** ([`graphical/value_format.py`](/src/interactive_pipe/graphical/value_format.py)): `format_number` / `format_value`, and their printf / d3 / JavaScript equivalents for the backends formatting natively.
+- **See the result without a window** ([`headless/explore.py`](/src/interactive_pipe/headless/explore.py): `snapshot`, `sweep`, the parameter-name resolver `resolve_names` shared with pipeline calls and the CLI; [`headless/snapshot.py`](/src/interactive_pipe/headless/snapshot.py): the matplotlib-object renderer; [`headless/describe.py`](/src/interactive_pipe/headless/describe.py): `describe` / `summary`). Exposed as `HeadlessPipeline` methods, on GUI-decorated pipelines and on every filter ([`helper/filter_entry_points.py`](/src/interactive_pipe/helper/filter_entry_points.py)).
+- **Controls from type hints** ([`helper/annotation_controls.py`](/src/interactive_pipe/helper/annotation_controls.py)): `Annotated`, `Literal`, `Enum`; range and default checks are `Control`'s own.
+- **Mouse input** ([`headless/pointer.py`](/src/interactive_pipe/headless/pointer.py): `PointControl`, `RegionControl`, `to_pixels`; [`graphical/pointer_input.py`](/src/interactive_pipe/graphical/pointer_input.py): gestures, targets, overlays and the slider fallback shared by the backends).
+- **Drawing on images** ([`draw.py`](/src/interactive_pipe/draw.py)): numpy + Pillow marks (points, boxes, lines, text, masks).
+- **Command line and agent skill** ([`agent/`](/src/interactive_pipe/agent/)): `interactive-pipe` (`command_line.py`), unmodified scripts run windowless (`run_script.py`, through the `INTERACTIVE_PIPE_SNAPSHOT` hook of `helper/pipeline_decorator.py`), `check`, `doctor`, typed `--set` / `--param` values (`parameters.py`), the packaged `SKILL.md`.
+- **Return order vs layout**: `PipelineCore.outputs` is the display layout (`layout.grid` and the GUIs change it, `run()` / `results` follow it); `returned_outputs` is the function's `return`, which `pipe(...)`, `.headless(...)` and `save()` follow.
+
 # Detailed description
 ## Core
 An pure pipeline execution without graphical interface related stuffs
