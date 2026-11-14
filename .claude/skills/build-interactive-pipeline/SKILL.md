@@ -77,6 +77,29 @@ The decorated function's own default (`gain=1.0`) is overridden by the control's
 
 Two filters may both declare a `gain` control: in one pipeline they are shown as `amplify.gain` and `blend.gain` (explicit `name=...` collisions still raise). `pipe(img, gain=2.0)` sets `gain` in every filter having it; target one with `pipe(img, parameters={"blend": {"gain": 2.0}})`.
 
+## Controls from type annotations (alternative to the decorator)
+
+Under `@interactive` (parentheses optional) a typed signature declares the widgets; the default comes from the signature:
+
+```python
+@interactive
+def adjust(
+    img,
+    gain: Annotated[float, (0.0, 3.0)] = 1.0,  # float slider
+    radius: Annotated[int, (1, 15, 2), "Blur radius"] = 3,  # int slider, step, label
+    flip: Annotated[bool, "Flip"] = False,  # checkbox (a label is required)
+    mode: Literal["dark", "light"] = "dark",  # dropdown
+    style: Style = Style.FLAT,  # Enum dropdown, filter gets the member
+    angle: Annotated[float, CircularControl(0.0, [0.0, 360.0])] = 0.0,
+):  # any Control
+    ...
+```
+
+- `Annotated` metadata = what the tuple shorthand takes after the default: `(min, max[, step])` or a list of str choices, then label, then group.
+- No widget for plain hints (`gain: float = 1.0`) or foreign `Annotated` metadata. Decorator argument > annotation.
+- Bad declarations raise at import: `@interactive filter 'f' (file.py:12), parameter 'gain': the default 5.0 is outside the annotated range (0.0, 3.0). Fix: ...`.
+- Errors at run time that name the pipeline line: `filter 'f' returned 2 values but the pipeline assigns 1 name(s)` (unpack `a, b = f(x)`), `returned None: the function has no return statement`, `Context key 'k' was read before any filter wrote it` (filters run in body order; use `context.get(k, default)`). `pipe(img, **{"blend.gain": 2.0})` targets one filter, like `snapshot`/`sweep`. `snapshot()` warns about outputs it cannot draw faithfully (uint8 → `/ 255.0`, `(C, H, W)` → `np.moveaxis`, dicts...).
+
 ## Backends (`gui=` argument)
 
 - `"qt"` — richest (needs `pip install "interactive-pipe[qt6]"`)
