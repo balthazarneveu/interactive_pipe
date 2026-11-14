@@ -11,8 +11,9 @@ Internal implementation uses contextvars to maintain separate framework and user
 
 import logging
 import numbers
+from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 from interactive_pipe.core.framework_state import FrameworkState
 
@@ -39,7 +40,8 @@ def _outside_message(operation: str, scope: str) -> str:
     and the fix (the two lines that put it inside a filter)."""
     return (
         f"{operation} called outside of {scope} execution: it only works inside an @interactive filter "
-        "while a pipeline runs it. Move the call into a filter:\n\n"
+        "(run by a pipeline, or called directly like a plain function: then layout / audio calls do "
+        "nothing and the context is a scratch dict). Move the call into a filter:\n\n"
         "    @interactive()\n"
         "    def my_filter(img):\n"
         f"        {operation}\n"
@@ -59,6 +61,45 @@ def _get_framework_state(operation: str = "This framework operation") -> Framewo
     if state is None:
         raise RuntimeError(_outside_message(operation, "filter"))
     return state
+
+
+class _DirectCallContext(dict):
+    """Scratch context of a filter called directly (outside any pipeline run)."""
+
+    def __init__(self, filter_name: str) -> None:
+        super().__init__()
+        self._filter_name = filter_name
+
+    def __missing__(self, key: Any) -> Any:
+        raise KeyError(
+            f"context[{key!r}] is not set: '{self._filter_name}' is called directly (not by a pipeline), "
+            "so its context starts empty - in a pipeline, an earlier filter would have written it. "
+            f"Use context.get({key!r}, default) in the filter, or test it inside a pipeline."
+        )
+
+
+@contextmanager
+def direct_call_scope(filter_name: str) -> Iterator[None]:
+    """Let an ``@interactive`` filter run when called directly, like a plain function.
+
+    Outside a pipeline run (a unit test calling ``compare(out, gt)``), the call
+    gets a throwaway framework state and an empty scratch context:
+    ``layout.style`` / ``layout.grid`` and ``audio`` calls are validated then
+    do nothing, ``events.get(name)`` returns its default, ``context`` writes
+    are kept for the duration of the call only, and reading a key nobody wrote
+    raises a ``KeyError`` saying so. Inside a pipeline run (also a filter
+    calling another decorated filter) nothing changes.
+    """
+    if _framework_state.get() is not None or _user_context.get() is not None:
+        yield
+        return
+    state_token = _framework_state.set(FrameworkState())
+    context_token = _user_context.set(_DirectCallContext(filter_name))
+    try:
+        yield
+    finally:
+        _user_context.reset(context_token)
+        _framework_state.reset(state_token)
 
 
 def _set_framework_state(state: Optional[FrameworkState]) -> None:
