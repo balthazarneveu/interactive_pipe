@@ -275,3 +275,47 @@ before 11:30). Environment checked: the shared interpreter imports
   `RdBu_r` heatmap with `center=0` and a colorbar). Checked with
   `INTERACTIVE_PIPE_SNAPSHOT`.
 - Tests: `test/test_figure_outputs.py`.
+
+### 4. Drawing on images — done
+
+- `src/interactive_pipe/draw.py`, exported as `interactive_pipe.draw`
+  (`from interactive_pipe import draw`, `ip.draw.boxes(...)`; also in
+  `__all__`). The name was free: no `draw` attribute, module or user of
+  that name in `src/`, `test/`, `demo/`, `samples/`, `docs/`.
+- Functions: `points` (discs / circles, labels), `boxes` (`(x0, y0, x1,
+  y1)` pixels by default, `fmt="xywh"`, labels on a filled tag above the
+  box, inside it when the box touches the top), `lines` (one polyline
+  `(M, 2)`, `(K, M, 2)` — `(K, 2, 2)` = segments — or a ragged list,
+  `closed=`), `polygon` (outline and/or translucent `fill_alpha`), `text`
+  (white with a black outline by default; `background=` box instead;
+  anchors by name `"top-left"` ... `"bottom-right"` or Pillow anchors;
+  multi-line; lists of texts), `mask` (bool -> one colour; int labels -> one
+  colour per label, 0 = background, cycled; float -> soft opacity), plus
+  `to_rgb` and `DEFAULT_COLORS` (tab10). `side_by_side` / `grid` skipped as
+  the plan suggested: the output layout already does that.
+- Rules implemented as specified: pure (copies, read-only inputs fine),
+  dtype and range kept (float, `uint8`, also `uint16`), gray promoted to RGB,
+  RGBA kept (marked pixels become opaque), `(x, y)` pixels with sub-pixel
+  values, out-of-image clipped, NaN items skipped, colours as names / hex /
+  float tuples / 0-255 tuples, per-item lists, default cycle.
+- Implementation: `uint8` gray/RGB images are drawn on directly by Pillow
+  (fast path); float / `uint16` / RGBA images get a transparent RGBA overlay
+  blended into a copy on the marked pixels only (the other pixels keep their
+  exact float values). The overlay is kept premultiplied, which is how
+  Pillow writes antialiased text onto transparent pixels — found while
+  testing: without it, text edges on float images were darkened twice.
+  Label tags (text on a filled box) are rendered once and `lru_cache`d, since
+  the same labels come back on every slider move. Text uses matplotlib's
+  bundled DejaVu Sans (`display.get_font`).
+- Timing, 1920x1080 RGB, 200 random boxes (machine shared with two other
+  agents, load average ~20 on 8 cores, so these are pessimistic; min of 7
+  runs after one warm-up): `uint8` 21 ms, 47 ms with 200 labels; `float32`
+  39 ms, 156 ms with 200 labels (the float cost is the gather/blend/scatter
+  of the ~750k marked pixels — labels are filled tags). First call with new
+  labels pays the text rendering (~1 ms per label).
+- Demo: `demo/overlay_demo.py` — synthetic blobs, `threshold` / `min_area`
+  sliders (plus `blobs`, `noise`), connected regions by numpy label
+  propagation (no scipy), boxes + centroids + labels, the count in the
+  title and in the image, and the label mask with `draw.mask`. Checked with
+  `INTERACTIVE_PIPE_SNAPSHOT`.
+- Tests: `test/test_draw.py`.
