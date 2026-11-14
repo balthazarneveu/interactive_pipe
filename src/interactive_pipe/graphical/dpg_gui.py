@@ -653,7 +653,9 @@ class MainWindow(InteractivePipeWindow):
 
     def on_mouse_move(self, _sender, pos, *_args):
         if self.pointer_gesture.active:
-            self.pointer_move((float(pos[0]), float(pos[1])))
+            # same frame as the press (viewport coordinates, compared with get_item_rect_min)
+            x, y = dpg.get_mouse_pos(local=False)[:2]
+            self.pointer_move((float(x), float(y)))
         if self._drag is None:
             return
         cell, last = self._drag
