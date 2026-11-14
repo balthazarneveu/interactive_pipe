@@ -95,9 +95,8 @@ class TestEmptyCollections:
 
     def test_pipelinecore_with_empty_filters_list(self):
         """Test PipelineCore with empty filters list"""
-        # Empty filters list causes IndexError when trying to access filters[-1]
-        # for default outputs
-        with pytest.raises(IndexError):
+        # No filter and no outputs: nothing to run (used to be an IndexError on filters[-1])
+        with pytest.raises(ValueError, match="calls no filter"):
             PipelineCore(filters=[])
 
     def test_curve_with_empty_curves_list(self):
