@@ -56,22 +56,18 @@ pipe(np.array([0.0, 0.5, 0.8]) * np.ones((256, 512, 3)))
 
 Calling `pipe(...)` opens a window with sliders for every declared parameter. 🎉
 
-## Works without a display
+## Features
 
-- `pipe.snapshot("out.png", img, coeff=1.5)` renders what the window shows to a PNG (any `gui=`, no window).
-- `pipe.sweep("sweep.png", img, coeff=[0.5, 1.0, 2.0])` compares parameter values side by side.
-- `interactive-pipe snapshot my_script.py` runs an unmodified GUI script and writes one PNG per pipeline call.
+- **Controls from type hints**: `gain: Annotated[float, (0.0, 3.0)] = 1.0` is a slider, `Literal["dark", "light"]` a dropdown — or declare them in `@interactive(...)`.
+- **Figures and overlays**: return a matplotlib `Figure`, a heatmap with a colorbar, or draw boxes, points and masks with `interactive_pipe.draw`.
+- **Mouse input**: `PointControl` / `RegionControl` — click a point or shift-drag a region on an image.
+- **Snapshots and sweeps**: `pipe.snapshot("out.png", img, coeff=1.5)` renders what the window shows, `pipe.sweep("sweep.png", img, coeff=[0.5, 1.0, 2.0])` compares values side by side — no display needed (SSH, CI, agents).
+- **Command line**: `interactive-pipe check | snapshot | sweep | describe my_script.py` on an unmodified GUI script; `interactive-pipe doctor` explains why no window shows up.
+- **Coding agents**: `interactive-pipe skill --install` teaches Claude Code (or any agent, `interactive-pipe skill`) to build pipelines and check them by reading snapshots.
 
-## Using it with a coding agent
+![A sweep rendered headless](docs/images/gallery/blob_detection_sweep.png)
 
-```bash
-interactive-pipe skill --install            # Claude Code skill in ~/.claude/skills/ (or --project DIR)
-interactive-pipe skill --agents-md          # a short block for your AGENTS.md / CLAUDE.md
-interactive-pipe describe my_script.py      # controls and outputs, as text or --json
-interactive-pipe doctor                     # installed backends, display, what gui="auto" picks
-```
-
-The skill teaches the agent the decorators, what a pipeline body may contain, and to check its visual work by reading snapshots. `python -m interactive_pipe ...` works too; see [Command line & coding agents](https://balthazarneveu.github.io/interactive_pipe/guide/command-line/).
+*A blob detector swept over two parameters with `interactive-pipe sweep`, from the [scientific gallery](https://balthazarneveu.github.io/interactive_pipe/gallery/).*
 
 ## Backends
 
@@ -89,7 +85,8 @@ Plus a GPU-rendered [Dear PyGui](https://github.com/hoffstadt/DearPyGui) window 
 - 🎓 [Interactive tutorial on Hugging Face](https://huggingface.co/spaces/balthou/interactive-pipe-tutorial)
 - 📈 [Figures, heatmaps & overlays](https://balthazarneveu.github.io/interactive_pipe/guide/figures-and-overlays/) — matplotlib figures, colorbars, `interactive_pipe.draw` for boxes, points and masks
 - 📸 [Snapshots & sweeps](https://balthazarneveu.github.io/interactive_pipe/guide/snapshots/) — render what the GUI shows to a PNG, headless (CI, SSH, coding agents)
-- 💻 [Command line & coding agents](https://balthazarneveu.github.io/interactive_pipe/guide/command-line/) — `interactive-pipe skill / doctor / snapshot / describe`
-- 🗒️ [Examples gallery](https://balthazarneveu.github.io/interactive_pipe/guide/examples/) — 19 demo scripts, Colab notebooks, a Raspberry Pi jukebox
+- 🖱️ [Mouse input](https://balthazarneveu.github.io/interactive_pipe/guide/mouse-input/) — clicked points and dragged regions
+- 💻 [Command line & coding agents](https://balthazarneveu.github.io/interactive_pipe/guide/command-line/) — `interactive-pipe check / snapshot / sweep / describe / skill / doctor`
+- 🗒️ [Examples](https://balthazarneveu.github.io/interactive_pipe/guide/examples/) — 20 demo scripts, a [scientific gallery](https://balthazarneveu.github.io/interactive_pipe/gallery/), Colab notebooks, a Raspberry Pi jukebox
 - 📋 [Changelog](https://github.com/balthazarneveu/interactive_pipe/blob/master/CHANGELOG.md)
 - 🤝 [Contributing](https://github.com/balthazarneveu/interactive_pipe/blob/master/CONTRIBUTING.md)
