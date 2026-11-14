@@ -1,4 +1,5 @@
 import logging
+import sys
 import textwrap
 from typing import Any, List, Optional, Tuple
 
@@ -187,6 +188,22 @@ class InteractivePipeWindow:
                 matching.append((row, col))
         return matching or positions[:1]
 
+    def report_error(self, error) -> None:
+        """Print a filter error shown in the window on the console, once.
+
+        Nothing catches an error in a GUI event loop and the engine only
+        raises, so the window prints it; the same error repeated on the next
+        slider moves is not printed again until a run succeeds.
+        """
+        message = str(error)
+        if self.__dict__.get("_reported_error") == message:
+            return
+        self._reported_error = message
+        if hasattr(error, "print_compact"):
+            error.print_compact()
+        else:
+            print(message, file=sys.stderr)
+
     def _styled(self, content: Any, row: int, col: int) -> Any:
         """Content as the backends should draw it, with its ``layout.style``
         display options applied (see ``graphical.display.prepare_display``)."""
@@ -219,6 +236,7 @@ class InteractivePipeWindow:
         raise NotImplementedError("Subclasses must implement convert_image")
 
     def refresh_display(self, _out) -> None:
+        self._reported_error = None  # a run succeeded: the next error is printed again
         if _out is None:
             logging.warning("No output to display")
             return

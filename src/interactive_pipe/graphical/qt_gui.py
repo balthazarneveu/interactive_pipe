@@ -1167,6 +1167,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
     def show_error(self, error: FilterError):
         """Display a pipeline error in the window instead of raising."""
         self.last_error = error
+        self.report_error(error)  # on the console too, once
         original = error.original_error
         message = format_error_message(error)
         for row, col in self.error_cell_positions(error):

@@ -155,10 +155,11 @@ _original_excepthook = sys.__excepthook__
 def _filter_error_excepthook(exc_type, exc_value, exc_tb):
     """Custom exception hook that handles FilterError without full traceback."""
     if exc_type is FilterError:
-        # FilterError already printed its compact form: show the full traceback only on demand
+        # uncaught in a script: the compact form only, the full traceback on demand
         if os.environ.get("INTERACTIVE_PIPE_DEBUG"):
             _original_excepthook(exc_type, exc_value, exc_tb)
         else:
+            exc_value.print_compact()
             print("Hint: Set INTERACTIVE_PIPE_DEBUG=1 for full traceback", file=sys.stderr)
     else:
         _original_excepthook(exc_type, exc_value, exc_tb)
@@ -419,7 +420,7 @@ class PipelineEngine:
                     report.failed = prc.name
                     report.timings[prc.name] = time.perf_counter() - tic
                     report.total = time.perf_counter() - run_start
-                    filter_error.print_compact()
+                    # raised only: the caller (or the excepthook, or a GUI window) shows it once
                     raise filter_error from None  # 'from None' suppresses the chained traceback
                 finally:
                     filter_changes = [(trk, trk.finish_filter()) for trk in trackers]
