@@ -184,3 +184,14 @@ def test_notebook_fallback_sliders(capsys):
     marker = next(artist for artist in artists if hasattr(artist, "get_xdata"))
     assert (marker.get_xdata()[0], marker.get_ydata()[0]) == pytest.approx((-0.5, 19.5))
     capsys.readouterr()
+
+
+def test_pointer_warning_is_logged_once(caplog):
+    import logging
+
+    from interactive_pipe.graphical import pointer_input
+
+    with caplog.at_level(logging.WARNING):
+        pointer_input._warn_once("pointer: test message 1f3a")
+        pointer_input._warn_once("pointer: test message 1f3a")
+    assert caplog.text.count("pointer: test message 1f3a") == 1

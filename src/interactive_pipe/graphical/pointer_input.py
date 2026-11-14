@@ -165,9 +165,12 @@ class PointerTargets:
         return float(shape[1]), float(shape[0])
 
 
-def _warn_once(message: str, _seen: set = set()) -> None:  # noqa: B006 - process-wide "warned" registry
-    if message not in _seen:
-        _seen.add(message)
+_WARNED: set = set()  # messages already logged (process-wide)
+
+
+def _warn_once(message: str) -> None:
+    if message not in _WARNED:
+        _WARNED.add(message)
         logging.warning(message)
 
 
