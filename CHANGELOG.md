@@ -40,6 +40,7 @@ Common mistakes in pipelines used to build something that ran and was wrong. The
   - `interactive-pipe describe SCRIPT.py [--json]`: the controls and outputs of the pipelines a script runs, without a window.
 - **The agent skill ships in the package** (`interactive_pipe.skill_path()`), rewritten against the current API: pipeline-body rules, controls, outputs, proxies, the describe / snapshot / sweep loop, headless use and an error table. Its code blocks, the readme's and the quickstart's run in the test suite.
 - `interactive_pipe.cli.set_snapshot_hook()`: lets a tool intercept the `INTERACTIVE_PIPE_SNAPSHOT` rendering of each pipeline call (used by the command).
+- **Scientific gallery** (`demo/gallery/`, [docs](https://balthazarneveu.github.io/interactive_pipe/gallery/)): eight visual-debugging tools (camera ISP, frequency filtering, FIR / IIR filtering, detection overlay, optimiser traces, lens calibration, PID control, a stateful simulation) written from the skill alone; the skill now covers what they had to look up (curve / table / titled image constructors, returning a list, one slider for several filters, stateful simulations).
 
 ### Improvements & bug fixes
 - A `functools.partial` (or any callable object) can be used as a filter; it used to fail with `AttributeError: __qualname__`.

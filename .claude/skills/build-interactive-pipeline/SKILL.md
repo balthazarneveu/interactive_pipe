@@ -113,7 +113,7 @@ def report(img):
     x = np.arange(img.shape[1])
     mean = SingleCurve(x, img.mean(axis=(0, 2)), style="b-", label="mean", linewidth=1)  # or [x, y, "b-", "mean"]
     profile = Curve([mean], xlabel="column", ylim=(0, 1), grid=True)
-    table = Table([{"stat": "mean", "value": img.mean()}], title="stats")  # list of dicts, or dict of columns
+    table = Table([{"stat": "mean", "value": img.mean()}], title="stats")  # or a dict of lists (not arrays)
     return profile, table, Image(img, title=f"mean {img.mean():.3f}")  # a metric in the title, not a text cell
 ```
 
