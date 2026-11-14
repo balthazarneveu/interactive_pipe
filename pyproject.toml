@@ -103,7 +103,7 @@ docs=[
 ]
 
 [tool.setuptools.package-data]
-interactive_pipe = ["py.typed"]
+interactive_pipe = ["py.typed", "agent/*/SKILL.md"]
 
 [tool.ruff]
 line-length = 120

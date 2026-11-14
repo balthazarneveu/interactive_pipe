@@ -41,6 +41,9 @@ from interactive_pipe.headless.animation import export_animation
 # Drawing on images (points, boxes, lines, polygons, text, masks): interactive_pipe.draw
 from interactive_pipe import draw
 
+# Agent skill shipped with the package (`interactive-pipe skill`)
+from interactive_pipe.agent import skill_path
+
 # Allowing more straightforward naming convention
 block = interactive
 pipeline = interactive_pipeline
@@ -78,4 +81,6 @@ __all__ = [
     "pipeline",
     "export_animation",
     "draw",
+
+    "skill_path",
 ]
