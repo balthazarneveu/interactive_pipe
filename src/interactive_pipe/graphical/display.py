@@ -169,6 +169,7 @@ BAD_COLOR = (1.0, 0.0, 1.0)
 # upscaled (nearest neighbour, integer factor) to at least COLORBAR_MIN_HEIGHT.
 COLORBAR_MIN_HEIGHT = 256
 COLORBAR_MAX_UPSCALE = 32
+COLORBAR_MAX_UPSCALED_WIDTH = 2048  # wide, flat maps are not blown up beyond this
 COLORBAR_FONT_FRACTION = 0.05  # label height relative to the map height
 COLORBAR_FONT_MIN, COLORBAR_FONT_MAX = 12, 48
 
@@ -178,7 +179,8 @@ def _heatmap_array(content: Any, style: Optional[dict]) -> Optional[np.ndarray]:
     does not make a heatmap."""
     if not isinstance(content, np.ndarray) or not style:
         return None
-    if all(style.get(key) in (None, False) for key in HEATMAP_STYLE_KEYS):
+    # `is None`, not falsiness: vmin=0 / center=0 are real values
+    if all(style.get(key) is None for key in ("colormap", "vmin", "vmax", "center")) and not style.get("colorbar"):
         return None
     array = content[..., 0] if content.ndim == 3 and content.shape[-1] == 1 else content
     if array.ndim != 2 or array.size == 0:
@@ -193,25 +195,28 @@ def heatmap_range(data: np.ndarray, valid: np.ndarray, style: dict) -> Tuple[flo
     min / max of the valid (finite, unmasked) data; with ``center`` the range
     is widened to be symmetric around it."""
     finite = data[valid & np.isfinite(data)]
-    vmin = style.get("vmin")
-    vmax = style.get("vmax")
+    # floats: numpy integer style values would wrap around in the arithmetic below
+    vmin = None if style.get("vmin") is None else float(style["vmin"])
+    vmax = None if style.get("vmax") is None else float(style["vmax"])
     if vmin is None:
         vmin = float(finite.min()) if finite.size else 0.0
     if vmax is None:
         vmax = float(finite.max()) if finite.size else 1.0
-    center = style.get("center")
+    center = None if style.get("center") is None else float(style["center"])
     if center is not None:
         half = max(abs(vmax - center), abs(vmin - center))
         vmin, vmax = center - half, center + half
     return float(vmin), float(vmax)
 
 
-def colorbar_upscale(height: int) -> int:
+def colorbar_upscale(height: int, width: int = 1) -> int:
     """Integer factor applied to a heatmap drawn with a colorbar, so the
-    colorbar text stays legible on small maps (1 for maps tall enough)."""
+    colorbar text stays legible on small maps (1 for maps tall enough), never
+    making the map wider than COLORBAR_MAX_UPSCALED_WIDTH."""
     if height >= COLORBAR_MIN_HEIGHT:
         return 1
-    return int(min(COLORBAR_MAX_UPSCALE, -(-COLORBAR_MIN_HEIGHT // max(height, 1))))
+    factor = min(COLORBAR_MAX_UPSCALE, -(-COLORBAR_MIN_HEIGHT // max(height, 1)))
+    return int(max(1, min(factor, COLORBAR_MAX_UPSCALED_WIDTH // max(width, 1))))
 
 
 def heatmap_geometry(content: Any, style: Optional[dict]) -> Optional[Tuple[int, int, int]]:
@@ -222,7 +227,7 @@ def heatmap_geometry(content: Any, style: Optional[dict]) -> Optional[Tuple[int,
     if array is None or not style or not style.get("colorbar"):  # type: ignore[union-attr]
         return None
     height, width = array.shape
-    return colorbar_upscale(height), height, width
+    return colorbar_upscale(height, width), height, width
 
 
 def _resolve_colormap(colormap: Any) -> Any:
@@ -288,7 +293,7 @@ def apply_display_style(content: Any, style: Optional[dict]) -> Any:
         rgb[invalid] = _bad_color(cmap)
     if not colorbar:
         return rgb
-    upscale = colorbar_upscale(rgb.shape[0])
+    upscale = colorbar_upscale(rgb.shape[0], rgb.shape[1])
     if upscale > 1:
         rgb = np.repeat(np.repeat(rgb, upscale, axis=0), upscale, axis=1)
     strip = colorbar_strip(cmap, vmin, vmax, rgb.shape[0], style.get("unit"))
@@ -352,9 +357,13 @@ def _colorbar_labels(vmin: float, vmax: float, unit: Optional[str]) -> List[Tupl
 def colorbar_strip(colormap: Any, vmin: float, vmax: float, height: int, unit: Optional[str] = None) -> np.ndarray:
     """``(height, w, 3)`` float RGB strip: a vertical colour scale from
     ``vmin`` (bottom) to ``vmax`` (top) with labelled ticks, on white."""
-    key = colormap.name if hasattr(colormap, "name") and isinstance(colormap.name, str) else None
-    if key is not None and _resolve_colormap(key) is not colormap:
-        key = None  # a custom Colormap object sharing a registered name: do not cache
+    import matplotlib
+
+    key = getattr(colormap, "name", None)
+    # cache only registered colormaps (the registry hands out equal copies);
+    # a custom Colormap, possibly sharing a registered name, is drawn each time
+    if not isinstance(key, str) or key not in matplotlib.colormaps or matplotlib.colormaps[key] != colormap:
+        key = None
     if key is None:
         return _colorbar_strip(colormap, vmin, vmax, height, unit)
     return _cached_colorbar_strip(key, vmin, vmax, height, unit)
