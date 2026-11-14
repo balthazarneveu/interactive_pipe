@@ -370,6 +370,9 @@ class HeadlessPipeline(PipelineCore):
         from interactive_pipe.headless.pointer import check_targets
 
         check_targets(data_class, strict=False)
+        if len(function_inputs) == 0 and inputs is None:
+            # nothing to wait for: run() and export_animation() work before the first call
+            data_class.inputs = None
         return data_class
 
     @staticmethod

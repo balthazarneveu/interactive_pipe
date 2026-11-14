@@ -604,3 +604,15 @@ def test_new_inputs_still_reset_the_cache():
     (shifted,) = pipe(np.ones((2, 2)), offset=0.0)  # the control is shared with the pipeline above
     assert pipe.last_run_report.cached == set()
     np.testing.assert_allclose(shifted, 1.0)
+
+
+def test_pipeline_without_inputs_runs_before_its_first_call():
+    pipe = interactive_pipeline(gui=None)(_no_input_pipeline)
+    (shifted,) = pipe.run()
+    assert shifted.shape == (4, 4)
+
+
+def test_pipeline_with_inputs_still_needs_them():
+    pipe = interactive_pipeline(gui=None)(_one_input_pipeline)
+    with pytest.raises(RuntimeError, match="uninitialized inputs"):
+        pipe.run()
