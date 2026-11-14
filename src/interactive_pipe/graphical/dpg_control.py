@@ -17,7 +17,7 @@ import math
 from pathlib import Path
 from typing import Any, List, Optional, cast
 
-from interactive_pipe.graphical.value_format import printf_format
+from interactive_pipe.graphical.value_format import format_number, printf_format
 from interactive_pipe.headless.control import CircularControl, Control, RangeControl, range_pair
 from interactive_pipe.headless.pointer import PointerControl
 
@@ -211,7 +211,7 @@ class FloatSliderControl(BaseControl):
 
 def _log_label(value: float) -> str:
     """Text of a log slider: the real value (``%`` escaped, the format is printf-like)."""
-    return f"{value:.3g}".replace("%", "%%")
+    return format_number(value).replace("%", "%%")
 
 
 class RangeSliderControl(BaseControl):
@@ -465,7 +465,7 @@ class DialControl(KnobControl):
     def _label(self) -> str:
         if self.ctrl._type is int:
             return str(self.value)
-        return f"{self.value:.2f}".rstrip("0").rstrip(".")
+        return format_number(self.value)
 
     def _set(self, value):
         if value != self.value:
