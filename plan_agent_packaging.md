@@ -314,3 +314,37 @@ reproduced before any change.
 - `CLAUDE.md`: short additive section on the skill copy and the command.
 - Tests: `test/test_command_line.py` (in-process `main(argv)`, and through
   `python -m interactive_pipe` in a subprocess).
+
+### 4. Every demo headless — done (`c614709`, `844f3e4`)
+
+- `test/test_demos_headless.py`, parametrised over the 17 `demo/*.py` and 3
+  `samples/*.py`: each script runs unmodified as `__main__` through
+  `run_script` (the code behind `interactive-pipe snapshot`) and every PNG it
+  writes must be > 2 kB and not blank. In-process (~30 s for all) rather than
+  one subprocess per script; the control registry (keyed by module + qualname,
+  and every script is `__main__`) is isolated per script with `monkeypatch`, and
+  `graphviz` is masked so `graph_representation(view=True)` cannot open a viewer.
+- Explicit lists: `samples/object_oriented_pipeline_declarations.py` must run
+  (exit 0) but has no GUI pipeline (HeadlessPipeline of `FilterCore`s). Not
+  collected: `samples/interact_sample/` (`@interact` opens its window at import
+  time and ignores `INTERACTIVE_PIPE_SNAPSHOT`) and `demo/multi_image.ipynb`.
+- Every snapshot was looked at. Fixed:
+  - `panel_position_demo.py`: the default crop (100×100 px at the origin, sized
+    for its generated 300×200 fallback image) showed a blank white corner of the
+    512×512 elephant. The crop is now in percent of the image; default = whole
+    image. Checked with a sweep over `crop_x` / `crop_width`.
+  - `grouped_controls_demo.py`, `detached_panel_demo.py`, `panel_demo.py`,
+    `panel_position_demo.py`: blur and sharpen used a per-pixel Python loop,
+    ~5 s per slider move on the demo image; replaced by a vectorized box blur
+    (~40 ms), tested equal to the former loop.
+- Looked fine / by design: the two `decorated_pipeline*` samples show
+  solid-colour images (their input is a constant 1-pixel colour);
+  `grouped_controls` / `panel_demo` titles mention a text overlay the demo does
+  not draw (the code says so: "not actually drawing text").
+- Library issues noticed, not fixed (files owned by other branches):
+  - snapshot renderer ignores `layout.style(colormap=...)` (see item 1);
+  - running several scripts in one process shares the control registry between
+    their same-named `__main__` filters (`process_image: hue_shift not in ...`).
+    Irrelevant for one script per process (the CLI), but anything running
+    several user scripts in one interpreter (notebooks re-running cells from
+    different files?) would hit it.
