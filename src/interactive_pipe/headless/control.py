@@ -137,8 +137,14 @@ class Control:
                     if self.step is None:
                         # Type narrowing: we know value_range contains numeric values here
                         self.step = (value_range[1] - value_range[0]) / 100.0  # type: ignore
+                if not value_range[0] < value_range[1]:  # type: ignore[operator]
+                    raise ValueError(
+                        f"value_range {list(value_range)} must satisfy min < max "
+                        f"(did you mean [{value_range[1]}, {value_range[0]}]?)"
+                    )
                 if not (value_range[0] <= value_default <= value_range[1]):  # type: ignore
                     raise ValueError(f"value_default {value_default} must be within value_range {value_range}")
+                self._validate_step(value_range)
         elif isinstance(value_default, str):
             # similar to an enum
             if value_range is None:
@@ -191,6 +197,22 @@ class Control:
         # Register with panel if provided
         if self.panel is not None:
             self.panel._register_control(self)
+
+    def _validate_step(self, value_range) -> None:
+        """A slider step must be a positive number no larger than the range."""
+        step = self.step
+        if step is None:
+            return
+        if isinstance(step, bool) or not isinstance(step, (int, float)):
+            raise TypeError(f"step must be a number, got {step!r}")
+        span = value_range[1] - value_range[0]
+        if step <= 0:
+            raise ValueError(f"step {step!r} must be > 0 (slider over {list(value_range)})")
+        if step > span:
+            raise ValueError(
+                f"step {step!r} is larger than the range {list(value_range)}: the slider could not move. "
+                f"Use a step <= {span}"
+            )
 
     def check_value(self, value):
         if isinstance(value, int) and self._type is float:
