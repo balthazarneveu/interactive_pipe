@@ -103,6 +103,9 @@ Improvements & bug fixes:
 - Headless they are ordinary parameters: `pipe(img, seed=(0.2, 0.4))`, `snapshot`, `sweep(seed=[...])`, tuning files, `describe()` (kinds `"point"` / `"region"` with the target output).
 - New demo: `demo/pointer_demo.py`. New guide page: [Mouse input](https://balthazarneveu.github.io/interactive_pipe/guide/mouse-input/).
 
+### Display polish
+- **"Nothing found" no longer crashes**: every `draw` function accepts zero marks with any `color` (including `color=[]`) and returns the image unchanged; an empty `Table` shows its header row and "(no rows)" on Qt, Dear PyGui, matplotlib, Gradio and in snapshots (it raised in matplotlib). `Table` accepts numpy arrays, tuples and pandas `Series` as dict columns (numpy scalars become `int` / `float`). Qt and matplotlib windows draw tables like snapshots (natural row height, kept on resize; the title is no longer cut); Gradio shows the column names as headers instead of a first data row.
+
 ## 0.9.4 (November 2026)
 
 ### New features
