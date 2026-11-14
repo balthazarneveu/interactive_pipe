@@ -1,6 +1,7 @@
 import logging
 
 from interactive_pipe.headless.control import Control, RangeControl, range_pair
+from interactive_pipe.headless.pointer import PointerControl
 
 try:
     import gradio as gr
@@ -41,6 +42,8 @@ class ControlFactory:
             return None
         if isinstance(control, RangeControl):
             return RangeSliderControl(name, control, update_func)
+        if isinstance(control, PointerControl):
+            return None  # set by a click on its image (MainWindow.select_point)
 
         control_class_map = {
             bool: TickBoxControl,
