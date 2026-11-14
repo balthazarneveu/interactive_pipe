@@ -27,7 +27,7 @@ from matplotlib.figure import Figure
 
 from interactive_pipe.data_objects.curves import Curve
 from interactive_pipe.data_objects.table import Table
-from interactive_pipe.graphical.display import display_kind, prepare_display
+from interactive_pipe.graphical.display import content_title, display_kind, prepare_display
 
 # Natural cell sizes in inches (before the whole figure is scaled to fit MAX_WIDTH)
 CELL_HEIGHT = 3.2
@@ -74,11 +74,14 @@ def _as_rows(structure: Any) -> List[List[Any]]:
     return [[structure]]
 
 
-def output_title(styles: Dict[Any, Dict[str, Any]], name: Any) -> str:
-    """Title shown for an output: its ``layout.style(title=...)`` or its name."""
+def output_title(styles: Dict[Any, Dict[str, Any]], name: Any, content: Any = None) -> str:
+    """Title shown for an output: its ``layout.style(title=...)``, else the
+    title carried by the content (``Image(..., title=...)``), else its name
+    (same rule as the GUI windows)."""
     style = styles.get(name) or {}
-    title = style.get("title")
-    return str(title) if title else str(name)
+    if "title" in style:
+        return str(style["title"]) if style["title"] is not None else ""
+    return content_title(content) or str(name)
 
 
 def result_grid(pipeline: Any, result: Any) -> Grid:
@@ -108,7 +111,7 @@ def result_grid(pipeline: Any, result: Any) -> Grid:
             label = name if name is not None else f"output {row_idx}, {col_idx}"
             # same display conversion as the GUI backends (heatmap colormap, ...)
             shown = prepare_display(content, styles.get(label))
-            cells.append(SnapshotCell(name=label, content=shown, title=output_title(styles, label)))
+            cells.append(SnapshotCell(name=label, content=shown, title=output_title(styles, label, content)))
         grid.append(cells)
     return grid
 
