@@ -42,7 +42,7 @@ def test_data_size_of_a_heatmap_with_colorbar():
     heat = np.zeros((20, 30))
     point = PointControl((0.5, 0.5), name="p")
     targets = _targets(point, names=[["heat"]], contents=[[heat]], styles={(0, 0): {"colorbar": True}})
-    width, height = targets.data_size((0, 0), (999, 999))  # the shown shape includes the colorbar
+    width, height = targets.data_size((0, 0), (999, 999))[:2]  # the shown shape includes the colorbar
     assert width / 30 == height / 20 > 1
     plain = _targets(point, names=[["heat"]], contents=[[heat]])
     assert plain.data_size((0, 0), (20, 30)) == (30.0, 20.0)
