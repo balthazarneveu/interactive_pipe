@@ -63,6 +63,17 @@ Improvements & bug fixes:
 - `functools.partial` objects work as filters; a pipeline without readable source (`exec`) raises `PipelineSyntaxError` instead of `OSError`.
 - The sweep caption keeps another filter's parameter with the swept parameter's name.
 
+### Scientific outputs: figures, heatmaps, overlays
+- **matplotlib figures as outputs**: a filter may return a `Figure` (or an `Axes`). It is rasterised with Agg in one shared place (120 dpi, `layout.style(name, dpi=...)`), so it shows the same on every backend, in `snapshot` / `sweep` and in `export_animation`; `save()` writes it with `savefig` (`.png`, `.pdf`, `.svg`). Figures made with `pyplot` are closed once displayed (no leak while dragging a slider); `matplotlib.figure.Figure()` is the recommended way.
+- **Heatmap colorbar**: `layout.style(name, colormap=..., colorbar=True, unit="dB")` draws the scale into the displayed image (identical everywhere, legible on small maps); `center=0` makes the range symmetric for diverging colormaps. NaN and masked values are shown in magenta and ignored by the automatic range.
+- **`interactive_pipe.draw`**: `points`, `boxes`, `lines`, `polygon`, `text`, `mask` — pure numpy + Pillow functions that draw detections, keypoints, regions and labels on float or `uint8` images, keeping their dtype and range.
+- **`Image` outputs**: a filter may return an `interactive_pipe.Image`; its array is shown and its `title` is the cell title unless `layout.style` sets one.
+- `layout.style` heatmap options now apply in snapshots and sweeps (they were GUI-only) and on every Gradio refresh (they only applied to the first frame); `export_animation` exports outputs as the GUI shows them (styled heatmaps in colour).
+- The Qt pixel readout reports the original scalar of a heatmap, in data coordinates, also when it is shown enlarged with a colorbar.
+- A `layout.style` call without `title=` no longer blanks the cell title in the GUI windows: the output name is shown.
+- `vmin`, `vmax`, `center` and `dpi` style values must be numbers (`TypeError`).
+- New demos: `demo/matplotlib_figure_demo.py`, `demo/overlay_demo.py`. New guide page: [Figures, heatmaps and overlays](https://balthazarneveu.github.io/interactive_pipe/guide/figures-and-overlays/).
+
 ## 0.9.4 (November 2026)
 
 ### New features

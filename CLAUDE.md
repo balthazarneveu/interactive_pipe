@@ -132,6 +132,16 @@ Works with any `gui=` value; overrides apply to the call only. For an unmodified
 GUI script: `INTERACTIVE_PIPE_SNAPSHOT=/tmp/shots/ python demo/some_demo.py`.
 See `docs/guide/snapshots.md`.
 
+## Scientific outputs
+
+Filters may also return a matplotlib `Figure`/`Axes` (rasterised once in
+`graphical/display.py::prepare_display`, the single conversion point shared by
+all backends, snapshot, Gradio refresh and `export_animation` — add new output
+handling there, not per backend) and `interactive_pipe.Image`. Heatmap
+options (`colormap`, `vmin`, `vmax`, `center`, `colorbar`, `unit`, `dpi`) go
+through `layout.style`. `interactive_pipe.draw` draws marks on images. See
+`docs/guide/figures-and-overlays.md`.
+
 ## Project Structure
 
 - Source code: `src/interactive_pipe/`

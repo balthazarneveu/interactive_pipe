@@ -128,6 +128,40 @@ def my_filter(img):
 
 **NEVER generate `global_params=` (or `context=`, `state=`, ...) in a filter signature** — this injection pattern was removed in 0.9.0 and raises `TypeError` at construction. Use the proxies above; seed initial values via `@interactive_pipeline(context={...})`.
 
+## Figures, heatmaps, overlays
+
+A filter may return a numpy image, a 1D array, `Curve`, `Table`, `str`, an `interactive_pipe.Image` (its `title` becomes the cell title), or a **matplotlib `Figure` / `Axes`** — rasterised identically on every backend and in snapshots. Build figures with `matplotlib.figure.Figure()`, not `pyplot`.
+
+```python
+from matplotlib.figure import Figure
+from interactive_pipe import draw, interactive, layout
+
+
+@interactive(threshold=(0.5, [0.0, 1.0]))
+def detect(img, threshold=0.5):
+    boxes = find_boxes(img, threshold)  # (N, 4) x0, y0, x1, y1 in pixels
+    return draw.boxes(
+        img, boxes, labels=[f"#{k}" for k in range(len(boxes))]
+    )  # also draw.points/lines/polygon/text/mask
+
+
+@interactive()
+def error_map(ref, est):
+    layout.style(
+        "err", colormap="RdBu_r", center=0, colorbar=True, unit="px"
+    )  # scale drawn into the image; NaN -> magenta
+    return est[..., 0] - ref[..., 0]
+
+
+@interactive()
+def contour_plot(err):
+    fig = Figure(figsize=(4, 3))
+    fig.subplots().contour(err)
+    return fig
+```
+
+`draw.*` functions are pure (return a new array, same dtype/range; gray promoted to RGB), take `(x, y)` pixel coordinates and clip out-of-image marks. Guide: `docs/guide/figures-and-overlays.md`.
+
 ## Check your work without a display
 
 You cannot see the GUI window, but you can read a PNG. Never declare a visual change done without looking at a snapshot. The loop:

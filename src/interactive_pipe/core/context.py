@@ -10,6 +10,7 @@ Internal implementation uses contextvars to maintain separate framework and user
 """
 
 import logging
+import numbers
 from contextvars import ContextVar
 from typing import Any, Dict, List, Optional, Union
 
@@ -69,7 +70,19 @@ def _set_current_filter(name: Optional[str]) -> None:
 # ============================================================================
 
 
-SUPPORTED_STYLE_KEYS = ("title", "subtitle", "colormap", "vmin", "vmax", "xlabel", "ylabel")
+SUPPORTED_STYLE_KEYS = (
+    "title",
+    "subtitle",
+    "colormap",
+    "vmin",
+    "vmax",
+    "center",
+    "colorbar",
+    "unit",
+    "dpi",
+    "xlabel",
+    "ylabel",
+)
 _warned_style_keys: set = set()  # warn once per unknown key: layout.style runs on every frame
 
 
@@ -112,6 +125,17 @@ class _LayoutProxy:
                 - ``vmin`` / ``vmax``: values mapped to the bottom / top of the
                   colormap (or to black / white without a colormap) for 2D
                   arrays; each defaults to the data min / max, as in matplotlib.
+                - ``center``: widen the range to be symmetric around this value
+                  (diverging data: ``colormap="RdBu", center=0``).
+                - ``colorbar``: ``True`` draws the scale (min, max and round
+                  ticks) to the right of a 2D array, inside the displayed image,
+                  so it looks the same on every backend and in snapshots.
+                - ``unit``: text appended to the colorbar labels (``"dB"``).
+                - ``dpi``: resolution used to rasterise a matplotlib figure
+                  output (default 120).
+
+                NaN and masked (``numpy.ma``) values of a styled 2D array are
+                shown in magenta; ``±inf`` go to the ends of the scale.
                 - ``xlabel`` / ``ylabel``: axis labels (matplotlib backend only;
                   for curves prefer ``Curve(..., xlabel=...)``).
 
@@ -143,6 +167,10 @@ class _LayoutProxy:
         colormap = style_kwargs.get("colormap")
         if isinstance(colormap, str):
             _check_colormap_name(colormap)
+        for key in ("vmin", "vmax", "center", "dpi"):
+            value = style_kwargs.get(key)
+            if value is not None and (isinstance(value, bool) or not isinstance(value, numbers.Real)):
+                raise TypeError(f"layout.style('{name}', {key}=...): a number is expected, got {value!r}")
         style.update(style_kwargs)
         subtitle = style_kwargs.get("subtitle")
         if subtitle:

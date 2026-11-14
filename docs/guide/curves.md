@@ -1,6 +1,6 @@
 # Curve plots
 
-Return a `Curve` from a filter to display a 2D plot instead of an image. Curves update live as sliders move, like any other output, and mix freely with images in the same pipeline. All backends display them ([backend matrix](../getting-started/backends.md)).
+Return a `Curve` from a filter to display a 2D plot instead of an image. Curves update live as sliders move, like any other output, and mix freely with images in the same pipeline. All backends display them ([backend matrix](../getting-started/backends.md)). For plots a `Curve` cannot draw (contours, arrows, polar axes...), return a matplotlib figure instead: see [Figures, heatmaps and overlays](figures-and-overlays.md).
 
 ## Returning a curve from a filter
 

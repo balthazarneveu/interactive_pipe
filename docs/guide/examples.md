@@ -45,6 +45,8 @@ All in [`demo/`](https://github.com/balthazarneveu/interactive_pipe/tree/master/
 | `image_editing_demo.py` / `image_analysis_demo.py` | Realistic image workflows |
 | `independent_curve_image_demo.py` | Mixing `Curve` plots and images |
 | `table_demo.py` | `Table` outputs |
+| `matplotlib_figure_demo.py` | matplotlib `Figure` outputs and a heatmap with colorbar ([figures](figures-and-overlays.md)) |
+| `overlay_demo.py` | Detections drawn with [`interactive_pipe.draw`](figures-and-overlays.md#drawing-on-images-interactive_pipedraw) |
 | `jukebox_demo.py` | Raspberry Pi jukebox (audio + image buttons) |
 
 ## Curated samples
