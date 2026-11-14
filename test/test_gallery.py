@@ -77,20 +77,14 @@ def test_lens_calibration_residual_vanishes_at_the_true_coefficients(isolated_co
 
 def test_blob_detection_scores(isolated_controls):
     ns = _load("blob_detection")
-    detect, score = ns["detect"], ns["score"]
-
-    @interactive_pipeline(gui=None)
-    def blobs(img):
-        detections = detect(img)
-        overlay, table = score(img, detections)
-        return overlay, table
+    blobs = ns["blob_detection"].headless  # the outputs of the GUI-decorated pipeline, no window
 
     img = ns["make_image"]()
-    overlay, table = blobs(img)
+    _, overlay, table = blobs(img)
     precision, recall = (float(word) for word in overlay.title.replace(",", "").split()[1::2])
     assert precision >= 0.8 and recall >= 0.6
     assert overlay.data.shape == img.shape + (3,) and len(table.values) == 11
-    overlay, table = blobs(img, threshold=0.99)  # nothing detected: no crash
+    _, overlay, table = blobs(img, threshold=0.99)  # nothing detected: no crash
     assert overlay.title == "precision 0.00, recall 0.00" and table == "no detection"
 
 

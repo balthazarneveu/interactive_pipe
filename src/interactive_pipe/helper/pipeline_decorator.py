@@ -17,6 +17,30 @@ from interactive_pipe.helper.choose_backend import get_interactive_pipeline_clas
 
 #: HeadlessPipeline methods also reachable from a GUI-decorated pipeline function
 SEE_THE_RESULT_METHODS = ("snapshot", "sweep", "describe", "summary")
+#: names people try for "the outputs without a window": they point to `.headless`
+WRONG_GUESSES = ("run", "outputs", "results", "compute")
+
+
+def _pointer_to_headless(function_name: str, guess: str) -> Callable:
+    def wrong_guess(*args: Any, **kwargs: Any) -> Any:
+        raise AttributeError(
+            f"{function_name}.{guess}(...) does not exist: {function_name}(...) opens the window, and "
+            f"{function_name}.headless(img, gain=2.0) runs the pipeline without a window and returns its "
+            "outputs (a tuple, like a gui=None pipeline)."
+        )
+
+    return wrong_guess
+
+
+def attach_headless(inner: Callable, function_name: str, headless_pipeline: HeadlessPipeline) -> None:
+    """``inner.headless``: a HeadlessPipeline of the same function, so
+    ``demo.headless(img, gain=2.0)`` returns the outputs (a tuple, like a
+    ``gui=None`` pipeline) without opening a window. It is its own pipeline
+    (own control values; the GUI reshapes its pipeline's outputs into rows).
+    The usual wrong guesses (``demo.run(img)``...) raise, pointing to it."""
+    setattr(inner, "headless", headless_pipeline)
+    for guess in WRONG_GUESSES:
+        setattr(inner, guess, _pointer_to_headless(function_name, guess))
 
 
 def pipeline(pipeline_function: Callable, **kwargs) -> HeadlessPipeline:
@@ -33,7 +57,10 @@ def pipeline(pipeline_function: Callable, **kwargs) -> HeadlessPipeline:
 
 
 def _snapshot_launcher(
-    pipeline_function: Callable[..., Any], headless_pipeline: HeadlessPipeline, gui_pipeline: Any = None
+    pipeline_function: Callable[..., Any],
+    headless_pipeline: HeadlessPipeline,
+    gui_pipeline: Any = None,
+    headless_twin: Optional[HeadlessPipeline] = None,
 ) -> Callable:
     """Stand-in for the GUI launcher when INTERACTIVE_PIPE_SNAPSHOT is set.
 
@@ -58,6 +85,9 @@ def _snapshot_launcher(
 
     owner = gui_pipeline if gui_pipeline is not None else headless_pipeline
     setattr(inner, "pipeline", owner)
+    if headless_twin is None:
+        headless_twin = HeadlessPipeline.from_function(pipeline_function)
+    attach_headless(inner, pipeline_function.__name__, headless_twin)
     setattr(inner, "graph_representation", owner.graph_representation)
     for method_name in SEE_THE_RESULT_METHODS:
         setattr(inner, method_name, getattr(headless_pipeline, method_name))
@@ -200,6 +230,10 @@ def interactive_pipeline(
         A decorator. Applied to a pipeline function it returns either a
         ``HeadlessPipeline`` (when ``gui`` is None or ``"headless"``) or a
         callable that launches the GUI when invoked with the pipeline inputs.
+        Both have ``.headless``, the ``HeadlessPipeline`` itself:
+        ``my_pipeline.headless(img, gain=2.0)`` returns the outputs without
+        opening a window (whatever ``gui``), ``.snapshot`` / ``.sweep`` /
+        ``.describe`` / ``.summary`` render or describe it.
 
     Raises:
         TypeError: If a removed pre-0.9.0 context alias (``global_params``,
@@ -227,13 +261,16 @@ def interactive_pipeline(
             )
 
     def wrapper(pipeline_function: Callable[..., Any]) -> Union[HeadlessPipeline, Callable[..., Any]]:
-        headless_pipeline = HeadlessPipeline.from_function(
-            pipeline_function,
-            safe_input_buffer_deepcopy=safe_input_buffer_deepcopy,
-            cache=cache,
-            readonly_inputs=readonly_inputs,
-            context=context,
-        )
+        def build() -> HeadlessPipeline:
+            return HeadlessPipeline.from_function(
+                pipeline_function,
+                safe_input_buffer_deepcopy=safe_input_buffer_deepcopy,
+                cache=cache,
+                readonly_inputs=readonly_inputs,
+                context=context,
+            )
+
+        headless_pipeline = build()
         # Environment overrides (INTERACTIVE_PIPE_GUI / INTERACTIVE_PIPE_SIZE), see interactive_pipe.cli
         selected_gui = resolve_gui(gui)
         if selected_gui is None or selected_gui == "headless":
@@ -246,6 +283,7 @@ def interactive_pipeline(
                 _gui_for_snapshot(
                     selected_gui, headless_pipeline, markdown_description, name, pipeline_function, dict(kwargs_gui)
                 ),
+                build(),
             )
         else:
             gui_options = dict(kwargs_gui)
@@ -267,6 +305,8 @@ def interactive_pipeline(
 
         # Attach the GUI pipeline object to the function so users can access methods like graph_representation
         setattr(inner, "pipeline", gui_pipeline)
+        # the same pipeline without a window: demo.headless(img, gain=2.0) returns the outputs
+        attach_headless(inner, pipeline_function.__name__, build())
         setattr(inner, "graph_representation", gui_pipeline.graph_representation)
         # See-the-result loop without opening the window (same calls as on a HeadlessPipeline)
         for method_name in SEE_THE_RESULT_METHODS:
