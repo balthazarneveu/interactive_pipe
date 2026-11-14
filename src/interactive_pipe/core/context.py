@@ -137,6 +137,21 @@ SUPPORTED_STYLE_KEYS = (
     "ylabel",
 )
 _warned_style_keys: set = set()  # warn once per unknown key: layout.style runs on every frame
+_UNSET: Any = object()  # layout.style(title=...) not given (an explicit None removes the title)
+
+
+def _check_extent(name: str, extent: Any) -> None:
+    if extent is None:
+        return
+    if (
+        not isinstance(extent, (tuple, list))
+        or len(extent) != 4
+        or any(isinstance(v, bool) or not isinstance(v, numbers.Real) for v in extent)
+    ):
+        raise TypeError(
+            f"layout.style('{name}', extent=...): (x0, x1, y0, y1) numbers are expected "
+            f"(x of the left / right columns, y of the bottom / top rows), got {extent!r}"
+        )
 
 
 def _check_colormap_name(colormap: str) -> None:
@@ -162,7 +177,7 @@ class _LayoutProxy:
         - row(): Convenience for single-row layout
     """
 
-    def style(self, name: str, *, title: Optional[str] = None, **style_kwargs: Any) -> None:
+    def style(self, name: str, *, title: Any = _UNSET, **style_kwargs: Any) -> None:
         """Set display properties for an output.
 
         Args:
@@ -199,6 +214,12 @@ class _LayoutProxy:
 
                 Other keys are ignored, with a warning.
 
+            Calls on one output during one run add up: a later call changes
+            only the keys it gives (``layout.style("h", colormap="viridis")``
+            then ``layout.style("h", title=f"max {m:.1f}")`` keeps the
+            colormap); ``key=None`` removes that key. The first call of the
+            next run starts from nothing again.
+
         Example:
             ```python
             layout.style("processed", title=f"Brightness: {brightness:.2f}")
@@ -211,9 +232,8 @@ class _LayoutProxy:
         """
         state = _get_framework_state(f"layout.style({name!r}, ...)")
 
-        style = {}
-        if title is not None:
-            style["title"] = title
+        if title is not _UNSET:
+            style_kwargs = {"title": title, **style_kwargs}
         unknown = sorted(key for key in style_kwargs if key not in SUPPORTED_STYLE_KEYS)
         for key in unknown:
             if key not in _warned_style_keys:
@@ -229,12 +249,21 @@ class _LayoutProxy:
             value = style_kwargs.get(key)
             if value is not None and (isinstance(value, bool) or not isinstance(value, numbers.Real)):
                 raise TypeError(f"layout.style('{name}', {key}=...): a number is expected, got {value!r}")
-        style.update(style_kwargs)
-        subtitle = style_kwargs.get("subtitle")
+        _check_extent(name, style_kwargs.get("extent"))
+
+        # successive calls on one output during one run add up (later call
+        # wins per key, None removes a key); the first call of a run starts afresh
+        previous = state.style_calls.get(name)
+        given = dict(previous[1]) if previous is not None and previous[0] == state.run_count else {}
+        given.update(style_kwargs)
+        given = {key: value for key, value in given.items() if value is not None}
+        state.style_calls[name] = (state.run_count, given)
+
+        style = dict(given)
+        subtitle = given.get("subtitle")
         if subtitle:
             # backends show a single title line: the subtitle goes after it
-            style["title"] = f"{title if title is not None else name} · {subtitle}"
-
+            style["title"] = f"{given.get('title', name)} · {subtitle}"
         state.output_styles[name] = style
 
     def grid(self, arrangement: Union[List[str], List[List[str]]]) -> None:
