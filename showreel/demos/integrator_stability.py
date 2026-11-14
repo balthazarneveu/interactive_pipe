@@ -101,9 +101,10 @@ def phase_portrait(states, now):
 
 def plot_energy(t, states, now):
     e = energy(states) / energy(states[0, 0])
-    curves = [(t, e[k], f"C{k}-") for k in range(3)] + [([t[now]] * 2, [0, 5], "k:")]
-    title = "Energy / initial: Euler {:.2f}, symplectic {:.3f}, RK4 {:.4f}".format(*e[:, now])
-    return Curve(curves, xlabel="time (s)", ylabel="relative energy", title=title, grid=True, ylim=(0.8, 4.0))
+    ylim = (0.8, 4.0)  # fixed axis: no rescaling while a slider moves; clipped curves ride its edges
+    curves = [(t, np.clip(e[k], *ylim), f"C{k}-") for k in range(3)] + [([t[now]] * 2, ylim, "k:")]
+    title = "Energy / initial: Euler {:.2f}, symplectic {:.3f}, RK4 {:.4f}".format(*e[:, now])  # true values
+    return Curve(curves, xlabel="time (s)", ylabel="relative energy (clipped)", title=title, grid=True, ylim=ylim)
 
 
 @interactive_pipeline(gui=None if GIF else "auto", cache="graph", name="Integrator stability")

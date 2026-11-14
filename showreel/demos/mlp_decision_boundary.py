@@ -79,7 +79,7 @@ def stamp(img, points, colors, radius):  # one disc per point
     point_size=(4, [2, 8], "point size", "Display"),
     show_validation=(False, "show validation points", "Display"),
 )
-def draw_boundary(data, net, resolution=100, point_size=4, show_validation=False):
+def draw_boundary(data, net, resolution=160, point_size=4, show_validation=False):
     axis = np.linspace(-EXTENT, EXTENT, resolution, dtype=np.float32)
     grid = torch.tensor(np.stack(np.meshgrid(axis, axis[::-1]), -1).reshape(-1, 2))
     prob = torch.sigmoid(net(grid)).numpy().reshape(resolution, resolution)
