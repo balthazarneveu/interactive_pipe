@@ -125,7 +125,7 @@ def test_more_than_two_axes_or_none_raise():
 
 def test_unknown_names_raise_type_error():
     pipe = make(sw_pipeline)
-    with pytest.raises(TypeError, match="Did you mean 'gain'"):
+    with pytest.raises(TypeError, match="Did you mean 'gane' -> 'gain'"):
         pipe.sweep(None, gane=[0.1, 0.2])
     with pytest.raises(TypeError, match="gian"):
         pipe.sweep(None, steps={"gian": 3})

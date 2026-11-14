@@ -81,23 +81,76 @@ def parameter_targets(pipeline: Any) -> Dict[str, List[Target]]:
     return targets
 
 
-def resolve_names(pipeline: Any, names: Sequence[str], method: str = "snapshot") -> Dict[str, List[Target]]:
-    """Map override names to filter parameters; unknown names raise TypeError
-    listing the available ones (with a close match when there is one)."""
+def unknown_names_error(pipeline: Any, unknown: Sequence[str], caller: str, reserved: Sequence[str] = ()) -> TypeError:
+    """The one message for parameter names that match nothing, used by
+    ``pipeline(img, gain=...)``, ``snapshot``, ``sweep`` and the single-filter entry points."""
     targets = parameter_targets(pipeline)
-    resolved = {}
-    for name in names:
-        if name in targets:
-            resolved[name] = targets[name]
+    available = sorted(key for key in targets if "." not in key)
+    message = (
+        f"{caller} got unexpected keyword argument(s) "
+        + ", ".join(repr(name) for name in unknown)
+        + f". Available parameters: {', '.join(available) or 'none'}"
+    )
+    if reserved:
+        message += f" (reserved keywords: {', '.join(reserved)})"
+    message += "."
+    suggestions = [
+        f"{name!r} -> {match[0]!r}"
+        for name in unknown
+        for match in [difflib.get_close_matches(name, list(targets), n=1)]
+        if match
+    ]
+    if suggestions:
+        message += " Did you mean " + ", ".join(suggestions) + "?"
+    dotted = sorted(key for key in targets if "." in key)
+    if dotted:
+        message += f" To set the parameter of one filter only, write 'filter.parameter' (e.g. {dotted[0]!r})."
+    return TypeError(message)
+
+
+def resolve_names(
+    pipeline: Any, names: Sequence[str], method: str = "snapshot", caller: Optional[str] = None, reserved=()
+) -> Dict[str, List[Target]]:
+    """Map override names to filter parameters; unknown names raise TypeError
+    listing the available ones (with a close match when there is one).
+
+    Accepted spellings: a parameter name (every filter having it), a control
+    name (``exposure``, ``gain_1``, ``amplify.gain``) and ``"filter.parameter"``.
+    """
+    targets = parameter_targets(pipeline)
+    unknown = [name for name in names if name not in targets]
+    if unknown:
+        raise unknown_names_error(pipeline, unknown, caller or f"{method}()", reserved)
+    return {name: targets[name] for name in names}
+
+
+def check_parameters_dict(pipeline: Any, parameters: Any, caller: str) -> None:
+    """Validate ``parameters={"filter": {"param": value}}`` before anything is changed."""
+    if not isinstance(parameters, dict):
+        raise TypeError(f"{caller}: parameters must be a dict {{filter_name: {{parameter: value}}}}")
+    filters = {filt.name: filt for filt in pipeline.filters}
+    problems = []
+    for filter_name, values in parameters.items():
+        if filter_name not in filters:
+            close = difflib.get_close_matches(str(filter_name), list(filters), n=1)
+            problems.append(f"no filter {filter_name!r}" + (f" (did you mean {close[0]!r}?)" if close else ""))
             continue
-        available = sorted(key for key in targets if "." not in key)
-        close = difflib.get_close_matches(name, list(targets), n=1)
-        hint = f" Did you mean {close[0]!r}?" if close else ""
+        if not isinstance(values, dict):
+            problems.append(f"parameters[{filter_name!r}] must be a dict {{parameter: value}}")
+            continue
+        known = list(filters[filter_name].values)
+        for param in values:
+            if param not in known:
+                close = difflib.get_close_matches(str(param), known, n=1)
+                problems.append(
+                    f"filter {filter_name!r} has no parameter {param!r}"
+                    + (f" (did you mean {close[0]!r}?)" if close else "")
+                    + f" - its parameters: {', '.join(known) or 'none'}"
+                )
+    if problems:
         raise TypeError(
-            f"{method}() got an unknown parameter {name!r}.{hint} "
-            f"Available parameters: {', '.join(available) or '(none)'}"
+            f"{caller} got invalid parameters={{...}}: " + "; ".join(problems) + f". Filters: {', '.join(filters)}."
         )
-    return resolved
 
 
 def _controls_for(pipeline: Any, targets: List[Target]) -> List[Control]:
