@@ -24,6 +24,7 @@ import numpy as np
 
 from interactive_pipe.core.pipeline import PipelineCore
 from interactive_pipe.headless.control import Control, RangeControl
+from interactive_pipe.headless.output_check import output_problem, warn_output_problems
 from interactive_pipe.headless.snapshot import (
     Grid,
     OutputSelector,
@@ -247,6 +248,7 @@ def run_snapshot(
         apply_overrides(pipeline, all_overrides, "snapshot")
         result = pipeline.run()
         grid = select_cells(result_grid(pipeline, result), output)
+        warn_output_problems(((cell.name, cell.content) for cell in flat_cells(grid)), "snapshot")
         fig = render_grid(grid, figsize=figsize, dpi=dpi, title=title, caption=_caption(pipeline, caption))
     return _export(fig, path), result
 
@@ -480,6 +482,12 @@ def sweep(
                 chosen_name = cells[default_sweep_cell(grid)].name
             chosen_cell = next(cell for cell in cells if cell.name == chosen_name)
             panels_flat.append([[chosen_cell]])
+    shown = {}  # output name -> first value with a display problem (one warning per output)
+    for panel in panels_flat:
+        for cell in flat_cells(panel):
+            if cell.name not in shown and output_problem(cell.content) is not None:
+                shown[cell.name] = cell.content
+    warn_output_problems(shown.items(), "sweep")
     labels = [", ".join(f"{name}={format_value(val)}" for name, val in zip(names, combo)) for combo in combos]
     if len(names) == 1:
         count = len(panels_flat)
