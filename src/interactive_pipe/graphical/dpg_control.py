@@ -167,7 +167,7 @@ class FloatSliderControl(BaseControl):
             max_value=float(value_max),
             clamped=True,
             width=-1,
-            format=printf_format(self.ctrl.value),
+            format=printf_format(float(self.ctrl.value)),  # type: ignore[arg-type]
             callback=self._on_change,
         )
         self._add_tooltip(self.control_widget)
@@ -192,7 +192,7 @@ class FloatSliderControl(BaseControl):
             dpg.configure_item(self.control_widget, format=_log_label(self.ctrl.value))
             return
         dpg.set_value(self.control_widget, float(self.ctrl.value))
-        dpg.configure_item(self.control_widget, format=printf_format(self.ctrl.value))
+        dpg.configure_item(self.control_widget, format=printf_format(float(self.ctrl.value)))  # type: ignore[arg-type]
 
 
 def _log_label(value: float) -> str:
