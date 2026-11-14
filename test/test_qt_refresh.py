@@ -18,6 +18,7 @@ qt_gui = pytest.importorskip("interactive_pipe.graphical.qt_gui")
 from interactive_pipe import Curve, interactive, layout  # noqa: E402
 from interactive_pipe.core.engine import FilterError  # noqa: E402
 from interactive_pipe.graphical.qt_backend import QApplication  # noqa: E402
+from interactive_pipe.graphical.value_format import format_number  # noqa: E402
 from interactive_pipe.headless.pipeline import HeadlessPipeline  # noqa: E402
 
 INPUT_IMAGE = np.linspace(0.0, 1.0, 8 * 8, dtype=np.float64).reshape(8, 8)
@@ -344,7 +345,7 @@ def test_threaded_reset_runs_once_in_the_worker():
         assert wait_for_idle(window)
         assert SLOW_CALLS == [pytest.approx(0.5, abs=0.01)]
         assert window.ctrl["slow_gain"].value == pytest.approx(0.5, abs=0.01)
-        assert window.result_label["slow_gain"].text() == f"{window.ctrl['slow_gain'].value:.3e}"
+        assert window.result_label["slow_gain"].text() == format_number(window.ctrl["slow_gain"].value)
     finally:
         window.stop_threaded_runs()
 

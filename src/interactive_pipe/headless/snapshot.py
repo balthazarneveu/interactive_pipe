@@ -46,6 +46,7 @@ from interactive_pipe.graphical.display import (
     rasterize_figure,
     wrap_text,
 )
+from interactive_pipe.graphical.value_format import format_number
 
 # Natural cell sizes in inches (before the whole figure is scaled to fit MAX_WIDTH)
 CELL_HEIGHT = 3.2
@@ -201,7 +202,7 @@ def format_value(value: Any) -> str:
     if isinstance(value, (bool, np.bool_)):
         return str(bool(value))
     if isinstance(value, (float, np.floating)):
-        return f"{float(value):.4g}"
+        return format_number(value)  # as next to the GUI sliders: "6", "0.1", "1e-05"
     if isinstance(value, (int, np.integer)):
         return str(int(value))
     if isinstance(value, str):

@@ -1,5 +1,6 @@
 import logging
 
+from interactive_pipe.graphical.value_format import D3_FORMAT
 from interactive_pipe.headless.control import Control, RangeControl, range_pair
 
 try:
@@ -97,6 +98,7 @@ class FloatSliderNotebookControl(BaseControl):
             max=self.ctrl.value_range[1],  # type: ignore[reportOptionalSubscript]
             value=self.ctrl.value_default,
             step=self.ctrl.step,
+            readout_format=D3_FORMAT,  # "6", "0.1", "0.005" as on the other backends
             style=style,
             layout=self.layout,
             tooltip=self.ctrl.tooltip,
