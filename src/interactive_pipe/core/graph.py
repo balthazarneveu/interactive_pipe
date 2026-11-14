@@ -227,7 +227,15 @@ def _parse_function_source(func: Callable) -> Tuple[ast.AST, int, List[str]]:
     Returns (function AST node, line offset to add to node.lineno to get the
     absolute line number in the file, source lines).
     """
-    source_lines, first_lineno = inspect.getsourcelines(func)
+    name = getattr(func, "__name__", repr(func))
+    try:
+        source_lines, first_lineno = inspect.getsourcelines(func)
+    except (OSError, TypeError) as exc:
+        raise ValueError(
+            f"cannot read the source code of pipeline '{name}' ({exc}): a pipeline function is analyzed "
+            "statically, so it must be a regular `def` in a file or notebook cell "
+            "(not built with exec/eval, not a builtin or a callable object)"
+        ) from exc
     source = "".join(source_lines)
     line_offset = first_lineno - 1
     try:
@@ -242,7 +250,10 @@ def _parse_function_source(func: Callable) -> Tuple[ast.AST, int, List[str]]:
         raise ValueError("Function body is empty")
     main_function = tree.body[0]  # type: ignore[attr-defined]
     if not isinstance(main_function, (ast.FunctionDef, ast.AsyncFunctionDef)):
-        raise ValueError("Function AST node is malformed")
+        raise ValueError(
+            f"pipeline '{name}' must be a regular `def` function (a lambda or an expression cannot be "
+            "analyzed): write `def my_pipeline(img): out = my_filter(img); return out`"
+        )
     return main_function, line_offset, source_lines
 
 
@@ -302,6 +313,15 @@ class _PipelineParser:
         self.globals, self.nonlocals = self._scope(func, global_context)
         self.results: List[dict] = []
         self.hoisted_names: set = set()
+        # variables a filter call may use as inputs: the pipeline arguments,
+        # then the outputs of every filter call seen so far
+        arguments = self.function_node.args  # type: ignore[attr-defined]
+        self.defined_variables: set = {
+            arg.arg for arg in (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs)
+        }
+        for extra in (arguments.vararg, arguments.kwarg):
+            if extra is not None:
+                self.defined_variables.add(extra.arg)
 
     @staticmethod
     def _scope(func: Callable, global_context: Optional[dict]) -> Tuple[dict, dict]:
@@ -377,6 +397,13 @@ class _PipelineParser:
                 "assign the callable to a name outside the pipeline function and call it by that name",
             )
         root = node.id
+        if chain and root in self.defined_variables:
+            raise self.error(
+                call,
+                f"'{root}' is a variable of the pipeline: calling its method `{root}.{chain[0]}(...)` "
+                "is not supported in a pipeline function",
+                f"call `{chain[0]}` inside a filter function; {_FILTER_HINT}",
+            )
         if root in self.nonlocals:
             obj = self.nonlocals[root]
         elif root in self.globals:
@@ -452,6 +479,15 @@ class _PipelineParser:
         input_names = []
         for index, arg in enumerate(call.args):
             if isinstance(arg, ast.Name):
+                if arg.id not in self.defined_variables:
+                    suggestion = self._did_you_mean(arg.id, sorted(self.defined_variables))
+                    raise self.error(
+                        arg,
+                        f"'{arg.id}' is not a variable of the pipeline: filter inputs must be pipeline "
+                        "arguments or outputs of an earlier filter call",
+                        suggestion
+                        or f"add `{arg.id}` to the arguments of the pipeline function, or produce it with a filter",
+                    )
                 input_names.append(arg.id)
             elif isinstance(arg, ast.Call):
                 input_names.append(self.hoist(arg))
@@ -506,6 +542,32 @@ class _PipelineParser:
             literal_kwargs[keyword.arg] = value
         return literal_kwargs
 
+    def check_input_count(self, call: ast.Call, function_name: str, function_object: Any, provided: int) -> None:
+        """Raise when a filter call misses required inputs (it would only fail once the pipeline runs)."""
+        if isinstance(function_object, FilterCore):
+            function_object = function_object.apply
+        try:
+            parameters = inspect.signature(function_object).parameters.values()
+        except (TypeError, ValueError):
+            return  # no introspectable signature (native callable): checked at run time
+        if any(param.kind is inspect.Parameter.VAR_POSITIONAL for param in parameters):
+            return
+        required = [
+            param.name
+            for param in parameters
+            if param.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+            and param.default is inspect.Parameter.empty
+        ]
+        if provided < len(required):
+            missing = ", ".join(required[provided:])
+            raise self.error(
+                call,
+                f"filter '{function_name}' expects {len(required)} input{'s' if len(required) != 1 else ''} "
+                f"({', '.join(required)}), got {provided}: missing {missing}",
+                f"pass the missing input{'s' if len(required) - provided != 1 else ''} positionally, "
+                f"e.g. `{function_name}({', '.join(required)})`",
+            )
+
     def call_entry(self, call: ast.Call, output_names: Optional[List[str]]) -> dict:
         """Validate a filter call and append its node to the graph (after its hoisted inner calls)."""
         function_name, function_object = self.resolve_callable(call)
@@ -518,6 +580,8 @@ class _PipelineParser:
             sig = analyze_apply_fn_signature(function_object)
         literal_kwargs = self.parse_keywords(call, function_name, sig)
         input_names = self.parse_args(call, sig)
+        self.check_input_count(call, function_name, function_object, len(input_names))
+        self.defined_variables.update(output_names or [])
         if isinstance(function_object, FilterCore):
             # Case of a filter instance
             # ---> forcing filter instance .name to be the name of the object used in the func
@@ -569,6 +633,13 @@ class _PipelineParser:
     def check_return_value(self, node: ast.expr) -> ast.expr:
         """Validate the returned structure; filter calls in it are hoisted and replaced by their output name."""
         if isinstance(node, ast.Name):
+            if node.id not in self.defined_variables:
+                suggestion = self._did_you_mean(node.id, sorted(self.defined_variables))
+                raise self.error(
+                    node,
+                    f"'{node.id}' is returned but is not a variable of the pipeline",
+                    suggestion or "return pipeline arguments or outputs of filter calls",
+                )
             return node
         if isinstance(node, ast.Constant) and node.value is None:
             return node

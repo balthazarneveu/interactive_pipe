@@ -62,7 +62,12 @@ class Control:
         # Keyed by module + qualname so same-named functions in different
         # modules do not collide. functools.wraps preserves both, so the key
         # is identical for a decorated function and its wrapper.
-        return f"{func.__module__}.{func.__qualname__}"
+        qualname = getattr(func, "__qualname__", None)
+        if qualname is None:
+            # functools.partial and callable instances have no qualname: key
+            # them by identity, they carry no decorator-registered controls
+            return f"{type(func).__module__}.{type(func).__qualname__}@{id(func)}"
+        return f"{func.__module__}.{qualname}"
 
     @classmethod
     def register(cls, func, param_name, control_instance):

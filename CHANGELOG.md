@@ -5,6 +5,8 @@
 Common mistakes in pipelines used to build something that ran and was wrong. They now either do what was meant or fail with an error naming the line and the fix.
 
 ### Changes that can affect existing code
+- **Variables and inputs are checked when the pipeline is built**: an undefined variable passed to a filter or returned (`offset(amplifed)`), a filter call missing a required input (`blend(img)` when `blend` takes two), and a method called on a pipeline variable (`img.copy()`) raise `PipelineSyntaxError` at the line, with a suggestion. Before, they failed inside the engine on the first run (`KeyError`, `missing a required argument`) or silently resolved a module-level name.
+- **`parameters={...}` is validated before being applied**: an unknown filter or parameter name raises `ValueError` with a suggestion and leaves the pipeline untouched. Before, an unknown parameter was stored, every later run failed inside the filter, and the pipeline stayed unusable.
 - **Stricter pipeline body**: every top-level statement of a pipeline function is now validated. `if` / `for` / `while` / `with` / `try`, arithmetic and other non-call expressions (`b = a * 2`), `+=`, comprehensions, lambdas, statements after the `return`, `*args` / `**kwargs`, positional literals and builtins raise the new `PipelineSyntaxError` (a `ValueError`, exported from `interactive_pipe`) at build time, with the file, line, source line and a hint. Before, the body was flattened silently: branches always taken, loop bodies run once, arithmetic dropped (the pipeline returned `()`).
 - **Different exception types at build time**: an unknown filter name in a pipeline body used to raise `KeyError` and a non-callable `TypeError`; both now raise `PipelineSyntaxError` (a `ValueError`), with a suggestion.
 - **Keyword arguments in filter calls are now applied or rejected**: `amplify(img, gain=2.5)` used to be ignored silently; a literal value now sets that filter instance's parameter (and its control default, validated against the range). A keyword that is not a parameter of the filter, or a non-literal value (a variable), raises `PipelineSyntaxError`.
@@ -30,6 +32,8 @@ Common mistakes in pipelines used to build something that ran and was wrong. The
 - `HeadlessPipeline.load_tuning(path)`, the name the docs already used (alias of `import_tuning`).
 
 ### Improvements & bug fixes
+- A `functools.partial` (or any callable object) can be used as a filter; it used to fail with `AttributeError: __qualname__`.
+- A lambda or a function without source code (built with `exec`) used as a pipeline gets an explanation instead of `Function AST node is malformed` / `OSError`.
 - A value outside a control's range (`pipeline(img, gain=99)`, tuning files, sessions) is still clamped, but now logs a warning naming the control, the value and the range.
 - Calling a pipeline with the wrong number of inputs says `pipeline 'p' expects 1 input (img), got 0` (and names the missing keys for `inputs={...}`), instead of `Cannot set inputs to None when inputs_routing is defined`.
 - The GUI `__call__` accepts `inputs={...}` like the headless one.
