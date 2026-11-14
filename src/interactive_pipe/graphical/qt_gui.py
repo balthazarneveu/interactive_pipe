@@ -11,7 +11,7 @@ from interactive_pipe.core.engine import FilterError
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.graphical.actions import Action
 from interactive_pipe.graphical.columns import choose_column_count, split_into_columns
-from interactive_pipe.graphical.display import display_data, heatmap_geometry
+from interactive_pipe.graphical.display import display_data, figure_of, heatmap_geometry, rasterize_figure
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.qt_audio import QtAudioPlayer
 
@@ -104,6 +104,40 @@ def _normalize_output_grid(_out):
     if isinstance(_out, tuple):
         _out = [list(_out)]
     return [list(row) if isinstance(row, list) else [row] for row in _out]
+
+
+def _rasterize_figures(out, layout):
+    """`out` with matplotlib figure outputs replaced by their raster (same
+    structure), using each output's ``layout.style(dpi=...)``."""
+    outputs, styles = layout
+
+    def name_at(*index):
+        try:
+            value = outputs
+            for position in index:
+                value = value[position]
+            return value
+        except (IndexError, TypeError, KeyError):
+            return None
+
+    def convert(content, *index):
+        if figure_of(content) is None:
+            return content
+        name = name_at(*index)
+        style = styles.get(name) if isinstance(name, (str, int)) else None
+        return rasterize_figure(content, (style or {}).get("dpi"))
+
+    is_grid = isinstance(out, list) and any(isinstance(cells, (list, tuple)) for cells in out)
+    if is_grid:
+        return [
+            [convert(content, row, col) for col, content in enumerate(cells)]
+            if isinstance(cells, (list, tuple))
+            else convert(cells, row)
+            for row, cells in enumerate(out)
+        ]
+    if isinstance(out, (list, tuple)):
+        return type(out)(convert(content, col) for col, content in enumerate(out))
+    return convert(out, 0)
 
 
 def _format_pixel_value(value) -> str:
@@ -1064,7 +1098,13 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         except Exception as exc:  # broad on purpose: report it in the window
             logging.exception("Background pipeline run failed")
             result = self._run_seq, None, exc, None
-        return (*result, self._snapshot_layout())
+        layout = self._snapshot_layout()
+        seq, out, error, report = result
+        if out is not None:
+            # draw matplotlib figures here, under the run lock: the next run may
+            # reuse (clear and redraw) the same Figure while the GUI thread displays
+            out = _rasterize_figures(out, layout)
+        return (seq, out, error, report, layout)
 
     def _snapshot_layout(self) -> tuple:
         """Copy of the output names grid and styles (taken in the worker)."""
