@@ -40,11 +40,50 @@ Specialized widgets (keyboard, circular slider, range slider, timer) only exist 
 !!! note "Bare values in the decorator"
     In `@interactive(...)`, a bare boolean makes a checkbox (`flip=True`), while a bare number or string raises `ValueError` — a slider needs a range, a dropdown a list of choices. In the function signature, a bare default (`def f(img, flip=True)`) is just a default and gets no widget.
 
+## Controls from type annotations
+
+A typed signature can declare the widgets itself, so each parameter is written once:
+
+```python
+import enum
+from typing import Annotated, Literal, Tuple
+
+from interactive_pipe import interactive
+
+
+class Style(enum.Enum):
+    FLAT = 1
+    GLOSSY = 2
+
+
+@interactive()
+def adjust(
+    img,
+    gain: Annotated[float, (0.0, 3.0)] = 1.0,  # float slider
+    radius: Annotated[int, (1, 15, 2), "Blur radius"] = 3,  # int slider, step 2, label
+    flip: Annotated[bool, "Flip"] = False,  # checkbox
+    mode: Literal["dark", "light"] = "dark",  # dropdown
+    style: Style = Style.FLAT,  # dropdown over the members, the filter gets the member
+    window: Annotated[Tuple[float, float], (0.0, 1.0)] = (0.2, 0.8),  # range slider
+    threshold: float = 0.5,  # plain hint: no widget
+): ...
+```
+
+- The `Annotated` metadata is what the tuple shorthand takes after the default: a range `(min, max)` or `(min, max, step)` — or a list of choices for a `str` — then an optional label and group. The default comes from the signature.
+- `Annotated[float, Control(...)]` accepts any control object (`CircularControl`, `KeyboardControl`, `TimeControl`, ...); the signature default, when given, wins over the control's.
+- `Literal[...]` and `Enum` hints are dropdowns on their own. An enum dropdown shows the member names; the filter receives the member, and `pipe(img, style=Style.GLOSSY)` and `pipe(img, style="GLOSSY")` both work. `Literal[3, 5, 7]` works the same way with the values.
+- Only these forms make a widget: a plain `gain: float = 1.0` or `flip: bool = False` stays a parameter without widget, and `Annotated` metadata from other libraries is ignored.
+- A parameter without default gets the first choice (`Literal`, `Enum`) or the middle of the range.
+- A default outside the range, or of the wrong type (`n: Annotated[int, (0, 9)] = 2.5`), raises when the module is imported, naming the filter, the parameter and the fix.
+- `from __future__ import annotations` is supported. `@interactive` without parentheses works too.
+
+**Which one to use?** Both styles can be mixed, and a decorator argument wins over an annotation of the same parameter. Prefer annotations for new, typed code — the declaration sits next to the parameter, type checkers and IDEs see the real types, and an `Enum` gives the filter real values instead of strings. Keep the decorator form when the function must stay free of interactive_pipe imports, to declare controls on a function you do not own, or for one-off prototyping.
+
 ## Same parameter name in several filters
 
 Two filters may both declare a control on a parameter of the same name. In a pipeline using both, these auto-named controls are labelled after their filter — `amplify.gain` and `blend.gain` (a repeated filter's copy is `amplify_1.gain`) — so each widget says which filter it drives. Controls you named explicitly (`name=...`) are never renamed: two of them with the same name in one pipeline raise `ValueError`.
 
-Calling the pipeline with `pipe(img, gain=2.0)` sets `gain` in **every** filter that has it; target one filter with `pipe(img, parameters={"blend": {"gain": 2.0}})`. An unknown keyword raises `TypeError` listing the available parameters, and a value outside a control's range is clamped with a warning.
+Calling the pipeline with `pipe(img, gain=2.0)` sets `gain` in **every** filter that has it; target one filter with `pipe(img, **{"blend.gain": 2.0})` (the same spelling as `snapshot` / `sweep`, a control name works too) or `pipe(img, parameters={"blend": {"gain": 2.0}})`. An unknown keyword raises `TypeError` listing the available parameters, and a value outside a control's range is clamped with a warning.
 
 ## Declaration patterns
 
