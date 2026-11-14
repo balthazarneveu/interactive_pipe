@@ -174,7 +174,9 @@ def test_run_fn_converts_each_output_type():
     gray, fig, table_data, text = converted
     assert isinstance(gray, np.ndarray) and gray.dtype == np.uint8
     assert isinstance(fig, matplotlib.figure.Figure)
-    assert isinstance(table_data, list)
+    # headers as gradio headers, not as a first data row under "1", "2"
+    assert isinstance(table_data, dict) and table_data["headers"] == ["a", "b"]
+    assert all(isinstance(row, list) for row in table_data["data"])
     assert isinstance(text, str) and text.startswith("mean=")
 
 

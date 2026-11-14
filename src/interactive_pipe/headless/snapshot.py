@@ -27,7 +27,15 @@ if TYPE_CHECKING:  # matplotlib is imported when something is rendered
     from matplotlib.figure import Figure
 
 from interactive_pipe.data_objects.curves import Curve
-from interactive_pipe.data_objects.table import Table
+from interactive_pipe.data_objects.table import (
+    TABLE_FONTSIZE,  # noqa: F401  (re-exported: snapshot constants)
+    TABLE_MAX_ROWS,  # noqa: F401
+    TABLE_ROW_HEIGHT,
+    Table,
+    draw_table,
+)
+from interactive_pipe.data_objects.table import table_column_widths as _table_column_widths
+from interactive_pipe.data_objects.table import table_text as _table_text
 from interactive_pipe.graphical.display import content_title, display_kind, prepare_display, producer_of
 
 # Natural cell sizes in inches (before the whole figure is scaled to fit MAX_WIDTH)
@@ -39,9 +47,6 @@ TITLE_HEIGHT = 0.32  # room above each cell for its title
 MAX_WIDTH = 22.0  # widest figure (inches) before scaling everything down
 MIN_DPI, MAX_DPI = 80, 150
 TITLE_FONTSIZE = 10
-TABLE_FONTSIZE = 9
-TABLE_ROW_HEIGHT = 0.26  # inches per table row
-TABLE_MAX_ROWS = 30  # longer tables are truncated (with a "... N more rows" line)
 CAPTION_FONTSIZE = 8
 
 OutputSelector = Union[None, str, int, Sequence[Union[str, int]]]
@@ -263,59 +268,9 @@ def natural_size(content: Any) -> Tuple[float, float]:
     return PLACEHOLDER_SIZE
 
 
-def _table_text(table: Table) -> Tuple[List[str], List[List[str]]]:
-    """Header (empty when the table has none) and formatted rows, truncated
-    to TABLE_MAX_ROWS rows."""
-    header = [str(col) for col in table.columns]
-    if not any(header):
-        header = []
-    rows = table._format_values()
-    n_cols = max([len(header)] + [len(row) for row in rows] + [1])
-    rows = [list(row) + [""] * (n_cols - len(row)) for row in rows]
-    if len(rows) > TABLE_MAX_ROWS:
-        hidden = len(rows) - (TABLE_MAX_ROWS - 1)
-        rows = rows[: TABLE_MAX_ROWS - 1] + [[f"... {hidden} more rows"] + [""] * (n_cols - 1)]
-    return header, rows
-
-
-def _table_column_widths(header: List[str], rows: List[List[str]]) -> List[float]:
-    """Column widths in inches from the longest text of each column."""
-    columns = list(zip(*([header] if header else []), *rows)) if rows else [(name,) for name in header]
-    char_width = TABLE_FONTSIZE / 72.0 * 0.62
-    widths = []
-    for idx, column in enumerate(columns):
-        texts = [text for text in column if not (rows and text.startswith("... ") and idx == 0)]
-        longest = max((len(text) for text in texts), default=1)
-        widths.append(min(longest, 30) * char_width + 0.2)
-    return widths or [1.0]
-
-
 def _draw_table(ax: Any, table: Table, height_inches: float) -> None:
-    """Table filling its cell (the GUI's create_table overflows small axes)."""
-    ax.set_axis_off()
-    header, rows = _table_text(table)
-    if not rows and not header:
-        ax.text(0.5, 0.5, "(empty table)", ha="center", va="center", color="dimgray", transform=ax.transAxes)
-        return
-    widths = _table_column_widths(header, rows)
-    total = sum(widths)
-    natural_height = TABLE_ROW_HEIGHT * (len(rows) + (1 if header else 0))
-    fraction = min(1.0, natural_height / max(height_inches - TITLE_HEIGHT, 0.1))
-    mpl_table = ax.table(
-        cellText=rows or None,
-        colLabels=header or None,
-        colWidths=[width / total for width in widths],
-        cellLoc="center",
-        # natural row height, top-aligned: a short table next to a tall image is not stretched
-        bbox=[0.0, 1.0 - fraction, 1.0, fraction],
-    )
-    mpl_table.auto_set_font_size(False)
-    mpl_table.set_fontsize(TABLE_FONTSIZE)
-    for (row_idx, _), cell in mpl_table.get_celld().items():
-        cell.set_linewidth(0.5)
-        if header and row_idx == 0:
-            cell.set_facecolor("#e8e8e8")
-            cell.get_text().set_fontweight("bold")
+    """Table filling its cell, top-aligned (same renderer as the GUI windows)."""
+    draw_table(ax, table, height_inches=height_inches - TITLE_HEIGHT)
 
 
 def _draw_image(ax: Any, content: np.ndarray, pixels_available: float) -> None:
