@@ -267,6 +267,20 @@ def control_from_annotation(func: Callable, param_name: str, hint, default) -> O
 
     Returns None when the annotation does not opt into a widget.
     """
+    if default is None:
+        # `mode: Literal["a", "b"] = None` usually means "automatic": no widget.
+        # (Python < 3.11 get_type_hints also turns such hints into Optional[...],
+        # which is not an opt-in either, so every version behaves the same.)
+        candidates = get_args(hint) if get_origin(hint) is typing.Union else (hint,)
+        metadata = [item for candidate in candidates for item in _split_annotated(candidate)[1]]
+        if any(isinstance(item, (Control, list, tuple, str)) for item in metadata):
+            logging.warning(
+                f"@interactive filter '{getattr(func, '__qualname__', func)}', parameter '{param_name}': "
+                "the default None makes no widget. Give a default value to get one."
+            )
+        return None
+    if get_origin(hint) is typing.Union:
+        return None  # Optional[...] / Union[...]: not an opt-in
     base, metadata = _split_annotated(hint)
     controls = [item for item in metadata if isinstance(item, Control)]
     if len(controls) > 1:

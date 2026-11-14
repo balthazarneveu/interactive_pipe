@@ -556,3 +556,22 @@ def test_filter_from_function_reads_annotations():
     filt.values = {"style": "FLAT"}
     filt.run(IMG)
     assert seen[-1] is Style.FLAT
+
+
+def test_none_default_makes_no_widget(caplog):
+    from typing import Optional
+
+    @interactive()
+    def auto(
+        img,
+        mode: Literal["a", "b"] = None,
+        style: Style = None,
+        gain: Annotated[float, (0.0, 1.0)] = None,
+        other: Optional[Literal["a", "b"]] = "a",
+    ):
+        return img
+
+    assert Control.get_controls(auto) == {}
+    assert "parameter 'gain': the default None makes no widget" in caplog.text
+    assert "parameter 'mode'" not in caplog.text  # bare Literal: silent
+    assert auto(IMG)[0, 0] == 1.0
