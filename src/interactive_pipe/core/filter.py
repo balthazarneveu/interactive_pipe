@@ -181,6 +181,9 @@ class FilterCore(PureFilter):
         self.outputs = outputs
         self.cache = cache
         self.inplace = inplace
+        # where a pipeline body calls this filter (set by HeadlessPipeline.from_function):
+        # enables the output-count checks and names the line in their messages
+        self.call_location: Optional[dict] = None
         self.reset_cache()
 
     def reset_cache(self):
