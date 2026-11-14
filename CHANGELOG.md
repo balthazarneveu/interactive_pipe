@@ -105,6 +105,7 @@ Improvements & bug fixes:
 
 ### Display polish
 - **"Nothing found" no longer crashes**: every `draw` function accepts zero marks with any `color` (including `color=[]`) and returns the image unchanged; an empty `Table` shows its header row and "(no rows)" on Qt, Dear PyGui, matplotlib, Gradio and in snapshots (it raised in matplotlib). `Table` accepts numpy arrays, tuples and pandas `Series` as dict columns (numpy scalars become `int` / `float`). Qt and matplotlib windows draw tables like snapshots (natural row height, kept on resize; the title is no longer cut); Gradio shows the column names as headers instead of a first data row.
+- **Colorbar labels**: `unit` is written once above the bar instead of after every tick; `colorbar="some text"` writes a longer label along the bar; all labels of a bar have the same number of decimals; both ends are always labelled (within 0.5 % of the true value) and a round tick that would overlap one is dropped; very large / small ranges show one `×10ⁿ` multiplier instead of `1e-03` on each tick.
 
 ## 0.9.4 (November 2026)
 

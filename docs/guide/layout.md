@@ -57,8 +57,8 @@ Live layout switching (e.g. going from a side-by-side comparison to a 2x2 grid w
 | `colormap` | matplotlib colormap name (`"viridis"`, `"magma"`, ...) used to display a 2D `(H, W)` array as a heatmap. |
 | `vmin`, `vmax` | Values mapped to the bottom / top of the colormap (or to black / white without one) for 2D arrays. Each defaults to the data min / max, as in matplotlib. |
 | `center` | Makes the range symmetric around this value (diverging colormaps: `colormap="RdBu", center=0`). |
-| `colorbar` | `True` draws the scale (min, max, round ticks) to the right of a 2D array, inside the image: same on every backend and in snapshots. |
-| `unit` | Text appended to the colorbar labels (`unit="dB"`). |
+| `colorbar` | `True` draws the scale (min, max, round ticks) to the right of a 2D array, inside the image: same on every backend and in snapshots. A string is also written along the bar as its label. |
+| `unit` | Short unit written once above the colorbar (`unit="dB"`). |
 | `dpi` | Resolution of a matplotlib figure output (default 120). |
 | `xlabel`, `ylabel` | Axis labels — matplotlib backend only (for curves use `Curve(..., xlabel=...)`). |
 
