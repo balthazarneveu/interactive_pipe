@@ -171,6 +171,7 @@ Demos and docs:
 
 ### Improvements & bug fixes
 - Calling a headless pipeline that takes no inputs again (`pipe()`, `pipe(gain=2.0)`) no longer resets its cache: only the filters affected by the parameter change are recomputed, and `last_run_report.cached` reports the others. Passing inputs still invalidates everything, as before.
+- A pipeline without inputs can be run before its first call (`pipe.run()`, `export_animation(pipe, ...)`) instead of raising "Cannot access uninitialized inputs!".
 
 ## 0.9.4 (November 2026)
 
