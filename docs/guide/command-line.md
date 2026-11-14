@@ -7,8 +7,10 @@ opens a window.
 ```bash
 interactive-pipe skill [--install [--user | --project DIR] [--force]] [--agents-md] [--path]
 interactive-pipe doctor [--json]
-interactive-pipe snapshot SCRIPT.py [-o OUT] [--max-calls N] [-- script arguments]
+interactive-pipe snapshot SCRIPT.py [-o OUT] [--set NAME=VALUE ...] [--output NAME] [--pipeline NAME] [--max-calls N] [-- script arguments]
+interactive-pipe sweep SCRIPT.py --param NAME=V1,V2,... [--param ...] [--steps NAME=N] [--set ...] [--output NAME] [-o OUT] [-- script arguments]
 interactive-pipe describe SCRIPT.py [--json] [--max-calls N] [-- script arguments]
+interactive-pipe check SCRIPT.py [--json] [--set NAME=VALUE ...] [-- script arguments]
 ```
 
 ## `skill`: instructions for a coding agent
@@ -56,6 +58,45 @@ gui="auto" picks: mpl (first importable of qt, dpg, mpl)
 order as `gui="auto"`: `INTERACTIVE_PIPE_GUI` first, Jupyter, then Qt, Dear
 PyGui and matplotlib.
 
+## `check`: run after every edit
+
+```text
+$ interactive-pipe check demo/matplotlib_figure_demo.py
+check demo/matplotlib_figure_demo.py: OK - 1 pipeline, 0 errors, 0 warnings
+pipeline 'field_pipeline' (inputs: none)
+  controls: separation = 1 slider(float) in [0.2, 2]
+            charge_ratio = -1 slider(float) in [-2, 2]
+  outputs : field      matplotlib.Figure
+            potential  (160, 160) float64 [-5, 5]
+```
+
+Builds every pipeline of the script and runs it once without a window — the
+pipelines the script calls with the values of that call, the pipelines it only
+defines with their defaults when they take no input — then reports, in one
+short screen that does not change from run to run:
+
+- the pipelines, their inputs and controls;
+- every output with its type, shape, dtype and value range;
+- every warning: outputs that would be displayed misleadingly (clipped
+  integers, values out of `[0, 1]`...), clamped values, anything the library or
+  the script logs;
+- errors with the file and line of your code: a `PipelineSyntaxError` in the
+  pipeline function, a filter that raises, an output that cannot be displayed.
+
+```text
+check script.py: FAILED - 1 pipeline, 1 error, 0 warnings
+pipeline 'process' (inputs: img)
+  controls: gain = 1 slider(float) in [0, 2]
+  outputs : not run (error)
+error: script.py:8: pipeline 'process': filter 'amplify' raised NameError: name 'undefined_name' is not defined
+```
+
+Exit code 1 on an error, 2 for a wrong `--set`, else 0 (warnings do not fail).
+`--json` prints the same report as a dictionary (`ok`, `exit_code`,
+`pipelines`, `errors` with `file` / `line`, `warnings`). The script's own
+prints go to stderr. A pipeline the script defines but does not call, and
+that needs inputs, is listed as `not run`.
+
 ## `snapshot`: look at a GUI script without a display
 
 Runs an unmodified script — as `__main__`, so a pipeline launched under
@@ -81,14 +122,67 @@ interactive_pipe: snapshot of 'key_event_pipeline' written to shots/key_event_pi
   script looping over a dataset ends.
 - Arguments after `--` are the script's own (`sys.argv[1:]`):
   `interactive-pipe snapshot demo/color_demo.py -- --color blue`.
-- A failing script prints its traceback and exits with code 1; the snapshots
-  written before the failure are listed.
+- A failing script prints its error once (without interactive_pipe's own
+  frames) and exits with code 1; the snapshots written before the failure are
+  listed. When a filter raised, the last line names the pipeline:
+  `interactive-pipe snapshot: pipeline 'p' raised FilterError, see above`.
+- `--output NAME` renders only that output (a name, an index, or a
+  comma-separated list), like `snapshot(output=...)`; `--pipeline NAME` keeps
+  one pipeline when the script calls several.
 - Single-filter GUIs are captured too: `my_filter.interact(img)` and `@interact`
   write `<filter>.png`.
 - Pipelines decorated with `gui=None` (headless) are not captured: the script
   already runs them without a window.
 - A relative `-o` is relative to the folder you run the command from, even if
   the script changes directory.
+
+### Set parameters: `--set`
+
+```bash
+interactive-pipe snapshot demo/time_wave_demo.py --set time=4
+interactive-pipe snapshot script.py --set gain=2.0 --set mode=dark --set seed=0.2,0.4
+```
+
+`--set NAME=VALUE` (repeatable) sets a parameter for the snapshot, as
+`pipe.snapshot(path, gain=2.0)` does. It wins over the values the script passes
+to the pipeline call; the script's other values are kept.
+
+- Names are those `snapshot()` accepts: a parameter name (`gain`), a control
+  name, or `filter.parameter` for one filter only. An unknown name fails (exit
+  code 2) with the available names and the closest match:
+  `--set (pipeline 'pipe') got unexpected parameter name(s) 'gian'. Available
+  parameters: gain, mode, seed. Did you mean 'gian' -> 'gain'?`
+- Values are converted to the type of the control: numbers (an `int` slider
+  refuses `2.5`), `true` / `false` (also `1/0`, `yes/no`, `on/off`) for a
+  checkbox, the choice for a dropdown (`'shiny' is not one of the choices
+  ['dark', 'light']`), comma-separated numbers for a range, a point or a region
+  (`seed=0.2,0.4`). A parameter without control takes the type of its default.
+- A value outside a slider's range is clamped, with a warning, like in the GUI.
+- With several pipelines, a name only another pipeline has is applied to that
+  one only.
+
+## `sweep`: compare values of an unmodified script
+
+```bash
+interactive-pipe sweep script.py --param gain=0.5,1,2 -o sweep.png
+interactive-pipe sweep script.py --param gain=0.5,1,2 --param mode=dark,light --output out -o grid.png
+interactive-pipe sweep script.py --param seed="0.1,0.1;0.6,0.4" --set t=2
+interactive-pipe sweep script.py --steps gain=5 --output all
+```
+
+The command-line form of `pipe.sweep(...)` ([Snapshots](snapshots.md)): one
+contact sheet per pipeline call, with the script's inputs and values.
+
+- `--param NAME=V1,V2,...` gives the values of one swept parameter (one or two
+  parameters: a row or a grid). Values of a range, a point or a region are
+  separated by `;` (quote them for the shell); `--param` repeated with the same
+  name adds values.
+- `--steps NAME=N` sweeps N values over the control's declared range (every
+  choice of a dropdown, both states of a checkbox).
+- `--output` chooses what each cell shows: an output name or index, a list, or
+  `all` for the whole layout. Default: the only output, else the first image.
+- `--set` fixes other parameters; `-o` is a file, a folder or a `{name}`
+  pattern as for `snapshot` (default file name: `<pipeline>_sweep.png`).
 
 This is the command-line form of the `INTERACTIVE_PIPE_SNAPSHOT` environment
 variable, which still works on its own:

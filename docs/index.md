@@ -64,6 +64,7 @@ Head to the [Quickstart](getting-started/quickstart.md) for the full walkthrough
 - [`KeyboardControl`](guide/keyboard.md): update values on key press instead of a slider.
 - [Curve plots (2D signals)](guide/curves.md), [table outputs](guide/tables.md) and [audio support](guide/audio.md).
 - [matplotlib figures, heatmaps with a colorbar, and drawing on images](guide/figures-and-overlays.md) (`interactive_pipe.draw`): any numpy image a filter returns — gray, RGB, RGBA, `uint8`, `uint16`, masks — is shown the same way on every backend.
+- [Mouse input](guide/mouse-input.md): `PointControl` / `RegionControl`, a clicked point or a dragged region on an image.
 - [`TimeControl`](api/controls.md): play/pause an incrementing timer for animations.
 - [Context API](guide/context.md): share state across filters via the `context` and `events` proxies; arrange the display with [`layout`](guide/layout.md).
 - [Panel system](guide/panels.md): group controls into nested, collapsible, detachable panels.
@@ -72,7 +73,7 @@ Head to the [Quickstart](getting-started/quickstart.md) for the full walkthrough
 ## Without a display, and with coding agents
 
 - `my_pipeline.snapshot("out.png", img, coeff=1.5)` renders what the window would show to a PNG, and `my_pipeline.sweep(...)` compares parameter values side by side — over SSH, in CI, or for an agent that cannot see windows ([Snapshots](guide/snapshots.md)).
-- `interactive-pipe snapshot my_script.py` does the same for an unmodified GUI script; `interactive-pipe describe my_script.py` lists its controls.
+- `interactive-pipe check my_script.py` runs every pipeline of an unmodified script once and reports its outputs, warnings and errors; `interactive-pipe snapshot my_script.py --set gain=2` and `interactive-pipe sweep my_script.py --param gain=0.5,1,2` render it; `interactive-pipe describe my_script.py` lists its controls.
 - `interactive-pipe skill --install` gives Claude Code (or, with `interactive-pipe skill`, any agent) instructions for building and checking pipelines; `interactive-pipe doctor` explains why no window shows up ([Command line & agents](guide/command-line.md)).
 
 ## Agent-friendly docs
