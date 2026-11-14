@@ -113,7 +113,7 @@ def test_wrong_inputs_raise():
         fe_amplify.snapshot(None)
     with pytest.raises(TypeError, match="misses"):
         fe_amplify.snapshot(None, inputs={"image": white()})
-    with pytest.raises(TypeError, match="unknown parameter 'gian'"):
+    with pytest.raises(TypeError, match=r"snapshot\(\) got unexpected keyword argument\(s\) 'gian'"):
         fe_amplify.snapshot(None, white(), gian=1.0)
 
 
