@@ -25,7 +25,7 @@ def test_dpg_cell_title_tooltip_only_when_elided():
     from interactive_pipe.graphical import dpg_backend
 
     dpg = dpg_backend.dpg
-    dpg.create_context()
+    dpg_backend.create_context()  # not dpg.create_context(): the finally below would not destroy it
     try:
         with dpg.window():
             title = dpg.add_text("")
