@@ -1,0 +1,3 @@
+Build an interactive demo with interactive_pipe of diffusion models without any training: the data is a 2D Gaussian mixture, whose noised score is known in closed form. Show the forward process (points progressively noised, with a time control animating it) and the reverse process sampled with the exact score, with controls for the noise schedule (linear or cosine) and the number of sampling steps. Plot the schedule (signal and noise level over time). Students should see that too few steps give poor samples and how the schedule changes where the structure appears. I want to be able to export a GIF.
+
+Line budget: 90.
