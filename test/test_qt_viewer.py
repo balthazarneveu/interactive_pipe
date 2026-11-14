@@ -473,3 +473,18 @@ def test_stale_configure_is_not_a_limit_and_the_request_is_retried():
         QApplication.processEvents()
     assert window._granted_limit is None
     assert (window.width(), window.height()) == (900, 800)
+
+
+def test_plot_cells_have_a_legible_minimum_size():
+    """A Curve cell must not shrink to the height of a small image sharing its row."""
+    from interactive_pipe.graphical.qt_backend import QGridLayout, QWidget
+    from interactive_pipe.graphical.qt_image import MPL_CELL_MINIMUM_SIZE, update_curve_cell
+
+    _ = QApplication.instance() or QApplication([])
+    holder = QWidget()
+    grid = QGridLayout(holder)
+    cell = {"ax_placeholder": None, "image": None}
+    update_curve_cell(cell, grid, 0, 0, Curve([[np.arange(3), np.arange(3), "k-"]], title="t", xlabel="x"))
+    canvas = cell["image"]
+    assert (canvas.minimumWidth(), canvas.minimumHeight()) == MPL_CELL_MINIMUM_SIZE
+    assert canvas.figure.get_layout_engine() is not None  # labels are kept inside the cell
