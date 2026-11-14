@@ -347,11 +347,12 @@ class HeadlessPipeline(PipelineCore):
             **kwargs,
         )
         data_class.controls = control_list
-        # a point / region control aimed (on=...) at an output the pipeline does not produce
-        # fails here, at build time, rather than when a GUI / snapshot is made
+        # a point / region control aimed (on=...) at an output the pipeline does not produce:
+        # a warning here (a headless test pipeline may reuse the filter without that output);
+        # @interactive_pipeline with a GUI and every GUI construction raise
         from interactive_pipe.headless.pointer import check_targets
 
-        check_targets(data_class)
+        check_targets(data_class, strict=False)
         return data_class
 
     @staticmethod

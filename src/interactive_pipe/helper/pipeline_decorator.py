@@ -275,6 +275,9 @@ def interactive_pipeline(
         selected_gui = resolve_gui(gui)
         if selected_gui is None or selected_gui == "headless":
             return headless_pipeline
+        from interactive_pipe.headless.pointer import check_targets
+
+        check_targets(headless_pipeline)  # with a window, an unknown on= output fails at decoration
         if snapshot_requested():
             # INTERACTIVE_PIPE_SNAPSHOT: render a PNG instead of opening a window
             return _snapshot_launcher(
