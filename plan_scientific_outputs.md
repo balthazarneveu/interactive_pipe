@@ -238,3 +238,40 @@ before 11:30). Environment checked: the shared interpreter imports
   set by `qt_gui.update_image` from `display.heatmap_geometry`. The DPG
   viewer has no value readout today (zoom only), nothing to fix there.
 - Tests: `test/test_heatmap_colorbar.py`.
+
+### 3. matplotlib figures as an output type — done
+
+- A filter may return a `Figure`, an `Axes` (its figure) or a `SubFigure`
+  (its root figure). `display_kind` reports `"figure"`; `prepare_display`
+  rasterises it with Agg (`display.rasterize_figure`) into an `(H, W, 3)`
+  float32 image, so every backend (qt, dpg, mpl, nb, gradio), `snapshot`,
+  `sweep` and `export_animation` receive an ordinary image. Decision: no
+  native gradio (`gr.Plot`) / notebook path — the uniform raster is what
+  makes snapshots match the GUI, and it needs no per-backend code.
+- Kind switches: since the conversion happens before `update_image`, each
+  backend sees kind `"image"` and its existing rebuild logic applies; tested
+  figure <-> image / curve / table / text switches on Qt, DPG and mpl. No
+  backend `isinstance` chain needed a new branch.
+- Leaks: before rasterising, a figure registered in pyplot is closed
+  (`release_pyplot_figure`; the Figure object stays usable). 200 GUI
+  refreshes of a filter calling `plt.subplots()` leave `plt.get_fignums()`
+  unchanged; snapshot / sweep / save release too. A plain headless call
+  `pipe(img)` returns the figure to the caller and does not close it (by
+  design). Docs recommend `matplotlib.figure.Figure()`.
+- Resolution: `FIGURE_DPI = 120` (a default 6.4 x 4.8 in figure gives
+  768 x 576 px, shrunk rather than blown up in a typical cell);
+  `layout.style(name, dpi=...)` overrides it (new supported key, validated
+  as a number). The user figure's own dpi is restored after drawing.
+- The raster is cached on the figure and reused while `fig.stale` is False,
+  so a cached filter output is not redrawn on every refresh.
+- Transparent figures are composited on white.
+- `save()`: figures are written with `savefig` (`.png` by default; `.pdf`,
+  `.svg`, `.jpg` suffixes kept). `export_animation`: every output now goes
+  through `prepare_display` with its style before frame conversion, so
+  figures animate and styled heatmaps are exported in colour (before: raw
+  2D array as gray) — a deliberate behaviour change, matching the GUI.
+- Demo: `demo/matplotlib_figure_demo.py` (two charges, sliders `separation`
+  and `charge_ratio`; a contour + quiver Figure next to the potential as a
+  `RdBu_r` heatmap with `center=0` and a colorbar). Checked with
+  `INTERACTIVE_PIPE_SNAPSHOT`.
+- Tests: `test/test_figure_outputs.py`.

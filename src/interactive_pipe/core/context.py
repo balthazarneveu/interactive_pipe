@@ -79,6 +79,7 @@ SUPPORTED_STYLE_KEYS = (
     "center",
     "colorbar",
     "unit",
+    "dpi",
     "xlabel",
     "ylabel",
 )
@@ -130,6 +131,8 @@ class _LayoutProxy:
                   ticks) to the right of a 2D array, inside the displayed image,
                   so it looks the same on every backend and in snapshots.
                 - ``unit``: text appended to the colorbar labels (``"dB"``).
+                - ``dpi``: resolution used to rasterise a matplotlib figure
+                  output (default 120).
 
                 NaN and masked (``numpy.ma``) values of a styled 2D array are
                 shown in magenta; ``±inf`` go to the ends of the scale.
@@ -164,7 +167,7 @@ class _LayoutProxy:
         colormap = style_kwargs.get("colormap")
         if isinstance(colormap, str):
             _check_colormap_name(colormap)
-        for key in ("vmin", "vmax", "center"):
+        for key in ("vmin", "vmax", "center", "dpi"):
             value = style_kwargs.get(key)
             if value is not None and (isinstance(value, bool) or not isinstance(value, numbers.Real)):
                 raise TypeError(f"layout.style('{name}', {key}=...): a number is expected, got {value!r}")
