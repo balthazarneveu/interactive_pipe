@@ -34,7 +34,7 @@ def my_pipeline(img):
 my_pipeline(np.array([0.0, 0.5, 0.8]) * np.ones((256, 512, 3)))
 ```
 
-Head to the [Quickstart](getting-started/quickstart.md) for the full walkthrough, the [decorators guide](guide/decorators.md), or the [API reference](api/controls.md).
+Head to the [Quickstart](getting-started/quickstart.md) for the full walkthrough, the [decorators guide](guide/decorators.md), or the [API reference](api/pipeline.md).
 
 ## Who is this for?
 
@@ -58,10 +58,12 @@ Head to the [Quickstart](getting-started/quickstart.md) for the full walkthrough
 ## Features
 
 - Modular multi-image processing filters with a declarative GUI: sliders, checkboxes, dropdowns, text prompts, image buttons, circular sliders.
+- [Controls from type annotations](guide/controls.md#controls-from-type-annotations): `gain: Annotated[float, (0.0, 3.0)] = 1.0`, `Literal[...]` and `Enum` hints make widgets.
 - Five backends: Qt, Dear PyGui (`dpg`), matplotlib, Jupyter widgets (`nb`), Gradio — plus headless mode ([backend matrix](getting-started/backends.md)).
 - Caching of intermediate results in RAM for much faster interaction.
 - [`KeyboardControl`](guide/keyboard.md): update values on key press instead of a slider.
 - [Curve plots (2D signals)](guide/curves.md), [table outputs](guide/tables.md) and [audio support](guide/audio.md).
+- [matplotlib figures, heatmaps with a colorbar, and drawing on images](guide/figures-and-overlays.md) (`interactive_pipe.draw`): any numpy image a filter returns — gray, RGB, RGBA, `uint8`, `uint16`, masks — is shown the same way on every backend.
 - [`TimeControl`](api/controls.md): play/pause an incrementing timer for animations.
 - [Context API](guide/context.md): share state across filters via the `context` and `events` proxies; arrange the display with [`layout`](guide/layout.md).
 - [Panel system](guide/panels.md): group controls into nested, collapsible, detachable panels.
