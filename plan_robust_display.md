@@ -40,4 +40,202 @@ Not yours: event handling and widgets in `graphical/*_gui.py`, `*_control.py`, `
 
 ## Status
 
-(to fill)
+**Summary (04:00 CET):** all seven items done on `feature/robust-display`
+(`fb43763`..HEAD, nothing pushed, no PR, no merge, no version bump). Final
+state: `1334 passed, 6 skipped` (baseline `1216 passed, 6 skipped`), ruff
+format/check clean, pyright 8 errors — the pre-existing ones in
+`graphical/qt_control.py` (7) and `graphical/dpg_panels.py` (1). The throwaway
+docs venv under `/Data/` was deleted.
+
+Commits: item 1 `d8a758c`, item 2 `dc7a10e` (+ `d2853f0`), item 3 `0809717`,
+item 4 `e03fcc5`, item 5 `d22f84a` (+ `9c00303`), items 6-7 `9adb6e9`, and the
+commit adding this section.
+
+Agent run of 2026-11-14, started 03:20 CET, autonomous. Environment check: the
+shared interpreter imports `interactive_pipe` from this worktree's `src/`;
+baseline reproduced before any change.
+
+### 1. Tolerant display — done (`d8a758c`)
+
+- Before (probed on the real backends, offscreen): Qt raised on `(H, W, 1)`,
+  RGBA, `(3, H, W)`, `(1, H, W)`, 4D, object, 2-channel arrays (`Expected
+  3-channel image, got 16 channels`); Dear PyGui on all of those except RGBA;
+  mpl on channel-first / 4D / object / 2-channel (`Invalid shape (3, 12, 16)
+  for image data`); the snapshot drew everything (placeholders). Integer images
+  were clipped (white) by the GUIs.
+- `prepare_display(content, style, name, filter_name)` now turns every 2D/3D
+  array into an `(H, W, 3)` float image (`normalize_image`): `(H, W, 1)` ->
+  `(H, W)`; `bool` -> 0/1; `uint8` / 255; `uint16` / 65535; **other integer
+  types are taken as values like floats** (decision: a `0`/`1` int mask is a
+  common idiom and must not raise; 0-255 data in `int64` is clipped and
+  `output_check` warns with the fix); RGBA composited on a **gray
+  checkerboard** (decision: shows transparency as such; squares of 1/32 of the
+  largest side, >= 4 px; figures stay composited on white as before). Float
+  RGB arrays are returned as is (no copy); 1D arrays stay signals.
+- Channel-first, 4D, 0-D, empty, complex, object/string and 2- or >4-channel
+  arrays raise `DisplayError(ValueError)`: `output 'out' (returned by filter
+  'produce') cannot be displayed: channel-first array (3, 12, 16). Fix: move the
+  channels last: np.moveaxis(img, 0, -1).` — raised by `snapshot` / `sweep`;
+  in a GUI window `InteractivePipeWindow._styled` shows it in the cell as text
+  (every backend draws text), logs it once per cell, and the cell recovers on
+  the next valid output.
+- **Gray vs viridis, settled: gray everywhere.** Evidence: Qt, DPG, Gradio and
+  snapshots showed gray; mpl's `imshow` applied viridis *and* fixed its colour
+  limits on the first frame (`set_data` keeps the clim), so a 2D output whose
+  range changed with a slider was misdisplayed. 2D arrays now reach every
+  backend as gray RGB, which needed no change in `mpl_window.py`. First bullet
+  of the CHANGELOG "Changes that can affect existing code".
+- `output_check`: checks the raw output (`SnapshotCell.raw`, new field), not
+  the converted one; unsupported arrays come from the same
+  `display.array_display_problem` as the error; the "gui" severity ("the Qt and
+  Dear PyGui backends raise on it") is gone; `Figure` / `Axes` / `Image` are
+  known outputs (an `Image` is checked by its array).
+- Tests: `test/test_display_zoo.py` — one zoo (11 displayable, 7 not) over Qt
+  (pixmap pixels), DPG (texture buffer, runs headless), mpl (axes image, must
+  be RGB), Gradio (converted output) and snapshot: same pixels within one
+  uint8 level everywhere, same error text everywhere, logged once, recovery.
+  Looked at: a snapshot of the zoo, an offscreen Qt grab and the mpl figure
+  (gray, checkerboard, error text in the cell).
+- Docs: "What a filter can return" in `guide/figures-and-overlays.md`.
+
+### 2. One error, once — done (`dc7a10e`, `d2853f0`)
+
+- The engine no longer prints the `PIPELINE ERROR` banner before raising.
+  Headless calls, `snapshot`, `sweep`, tests and the CLI: raise only (the CLI
+  prints the script's traceback once). Uncaught in a script: the excepthook
+  prints the banner once (+ the `INTERACTIVE_PIPE_DEBUG=1` hint; with it, the
+  full traceback once).
+- GUI event loop: `InteractivePipeWindow.report_error` prints the banner once
+  per distinct error (not again on every slider move while it keeps failing;
+  again after a successful run). One line added in each backend's
+  `show_error` (Qt, DPG, mpl/nb); Gradio: `FilterError` -> `gr.Error(message)`
+  so the page shows the message (it showed a generic "Error") and the app
+  keeps running. Checked: Qt, DPG and mpl windows survive three failing
+  refreshes, show the error and recover; Gradio raises `gr.Error` and recovers.
+- Found on the way: `@interact`'s dry run logged a failing filter with a full
+  traceback before the GUI run reported it again: now a debug message.
+- Tests: `test/test_error_once.py`.
+
+### 3. Error wording — done (`0809717`)
+
+- `@interactive(gain=(5, [0, 3]))` now reads `@interactive filter 'f',
+  parameter 'gain': Cannot create a control from gain=(5, [0, 3]): the default
+  5 is outside the range [0, 3]: choose a default between 0 and 3, or widen the
+  range` (the "max parameter should be numerical too" part was already fixed
+  by `feature/declare-less`; the "value_default ... must be within
+  value_range" wording is replaced). Same for `RangeControl`, dropdown
+  defaults and values (`control 'style': 'SHINY' is not one of the choices
+  [...]`), `RangeControl` value errors and the wrong-type default name the
+  control when it has a name.
+- Outside a filter: `layout.style('heat', ...) called outside of filter
+  execution: ... Move the call into a filter:` followed by the
+  `@interactive()` / `def my_filter(img):` / the call. Each proxy method names
+  its own call (`context['k'] = ...`, `context.k`, `events['boost']`,
+  `audio.play()`, `ctx = get_context()`).
+- Wrong output count / missing `return` when the pipeline calls the filter by
+  another name: `filter 'split' (function 'two_values') returned 2 values ...`;
+  the fix keeps the name of the pipeline line.
+- grep for messages naming neither filter nor control: the remaining ones in
+  my files are internal invariants; those in `*_control.py` are listed below.
+
+### 4. Process state — (a) fixed, (b) documented (`e03fcc5`)
+
+- (a) Reproduced (`filter 'process_image' has no parameter 'hue_shift'` after
+  `runpy` of two `__main__` scripts defining `process_image`). Controls now
+  live on the (unwrapped) function object (`__interactive_pipe_controls__`),
+  `Control._registry` is only the fallback for callables without attributes.
+  Also fixes filters made by a factory (same qualname). Re-decoration still
+  starts clean (`Control.clear_controls`). Controls die with their function
+  (no leak when a notebook cell is re-run).
+- (b) Test `test_pipelines_built_from_one_filter_share_its_control` documents
+  the current behaviour (shared control object, start value = last value,
+  direct calls too). **Not changed**: per-pipeline clones would make the Qt,
+  DPG and Gradio panel builders (`qt_panels.py`, `dpg_panels.py`,
+  `gradio_layout.py`, not mine) show duplicate widgets, because they build
+  panel widgets from the process-wide `Panel._controls` list, which every
+  clone joins (`_clone_unconnected` registers it). Documented in
+  `guide/controls.md` ("One control per filter"), with the workarounds
+  (literal keyword argument in the body, tuning file, `ctrl.reset()`).
+
+### 5. Import cost — done (`d22f84a`, `9c00303`)
+
+- Measured (`python -X importtime`, wall clock min of 5 on this machine):
+  before `import interactive_pipe` 1.0 s (importtime 851 ms: `matplotlib.pyplot`
+  455 ms from `data_objects/curves.py` and `image.py`, pandas 178 ms, cv2 25
+  ms), `interactive-pipe --help` 1.05 s. After: 0.22 s (233 ms, of which numpy
+  ~137 ms), `--help` 0.3 s.
+- Availability is checked with `importlib.util.find_spec`, modules imported on
+  use: `data_objects/curves.py` (pyplot, pandas; `Curve` image export uses the
+  `Figure` object API, no pyplot), `image.py` (cv2, Pillow, pyplot for
+  `show`), `table.py` (pandas), `headless/snapshot.py` (Figure / Agg).
+- Test: `test/test_import_cost.py` (no `matplotlib.pyplot`, Qt, DPG, Gradio,
+  ipywidgets, cv2 nor pandas after `import interactive_pipe` or building the
+  CLI parser; image save/load, curve save and `Table.as_dataframe` still work).
+
+### 6. Docs build — done (`9adb6e9`)
+
+- 15 GB free on `/Data`: throwaway venv there (mkdocs-material,
+  mkdocstrings[python], mkdocs-llmstxt; 190 MB with the pip cache), deleted at
+  the end. `mkdocs build --strict` passed as is; also run with the nav /
+  link / anchor / absolute-link validations raised to warnings (checked to
+  catch an injected broken link and anchor): clean. After the item-7 pages,
+  two griffe warnings came up: fixed the `sweep` docstring (one entry per
+  parameter) and set `docstring_options.warn_missing_types: false` in
+  `mkdocs.yml` (untyped `save_entire_buffer` in `headless/pipeline.py`, not
+  mine). Final strict build clean.
+
+### 7. Consistency pass — done (`9adb6e9`)
+
+- Every code-formatted name in `docs/` and `readme.md` was checked against the
+  identifiers of `src/` (AST) and the docs' own code blocks: all resolve (the
+  rest are demo file names — all exist —, `ip.` aliases and matplotlib API).
+- API reference: new pages Pipelines (`interactive`, `interactive_pipeline`,
+  `interact`, `HeadlessPipeline` with `snapshot` / `sweep` / `describe` /
+  `summary` / `save` / tuning, `export_animation`, `PipelineSyntaxError`,
+  `FilterError`, `DisplayError`), Drawing on images (`draw`), Command line &
+  skill (`skill_path`, the commands); controls page lists the annotation forms.
+- Overlaps reviewed: snapshot / `INTERACTIVE_PIPE_SNAPSHOT` / agent loop are
+  explained once (`guide/snapshots.md`) and referenced elsewhere; added the
+  missing cross-link to `interactive-pipe snapshot`. `index.md` and the readme
+  now mention figures / heatmaps / draw and annotation controls; demo count
+  17 -> 19; `export_animation`'s input rule points to the shared display rules.
+
+### Ownership notes
+
+- Edited outside the listed files because the item required it:
+  `graphical/window.py` (shared base of the backends, listed by nobody:
+  `_styled` error cell, `report_error`), `data_objects/{curves,image,table}.py`
+  (item 5's heavy imports live there), `headless/output_check.py` (item 1 asks
+  for it). In GUI files only the catch-and-show lines of item 2: one line in
+  each `show_error` (`qt_gui.py`, `dpg_gui.py`, `mpl_window.py`) and the
+  `try/except` around `pipeline.run()` in `gradio_gui.py`.
+- Shared files, additive edits only: `CHANGELOG.md` (one bullet first in
+  "Changes that can affect existing code", own "Robust display and quieter
+  errors" subsection at the end of Unreleased), `mkdocs.yml` (3 nav entries,
+  one handler option). `__init__.py` and `CLAUDE.md` untouched.
+
+### Left for review
+
+- **Per-pipeline controls (item 4b)**: needs the panel builders to iterate the
+  window's own controls instead of `Panel._controls` (`qt_panels.py:78`,
+  `dpg_panels.py:109,128`, `gradio_layout.py:101`), then cloning every
+  registered control in `HeadlessPipeline.from_function` (as repeats already
+  are). Reproducer: `test_pipelines_built_from_one_filter_share_its_control`.
+- Skill (`src/interactive_pipe/agent/build-interactive-pipeline/SKILL.md`, not
+  mine): line ~106 lists displayable outputs as "float `[0, 1]`, uint8, `(H, W)`
+  or `(H, W, 3)`" (RGBA, `(H, W, 1)`, uint16, bool, figures are fine now);
+  the error table row ~212 quotes the old `min=5 max=[0, 3]` /
+  `value_default 5 must be within value_range` messages.
+- `gradio_control.py` / `nb_control.py`: `TypeError: Expected int control
+  type, got <class 'float'>`-style messages name no control (factory
+  invariants, rarely user-facing).
+- `mpl_window.py`: text cells (errors, `str` outputs) are not wrapped; the
+  display error is pre-wrapped at 36 characters in `window._styled` as a
+  workaround.
+- `headless/animation.py`: calls `prepare_display` without the output / filter
+  name, so a `DisplayError` there says "output" only.
+- `headless/pipeline.py`: `HeadlessPipeline.__call__` has no docstring (the
+  API page shows the signature only); `save_entire_buffer` is untyped.
+- Flaky, pre-existing: `test/test_command_line.py::test_doctor_opens_no_window`
+  failed once in a full run (a `QApplication` left alive by an earlier test,
+  depending on GC timing) and passed in three reruns and alone.
