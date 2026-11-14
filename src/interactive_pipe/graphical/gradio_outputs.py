@@ -45,6 +45,16 @@ def build_output_container(out_item, title: str) -> Tuple[gr.components.Componen
     raise NotImplementedError(f"output type {type(out_item)} not supported")
 
 
+def with_label(value: Any, title: Optional[str], cell: Optional[dict]) -> Any:
+    """`value`, or a gradio update also setting the component label when the
+    output's title (``layout.style(name, title=f"PSNR {psnr:.2f} dB")``)
+    differs from the label shown (``cell["label"]``, updated)."""
+    if title is None or cell is None or title == cell.get("label"):
+        return value
+    cell["label"] = title
+    return gr.update(value=value, label=title)
+
+
 def convert_output_value(out_item, *, audio_sampling_rate: int, convert_image: Callable) -> Any:
     """Convert one pipeline output into the value its gradio container expects."""
     if MPL_SUPPORT and isinstance(out_item, Curve):

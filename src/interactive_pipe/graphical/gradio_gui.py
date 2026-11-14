@@ -23,6 +23,7 @@ from interactive_pipe.graphical.gradio_outputs import (  # noqa: F401
     MPL_SUPPORT,  # re-exported for backward compatibility
     build_output_container,
     convert_output_value,
+    with_label,
 )
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.pointer_input import PointerTargets, clamp, inside, nearest, overlay_items, to_fraction
@@ -112,6 +113,7 @@ class InteractivePipeGradio(InteractivePipeGUI):
                 if out_item is None:
                     out_list_gradio_containers.append(gr.HTML())
                     continue
+                canvas_cell["label"] = title  # updated per frame when layout.style changes it (readouts)
                 container, type_tag = build_output_container(self.window._styled(out_item, idx, idy), title)
                 out_list_gradio_containers.append(container)
                 if type_tag is not None:
@@ -167,6 +169,13 @@ class MainWindow(InteractivePipeWindow):
         self.process_inputs_fn = self.process_inputs
         self.run_fn = self.run_all
 
+    def _current_label(self, row: int, col: int):
+        try:
+            title = self.get_current_style(row, col).get("title")
+        except (IndexError, KeyError, TypeError, RuntimeError):
+            return None
+        return None if title is None else str(title).replace("_", " ")
+
     def process_outputs(self, out) -> tuple:
         """Convert pipeline outputs to per-type gradio values (flat tuple)."""
         flat_out = []
@@ -194,10 +203,13 @@ class MainWindow(InteractivePipeWindow):
                             audio_sampling_rate=self.audio_sampling_rate,
                             convert_image=self.convert_image,
                         )
-                        flat_out.append(self.with_pointer_overlay(value, idx, idy))
+                        value = self.with_pointer_overlay(value, idx, idy)
+                        flat_out.append(with_label(value, self._current_label(idx, idy), self.image_canvas[idx][idy]))
             else:
                 logging.debug(f"CONVERTING IMAGE  {idx} ")
-                flat_out.append(self.with_pointer_overlay(self.convert_image(self._styled(out[idx], idx, 0)), idx, 0))
+                value = self.with_pointer_overlay(self.convert_image(self._styled(out[idx], idx, 0)), idx, 0)
+                cell = self.image_canvas[idx][0] if self.image_canvas[idx] else None
+                flat_out.append(with_label(value, self._current_label(idx, 0), cell))
         if len(flat_out) == 1:
             return flat_out[0]
         return tuple(flat_out)

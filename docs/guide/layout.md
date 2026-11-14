@@ -59,7 +59,7 @@ Live layout switching (e.g. going from a side-by-side comparison to a 2x2 grid w
 | `center` | Makes the range symmetric around this value (diverging colormaps: `colormap="RdBu", center=0`). |
 | `colorbar` | `True` draws the scale (min, max, round ticks) to the right of a 2D array, inside the image: same on every backend and in snapshots. A string is also written along the bar as its label. |
 | `unit` | Short unit written once above the colorbar (`unit="dB"`). |
-| `dpi` | Resolution of a matplotlib figure output (default 120). |
+| `dpi` | Pixels per inch of a matplotlib figure output (see [figure text size](figures-and-overlays.md#matplotlib-figures)). |
 | `xlabel`, `ylabel` | Axis labels — matplotlib backend only (for curves use `Curve(..., xlabel=...)`). |
 
 ```python
@@ -68,6 +68,25 @@ def depth_map(img):
     layout.style("depth", title="Depth", colormap="magma", vmin=0.0, vmax=10.0)
     return estimate_depth(img)  # (H, W) float array
 ```
+
+### Metric readouts
+
+A number computed by a filter (PSNR, precision / recall, a count) reads best
+next to the output it describes, set every frame from the filter itself:
+
+```python
+@interactive(strength=(0.5, [0.0, 1.0]))
+def denoise(img, strength=0.5):
+    out = smooth(img, strength)
+    layout.style("out", title=f"PSNR {psnr(out, img):.2f} dB")
+    return out
+```
+
+The title follows each run on every backend (Gradio updates the component
+label), in snapshots and in each cell of a [sweep](snapshots.md). `subtitle=`
+appends a second part (`title · subtitle`). A filter returning a `str` gets a
+text cell instead: written larger than the titles (12 pt) and wrapped to the
+cell on every backend.
 
 The heatmap options apply on every backend and in snapshots; on Qt the pixel readout still shows the raw value. NaN and masked values are shown in magenta. See [Figures, heatmaps and overlays](figures-and-overlays.md). An unknown colormap raises `ValueError` (with a suggestion), other unknown keys are ignored with a warning listing the supported ones.
 

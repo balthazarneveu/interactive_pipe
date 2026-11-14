@@ -179,7 +179,7 @@ def test_filter_error_is_drawn_in_the_axes_and_recovers():
     window.refresh()  # must not raise
     cell = window.image_canvas[0][0]
     assert window.last_error is not None
-    assert "mpl_maybe_fail raised ValueError" in cell["data"].get_text()
+    assert "mpl_maybe_fail raised ValueError" in " ".join(cell["data"].get_text().split())  # wrapped to the axes
     assert cell["data"].get_color() == "red"
     assert len(window.image_canvas[0][1]["ax"].images) == 1  # other axes kept
     window.ctrl["mpl_fail"].update(False)

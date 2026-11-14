@@ -55,7 +55,8 @@ def flower_pipeline():
   only sets the aspect ratio (and how much room the text takes relative to
   the plot: none, it stays in points). This holds in snapshots and sweeps,
   in the Qt window (drawn again when the window is resized, 150 ms after the
-  last resize event), in the matplotlib window, and in Dear PyGui (a figure
+  last resize event), in the matplotlib window and the notebook, and in Dear
+  PyGui (a figure
   gets the natural size of a plot cell, 480 x 320, then the layout scales
   both alike). A figure with matplotlib's default margins is laid out with
   `tight_layout` for that drawing, so its axis labels are not cut; your own
@@ -63,7 +64,7 @@ def flower_pipeline():
   itself is left unchanged.
 - `dpi` sets how many pixels an inch of the figure takes: 100 per inch in a
   cell (the dpi of the Qt curves; times the screen's pixel ratio on HiDPI),
-  the snapshot's dpi in snapshots, 120 elsewhere (Gradio, notebook,
+  the snapshot's dpi in snapshots, 120 elsewhere (Gradio,
   `export_animation`, where the figure keeps its `figsize`: a default
   6.4 x 4.8 in figure gives 768 x 576 pixels). `layout.style("flower",
   dpi=200)` makes the text of that figure twice as big as a curve's in a

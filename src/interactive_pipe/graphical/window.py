@@ -1,6 +1,5 @@
 import logging
 import sys
-import textwrap
 from typing import Any, List, Optional, Tuple
 
 # display_kind / apply_display_style / HEATMAP_STYLE_KEYS are re-exported for compatibility
@@ -15,9 +14,6 @@ from interactive_pipe.graphical.display import (  # noqa: F401
     prepare_display,
     producer_of,
 )
-
-# characters per line of a display error shown in a cell (the mpl backend does not wrap text)
-DISPLAY_ERROR_WIDTH = 36
 
 
 def content_titles(grid: Any) -> dict:
@@ -234,7 +230,7 @@ class InteractivePipeWindow:
             if errors.get((row, col)) != message:
                 logging.error(message)
             errors[(row, col)] = message
-            return textwrap.fill(message, DISPLAY_ERROR_WIDTH, break_long_words=False)
+            return message  # each backend wraps text to its cell
         errors.pop((row, col), None)
         return shown
 

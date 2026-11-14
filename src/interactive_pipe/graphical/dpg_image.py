@@ -19,6 +19,7 @@ import numpy as np
 
 from interactive_pipe.data_objects.curves import Curve, SingleCurve
 from interactive_pipe.data_objects.table import Table
+from interactive_pipe.graphical.display import TEXT_FONT_PT
 from interactive_pipe.graphical.dpg_backend import dpg
 from interactive_pipe.graphical.dpg_viewer import ViewState
 from interactive_pipe.graphical.pointer_input import POINT_COLOR, REGION_COLOR
@@ -449,5 +450,31 @@ def update_text_cell(cell: Dict[str, Any], text: str) -> bool:
     _delete(cell.get("content"))
     width, height = DEFAULT_TEXT_SIZE
     cell["content"] = dpg.add_text(text, parent=cell["cell"], wrap=width)
+    font = _text_font()
+    if font is not None:
+        dpg.bind_item_font(cell["content"], font)
     cell["natural_size"] = (width, height)
     return True
+
+
+_TEXT_FONT: Dict[str, Any] = {}
+
+
+def _text_font() -> Any:
+    """Larger font for text cells (TEXT_FONT_PT, as on the other backends):
+    matplotlib's DejaVu Sans, loaded once per Dear PyGui context. None when
+    it cannot be loaded (the default font is used)."""
+    font = _TEXT_FONT.get("font")
+    if font is not None and dpg.does_item_exist(font):
+        return font
+    try:
+        from matplotlib import font_manager
+
+        path = font_manager.findfont(font_manager.FontProperties(family="DejaVu Sans"), fallback_to_default=True)
+        with dpg.font_registry():
+            font = dpg.add_font(path, round(TEXT_FONT_PT * 96 / 72))
+    except Exception:  # broad on purpose: a font is a nicety, never a failure
+        logging.debug("Dear PyGui: text font not loaded", exc_info=True)
+        return None
+    _TEXT_FONT["font"] = font
+    return font
