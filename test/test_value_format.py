@@ -161,3 +161,13 @@ def test_snapshot_caption():
     assert format_value(6.0) == "6"
     assert format_value(1e-05) == "1e-05"
     assert format_value(20000.0) == "20000"
+
+
+@pytest.mark.parametrize("value", [0.005, 0.003162, 12.5, 1e-05, 2.5e07, 90.0])
+def test_dpg_log_slider_and_dial_texts_use_the_shared_formatter(value):
+    from types import SimpleNamespace
+
+    dpg_control = pytest.importorskip("interactive_pipe.graphical.dpg_control")
+    assert dpg_control._log_label(value) % () == format_number(value)
+    dial = SimpleNamespace(ctrl=SimpleNamespace(_type=float), value=value)
+    assert dpg_control.DialControl._label(dial) == format_number(value)
