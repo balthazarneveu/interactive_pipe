@@ -97,8 +97,17 @@ Controls:
 - `output=`: render only some outputs — a name, an index or a list of them.
 - `figsize=`, `dpi=`, `title=`; `caption=False` hides the parameter caption
   (a string replaces it).
+- `runs=N`: render the N-th run instead of the first (a pipeline keeping
+  state in `context`: an accumulator, a simulation).
 - A filter raising propagates as `FilterError`; the pipeline state is restored
   in every case (parameters, control values, layout, styles, last results).
+
+Every snapshot, and every sweep cell, starts from a fresh context: `context`
+back to what was given from outside (`context={...}` of the decorator or of a
+call, not what filters wrote), key-bound events off, no cached result. A
+picture therefore depends only on its inputs and parameters, not on the runs
+before it; `runs=N` warms a stateful pipeline up from that start. See
+[Testing](testing.md).
 
 ### `sweep(path, *inputs, **params)`
 
@@ -115,6 +124,20 @@ Controls:
   the first image the swept parameters change, so `return img, out` shows
   `out`; else the last image); `output="all"` shows the whole layout in every
   cell.
+
+## The outputs themselves: `.headless`
+
+`pipe.headless(img, gain=2.0)` runs the pipeline without a window and returns
+its outputs, whatever the `gui=` of the decorator: a tuple in the order of the
+pipeline's `return` (a list of rows when it returns a 2D list; a
+`layout.grid` call changes the display, not this). On a `gui=None` pipeline it
+is the pipeline itself, so `pipe(img)` and `pipe.headless(img)` are the same.
+It is a separate pipeline from the window's: its parameter values are its own.
+Use it in tests, next to `snapshot` for the picture.
+
+A filter's returned tuple is unpacked into the names its pipeline line
+assigns (`a, b = split(img)`); a list assigned to one name stays one value
+(`detections = detect(img)`, whatever its length).
 
 ## Single filters
 
