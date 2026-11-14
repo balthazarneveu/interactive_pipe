@@ -79,7 +79,7 @@ def plot_ray(smp, ref):
     return density, transmittance, weights, np.clip(swatch, 0, 1)
 
 
-@interactive_pipeline(gui="auto", name="Volume rendering along a ray")
+@interactive_pipeline(cache="graph", name="Volume rendering along a ray")
 def volume_rendering():
     scene = build_scene()
     sampled, reference = render(scene)
