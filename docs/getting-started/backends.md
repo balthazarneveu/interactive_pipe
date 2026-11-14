@@ -30,6 +30,9 @@ Select the backend with the `gui=` argument of `@interactive_pipeline` (or `@int
 | Panels with sliders | ✅ | ✅ | ➖ | ➖ | ✅ |
 | Detached panels | ✅ | ✅ | ➖ | ➖ | ➖ |
 | Tables | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [matplotlib figures](../guide/figures-and-overlays.md) (as images) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [Heatmaps with colorbar](../guide/figures-and-overlays.md#heatmaps-with-a-colorbar) | ✅ (scalar readout) | ✅ | ✅ | ✅ | ✅ |
+| [Drawing on images](../guide/figures-and-overlays.md#drawing-on-images-interactive_pipedraw) (`draw`) | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Image viewer (fit / zoom / pan / pixel readout) | ✅ | ➖ no pixel readout | ➖ | ➖ | ➖ |
 | Status line (timings, errors) | ✅ | ✅ | ➖ | ➖ | ➖ |
 

@@ -56,6 +56,10 @@ Live layout switching (e.g. going from a side-by-side comparison to a 2x2 grid w
 | `subtitle` | Secondary text, shown after the title (`title · subtitle`). |
 | `colormap` | matplotlib colormap name (`"viridis"`, `"magma"`, ...) used to display a 2D `(H, W)` array as a heatmap. |
 | `vmin`, `vmax` | Values mapped to the bottom / top of the colormap (or to black / white without one) for 2D arrays. Each defaults to the data min / max, as in matplotlib. |
+| `center` | Makes the range symmetric around this value (diverging colormaps: `colormap="RdBu", center=0`). |
+| `colorbar` | `True` draws the scale (min, max, round ticks) to the right of a 2D array, inside the image: same on every backend and in snapshots. |
+| `unit` | Text appended to the colorbar labels (`unit="dB"`). |
+| `dpi` | Resolution of a matplotlib figure output (default 120). |
 | `xlabel`, `ylabel` | Axis labels — matplotlib backend only (for curves use `Curve(..., xlabel=...)`). |
 
 ```python
@@ -65,7 +69,7 @@ def depth_map(img):
     return estimate_depth(img)  # (H, W) float array
 ```
 
-The heatmap options apply on every backend; on Qt the pixel readout still shows the raw value. An unknown colormap raises `ValueError` (with a suggestion), other unknown keys are ignored with a warning listing the supported ones.
+The heatmap options apply on every backend and in snapshots; on Qt the pixel readout still shows the raw value. NaN and masked values are shown in magenta. See [Figures, heatmaps and overlays](figures-and-overlays.md). An unknown colormap raises `ValueError` (with a suggestion), other unknown keys are ignored with a warning listing the supported ones.
 
 ## Image viewer (Qt, Dear PyGui)
 
