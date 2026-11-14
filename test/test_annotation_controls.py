@@ -246,36 +246,45 @@ def test_bare_decorator_on_plain_function_keeps_working():
 # --- defaults --------------------------------------------------------------------
 
 
-def test_missing_default_literal_takes_first_choice_and_is_not_an_input():
+def test_parameters_without_default_stay_inputs():
+    # an Enum / Literal / Annotated hint on a parameter without default is an
+    # input (it may come from an upstream filter), never a control
     seen = []
 
     @interactive()
-    def no_default(img, mode: Literal["dark", "light"], style: Style):
-        seen.append((mode, style))
+    def make_mode(img):
+        return Style.GLOSSY
+
+    @interactive()
+    def apply_mode(img, style: Style, frame: Annotated[np.ndarray, (480, 640, 3)], gain: float = 1.0):
+        seen.append(style)
+        return img * style.value
+
+    assert Control.get_controls(apply_mode) == {}
+
+    def pipe(img):
+        style = make_mode(img)
+        out = apply_mode(img, style, img)
+        return out
+
+    assert HeadlessPipeline.from_function(pipe)(IMG)[0][0, 0] == 2
+    assert seen[-1] is Style.GLOSSY
+
+
+def test_signature_declaration_wins_over_hint():
+    @interactive()
+    def declared(
+        img,
+        mode: Literal["a", "b"] = ("a", ["a", "b"]),
+        style: Style = Control("FLAT", ["FLAT", "GLOSSY"]),
+        gain: Annotated[float, (0.0, 1.0)] = (2.0, [0.0, 5.0]),
+    ):
         return img
 
-    p = _build(no_default)
-    p(IMG)
-    assert seen[-1] == ("dark", Style.FLAT)
-    no_default(IMG)
-    assert seen[-1] == ("dark", Style.FLAT)
-    assert no_default.describe()["inputs"] == ["img"]
-
-
-def test_missing_default_numeric_takes_midpoint():
-    @interactive()
-    def mid(img, gain: Annotated[float, (0.0, 2.0)], n: Annotated[int, (0, 10)]):
-        return gain, n
-
-    assert mid(IMG) == (1.0, 5)
-
-
-def test_missing_default_followed_by_input_raises():
-    with pytest.raises(ValueError, match="'gain'.*no default.*inputs without default follow"):
-
-        @interactive()
-        def bad_order(img, gain: Annotated[float, (0.0, 2.0)], other):
-            return img
+    controls = Control.get_controls(declared)
+    assert controls["mode"].value_range == ["a", "b"]
+    assert not isinstance(controls["style"], MappedChoiceControl)
+    assert controls["gain"].value_range == [0.0, 5.0]
 
 
 # --- errors at decoration -------------------------------------------------------
@@ -289,10 +298,11 @@ def test_missing_default_followed_by_input_raises():
         (Annotated[float, (0.0, 3.0)], "a", TypeError, "not a float"),
         (Annotated[float, (0.0, 3.0)], True, TypeError, "not a float"),
         (Annotated[bool, "Flip"], 1, TypeError, "not a bool"),
-        (Annotated[float, (3.0, 0.0)], 1.0, ValueError, "is empty"),
+        (Annotated[float, (3.0, 0.0)], 1.0, ValueError, "is reversed"),
         (Annotated[float, (0.0, 1.0, 5.0)], 0.5, ValueError, "larger than the range"),
         (Annotated[float, (0.0, 1.0, -0.1)], 0.5, ValueError, "not a positive number"),
         (Annotated[float, (0.0,)], 0.5, ValueError, "is not a range"),
+        (Annotated[float, (0.0, 1.0, 0.5, 1.0)], 0.5, ValueError, "is not a range"),
         (Annotated[int, (0.5, 3)], 1, ValueError, "not made of ints"),
         (Annotated[bool, (0, 1)], False, ValueError, "checkbox takes no range"),
         (Literal["a", "b"], "c", ValueError, "not one of the choices"),
@@ -575,3 +585,17 @@ def test_none_default_makes_no_widget(caplog):
     assert "parameter 'gain': the default None makes no widget" in caplog.text
     assert "parameter 'mode'" not in caplog.text  # bare Literal: silent
     assert auto(IMG)[0, 0] == 1.0
+
+
+def test_enum_and_literal_overrides_do_not_warn_about_clamping(tmp_path):
+    import warnings
+
+    @interactive()
+    def styled(img, style: Style = Style.FLAT, k: Literal[3, 5] = 3):
+        return img * style.value * k / 10
+
+    p = _build(styled)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        p.snapshot(tmp_path / "s.png", IMG, style=Style.GLOSSY, k=5)
+        p.sweep(tmp_path / "w.png", IMG, style=[Style.FLAT, Style.GLOSSY])

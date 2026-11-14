@@ -8,7 +8,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.headless.control import Control, MappedChoiceControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
-from interactive_pipe.helper.annotation_controls import signature_with_defaults
 from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
 from interactive_pipe.helper.filter_entry_points import attach_filter_entry_points
 from interactive_pipe.helper.keyword_args_analyzer import analyze_filter_controls
@@ -126,9 +125,9 @@ def interact(
 def filter_from_function(apply_fn, default_params=None, inplace: bool = False, **kwargs) -> EnhancedFilterCore:
     if default_params is None:
         default_params = {}
-    controls, filled_defaults = analyze_filter_controls(apply_fn, kwargs, localns=_caller_namespace(2))
+    controls = analyze_filter_controls(apply_fn, kwargs, localns=_caller_namespace(2))
     filter_instance = EnhancedFilterCore(
-        apply_fn=_annotated_filter_wrapper(apply_fn, controls, filled_defaults, use_controls=False),
+        apply_fn=_annotated_filter_wrapper(apply_fn, controls, use_controls=False),
         default_params=default_params,
         inplace=inplace,
     )
@@ -169,23 +168,24 @@ def _unknown_keyword_error(func: Callable, signature: inspect.Signature, kwargs:
     )
 
 
-def _annotated_filter_wrapper(
-    func: Callable, controls: Dict[str, Control], filled_defaults: Dict[str, Any], use_controls: bool = True
-) -> Callable:
+def _annotated_filter_wrapper(func: Callable, controls: Dict[str, Control], use_controls: bool = True) -> Callable:
     """Wrap a filter so that it can be called like the original function.
 
     - registered controls fill the keyword arguments not given explicitly
       (``use_controls``), so a direct call uses the live control values;
     - a value given positionally for a controlled parameter wins over the control;
     - dropdowns built from ``Enum`` / non-string ``Literal`` hints hand the filter
-      the value (enum member, int...) instead of the displayed label;
-    - parameters declared by an annotation without default get one in the
-      wrapper's ``__signature__`` (they are controls, not inputs).
+      the value (enum member, int...) instead of the displayed label.
     """
     signature = inspect.signature(func)  # computed once, binding runs on every frame
-    parameter_names = list(signature.parameters)
+    # parameters a positional argument can fill (stop at *args: what follows is keyword-only)
+    positional_names = []
+    for param in signature.parameters.values():
+        if param.kind not in (param.POSITIONAL_ONLY, param.POSITIONAL_OR_KEYWORD):
+            break
+        positional_names.append(param.name)
     choice_controls = {name: ctrl for name, ctrl in controls.items() if isinstance(ctrl, MappedChoiceControl)}
-    if not use_controls and not choice_controls and not filled_defaults:
+    if not use_controls and not choice_controls:
         return func
 
     @functools.wraps(func)
@@ -194,13 +194,12 @@ def _annotated_filter_wrapper(
         # filter instance's own values (a repeated filter gets per-instance
         # control clones). Registered controls fill the rest so a direct
         # call of the decorated function uses the live control values.
-        positional = set(parameter_names[: len(args)])
-        defaults = {name: value for name, value in filled_defaults.items() if name not in positional}
+        positional = set(positional_names[: len(args)])
         if use_controls:
             control_kwargs = {name: ctrl for name, ctrl in controls.items() if name not in positional}
         else:
             control_kwargs = {}
-        merged_kwargs = {**defaults, **control_kwargs, **kwargs}
+        merged_kwargs = {**control_kwargs, **kwargs}
         try:
             bound_args = signature.bind(*args, **merged_kwargs)
         except TypeError as exc:
@@ -221,8 +220,6 @@ def _annotated_filter_wrapper(
         # Call the original function with the processed arguments
         return func(*bound_args.args, **bound_args.kwargs)
 
-    if filled_defaults:
-        inner.__signature__ = signature_with_defaults(func, filled_defaults)  # type: ignore[attr-defined]
     return inner
 
 
@@ -270,8 +267,8 @@ def interactive(inplace: Union[bool, Callable] = False, **decorator_controls: An
     def wrapper(func, localns=None):
         if localns is None:
             localns = _caller_namespace(1)
-        controls, filled_defaults = analyze_filter_controls(func, decorator_controls, localns=localns)
-        inner = _annotated_filter_wrapper(func, controls, filled_defaults, use_controls=True)
+        controls = analyze_filter_controls(func, decorator_controls, localns=localns)
+        inner = _annotated_filter_wrapper(func, controls, use_controls=True)
 
         # picked up by HeadlessPipeline.from_function when building the FilterCore
         setattr(inner, "__interactive_pipe_inplace__", inplace)

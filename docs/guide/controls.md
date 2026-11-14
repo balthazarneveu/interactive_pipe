@@ -73,7 +73,7 @@ def adjust(
 - `Annotated[float, Control(...)]` accepts any control object (`CircularControl`, `KeyboardControl`, `TimeControl`, ...); the signature default, when given, wins over the control's.
 - `Literal[...]` and `Enum` hints are dropdowns on their own. An enum dropdown shows the member names; the filter receives the member, and `pipe(img, style=Style.GLOSSY)` and `pipe(img, style="GLOSSY")` both work. `Literal[3, 5, 7]` works the same way with the values.
 - Only these forms make a widget: a plain `gain: float = 1.0` or `flip: bool = False` stays a parameter without widget, and `Annotated` metadata from other libraries is ignored.
-- A parameter without default gets the first choice (`Literal`, `Enum`) or the middle of the range.
+- Only parameters with a default are concerned: a parameter without default stays a pipeline input whatever its hint (`style: Style` can come from another filter). A `None` default makes no widget, and a declaration used as default (`mode: Mode = Control(...)`, a tuple shorthand) wins over the hint.
 - A default outside the range, or of the wrong type (`n: Annotated[int, (0, 9)] = 2.5`), raises when the module is imported, naming the filter, the parameter and the fix.
 - `from __future__ import annotations` is supported. `@interactive` without parentheses works too.
 

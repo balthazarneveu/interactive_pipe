@@ -44,8 +44,8 @@ Common mistakes in pipelines used to build something that ran and was wrong. The
 
 Changes that can affect existing code:
 - A filter returning more values than the pipeline line assigns (`a = f(x)` with `return x, y`, or three values for `a, b = f(x)`) used to keep the first value(s) silently; it now raises a `FilterError` naming the pipeline line and the fix. A filter without any `return <value>` whose result is assigned raises likewise (an explicit `return None` is still accepted). `FilterCore` lists built by hand keep the old lenient behaviour.
-- Under `@interactive`, `Literal[...]` and `Enum` hints now make dropdowns (no such hint in the demos, samples or docs).
-- `Control` rejects a step `<= 0` or larger than the range and `min >= max`; a range of more than `[min, max, step]` raises; a bool given to a numeric control raises `TypeError` (it was taken as 0/1).
+- Under `@interactive`, `Literal[...]` and `Enum` hints on a parameter with a default now make dropdowns (no such hint in the demos, samples or docs). Parameters without default stay inputs.
+- `Control` rejects a step `<= 0` or larger than the range and `min > max` (`min == max` stays allowed); a range of more than `[min, max, step]` raises; a bool given to a numeric control raises `TypeError` (it was taken as 0/1).
 - Re-decorating a function (a notebook cell run again) drops the controls that are no longer declared.
 - `snapshot()` / `sweep()` unknown-name errors now read like the pipeline call's: `snapshot() got unexpected keyword argument(s) 'gian'. Available parameters: ... Did you mean 'gian' -> 'gain'?`.
 

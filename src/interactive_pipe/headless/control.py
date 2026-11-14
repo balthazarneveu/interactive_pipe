@@ -138,9 +138,10 @@ class Control:
                     if self.step is None:
                         # Type narrowing: we know value_range contains numeric values here
                         self.step = (value_range[1] - value_range[0]) / 100.0  # type: ignore
-                if not value_range[0] < value_range[1]:  # type: ignore[operator]
+                if value_range[0] > value_range[1]:  # type: ignore[operator]
+                    # min == max stays allowed: an image selector (0, [0, len(images) - 1]) on one image
                     raise ValueError(
-                        f"value_range {list(value_range)} must satisfy min < max "
+                        f"value_range {list(value_range)} must satisfy min <= max "
                         f"(did you mean [{value_range[1]}, {value_range[0]}]?)"
                     )
                 if not (value_range[0] <= value_default <= value_range[1]):  # type: ignore
@@ -209,7 +210,7 @@ class Control:
         span = value_range[1] - value_range[0]
         if step <= 0:
             raise ValueError(f"step {step!r} must be > 0 (slider over {list(value_range)})")
-        if step > span:
+        if span > 0 and step > span:
             raise ValueError(
                 f"step {step!r} is larger than the range {list(value_range)}: the slider could not move. "
                 f"Use a step <= {span}"
