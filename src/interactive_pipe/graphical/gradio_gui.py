@@ -106,7 +106,7 @@ class InteractivePipeGradio(InteractivePipeGUI):
                 if out_item is None:
                     out_list_gradio_containers.append(gr.HTML())
                     continue
-                container, type_tag = build_output_container(out_item, title)
+                container, type_tag = build_output_container(self.window._styled(out_item, idx, idy), title)
                 out_list_gradio_containers.append(container)
                 if type_tag is not None:
                     canvas_cell["type"] = type_tag
@@ -183,14 +183,15 @@ class MainWindow(InteractivePipeWindow):
                     else:
                         flat_out.append(
                             convert_output_value(
-                                out[idx][idy],
+                                # same layout.style display options as every backend
+                                self._styled(out[idx][idy], idx, idy),
                                 audio_sampling_rate=self.audio_sampling_rate,
                                 convert_image=self.convert_image,
                             )
                         )
             else:
                 logging.debug(f"CONVERTING IMAGE  {idx} ")
-                flat_out.append(self.convert_image(out[idx]))
+                flat_out.append(self.convert_image(self._styled(out[idx], idx, 0)))
         if len(flat_out) == 1:
             return flat_out[0]
         return tuple(flat_out)
