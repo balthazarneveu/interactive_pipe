@@ -169,6 +169,7 @@ Demos and docs:
 ### Show reel: -b on the command line, colormaps, Qt plot cells
 - **`-b` / `--backend` on every script**: a pipeline that keeps the default `gui="auto"` picks its backend from the command line with no code, `python my_script.py -b mpl` (also `--backend dpg`, `--backend=qt`, alias `--gui`; `-b headless` runs once without a window). The decorator only peeks at `sys.argv` (`interactive_pipe.cli.gui_from_argv`), values that are not backend names are ignored, and an explicit `gui=` is never overridden. Precedence: `parse_gui_args` values > explicit decorator arguments > `-b` > `INTERACTIVE_PIPE_GUI`. `parse_gui_args` / `add_gui_arguments` accept `-b` and `--backend` as aliases of `--gui`.
 - Qt: plot and table cells keep a legible minimum size (360x270) and a constrained layout. They used to shrink to the height of the smallest image of their row, with the title and axis labels cut off, and a window holding only plots opened about 190 px high.
+- Qt: a window holding only plots or tables grows to give its controls room (the automatic sizing was only triggered by image cells, leaving about 60 px for the sliders).
 
 ### Improvements & bug fixes
 - Calling a headless pipeline that takes no inputs again (`pipe()`, `pipe(gain=2.0)`) no longer resets its cache: only the filters affected by the parameter change are recomputed, and `last_run_report.cached` reports the others. Passing inputs still invalidates everything, as before.
