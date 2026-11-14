@@ -11,6 +11,7 @@ SIGNAL_BACKEND_MPL = "matplotlib"
 SIGNAL_BACKEND_PD = "pandas"
 SIGNAL_BACKEND_PICKLE = "pickle"
 SIGNAL_BACKENDS = [SIGNAL_BACKEND_PICKLE, SIGNAL_BACKEND_PD, SIGNAL_BACKEND_MPL]
+AXIS_SCALES = ("linear", "log", "symlog")
 
 
 signal_backends = [SIGNAL_BACKEND_PICKLE]  # automatically available
@@ -231,6 +232,7 @@ class Curve(Data):
         - `.ylabel`
         - `.xlim`
         - `.ylim`
+        - `.xscale` / `.yscale`: ``"linear"`` (default), ``"log"`` or ``"symlog"``
         - `.title`
         - `.curves`
 
@@ -255,7 +257,14 @@ class Curve(Data):
         grid: Optional[bool] = None,
         xlim: Optional[Tuple[Union[int, float], Union[int, float]]] = None,
         ylim: Optional[Tuple[Union[int, float], Union[int, float]]] = None,
+        xscale: Optional[str] = None,
+        yscale: Optional[str] = None,
     ) -> None:
+        for axis_name, scale in (("xscale", xscale), ("yscale", yscale)):
+            if scale is not None and scale not in AXIS_SCALES:
+                raise ValueError(
+                    f"Curve({axis_name}={scale!r}): expected one of {', '.join(repr(s) for s in AXIS_SCALES)}"
+                )
         if curves is None:
             curve_list = []
         elif isinstance(curves, SingleCurve):
@@ -279,6 +288,8 @@ class Curve(Data):
             "grid": grid,
             "xlim": xlim,
             "ylim": ylim,
+            "xscale": xscale,
+            "yscale": yscale,
         }
         super().__init__(data)
 
@@ -353,6 +364,14 @@ class Curve(Data):
 
     # .xlabel / .ylabel
     # ---------------------------------------
+    @property
+    def xscale(self) -> Optional[str]:
+        return self.data.get("xscale")
+
+    @property
+    def yscale(self) -> Optional[str]:
+        return self.data.get("yscale")
+
     @property
     def xlabel(self) -> str:
         return self.data["xlabel"]
@@ -500,10 +519,22 @@ class Curve(Data):
                 ax.grid(data["grid"])
             if data.get("xlim", None) is not None:
                 ax.set_xlim(data["xlim"])
+            Curve._set_scales(data, ax)
             if data.get("ylim", None) is not None:
                 ax.set_ylim(data["ylim"])
 
         return plt_obj
+
+    @staticmethod
+    def _set_scales(data, ax) -> None:
+        """Axis scales, set only when they change (setting one resets the axis locators)."""
+        for scale, get, set_ in (
+            (data.get("xscale"), ax.get_xscale, ax.set_xscale),
+            (data.get("yscale"), ax.get_yscale, ax.set_yscale),
+        ):
+            scale = scale or "linear"
+            if get() != scale:
+                set_(scale)
 
     @staticmethod
     def _plot_curve(data, ax=None):
@@ -561,6 +592,7 @@ class Curve(Data):
                 ax.grid(data["grid"])
             if data.get("xlim", None) is not None:
                 ax.set_xlim(data["xlim"])
+            Curve._set_scales(data, ax)
             if data.get("ylim", None) is not None:
                 ax.set_ylim(data["ylim"])
         return plt_obj
