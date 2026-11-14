@@ -188,6 +188,12 @@ class _LayoutProxy:
     def style(self, name: str, *, title: Any = _UNSET, **style_kwargs: Any) -> None:
         """Set display properties for an output.
 
+        Calls on one output during one run add up: a later call changes only
+        the keys it gives (``layout.style("h", colormap="viridis")`` then
+        ``layout.style("h", title=f"max {m:.1f}")`` keeps the colormap);
+        ``key=None`` removes that key. The first call of the next run starts
+        from nothing again.
+
         Args:
             name: Output variable name (must match the variable name in the return statement)
             title: Display title for the output
@@ -229,12 +235,6 @@ class _LayoutProxy:
                   ``Curve(..., xlabel=...)``.
 
                 Other keys are ignored, with a warning.
-
-            Calls on one output during one run add up: a later call changes
-            only the keys it gives (``layout.style("h", colormap="viridis")``
-            then ``layout.style("h", title=f"max {m:.1f}")`` keeps the
-            colormap); ``key=None`` removes that key. The first call of the
-            next run starts from nothing again.
 
         Example:
             ```python
