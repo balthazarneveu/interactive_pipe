@@ -207,7 +207,9 @@ def test_gui_shows_the_error_in_the_cell(backend, case, monkeypatch, caplog):
     with caplog.at_level(logging.ERROR):
         shown = _shown(backend, value, monkeypatch)
     assert isinstance(shown, str), type(shown)
-    assert all(len(line) <= 60 for line in shown.splitlines())  # wrapped to fit a cell
+    if backend == "mpl":  # matplotlib does not wrap: the window wraps the text to its axes
+        assert len(shown.splitlines()) > 1 and all(len(line) <= 90 for line in shown.splitlines())
+    # Qt (word-wrapped QLabel), Dear PyGui (wrap=) and Gradio (textbox) wrap the text themselves
     shown = " ".join(shown.split())
     assert "output 'out' (returned by filter 'produce') cannot be displayed" in shown
     for word in words:

@@ -37,18 +37,20 @@ from interactive_pipe.data_objects.table import (
 from interactive_pipe.data_objects.table import table_column_widths as _table_column_widths
 from interactive_pipe.data_objects.table import table_text as _table_text
 from interactive_pipe.graphical.display import (
+    TEXT_FONT_PT,
     content_title,
     display_kind,
     figure_of,
     prepare_display,
     producer_of,
     rasterize_figure,
+    wrap_text,
 )
 
 # Natural cell sizes in inches (before the whole figure is scaled to fit MAX_WIDTH)
 CELL_HEIGHT = 3.2
 PLOT_SIZE = (4.4, CELL_HEIGHT)
-TEXT_SIZE = (3.6, 1.6)
+TEXT_SIZE = (4.4, 1.6)
 PLACEHOLDER_SIZE = (3.0, 1.6)
 TITLE_HEIGHT = 0.32  # room above each cell for its title
 MAX_WIDTH = 22.0  # widest figure (inches) before scaling everything down
@@ -277,8 +279,8 @@ def natural_size(content: Any) -> Tuple[float, float]:
         widths = _table_column_widths(header, rows)
         return min(max(sum(widths), 2.0), 12.0), max(TABLE_ROW_HEIGHT * n_rows, 0.8)
     if kind == "text":
-        n_lines = content.count("\n") + 1
-        return TEXT_SIZE[0], max(TEXT_SIZE[1], 0.25 * n_lines + 0.4)
+        n_lines = wrap_text(content, 0.95 * TEXT_SIZE[0] * 72.0, TEXT_FONT_PT).count("\n") + 1
+        return TEXT_SIZE[0], max(TEXT_SIZE[1], TEXT_FONT_PT / 72.0 * 1.4 * n_lines + 0.4)
     return PLACEHOLDER_SIZE
 
 
@@ -330,7 +332,8 @@ def draw_cell(ax: Any, cell: SnapshotCell, width_inches: float, dpi: float, heig
         _set_title(ax, content.title or cell.title, width_inches)
     elif kind == "text":
         ax.set_axis_off()
-        ax.text(0.5, 0.5, content, ha="center", va="center", fontsize=10, wrap=True, transform=ax.transAxes)
+        text = wrap_text(content, 0.95 * width_inches * 72.0, TEXT_FONT_PT)
+        ax.text(0.5, 0.5, text, ha="center", va="center", fontsize=TEXT_FONT_PT, transform=ax.transAxes)
         _set_title(ax, cell.title, width_inches)
     else:
         ax.set_axis_off()

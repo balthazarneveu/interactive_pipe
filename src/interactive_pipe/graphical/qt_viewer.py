@@ -26,6 +26,7 @@ from typing import Any, Callable, List, Optional, Tuple
 
 import numpy as np
 
+from interactive_pipe.graphical.display import TEXT_FONT_PT
 from interactive_pipe.graphical.pointer_input import POINT_COLOR as POINT_RGB
 from interactive_pipe.graphical.pointer_input import REGION_COLOR as REGION_RGB
 from interactive_pipe.graphical.qt_backend import PYQTVERSION, QLabel, QPixmap, QSize, Qt, QTimer
@@ -223,11 +224,17 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         return super().pixmap()
 
     def setText(self, text: str) -> None:  # noqa: N802 - Qt API
+        """Text cell (a str output, an error): wrapped to the cell, TEXT_FONT_PT."""
         if self._pixmap is not None:
             self._pixmap = None
             self.array = None
             self.readout = None
             self.updateGeometry()
+        if self.font().pointSizeF() != TEXT_FONT_PT:
+            font = self.font()
+            font.setPointSizeF(TEXT_FONT_PT)
+            self.setFont(font)
+        self.setWordWrap(True)
         super().setText(text)
 
     def has_image(self) -> bool:
