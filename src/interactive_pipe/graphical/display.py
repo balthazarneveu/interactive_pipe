@@ -144,7 +144,7 @@ _DEFAULT_MARGINS_KEYS = ("left", "right", "bottom", "top", "wspace", "hspace")
 def _default_margins() -> dict:
     import matplotlib
 
-    return {key: matplotlib.rcParams[f"figure.subplot.{key}"] for key in _DEFAULT_MARGINS_KEYS}
+    return {key: matplotlib.rcParams[f"figure.subplot.{key}"] for key in _DEFAULT_MARGINS_KEYS}  # type: ignore[index]
 
 
 def _no_layout_engine(fig: Any) -> bool:
