@@ -5,6 +5,7 @@
 Common mistakes in pipelines used to build something that ran and was wrong. They now either do what was meant or fail with an error naming the line and the fix.
 
 ### Changes that can affect existing code
+- **A list returned by a filter is one value when the pipeline line assigns one name**: `dets = detect(img)` now receives the list whatever its length. Before, a 1-item list silently became its item and an empty list raised (2+ items raised too, asking for `return (dets,)`). Several names (`a, b = f(img)`) still unpack a list; tuples keep their rule (a 1-tuple is its item, a longer tuple assigned to one name raises naming the fix).
 - **`snapshot` / `sweep` start from a fresh context** (see "Control semantics" below): a pipeline keeping state in `context` is rendered as on its first run, not continued from the live state.
 - **Each pipeline owns its controls**: two pipelines built from the same filter no longer share control values, and pipelines never connect nor change the declared `Control` object, so a direct call `f(img)` uses the declared default instead of the last value set in some pipeline. A pipeline starts from the declared control's value.
 - **2D arrays are shown in gray on the matplotlib backend too** (it used matplotlib's default colormap, viridis, while Qt, Dear PyGui, Gradio and snapshots showed gray). Use `layout.style(name, colormap="viridis")` for a false-colour view.
