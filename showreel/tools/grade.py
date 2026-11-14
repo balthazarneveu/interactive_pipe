@@ -33,7 +33,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import numpy as np  # noqa: E402
 
-from interactive_pipe.graphical.window import apply_colormap  # noqa: E402
+from interactive_pipe.graphical.window import apply_display_style  # noqa: E402
 
 REMOVED_KWARGS = {"global_params", "global_parameters", "global_state", "global_context", "context", "state"}
 PIPELINE_DECORATORS = {"interactive_pipeline", "pipeline"}
@@ -261,7 +261,7 @@ def dynamic_checks(script: Path, out_dir: Path) -> dict:
         report["outputs"].append(describe(out))
         if "NOT FINITE" in report["outputs"][-1]:
             report["problems"].append(f"output {index} holds NaN or inf at default parameters")
-        dump(apply_colormap(out, styles[index] if index < len(styles) else None), out_dir / f"default_{index}")
+        dump(apply_display_style(out, styles[index] if index < len(styles) else None), out_dir / f"default_{index}")
     report["titles"] = [style.get("title") for style in styles]
     if not reference:
         report["problems"].append("the pipeline returns nothing")
