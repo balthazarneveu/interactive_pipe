@@ -8,19 +8,19 @@ anything but 1 vanishes or explodes geometrically.
 - relu: zeroes half the units, E[h^2] = Var(z) / 2, factor = gain / sqrt(2). Xavier shrinks the
   std by 0.71 per layer (2^-25 ~ 3e-8 after 50 layers); He/Kaiming (gain sqrt 2) keeps it flat.
 - tanh: tanh'(0) = 1, so gain 1 only decays slowly (std ~ 1/sqrt(2 l), not geometrically).
-  Gain 2 saturates the units at +-1 (histogram edges): the forward std looks fine, but the
+  Gain 2 saturates the units at +-1 (histogram peaks near +-1): the forward std looks fine, but the
   backward pass becomes chaotic and gradients grow towards the input.
 The backward pass multiplies by W^T and f'(z): gradients follow the same factor, from the
 output down to the input. LayerNorm rescales every layer: the forward std is flat for any gain.
 Default: relu + Xavier, the signal dies. Switch the initialization to He.
 The histograms divide each layer by its std: they show the shape (spike at 0 for relu,
-saturation for tanh), the curves show the scale.
+saturation for tanh), barely changing with depth; the curves show the scale.
 """
 
 import numpy as np
 import torch
 
-from interactive_pipe import Curve, interactive, interactive_pipeline, layout
+from interactive_pipe import Curve, interactive, interactive_pipeline
 
 torch.set_num_threads(1)  # small matrices: threading overhead costs more than it brings
 WIDTH, BATCH, LOG_RANGE, HIST_RANGE, BINS = 128, 256, 12, 4.0, 61
@@ -43,20 +43,16 @@ def initialize(init="Xavier (gain 1)", gain=1.0, depth=50):
     activation=("relu", list(ACTIVATIONS), "activation"),
     normalize=(False, "LayerNorm before each activation"),
 )
-def forward(weights, activation="relu", normalize=False):
+def propagate(weights, activation="relu", normalize=False):  # returns detached tensors: cacheable
     x = torch.randn(BATCH, WIDTH, generator=torch.Generator().manual_seed(1))  # unit-variance inputs
     layers = [x.requires_grad_()]
     for w in weights:
         z = layers[-1] @ w.T
         z = torch.nn.functional.layer_norm(z, (WIDTH,)) if normalize else z
         layers.append(ACTIVATIONS[activation](z))
-    return {"layers": layers}
-
-
-def backward(signals):  # gradient of a random scalar read-out of the last layer, w.r.t. every layer
-    layers = signals["layers"]
+    # backward: gradient of a random scalar read-out of the last layer, w.r.t. every layer
     loss = layers[-1] @ torch.randn(WIDTH, generator=torch.Generator().manual_seed(2))
-    return torch.stack(torch.autograd.grad(loss.sum(), layers, retain_graph=True))
+    return torch.stack(layers).detach(), torch.stack(torch.autograd.grad(loss.sum(), layers))
 
 
 def log_std_plot(std, title, ylabel, reference):
@@ -67,8 +63,8 @@ def log_std_plot(std, title, ylabel, reference):
     return Curve(curves, xlabel="layer (0 = input)", ylabel=f"log10 {ylabel}", title=title, ylim=ylim, grid=True)
 
 
-def plot_std(signals, gradients):  # titles: geometric mean of the factor per layer
-    act = np.array([h.std().item() for h in signals["layers"]])
+def plot_std(activations, gradients):  # titles: geometric mean of the factor per layer
+    act = activations.flatten(1).std(1).numpy()
     grad = gradients.flatten(1).std(1).numpy()
     n = len(act) - 1
     forward_title = f"Forward: activation std x{(act[-1] / act[0]) ** (1 / n):.3f} per layer"
@@ -79,24 +75,24 @@ def plot_std(signals, gradients):  # titles: geometric mean of the factor per la
     )
 
 
-def histograms(signals):  # one row per layer: the shape of the activations, their scale divided out
-    layers = torch.stack([h / h.std() for h in signals["layers"]]).detach().clamp(-HIST_RANGE, HIST_RANGE)
-    img = torch.stack([torch.histc(h, BINS, -HIST_RANGE, HIST_RANGE) for h in layers]).numpy()
-    img = np.sqrt(img / img.max(axis=1, keepdims=True))  # sqrt: show the tails next to the peak
-    layout.style(
-        "saturation", title=f"Histograms of activation / std, layer 0 (top) to {len(img) - 1}, range ±{HIST_RANGE:g}"
-    )
-    return np.repeat(np.repeat(1 - img, 300 // len(img) + 1, axis=0), 5, axis=1)
+def histograms(activations):  # the shape of the activations at a few depths, their scale divided out
+    depth = len(activations) - 1
+    curves = []
+    for layer, style in zip(sorted({1, depth // 5, depth // 2, depth}), ["c-", "g-", "m-", "r-"]):
+        x = (activations[layer] / activations[layer].std().clamp_min(1e-30)).numpy()
+        density, edges = np.histogram(x, BINS, (-HIST_RANGE, HIST_RANGE), density=True)
+        curves.append([(edges[1:] + edges[:-1]) / 2, np.sqrt(density), style, f"layer {layer}"])
+    title, ylabel = "Activation histograms, std divided out", "sqrt(density): tails visible next to peaks"
+    return Curve(curves, xlabel="activation / std", ylabel=ylabel, title=title, ylim=(0, 3), grid=True)
 
 
-@interactive_pipeline()
+@interactive_pipeline(cache="graph")
 def signal_propagation():
     weights = initialize()
-    signals = forward(weights)
-    gradients = backward(signals)
-    activation_std, gradient_std = plot_std(signals, gradients)
-    saturation = histograms(signals)
-    return [activation_std, gradient_std, saturation]
+    activations, gradients = propagate(weights)
+    activation_std, gradient_std = plot_std(activations, gradients)
+    activation_shape = histograms(activations)
+    return [activation_std, gradient_std, activation_shape]
 
 
 if __name__ == "__main__":
