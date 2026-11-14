@@ -16,7 +16,7 @@ class TestControlExceptions:
 
     def test_check_value_raises_typeerror_when_type_mismatch(self):
         control = Control(value_default=5.0, value_range=[0.0, 10.0])
-        with pytest.raises(TypeError, match="Expected"):
+        with pytest.raises(TypeError, match="expects float, got str"):
             control.check_value("not a number")
 
     def test_check_value_clamps_when_out_of_range(self):
