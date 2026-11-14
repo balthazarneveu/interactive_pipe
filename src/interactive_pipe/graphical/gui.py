@@ -10,6 +10,7 @@ from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.parameters import Parameters
 from interactive_pipe.graphical.actions import DEFAULT_ACTIONS, MENU_GROUPS, Action
 from interactive_pipe.graphical.pointer_input import controls_for_backend
+from interactive_pipe.graphical.pointer_input import help_lines as pointer_help_lines
 from interactive_pipe.graphical.window import format_timings_table
 from interactive_pipe.headless.control import TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
@@ -583,6 +584,8 @@ class InteractivePipeGUI:
             formatted_doc = self._format_docstring_for_help(event_dict["doc"])
             # filters read these flags through the `events` context proxy
             help_lines.append(f"[{formatted_key_context}]    : {formatted_doc} (event '{event_dict['param_name']}')")
+        if self.pointer_gestures:
+            help_lines += pointer_help_lines(self.controls)
         self.print_message(help_lines)
         return help_lines
 
