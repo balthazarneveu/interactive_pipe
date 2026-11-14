@@ -28,12 +28,14 @@ class TestControlExceptions:
 
     def test_check_value_raises_valueerror_when_string_not_in_range(self):
         control = Control(value_default="a", value_range=["a", "b", "c"])
-        with pytest.raises(ValueError, match="must be in"):
+        with pytest.raises(ValueError, match=r"'d' is not one of the choices \['a', 'b', 'c'\]"):
             control.check_value("d")  # Not in range
 
     def test_init_raises_valueerror_when_value_default_out_of_range(self):
-        with pytest.raises(ValueError, match="must be within value_range"):
+        with pytest.raises(ValueError, match=r"the default 15.0 is outside the range \[0.0, 10.0\]"):
             Control(value_default=15.0, value_range=[0.0, 10.0])
+        with pytest.raises(ValueError, match="control 'gain': the default 15.0 is outside"):
+            Control(value_default=15.0, value_range=[0.0, 10.0], name="gain")
 
     def test_init_raises_valueerror_when_bool_has_value_range(self):
         with pytest.raises(ValueError, match="must be None for bool type"):
@@ -56,7 +58,7 @@ class TestControlExceptions:
             Control(value_default="a", value_range=[])
 
     def test_init_raises_valueerror_when_string_default_not_in_range(self):
-        with pytest.raises(ValueError, match="must be in"):
+        with pytest.raises(ValueError, match="the default 'd' is not one of the choices"):
             Control(value_default="d", value_range=["a", "b", "c"])
 
     def test_init_raises_valueerror_when_parameter_name_missing_with_filter(self):
@@ -85,7 +87,7 @@ class TestControlExceptions:
             Control(value_default=5.0, value_range=[0.0, 10.0], name=123)
 
     def test_init_raises_typeerror_when_wrong_value_type(self):
-        with pytest.raises(TypeError, match="expected int/float/bool/str"):
+        with pytest.raises(TypeError, match="wrong default type list .*expected int, float, bool or str"):
             Control(value_default=[1, 2, 3])  # List not supported
 
     def test_value_setter_clamps_to_range(self):

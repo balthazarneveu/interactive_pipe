@@ -212,7 +212,7 @@ class FilterCore(PureFilter):
             if strict and expected and not _returns_a_value(self.apply):
                 raise self._output_error(
                     "returned None: the function has no `return` statement",
-                    f"add `return <result>` at the end of '{self.name}'",
+                    f"add `return <result>` at the end of '{self._function_name() or self.name}'",
                 )
             return None
         if isinstance(out, (tuple, list)):
@@ -245,8 +245,26 @@ class FilterCore(PureFilter):
             "to keep a tuple/list as one value, return it wrapped: `return (values,)`"
         )
 
+    def _function_name(self) -> Optional[str]:
+        """Name of the Python function behind the filter (None for a callable object)."""
+        import inspect
+
+        try:
+            function = inspect.unwrap(self.apply)
+        except ValueError:  # pragma: no cover - wrapper loop
+            function = self.apply
+        return getattr(function, "__name__", None)
+
+    def _label(self) -> str:
+        """``filter 'split'``, plus the function name when the pipeline calls it by another name
+        (``split = two_values`` / repeated filter copies): ``filter 'split' (function 'two_values')``."""
+        function_name = self._function_name()
+        if function_name and function_name != self.name and function_name != "<lambda>":
+            return f"filter '{self.name}' (function '{function_name}')"
+        return f"filter '{self.name}'"
+
     def _output_error(self, problem: str, fix: str) -> "FilterOutputError":
-        message = f"filter '{self.name}' {problem}"
+        message = f"{self._label()} {problem}"
         location = getattr(self, "call_location", None)
         if location:
             where = (
