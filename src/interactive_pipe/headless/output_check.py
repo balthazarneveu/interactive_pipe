@@ -18,7 +18,8 @@ SUPPORTED_OUTPUTS = (
     "Curve, SingleCurve, Table, str, and None (empty cell)"
 )
 
-#: (severity, problem, fix) - severity is "unsupported" (not drawn) or "misleading" (drawn wrong)
+#: (severity, problem, fix) - severity is "unsupported" (drawn nowhere), "gui" (snapshot draws it,
+#: some GUI backends crash on it or show it wrong) or "misleading" (drawn wrong everywhere)
 Problem = Tuple[str, str, str]
 
 
@@ -49,8 +50,15 @@ def _object_fix(value: Any) -> str:
     return f"convert the {name} to a numpy array, a Curve or a Table in the filter"
 
 
-def array_problem(value: np.ndarray) -> Optional[Problem]:
-    """Display problem of a numpy array, None when it is displayed faithfully."""
+HEATMAP_STYLE_KEYS = ("colormap", "vmin", "vmax")
+
+
+def array_problem(value: np.ndarray, style: Optional[dict] = None) -> Optional[Problem]:
+    """Display problem of a numpy array, None when it is displayed faithfully.
+
+    ``style``: the output's ``layout.style`` options; a heatmap style
+    (colormap / vmin / vmax) maps any value range itself.
+    """
     shape = value.shape
     if value.size == 0:
         return ("unsupported", f"empty array {shape}", "return a non-empty array (or None for an empty cell)")
@@ -73,11 +81,15 @@ def array_problem(value: np.ndarray) -> Optional[Problem]:
                     "move the channels last: np.moveaxis(img, 0, -1) (and img[..., 0] for one channel)",
                 )
             if channels == 1:
-                return ("unsupported", f"single-channel array {shape}", "drop the channel axis: img[..., 0]")
+                return (
+                    "gui",
+                    f"single-channel array {shape} (the Qt and Dear PyGui backends raise on it)",
+                    "drop the channel axis: img[..., 0]",
+                )
             if channels == 4:
                 return (
-                    "unsupported",
-                    f"RGBA array {shape} (the Qt backend expects RGB)",
+                    "gui",
+                    f"RGBA array {shape} (the Qt backend raises on it)",
                     "drop the alpha channel: img[..., :3]",
                 )
             return ("unsupported", f"{channels}-channel array {shape}", "return (H, W) or (H, W, 3)")
@@ -85,11 +97,12 @@ def array_problem(value: np.ndarray) -> Optional[Problem]:
         return None  # drawn as a curve
     if value.dtype.kind in "ui":
         return (
-            "misleading",
-            f"{value.dtype} image: the GUIs expect floats in [0, 1] and clip, it shows almost white",
+            "gui",
+            f"{value.dtype} image: the GUI backends expect floats in [0, 1] and clip, it shows almost white there",
             "scale it: img / 255.0 (uint8) or img / 65535.0 (uint16)",
         )
-    if value.dtype.kind == "f":
+    heatmap = value.ndim == 2 and bool(style) and any(style.get(key) is not None for key in HEATMAP_STYLE_KEYS)
+    if value.dtype.kind == "f" and not heatmap:
         finite = np.isfinite(value)
         if not finite.all():
             return (
@@ -110,12 +123,12 @@ def array_problem(value: np.ndarray) -> Optional[Problem]:
     return None
 
 
-def output_problem(value: Any) -> Optional[Problem]:
+def output_problem(value: Any, style: Optional[dict] = None) -> Optional[Problem]:
     """Display problem of one output value, None when it is displayed faithfully."""
     if value is None or isinstance(value, str):
         return None
     if isinstance(value, np.ndarray):
-        return array_problem(value)
+        return array_problem(value, style)
     if _known_object(value):
         return None
     return (
@@ -127,22 +140,31 @@ def output_problem(value: Any) -> Optional[Problem]:
     )
 
 
-def output_problems(named_values: Iterable[Tuple[str, Any]]) -> List[str]:
-    """One message per output that is not displayed faithfully."""
+_VERBS = {
+    "unsupported": "cannot be displayed",
+    "gui": "is drawn by snapshot but not by every GUI backend",
+    "misleading": "is displayed misleadingly",
+}
+
+
+def output_problems(named_values: Iterable[Tuple[str, Any]], styles: Optional[dict] = None) -> List[str]:
+    """One message per output that is not displayed faithfully (``styles``: name -> layout.style options)."""
     messages = []
     for name, value in named_values:
-        problem = output_problem(value)
+        problem = output_problem(value, (styles or {}).get(name))
         if problem is None:
             continue
         severity, what, fix = problem
-        verb = "cannot be displayed" if severity == "unsupported" else "is displayed misleadingly"
+        verb = _VERBS[severity]
         messages.append(f"output '{name}' {verb}: {what}. Fix: {fix}.")
     return messages
 
 
-def warn_output_problems(named_values: Iterable[Tuple[str, Any]], method: str = "snapshot") -> List[str]:
+def warn_output_problems(
+    named_values: Iterable[Tuple[str, Any]], method: str = "snapshot", styles: Optional[dict] = None
+) -> List[str]:
     """Log the problems (one warning) and return them."""
-    messages = output_problems(named_values)
+    messages = output_problems(named_values, styles)
     if messages:
         logging.warning(f"{method}(): " + " ".join(messages) + f" Displayable: {SUPPORTED_OUTPUTS}.")
     return messages
