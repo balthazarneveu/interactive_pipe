@@ -60,9 +60,9 @@ Rejected: `if` / `for` / `while` / `with` / `try`, arithmetic and any non-call e
 | Low/high pair | `band=RangeControl((0.2, 0.8), [0.0, 1.0])` |
 | Animation clock | `t=TimeControl(update_interval_ms=50)` (Qt and dpg; a slider elsewhere) |
 
-Import them from `interactive_pipe` (also `KeyboardControl`, `TextPrompt`: see the controls guide); group widgets with `group="name"` or a nestable `Panel`. No log-scale slider: declare `log_lr=(-2.0, [-4.0, 0.0])` and use `10**log_lr`. The control default wins over the signature default; a keyword argument without a declaration gets no widget. A bare number in the decorator (`gain=1.0`) raises `ValueError`: a slider needs a range.
+Import them from `interactive_pipe` (also `KeyboardControl`, `TextPrompt`: see the controls guide); group widgets with `group="name"` or a nestable `Panel`. Log slider: `lr=Control(1e-2, [1e-4, 1e-1], scale="log")`, `(1e-2, [1e-4, 1e-1, "log"])` or `Annotated[float, (1e-4, 1e-1, "log")]`; values, sweeps and captions are the real value. The control default wins over the signature default; a keyword argument without a declaration gets no widget. A bare number in the decorator (`gain=1.0`) raises `ValueError`: a slider needs a range.
 
-Same parameter in several filters: both `amplify` and `blend` declaring `gain` show as **two** sliders, `amplify.gain` and `blend.gain`. `pipe(img, gain=2.0)` sets every filter's `gain`; target one with `"amplify.gain"` in `snapshot` / `sweep`, or `pipe(img, parameters={"amplify": {"gain": 2.0}})`. **One slider for several filters**: declare it in a filter that only returns it, `pid = gains()` with `return ((kp, ki, kd),)`, and pass `pid` to each filter that needs it (also for mouse controls: `seed, roi = pick()`, with `on=` naming an output of a later filter).
+Same parameter in several filters: both `amplify` and `blend` declaring `gain` show as **two** sliders, `amplify.gain` and `blend.gain`. `pipe(img, gain=2.0)` sets every filter's `gain`; target one with `"amplify.gain"` in `snapshot` / `sweep`, or `pipe(img, parameters={"amplify": {"gain": 2.0}})`. **One slider for several filters**: declare the control once and pass the same object to each decorator — `band = RangeControl((0.1, 0.3), [0.0, 0.7])`, then `@interactive(band=band)` on both filters (the parameter names may differ): one widget, one value. Each pipeline has its own control values.
 
 ## Controls from type hints
 
@@ -89,7 +89,7 @@ Plain hints (`gain: float = 1.0`) make no widget; a decorator argument wins over
 
 ## What a filter can return
 
-numpy image `(H, W)`, `(H, W, 1)`, `(H, W, 3)` or RGBA `(H, W, 4)` (on a checkerboard) — float in `[0, 1]`, `uint8`, `uint16` or `bool` mask —, 1D array (plotted), `Curve`, `Table`, `Image` (an array with a cell title), `str` (a text cell), matplotlib `Figure` / `Axes`, or a tuple of those: every backend and the snapshots show them the same (2D arrays in gray). Other integer dtypes are taken as values (`check` warns); channel-first or 4D arrays raise `DisplayError` with the fix. **A returned tuple or list is unpacked into several outputs**: to pass a list (of detections...) as one value, `return (items,)` — otherwise a 1-item list silently becomes its item. The pipeline's `return` sets the display grid: a tuple or flat list is one row, a list of lists is a 2D grid, `None` leaves an empty cell.
+numpy image `(H, W)`, `(H, W, 1)`, `(H, W, 3)` or RGBA `(H, W, 4)` (on a checkerboard) — float in `[0, 1]`, `uint8`, `uint16` or `bool` mask —, 1D array (plotted), `Curve`, `Table`, `Image` (an array with a cell title), `str` (a text cell), matplotlib `Figure` / `Axes`, or a tuple of those: every backend and the snapshots show them the same (2D arrays in gray). Other integer dtypes are taken as values (`check` warns); channel-first or 4D arrays raise `DisplayError` with the fix. **A returned tuple is unpacked** into the names the line assigns (`a, b = f(img)`); a returned list assigned to one name stays one value (a list of detections, even empty). The pipeline's `return` sets the display grid: a tuple or flat list is one row, a list of lists is a 2D grid, `None` leaves an empty cell.
 
 <!-- code: continue -->
 ```python
@@ -101,7 +101,7 @@ def report(img):
     x = np.arange(img.shape[1])
     mean = SingleCurve(x, img.mean(axis=(0, 2)), style="b-", label="mean", linewidth=1)  # or [x, y, "b-", "mean"]
     profile = Curve([mean], xlabel="column", ylim=(0, 1), grid=True)
-    table = Table([{"stat": "mean", "value": img.mean()}], title="stats")  # or a dict of lists (not arrays)
+    table = Table([{"stat": "mean", "value": img.mean()}], title="stats")  # or a dict of lists / arrays
     return profile, table, Image(img, title=f"mean {img.mean():.3f}")  # a metric in the title, not a text cell
 ```
 
@@ -127,7 +127,7 @@ def histogram(img):
     return fig  # a Figure or an Axes: rasterised identically on every backend and in snapshots
 ```
 
-`draw.*` functions are pure (new array, same dtype and range, gray promoted to RGB), take `(x, y)` pixel coordinates and clip marks outside the image; `color=` takes one colour or a list (one per mark), `draw.lines(img, segments)` takes `(K, 2, 2)` segments, `draw.points(img, xy, radius=6, filled=False)` draws circles. Heatmaps (2D arrays): `layout.style("err", colormap="RdBu_r", center=0, colorbar=True)` draws the scale into the image, also in snapshots; NaN shows magenta; `unit="px"` is printed on every tick, so put a long unit in `title=`. A figure is rasterised at its `figsize`, then scaled to the cell: a smaller `figsize` gives larger text.
+`draw.*` functions are pure (new array, same dtype and range, gray promoted to RGB), take `(x, y)` pixel coordinates and clip marks outside the image; `color=` takes one colour or a list (one per mark), `draw.lines(img, segments)` takes `(K, 2, 2)` segments, `draw.points(img, xy, radius=6, filled=False)` draws circles. Heatmaps (2D arrays): `layout.style("err", colormap="RdBu_r", center=0, colorbar=True)` draws the scale into the image, also in snapshots; NaN shows magenta; `unit="px"` is written once above the bar, `colorbar="a longer label"` along it. A figure is drawn at the size of its cell (its text is the size of a `Curve`'s): `figsize` only sets the aspect ratio. Zero marks (`draw.boxes(img, [])`) and an empty `Table` are fine. Readout next to an output: `layout.style("out", title=f"PSNR {psnr:.2f} dB")`.
 
 ## Mouse input: a point or a region on an image
 
@@ -218,7 +218,7 @@ batch.export_tuning("/tmp/res/tuning.yaml")  # and load_tuning(...)
 
 ## Testing your filters
 
-A decorated filter stays a plain function (`amplify(img, gain=2.0)` returns the array), unless it calls `context` / `layout`: those raise `RuntimeError` outside a pipeline. Test through a `gui=None` pipeline built from the same filters (it may live inside the test function) and assert on its outputs (a `layout.grid` call makes it return a list of rows); `snapshot(None, ...)` returns the rendered RGB array; run `interactive-pipe check script.py` in CI.
+A decorated filter stays a plain function: `amplify(img, gain=2.0)` returns the array, also when it calls `layout` (ignored) or `context` (a scratch dict for that call). `my_pipeline.headless(img, gain=2.0)` returns the outputs of a pipeline decorated with any `gui=` as a tuple (a `layout.grid` call makes it a list of rows); `snapshot(None, ...)` returns the rendered RGB array. Snapshots and sweeps start from a fresh `context` (`runs=N` to warm up a stateful pipeline). Run `interactive-pipe check script.py` in CI.
 
 <!-- code: continue -->
 ```python
