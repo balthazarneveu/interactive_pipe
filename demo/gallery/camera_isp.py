@@ -2,14 +2,14 @@
 
 What to look at: the error map (red = too bright, blue = too dark) lights up on edges and on the
 fine stripes with nearest-neighbour demosaicking (zipper / colour aliasing) and turns uniformly
-red or blue when the white balance gains are wrong. The PSNR readout sums it up.
+red or blue when the white balance gains are wrong. The PSNR in its title sums it up.
 """
 
 from typing import Annotated, Literal
 
 import numpy as np
 
-from interactive_pipe import interactive, interactive_pipeline, layout
+from interactive_pipe import Image, interactive, interactive_pipeline, layout
 
 SENSOR_GAINS = np.array([0.55, 1.0, 0.7])  # the sensor sees a greenish scene: WB must undo this
 
@@ -68,9 +68,8 @@ def gamma(rgb, gamma: Annotated[float, (1.0, 3.0), "Gamma"] = 2.2):
 @interactive
 def compare(out, gt):
     layout.style("error", colormap="RdBu_r", center=0, colorbar=True, vmin=-0.3, vmax=0.3)
-    error = (out - gt).mean(axis=-1)
     psnr = 10 * np.log10(1 / np.mean((out - gt) ** 2))
-    return error, f"PSNR {psnr:.2f} dB"
+    return Image((out - gt).mean(axis=-1), title=f"error, PSNR {psnr:.2f} dB")
 
 
 @interactive_pipeline(gui="auto")
@@ -79,8 +78,8 @@ def camera_isp(gt):
     rgb = demosaic(raw)
     balanced = white_balance(rgb)
     out = gamma(balanced)
-    error, psnr = compare(out, gt)
-    return [[raw, out, gt], [error, psnr]]
+    error = compare(out, gt)
+    return [[out, gt], [raw, error]]
 
 
 if __name__ == "__main__":
