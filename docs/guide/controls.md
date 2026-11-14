@@ -157,6 +157,26 @@ name without sharing controls.
 
 See the [Control API reference](../api/controls.md) for every argument.
 
+## Log-scale sliders
+
+For a value spanning decades (a learning rate, a regularisation weight), a
+log slider moves evenly over decades and still shows, sends, sweeps and saves
+the real value (the widget rounds it to 3 significant digits):
+
+| Form | Spelling |
+|---|---|
+| Control | `lr=Control(1e-2, [1e-4, 1e-1], scale="log")` |
+| Tuple shorthand | `lr=(1e-2, [1e-4, 1e-1, "log"])` (`"log"` in the step slot) |
+| Annotation | `lr: Annotated[float, (1e-4, 1e-1, "log")] = 1e-2` |
+
+The range must be positive, the default a float, and there is no `step`.
+`sweep(..., steps={"lr": 4})` gives geometric values (`1e-4, 1e-3, 1e-2, 1e-1`);
+`describe()` reports `"scale": "log"`. Not available for `RangeControl`.
+
+**Default float step**: without `step=`, a float slider moves by 1, 2 or 5 × 10^k,
+the closest to 1/100 of its range (`[0, 3]` → 0.02, `[2, 100]` → 1), so values
+read `0.06` rather than `0.0588`.
+
 ## Range control
 
 `RangeControl` picks an interval with two handles: the filter receives a `(lo, hi)` tuple, always sorted (`lo <= hi`) and within `value_range`.

@@ -251,18 +251,19 @@ class FloatSliderControl(BaseControl):
         value_min, value_max = self.ctrl.value_range[0], self.ctrl.value_range[1]  # type: ignore[reportOptionalSubscript]
         if value_max == value_min:
             return 0
+        if self.ctrl.is_log:  # positions evenly over decades
+            return int(round(self.ctrl.to_position(val) * 1000))
         return int(round((val - value_min) * 1000 / (value_max - value_min)))  # type: ignore[reportOperatorIssue]
 
     def convert_int_to_value(self, val):
         if self.ctrl.value_range is None:
             raise ValueError("value_range must be set for FloatSliderControl")
+        if self.ctrl.is_log:
+            return self.ctrl.from_position(val / 1000)  # real value, 3 significant digits
         value_min = self.ctrl.value_range[0]  # type: ignore[reportOptionalSubscript]
         value_max = self.ctrl.value_range[1]  # type: ignore[reportOptionalSubscript]
         value = value_min + (value_max - value_min) * val / 1000  # type: ignore[reportOperatorIssue]
-        step = self.ctrl.step
-        if step:
-            value = round((value - value_min) / step) * step + value_min
-        return value
+        return self.ctrl.snap(value) if self.ctrl.step else value
 
     def create(self):
         if self.ctrl.value_range is None:
@@ -300,7 +301,10 @@ class FloatSliderControl(BaseControl):
             raise TypeError(
                 f"Expected int or float for FloatSliderControl range, got {type(value_min)}, {type(value_max)}"
             )
-        int_step = max(1, round(self.ctrl.step / (value_max - value_min) * 1000)) if self.ctrl.step else 1
+        if self.ctrl.step and not self.ctrl.is_log:
+            int_step = max(1, round(self.ctrl.step / (value_max - value_min) * 1000))
+        else:
+            int_step = 10  # log slider: 1 % of the travel per arrow key
         slider.setSingleStep(int_step)
         slider.setPageStep(int_step)
         # slider.setTickPosition(QSlider.TickPosition.TicksAbove)
