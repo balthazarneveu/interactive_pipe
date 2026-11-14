@@ -398,7 +398,12 @@ def control_from_annotation(func: Callable, param_name: str, hint, default) -> O
     scale = "log" if step == "log" else "linear"
     try:
         control = Control(
-            default, value_range, name=name, step=None if scale == "log" else step, group=group, scale=scale
+            default,
+            value_range,
+            name=name,
+            step=None if scale == "log" else step,  # type: ignore[arg-type] - a number here
+            group=group,
+            scale=scale,
         )
     except (TypeError, ValueError) as exc:
         raise annotation_error(func, param_name, str(exc), "fix the annotation", type(exc)) from None

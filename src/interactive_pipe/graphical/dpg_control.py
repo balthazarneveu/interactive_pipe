@@ -170,7 +170,7 @@ class FloatSliderControl(BaseControl):
                 max_value=1.0,
                 clamped=True,
                 width=-1,
-                format=_log_label(self.ctrl.value),
+                format=_log_label(float(self.ctrl.value)),  # type: ignore[arg-type]
                 callback=self._on_change,
             )
         else:
@@ -203,7 +203,7 @@ class FloatSliderControl(BaseControl):
     def reset(self):
         if self.ctrl.is_log:
             dpg.set_value(self.control_widget, self.ctrl.to_position(self.ctrl.value))
-            dpg.configure_item(self.control_widget, format=_log_label(self.ctrl.value))
+            dpg.configure_item(self.control_widget, format=_log_label(float(self.ctrl.value)))  # type: ignore[arg-type]
             return
         dpg.set_value(self.control_widget, float(self.ctrl.value))
         dpg.configure_item(self.control_widget, format=printf_format(float(self.ctrl.value)))  # type: ignore[arg-type]
