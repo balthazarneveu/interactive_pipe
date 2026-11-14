@@ -85,6 +85,13 @@ Improvements & bug fixes:
 - `vmin`, `vmax`, `center` and `dpi` style values must be numbers (`TypeError`).
 - New demos: `demo/matplotlib_figure_demo.py`, `demo/overlay_demo.py`. New guide page: [Figures, heatmaps and overlays](https://balthazarneveu.github.io/interactive_pipe/guide/figures-and-overlays/).
 
+### Mouse input: points and regions
+- **`PointControl((x, y), on="img")` and `RegionControl((x0, y0, x1, y1), on="img")`**: a click sets the point, a shift-drag draws the region, on the output named by `on=` (default: the first image). Values are fractions of the image size in [0, 1]; `to_pixels(value, img)` gives the pixel `(col, row)` or the slice bounds `img[y0:y1, x0:x1]`. Validated (length, numbers, range; a region is reordered); an unknown `on=` name fails when the GUI is built, with the available outputs.
+- Qt, Dear PyGui and matplotlib: click (moving less than 3 screen pixels) and shift-drag, through zoom / pan and back to data pixels for heatmaps with a colorbar; left-drag keeps panning. Gradio: a click sets the point. The window draws the marker and the rectangle over the image, the outputs are untouched.
+- Where gestures are not available (notebook, Gradio regions, any backend that does not implement them) the controls are shown as sliders in [0, 1] (`seed x`, `seed y`, ...).
+- Headless they are ordinary parameters: `pipe(img, seed=(0.2, 0.4))`, `snapshot`, `sweep(seed=[...])`, tuning files, `describe()` (kinds `"point"` / `"region"` with the target output).
+- New demo: `demo/pointer_demo.py`. New guide page: [Mouse input](https://balthazarneveu.github.io/interactive_pipe/guide/mouse-input/).
+
 ## 0.9.4 (November 2026)
 
 ### New features
