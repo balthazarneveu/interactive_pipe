@@ -70,6 +70,7 @@ Notes:
 
 You may not want interactive_pipe imported in your algorithm library at all. Keep the filters as plain functions and add interactivity from a separate file:
 
+<!-- code: file image_filters.py -->
 ```python
 # image_filters.py — your library, no interactive_pipe import
 import numpy as np
@@ -109,13 +110,15 @@ def sample_pipeline(input_image):
     return exposed, blended, bnw_image
 
 
-sample_pipeline(np.array([0.0, 0.5, 0.8]) * np.ones((512, 256, 3)))
+input_image = np.array([0.0, 0.5, 0.8]) * np.ones((512, 256, 3))
+sample_pipeline(input_image)
 ```
 
 ## Headless mode: same code, no GUI
 
 The engine underneath the GUI is a `HeadlessPipeline` — use it for batch processing or tests:
 
+<!-- code: continue -->
 ```python
 from interactive_pipe import pipeline  # alias of interactive_pipeline
 
@@ -137,6 +140,7 @@ The exported YAML keeps one section per filter, so the parameters you tuned in t
 
 To write the results to disk, call `save` after running the pipeline:
 
+<!-- code: continue -->
 ```python
 written = sample_pipeline.save("results/sample.png")
 # -> [results/sample_exposed.png, results/sample_blended.png, results/sample_bnw_image.png]
