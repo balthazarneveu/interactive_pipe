@@ -227,7 +227,15 @@ def _parse_function_source(func: Callable) -> Tuple[ast.AST, int, List[str]]:
     Returns (function AST node, line offset to add to node.lineno to get the
     absolute line number in the file, source lines).
     """
-    source_lines, first_lineno = inspect.getsourcelines(func)
+    try:
+        source_lines, first_lineno = inspect.getsourcelines(func)
+    except (OSError, TypeError) as exc:
+        raise PipelineSyntaxError(
+            f"cannot read the source code of the pipeline function ({exc}): its body is parsed, not executed",
+            pipeline_name=getattr(func, "__name__", None),
+            hint="define the pipeline function in a file or a notebook cell (not with exec(), python -c "
+            "or the plain interactive interpreter)",
+        ) from None
     source = "".join(source_lines)
     line_offset = first_lineno - 1
     try:

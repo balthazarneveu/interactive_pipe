@@ -5,6 +5,8 @@ from copy import copy, deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple, Union
 
+import numpy as np
+
 from interactive_pipe.core.filter import FilterCore
 
 if TYPE_CHECKING:
@@ -62,7 +64,11 @@ class Control:
         # Keyed by module + qualname so same-named functions in different
         # modules do not collide. functools.wraps preserves both, so the key
         # is identical for a decorated function and its wrapper.
-        return f"{func.__module__}.{func.__qualname__}"
+        qualname = getattr(func, "__qualname__", None)
+        if qualname is None:
+            # functools.partial and other callable objects: no declaration of their own
+            return f"{getattr(func, '__module__', type(func).__module__)}.<{type(func).__name__} at {id(func):#x}>"
+        return f"{func.__module__}.{qualname}"
 
     @classmethod
     def register(cls, func, param_name, control_instance):
@@ -210,13 +216,19 @@ class Control:
             )
 
     def check_value(self, value):
+        if isinstance(value, np.generic):
+            value = value.item()  # numpy scalars (np.float32(2.0), np.int64(3), np.str_...) are plain values
+        if isinstance(value, bool) and self._type in (int, float):
+            raise TypeError(f"control '{self.name}' expects a number, got {value!r}")
         if isinstance(value, int) and self._type is float:
             value = float(value)
         elif isinstance(value, float) and self._type is int:
             # Convert float to int (e.g., from matplotlib sliders that return floats)
             value = int(round(value))
         if self._type is not None and not isinstance(value, self._type):
-            raise TypeError(f"Expected {self._type}, got {type(value)}")
+            raise TypeError(
+                f"control '{self.name}' expects {self._type.__name__}, got {type(value).__name__} {value!r}"
+            )
         if isinstance(value, (float, int)) and self.value_range is not None:
             clamped = max(self.value_range[0], min(value, self.value_range[1]))  # type: ignore
             self._warn_clamped(value, clamped)
