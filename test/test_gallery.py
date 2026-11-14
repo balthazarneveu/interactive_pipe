@@ -1,6 +1,8 @@
 """demo/gallery/*.py run headless, show something, and compute what their docstrings claim."""
 
+import importlib.util
 import runpy
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -119,3 +121,26 @@ def test_reaction_diffusion_frame_depends_on_the_clock_only(isolated_controls):
     for t in (0.5, 2.0, 1.5):  # other runs in between must not change the frame at t=1
         pipe.snapshot(None, t=t)
     np.testing.assert_array_equal(pipe.snapshot(None, t=1.0), first)
+
+
+def test_make_gallery_writes_small_pngs(tmp_path, isolated_controls):
+    spec = importlib.util.spec_from_file_location("make_gallery", ROOT / "scripts" / "make_gallery.py")
+    make_gallery = importlib.util.module_from_spec(spec)
+    sys.modules["make_gallery"] = make_gallery
+    spec.loader.exec_module(make_gallery)
+    assert set(make_gallery.EXAMPLES) == {script.stem for script in GALLERY}
+    for path in make_gallery.render("pid_control", out_dir=tmp_path):
+        assert path.exists() and path.stat().st_size < 150_000
+
+
+def test_gallery_page_shows_every_example():
+    import re
+
+    page = (ROOT / "docs" / "gallery.md").read_text()
+    for script in GALLERY:
+        assert f'--8<-- "demo/gallery/{script.name}"' in page
+        assert f"images/gallery/{script.stem}.png" in page
+    for image in re.findall(r"\]\((images/gallery/[\w.]+)\)", page):
+        path = ROOT / "docs" / image
+        assert path.is_file() and path.stat().st_size < 150_000, image
+    assert "gallery.md" in (ROOT / "mkdocs.yml").read_text()
