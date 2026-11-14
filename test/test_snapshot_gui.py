@@ -65,3 +65,42 @@ def test_gui_object_delegates_to_its_pipeline(gui_pipe):
     assert gui.sweep(None, gain=[0.2, 0.4]).ndim == 3
     # the GUI state is untouched: defaults are still in place
     assert gui.pipeline.parameters["gui_amplify"]["gain"] == 0.5
+
+
+QT_SCRIPT = """
+import numpy as np
+from interactive_pipe import interactive, interactive_pipeline
+
+
+@interactive(gain=(0.5, [0.0, 1.0]))
+def amp(img, gain=0.5):
+    return img * gain
+
+
+@interactive_pipeline(gui="qt")
+def demo(img):
+    out = amp(img)
+    return img, out
+
+
+demo(np.ones((8, 8, 3)) * 0.5)
+from interactive_pipe.graphical.qt_backend import PYQTVERSION
+if PYQTVERSION == 6:
+    from PyQt6.QtCore import qWarning
+    qWarning("another qt message")
+"""
+
+
+def test_offscreen_qt_snapshot_prints_no_plugin_notice(tmp_path):
+    import subprocess
+    import sys
+
+    pytest.importorskip("PyQt6")
+    script = tmp_path / "qt_script.py"
+    script.write_text(QT_SCRIPT)
+    env = {**os.environ, "QT_QPA_PLATFORM": "offscreen", "INTERACTIVE_PIPE_SNAPSHOT": str(tmp_path / "shot.png")}
+    done = subprocess.run([sys.executable, str(script)], env=env, capture_output=True, text=True, timeout=120)
+    assert done.returncode == 0, done.stderr
+    assert (tmp_path / "shot.png").exists()
+    assert "propagateSizeHints" not in done.stderr
+    assert "another qt message" in done.stderr  # other Qt messages still reach stderr
