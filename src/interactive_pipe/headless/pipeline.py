@@ -135,6 +135,12 @@ class HeadlessPipeline(PipelineCore):
                     if filt.name in new_parameters and param_name in new_parameters[filt.name]:
                         ctrl.value = new_parameters[filt.name][param_name]
 
+    @property
+    def headless(self) -> "HeadlessPipeline":
+        """This pipeline (``my_pipeline.headless(img)`` works whatever the ``gui``:
+        a GUI-decorated function's ``.headless`` is its HeadlessPipeline)."""
+        return self
+
     @staticmethod
     def routing_indexes(inputs_names, all_variables):
         if not inputs_names:
@@ -556,6 +562,32 @@ class HeadlessPipeline(PipelineCore):
         return new_param_dict
 
     def __call__(self, *inputs_tuple, inputs=None, parameters=None, context=None, **kwargs) -> Any:
+        """Run the pipeline once and return its outputs.
+
+        Example:
+            ```python
+            blurred, edges = pipe(img, sigma=2.0)
+            (single,) = pipe1(img)  # always a tuple, even for one output
+            ```
+
+        Args:
+            *inputs_tuple: Pipeline inputs, in the order of the pipeline function's arguments.
+            inputs: Inputs as a ``{input_name: value}`` dict instead.
+            parameters: ``{filter_name: {parameter: value}}``, validated before anything changes.
+            context: Values merged into the shared ``context`` before the run (they are
+                also part of the fresh context ``snapshot`` / ``sweep`` start from).
+            **kwargs: Parameter values: a parameter name (every filter having it), a
+                control name or ``"filter.parameter"``. Like a slider move, the value
+                is kept for the next runs.
+
+        Returns:
+            A tuple of the outputs in ``return`` order (a list of rows for a 2D
+            layout), or None when the pipeline returns nothing.
+
+        Raises:
+            TypeError: unknown keyword / wrong number of inputs.
+            FilterError: a filter raised (the message names the filter and the line).
+        """
         # validated first: an unknown keyword raises before anything is changed
         kwargs_params = self.parameters_from_keyword_args(**kwargs)
         if parameters is not None:
