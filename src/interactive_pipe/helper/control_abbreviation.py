@@ -61,7 +61,7 @@ def control_from_tuple(short_params: Tuple, param_name: Optional[str] = None) ->
             name = short_params[1]
             if name is not None and not isinstance(name, str):
                 raise TypeError(
-                    f"{name} name shall be a string or None."
+                    f"{name} name shall be a string or None: "
                     "you do not need to provide a value range for a boolean slider."
                 )
 
@@ -92,6 +92,11 @@ def control_from_tuple(short_params: Tuple, param_name: Optional[str] = None) ->
             else:
                 if not isinstance(value_range, (list, tuple)):
                     raise TypeError(f"value range should be a tuple or a list, provided {value_range}")
+                if isinstance(value_default, (float, int)) and len(value_range) > 3:
+                    raise ValueError(
+                        f"range {list(value_range)} has too many elements: write [min, max] or [min, max, step] "
+                        "(the default is the first element of the tuple)"
+                    )
                 if isinstance(value_default, (float, int)) and len(value_range) >= 3:
                     step = value_range[2]
                     value_range = value_range[:2]
