@@ -231,3 +231,25 @@ reproduced before any change.
   `layout.style(colormap=...)` — the skill's "Luma" heatmap is rendered gray in
   the PNG while every GUI backend shows it in viridis. An agent following the
   loop would think its colormap call is broken.
+
+### 2. Skill in the wheel — done
+
+- Source of truth: `src/interactive_pipe/agent/build-interactive-pipeline/SKILL.md`
+  (package data, `pyproject.toml` glob `agent/*/SKILL.md`). The repository's
+  `.claude/skills/build-interactive-pipeline/SKILL.md` stays as a byte-identical
+  copy (no symlink: wheels and Windows checkouts), enforced by
+  `test_repository_copy_is_identical_to_the_packaged_skill`, whose failure
+  message gives the resync command
+  (`python -m interactive_pipe skill --install --project . --force`, item 3).
+  Merge note: the other branches' edits to the `.claude/` copy will merge into
+  that copy and make this test fail until the packaged file gets them too —
+  that is the intended signal.
+- New subpackage `interactive_pipe.agent` (standard library only): `skill_path()`,
+  `skill_text()`, `skill_install_dir()`, `install_skill()` (refuses to overwrite
+  a different file without `force`) and the `AGENTS.md` block.
+  `interactive_pipe.skill_path` is exported (additive hunk in `__init__.py`).
+- Verified: `python -m build` (throwaway venv in the scratch folder, on a copy of
+  the tree) puts the skill in both the wheel and the sdist; in a fresh venv with
+  only the wheel installed, `interactive_pipe.skill_path()` points to an existing
+  file in site-packages.
+- Tests: `test/test_agent_skill_packaging.py`.

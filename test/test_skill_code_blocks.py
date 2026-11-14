@@ -6,7 +6,7 @@ import pytest
 from doc_code_blocks import extract_programs, run_program
 
 ROOT = Path(__file__).resolve().parent.parent
-SKILL = ROOT / ".claude" / "skills" / "build-interactive-pipeline" / "SKILL.md"
+SKILL = ROOT / "src" / "interactive_pipe" / "agent" / "build-interactive-pipeline" / "SKILL.md"
 PROGRAMS = extract_programs(SKILL)
 
 

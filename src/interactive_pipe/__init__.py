@@ -38,6 +38,9 @@ from interactive_pipe.helper.pipeline_decorator import interactive_pipeline
 # Animation export (TimeControl pipelines -> GIF / PNG frames)
 from interactive_pipe.headless.animation import export_animation
 
+# Agent skill shipped with the package (`interactive-pipe skill`)
+from interactive_pipe.agent import skill_path
+
 # Allowing more straightforward naming convention
 block = interactive
 pipeline = interactive_pipeline
@@ -74,4 +77,5 @@ __all__ = [
     "block",
     "pipeline",
     "export_animation",
+    "skill_path",
 ]
