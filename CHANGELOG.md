@@ -140,6 +140,7 @@ Display:
 - `cache="graph"`: a filter reading back a context key it wrote in the same call is no longer its own feedback reader (it ran once more after every change). Tested: a filter reading a key written by an earlier filter re-runs whenever that filter does, in every cache mode.
 - The "clipped to [0, 1]" warning no longer suggests a heatmap style that is already set (it says the style applies to 2D arrays only).
 - `import interactive_pipe` is ~4x faster (about 1.0 s -> 0.22 s here, `interactive-pipe --help` 1.05 s -> 0.3 s); `Curve.save` to an image file uses matplotlib's object API instead of `pyplot`.
+- Qt: a window dropped while still on screen (several GUIs in one process, notebooks) no longer crashes the process with a segmentation fault when the garbage collector deletes it during one of its own paint events (it is now deleted by Qt's event loop), and a `threaded=True` GUI collected without `close()` / `run()` no longer aborts it (`QThread: Destroyed while thread is still running`).
 
 Demos and docs:
 - Every script of `demo/` and `samples/` now runs headless in the test suite and must render a non-blank snapshot. Fixed on the way: the blur / sharpen of the panel and grouped-controls demos took ~5 s per slider move (per-pixel Python loop, now vectorized), and `panel_position_demo.py`'s default crop showed a blank corner of the image (the crop is now in percent).
