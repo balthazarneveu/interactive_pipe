@@ -8,7 +8,7 @@ snapshot captions: like a person would write it.
 Each backend calls one function of this module (a sibling branch changes the
 control widgets themselves):
 
-- ``format_number`` / ``format_control_value``: Python text (Qt, matplotlib,
+- ``format_number`` / ``format_value``: Python text (Qt, matplotlib,
   snapshot captions);
 - ``printf_format``: the printf format giving the same text, for widgets
   formatting the value natively (Dear PyGui);
@@ -74,14 +74,23 @@ def format_number(value: Any) -> str:
     return "0" if text in ("-0", "-0.0") else text
 
 
-def format_control_value(value: Any) -> str:
-    """A control value: numbers via ``format_number``, (lo, hi) ranges and
-    points as ``(a, b)``, anything else as ``str``."""
+def format_value(value: Any) -> str:
+    """Any parameter value, short: numbers via ``format_number``, tuples as
+    ``(a, b)`` (ranges, points), lists as ``[a, b]``, arrays as ``array(H, W)``,
+    other objects as a repr cut at 40 characters. Used next to the Qt widgets,
+    in snapshot captions, sweep labels, ``describe`` / ``check`` and warnings."""
+    import numpy as np
+
+    if isinstance(value, (bool, np.bool_)):
+        return str(bool(value))
+    if isinstance(value, (int, float, np.integer, np.floating)):
+        return format_number(value)
+    if isinstance(value, str):
+        return value
     if isinstance(value, (tuple, list)):
-        return "(" + ", ".join(format_control_value(item) for item in value) + ")"
-    if isinstance(value, (int, float)) and not isinstance(value, bool) or hasattr(value, "dtype"):
-        try:
-            return format_number(value)
-        except (TypeError, ValueError):
-            return str(value)
-    return str(value)
+        inner = ", ".join(format_value(item) for item in value)
+        return f"({inner})" if isinstance(value, tuple) else f"[{inner}]"
+    if isinstance(value, np.ndarray):
+        return f"array{value.shape}"
+    text = repr(value)
+    return text if len(text) <= 40 else text[:37] + "..."

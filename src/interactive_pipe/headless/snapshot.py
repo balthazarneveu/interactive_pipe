@@ -48,7 +48,7 @@ from interactive_pipe.graphical.display import (
     rasterize_figure,
     wrap_text,
 )
-from interactive_pipe.graphical.value_format import format_number
+from interactive_pipe.graphical.value_format import format_value  # noqa: F401 - re-exported (describe, explore, check)
 
 # Natural cell sizes in inches (before the whole figure is scaled to fit MAX_WIDTH)
 CELL_HEIGHT = 3.2
@@ -206,25 +206,6 @@ def default_sweep_cell(grid: Grid, changed: Optional[Collection[Any]] = None) ->
 # ---------------------------------------------------------------------------
 # Formatting helpers
 # ---------------------------------------------------------------------------
-
-
-def format_value(value: Any) -> str:
-    """Short human-readable value: 4 significant digits for floats."""
-    if isinstance(value, (bool, np.bool_)):
-        return str(bool(value))
-    if isinstance(value, (float, np.floating)):
-        return format_number(value)  # as next to the GUI sliders: "6", "0.1", "1e-05"
-    if isinstance(value, (int, np.integer)):
-        return str(int(value))
-    if isinstance(value, str):
-        return value
-    if isinstance(value, (tuple, list)):
-        inner = ", ".join(format_value(item) for item in value)
-        return f"({inner})" if isinstance(value, tuple) else f"[{inner}]"
-    if isinstance(value, np.ndarray):
-        return f"array{value.shape}"
-    text = repr(value)
-    return text if len(text) <= 40 else text[:37] + "..."
 
 
 def format_parameters(parameters: Dict[str, Dict[str, Any]], exclude: Sequence[str] = ()) -> str:
