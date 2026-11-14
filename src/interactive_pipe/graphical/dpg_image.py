@@ -21,6 +21,7 @@ from interactive_pipe.data_objects.curves import Curve, SingleCurve
 from interactive_pipe.data_objects.table import Table
 from interactive_pipe.graphical.dpg_backend import dpg
 from interactive_pipe.graphical.dpg_viewer import ViewState
+from interactive_pipe.graphical.pointer_input import POINT_COLOR, REGION_COLOR
 
 __all__ = [
     "DEFAULT_PLOT_SIZE",
@@ -39,6 +40,7 @@ __all__ = [
     "update_text_cell",
 ]
 
+MARKER_HALF = 7  # half size of the point marker, screen pixels
 DEFAULT_PLOT_SIZE = (480, 320)
 DEFAULT_TABLE_SIZE = (320, 240)
 DEFAULT_TEXT_SIZE = (320, 80)
@@ -161,6 +163,7 @@ def clear_cell_content(cell: Dict[str, Any]) -> None:
     _delete(cell.get("texture"))
     for key in ("content", "drawn_image", "texture", "buffer", "plot", "kind"):
         cell[key] = None
+    cell["overlay_drawn"] = []  # children of the deleted drawlist
     cell["natural_size"] = None
 
 
@@ -205,6 +208,63 @@ def place_image(cell: Dict[str, Any], view: ViewState) -> None:
     x, y, width, height = view.image_rect(image_box(cell), cell["natural_size"])
     x, y = round(x), round(y)  # whole-pixel origin: no half-pixel blur at 1:1
     dpg.configure_item(cell["drawn_image"], pmin=(x, y), pmax=(x + width, y + height))
+    draw_overlay(cell, x, y, width / max(cell["natural_size"][0], 1))
+
+
+def set_overlay(cell: Dict[str, Any], items: List[Tuple[str, Any, str]], view: ViewState) -> None:
+    """Marks of the point / region controls over an image cell (image pixel coordinates,
+    see ``pointer_input.overlay_items``); redrawn whenever the image is placed."""
+    cell["overlay"] = list(items)
+    if _exists(cell.get("drawn_image")) and cell.get("natural_size") is not None:
+        place_image(cell, view)  # draws the overlay where the image is
+    else:
+        draw_overlay(cell, 0.0, 0.0, 1.0)  # no image: only removes previous marks
+
+
+def draw_overlay(cell: Dict[str, Any], x0: float, y0: float, scale: float) -> None:
+    """(Re)draw the cell overlay on its drawlist, for an image drawn at (x0, y0) with ``scale``."""
+    for item in cell.get("overlay_drawn") or []:
+        _delete(item)
+    drawn: List[Any] = []
+    parent = cell.get("content")
+    if not _exists(parent) or cell.get("kind") not in (None, "image"):
+        cell["overlay_drawn"] = drawn
+        return
+    black = (0, 0, 0, 255)
+    for kind, coords, label in cell.get("overlay") or []:
+        color = (*(POINT_COLOR if kind == "point" else REGION_COLOR), 255)
+        if kind == "point":
+            cx, cy = x0 + coords[0] * scale, y0 + coords[1] * scale
+            for line_color, thickness in ((black, 4), (color, 2)):
+                drawn.append(
+                    dpg.draw_line(
+                        (cx - MARKER_HALF, cy),
+                        (cx + MARKER_HALF, cy),
+                        color=line_color,
+                        thickness=thickness,
+                        parent=parent,
+                    )
+                )
+                drawn.append(
+                    dpg.draw_line(
+                        (cx, cy - MARKER_HALF),
+                        (cx, cy + MARKER_HALF),
+                        color=line_color,
+                        thickness=thickness,
+                        parent=parent,
+                    )
+                )
+            anchor = (cx + MARKER_HALF, cy - MARKER_HALF - 13)
+        else:
+            u0, v0, u1, v1 = coords
+            pmin, pmax = (x0 + u0 * scale, y0 + v0 * scale), (x0 + u1 * scale, y0 + v1 * scale)
+            drawn.append(dpg.draw_rectangle(pmin, pmax, color=black, thickness=3, parent=parent))
+            drawn.append(dpg.draw_rectangle(pmin, pmax, color=color, thickness=1.5, parent=parent))
+            anchor = (pmin[0] + 2, pmin[1] - 15)
+        if label:
+            drawn.append(dpg.draw_text((anchor[0] + 1, anchor[1] + 1), label, color=black, size=13, parent=parent))
+            drawn.append(dpg.draw_text(anchor, label, color=color, size=13, parent=parent))
+    cell["overlay_drawn"] = drawn
 
 
 # ---------------------------------------------------------------------------

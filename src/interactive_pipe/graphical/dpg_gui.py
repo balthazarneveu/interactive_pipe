@@ -42,6 +42,7 @@ from interactive_pipe.graphical.dpg_image import (
     image_box,
     place_image,
     set_cell_title,
+    set_overlay,
     signal_to_curve,
     update_curve_cell,
     update_image_cell,
@@ -51,6 +52,7 @@ from interactive_pipe.graphical.dpg_image import (
 from interactive_pipe.graphical.dpg_panels import DpgPanelBuilder, DpgTimer  # noqa: F401
 from interactive_pipe.graphical.dpg_viewer import ZOOM_STEP, ViewState
 from interactive_pipe.graphical.gui import InteractivePipeGUI
+from interactive_pipe.graphical.pointer_input import Gesture, PointerTargets, overlay_items, to_fraction
 from interactive_pipe.graphical.window import (
     InteractivePipeWindow,
     display_kind,
@@ -59,6 +61,7 @@ from interactive_pipe.graphical.window import (
 )
 from interactive_pipe.headless.control import Control, TimeControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
+from interactive_pipe.headless.pointer import pointer_controls
 
 DEFAULT_VIEWPORT_SIZE = (1280, 800)
 GRID_SPACING = 6  # pixels between cells
@@ -82,8 +85,18 @@ MEASURE_RETRY_FRAMES = 120  # the first frames may not lay the controls out yet 
 GRID_SLACK = (2 * 8 + GRID_SPACING, 2 * 8)  # 1:1 grid size beyond its cells: child window padding, row spacer
 
 
+def _shift_down() -> bool:
+    try:
+        return any(dpg.is_key_down(key) for key in (dpg.mvKey_LShift, dpg.mvKey_RShift, dpg.mvKey_ModShift))
+    except (AttributeError, SystemError):  # no viewport / older Dear PyGui
+        return False
+
+
 class InteractivePipeDPG(InteractivePipeGUI):
     """Interactive pipeline GUI based on Dear PyGui."""
+
+    # click (< 3 px of movement) sets a PointControl, shift-drag draws a RegionControl
+    pointer_gestures = True
 
     def init_app(self, **kwargs):
         create_context()
@@ -266,6 +279,9 @@ class MainWindow(InteractivePipeWindow):
         self._frames_to_settle = 0  # frames before the grid overflow reflects the last relayout
         self._in_relayout = False
         self._drag: Optional[Tuple[Dict[str, Any], Tuple[float, float]]] = None  # (cell, last mouse pos)
+        self.pointer_gesture = Gesture()  # point / region controls
+        self.pointer_targets: Optional[PointerTargets] = None
+        self._pointer_cell: Optional[Dict[str, Any]] = None
 
         self.texture_registry = dpg.add_texture_registry()
         self.root = dpg.add_window(
@@ -630,9 +646,14 @@ class MainWindow(InteractivePipeWindow):
             self._drag = None
             return
         x, y = dpg.get_mouse_pos(local=False)[:2]
+        if self.pointer_press(target[0], target[1], (float(x), float(y)), _shift_down()) == "region":
+            self._drag = None  # the drag draws the region instead of panning
+            return
         self._drag = (target[0], (float(x), float(y)))
 
     def on_mouse_move(self, _sender, pos, *_args):
+        if self.pointer_gesture.active:
+            self.pointer_move((float(pos[0]), float(pos[1])))
         if self._drag is None:
             return
         cell, last = self._drag
@@ -645,6 +666,108 @@ class MainWindow(InteractivePipeWindow):
 
     def on_mouse_release(self, *_args):
         self._drag = None
+        if self.pointer_gesture.active:
+            x, y = dpg.get_mouse_pos(local=False)[:2]
+            self.pointer_release((float(x), float(y)))
+
+    # ------------------------------------- point / region controls (mouse)
+    def _cell_index(self, cell: Dict[str, Any]) -> Optional[Tuple[int, int]]:
+        for row, cells in enumerate(self.image_canvas or []):
+            for col, other in enumerate(cells):
+                if other is cell:
+                    return (row, col)
+        return None
+
+    def _pointer_fraction(self, cell: Dict[str, Any], local: Tuple[float, float]):
+        """Cell coordinates -> fractions of the data area of the image shown in `cell`."""
+        targets = self.pointer_targets
+        index = self._cell_index(cell)
+        if targets is None or index is None or cell.get("natural_size") is None:
+            return None
+        natural_w, natural_h = cell["natural_size"]
+        x, y, width, _ = self.view.image_rect(image_box(cell), cell["natural_size"])
+        x, y = round(x), round(y)  # as drawn by place_image
+        scale = width / max(natural_w, 1)
+        size = targets.data_size(index, (natural_h, natural_w))
+        if size is None:
+            return None
+        return to_fraction((local[0] - x) / scale, (local[1] - y) / scale, size)
+
+    def _local(self, cell: Dict[str, Any], pos: Tuple[float, float]) -> Tuple[float, float]:
+        x0, y0 = dpg.get_item_rect_min(cell["content"])
+        return (pos[0] - x0, pos[1] - y0)
+
+    def pointer_press(self, cell, local, screen, shift: bool) -> Optional[str]:
+        """Start a gesture on `cell` (cell coordinates `local`): None, "point" or "region"."""
+        targets = self.pointer_targets
+        index = self._cell_index(cell)
+        fraction = self._pointer_fraction(cell, local)
+        if targets is None or index is None or fraction is None:
+            return None
+        if not self.pointer_gesture.press(targets, index, fraction, screen, shift):
+            return None
+        self._pointer_cell = cell
+        return "region" if self.pointer_gesture.drawing_region else "point"
+
+    def _gesture_fraction(self, pos):
+        cell = self._pointer_cell
+        if cell is None or not dpg.does_item_exist(cell.get("content")):
+            return None
+        return self._pointer_fraction(cell, self._local(cell, pos))
+
+    def pointer_move(self, pos) -> None:
+        fraction = self._gesture_fraction(pos)
+        if fraction is not None:
+            self._pointer_changed(self.pointer_gesture.move(fraction, pos))
+
+    def pointer_release(self, pos) -> None:
+        fraction = self._gesture_fraction(pos)
+        if fraction is None or self.pointer_targets is None:
+            self.pointer_gesture.cancel()
+            return
+        self._pointer_changed(self.pointer_gesture.release(self.pointer_targets, fraction, pos))
+
+    def _pointer_changed(self, ctrl) -> None:
+        if ctrl is None:
+            return
+        self._update_pointer_overlays()  # the mark moves now, the run follows on the next frame
+        self.update_parameter(ctrl.name, ctrl.value)
+
+    def _update_pointer_targets(self, raw_out) -> None:
+        controls = pointer_controls(getattr(self.pipeline, "controls", None))
+        if not controls or self.pipeline is None:
+            self.pointer_targets = None
+        else:
+            grid = [list(raw_out)] if isinstance(raw_out, tuple) else raw_out
+            styles = {}
+            for row, cells in enumerate(self.image_canvas or []):
+                for col, cell in enumerate(cells):
+                    if cell is not None:
+                        try:
+                            styles[(row, col)] = self.get_current_style(row, col)
+                        except (IndexError, KeyError, TypeError, RuntimeError):
+                            pass
+            self.pointer_targets = PointerTargets(controls, self.pipeline.outputs, grid, styles)
+        self._update_pointer_overlays()
+
+    def _update_pointer_overlays(self) -> None:
+        targets = self.pointer_targets
+        for row, cells in enumerate(self.image_canvas or []):
+            for col, cell in enumerate(cells):
+                if cell is None:
+                    continue
+                items = []
+                if targets is not None and cell.get("kind") == "image" and cell.get("natural_size") is not None:
+                    natural_w, natural_h = cell["natural_size"]
+                    size = targets.data_size((row, col), (natural_h, natural_w))
+                    if size is not None:
+                        items = overlay_items(targets, (row, col), size)
+                if items or cell.get("overlay"):
+                    set_overlay(cell, items, self.view)
+
+    def refresh_display(self, _out) -> None:
+        super().refresh_display(_out)
+        self._update_pointer_targets(_out)
 
     def on_mouse_double_click(self, *_args):
         if self._mouse_target() is not None:
