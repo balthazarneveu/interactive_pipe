@@ -248,7 +248,7 @@ test_amplify()
 | `ValueError: @interactive filter 'f', parameter 'gain': ... the default 5 is outside the range [0, 3]` | Choose a default inside the range, or widen it |
 | Log `Control 'gain': value 9.0 is outside its range [0.0, 2.0], clamped to 2.0` | Widen the range or fix the value |
 | `FilterError: Filter 'f' raised ValueError: ...` + `Traceback (user code only)` | Bug in that filter, at the file and line shown |
-| `filter 'f' returned 3 values but the pipeline assigns 1 name(s)` | Unpack them, or `return (items,)` to keep a list as one value |
+| `filter 'f' returned 3 values but the pipeline assigns 1 name(s)` | Unpack them (`a, b, c = f(img)`); a returned list, unlike a tuple, is kept as one value |
 | `DisplayError: output 'out' (returned by filter 'f') cannot be displayed: channel-first array (3, 8, 8). Fix: ...` | Apply the `Fix:` (`np.moveaxis(img, 0, -1)`) |
 | Log `output 'out' is displayed misleadingly: int64 image in [127, 127] ... Fix: ...` | Scale to `[0, 1]`, or `astype(np.uint8)` for 0-255 data |
 | `RuntimeError: layout.style('x', ...) called outside of filter execution` | Call it inside a filter; test the filter through a pipeline |
