@@ -357,7 +357,7 @@ def test_enum_member_reaches_the_filter_through_every_path():
     assert _controls(p)["color"].value == "RED"
     styled(IMG, style=Style.GLOSSY)
     assert seen[-1][0] is Style.GLOSSY
-    with pytest.raises(ValueError, match="must be in"):
+    with pytest.raises(ValueError, match="is not one of the choices"):
         p(IMG, style="SHINY")
 
 

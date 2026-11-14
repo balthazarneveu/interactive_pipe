@@ -105,6 +105,20 @@ def test_one_name_for_two_values_is_an_error(cache):
     assert "out0, out1 = rt_two(img)" in message
 
 
+rt_split = rt_two  # the pipeline calls the filter by another name
+
+
+def one_name_from_alias(img):
+    a = rt_split(img)
+    return a
+
+
+def test_alias_names_the_function_too():
+    message = _error(one_name_from_alias, False)
+    assert "filter 'rt_split' (function 'rt_two') returned 2 values but the pipeline assigns 1 name(s)" in message
+    assert "out0, out1 = rt_split(img)" in message  # the fix uses the name of the pipeline line
+
+
 @pytest.mark.parametrize("cache", CACHE_MODES)
 def test_two_names_for_three_values_is_an_error(cache):
     message = _error(two_names_from_three, cache)

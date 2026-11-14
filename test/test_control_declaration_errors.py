@@ -18,14 +18,18 @@ def _declare(**decorator_controls):
 @pytest.mark.parametrize(
     "declaration, match",
     [
-        ({"gain": (5.0, [0.0, 3.0])}, "value_default 5.0 must be within value_range"),
+        (
+            {"gain": (5.0, [0.0, 3.0])},
+            r"the default 5.0 is outside the range \[0.0, 3.0\]: choose a default between 0.0 and 3.0",
+        ),
+        ({"gain": (5, [0, 3])}, r"the default 5 is outside the range \[0, 3\]: choose a default between 0 and 3"),
         ({"gain": (1.0, [3.0, 0.0])}, r"must satisfy min <= max \(did you mean \[0.0, 3.0\]\?\)"),
         ({"gain": (1.0, [0.0, 3.0, 10.0])}, "step 10.0 is larger than the range"),
         ({"gain": (1.0, [0.0, 3.0, 0])}, "step 0 must be > 0"),
         ({"gain": (1.0, [0.0, 3.0, -1])}, "step -1 must be > 0"),
         ({"gain": (1.0, [0.0, 3.0, 0.1, 5])}, "has too many elements"),
         ({"mode": ("a", [])}, "value_range cannot be empty"),
-        ({"mode": ("z", ["a", "b"])}, r"z must be in \['a', 'b'\]"),
+        ({"mode": ("z", ["a", "b"])}, r"the default 'z' is not one of the choices \['a', 'b'\]"),
         ({"mode": []}, "cannot provide an empty list"),
         ({"gain": (True, [0, 1])}, "you do not need to provide a value range for a boolean"),
     ],
