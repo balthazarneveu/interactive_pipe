@@ -207,14 +207,14 @@ def _numeric_range(func: Callable, param_name: str, base, spec) -> Tuple[list, A
         low, high = int(low), int(high)
     elif base is float:
         low, high = float(low), float(high)
-    if not low < high:
+    if low > high:
         raise annotation_error(
-            func, param_name, f"the range ({low}, {high}) is empty", "write (min, max) with min < max"
+            func, param_name, f"the range ({low}, {high}) is reversed", f"write ({high}, {low}): (min, max)"
         )
     if step is not None:
         if isinstance(step, bool) or not isinstance(step, _NUMBER) or step <= 0:
             raise annotation_error(func, param_name, f"the step {step!r} is not a positive number", "use a step > 0")
-        if step > high - low:
+        if high > low and step > high - low:
             raise annotation_error(
                 func,
                 param_name,
@@ -265,7 +265,7 @@ def _from_control(func: Callable, param_name: str, ctrl: Control, default) -> Tu
 
 
 def control_from_annotation(func: Callable, param_name: str, hint, default) -> Optional[Tuple[Control, Any]]:
-    """Control declared by one parameter's annotation, with the default it implies.
+    """Control declared by one parameter's annotation and its (signature) default.
 
     Returns None when the annotation does not opt into a widget.
     """
@@ -308,8 +308,6 @@ def control_from_annotation(func: Callable, param_name: str, hint, default) -> O
             )
         mapping = _choice_map(func, param_name, base)
         choices = list(get_args(base)) if mapping is None else list(mapping.values())
-        if default is _EMPTY:
-            default = choices[0]
         if not any(default is choice or (type(default) is type(choice) and default == choice) for choice in choices):
             raise annotation_error(
                 func,
@@ -336,7 +334,7 @@ def control_from_annotation(func: Callable, param_name: str, hint, default) -> O
             )
         if name is None:
             return None  # foreign metadata only
-        default = False if default is _EMPTY else _check_type(func, param_name, bool, default)
+        default = _check_type(func, param_name, bool, default)
         return Control(default, name=name, group=group), default
 
     if spec is None:
@@ -351,8 +349,6 @@ def control_from_annotation(func: Callable, param_name: str, hint, default) -> O
     tuple_like = get_origin(base) is tuple or base is tuple
     if tuple_like or (isinstance(default, (tuple, list)) and len(default) == 2):
         value_range, step = _numeric_range(func, param_name, None, spec)
-        if default is _EMPTY:
-            default = (value_range[0], value_range[1])
         try:
             control = RangeControl(tuple(default), value_range, step=step, name=name, group=group)
         except (TypeError, ValueError) as exc:
@@ -369,8 +365,6 @@ def control_from_annotation(func: Callable, param_name: str, hint, default) -> O
             raise annotation_error(
                 func, param_name, f"string choices {list(spec)!r} for a {base!r} hint", "annotate the parameter as str"
             )
-        if default is _EMPTY:
-            default = spec[0]
         default = _check_type(func, param_name, str, default)
         if default not in spec:
             raise annotation_error(
@@ -383,11 +377,6 @@ def control_from_annotation(func: Callable, param_name: str, hint, default) -> O
 
     numeric_base = base if base in (int, float) else None
     value_range, step = _numeric_range(func, param_name, numeric_base, spec)
-    if default is _EMPTY:
-        low, high = value_range
-        default = (low + high) // 2 if numeric_base is int else (low + high) / 2
-        if numeric_base is None and isinstance(low, int) and isinstance(high, int):
-            default = (low + high) // 2
     if numeric_base is not None:
         default = _check_type(func, param_name, numeric_base, default)
     elif isinstance(default, bool) or not isinstance(default, _NUMBER):
@@ -404,54 +393,46 @@ def control_from_annotation(func: Callable, param_name: str, hint, default) -> O
 
 def controls_from_annotations(
     func: Callable, skip: Optional[set] = None, localns: Optional[dict] = None
-) -> Tuple[Dict[str, Control], Dict[str, Any]]:
-    """Controls declared by annotations, and the defaults implied for parameters having none.
+) -> Dict[str, Control]:
+    """Controls declared by annotations.
 
     ``skip``: parameters declared in the decorator (the decorator wins, their
-    annotation is not read).
+    annotation is not read). Only parameters with a default are considered: a
+    parameter without default is a pipeline input, whatever its hint
+    (``mode: Mode`` may be produced by an upstream filter). A default that is
+    itself a declaration (``Control(...)`` or a tuple shorthand) wins over the
+    annotation, like the decorator does.
     """
     skip = skip or set()
     hints = resolve_type_hints(func, localns)
     if not hints:
-        return {}, {}
+        return {}
     controls: Dict[str, Control] = {}
-    filled_defaults: Dict[str, Any] = {}
     for param in inspect.signature(func).parameters.values():
         if param.name in skip or param.name not in hints:
             continue
         if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD, param.POSITIONAL_ONLY):
             continue
-        found = control_from_annotation(func, param.name, hints[param.name], param.default)
+        if param.default is _EMPTY or isinstance(param.default, Control):
+            continue
+        hint = hints[param.name]
+        base, metadata = _split_annotated(hint)
+        if (
+            isinstance(param.default, (list, tuple))
+            and not _is_tuple_hint(base)
+            and not any(isinstance(item, Control) for item in metadata)
+        ):
+            continue  # signature tuple shorthand: (default, [min, max])
+        found = control_from_annotation(func, param.name, hint, param.default)
         if found is None:
             continue
-        control, default = found
+        control, _default = found
         if control.name is None or control._auto_named:
             control.name = param.name
             control._auto_named = True
         controls[param.name] = control
-        if param.default is _EMPTY:
-            filled_defaults[param.name] = default
-    return controls, filled_defaults
+    return controls
 
 
-def signature_with_defaults(func: Callable, filled_defaults: Dict[str, Any]) -> inspect.Signature:
-    """The function signature where annotation-declared controls without a default get one.
-
-    A parameter with a default is a control, not an input, everywhere the
-    library reads signatures (graph parsing, filters, describe).
-    """
-    signature = inspect.signature(func)
-    params = [
-        param.replace(default=filled_defaults[param.name]) if param.name in filled_defaults else param
-        for param in signature.parameters.values()
-    ]
-    try:
-        return signature.replace(parameters=params)
-    except ValueError:
-        name = next(iter(filled_defaults))
-        raise annotation_error(
-            func,
-            name,
-            "it is annotated as a control but has no default, and inputs without default follow it",
-            f"give it a default (e.g. {name}: ... = <value>) or move it after the inputs",
-        ) from None
+def _is_tuple_hint(base) -> bool:
+    return base is tuple or get_origin(base) is tuple

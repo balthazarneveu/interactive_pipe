@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence,
 import numpy as np
 
 from interactive_pipe.core.pipeline import PipelineCore
-from interactive_pipe.headless.control import Control, RangeControl
+from interactive_pipe.headless.control import Control, MappedChoiceControl, RangeControl
 from interactive_pipe.headless.output_check import output_problem, warn_output_problems
 from interactive_pipe.headless.snapshot import (
     Grid,
@@ -177,7 +177,8 @@ def apply_overrides(pipeline: Any, overrides: Dict[str, Any], method: str = "sna
             if value is None:  # Control.value = None would silently reset to the default
                 raise TypeError(f"{method}(): {name}=None is not a valid value for control {ctrl.name!r}")
             ctrl.value = value  # may raise TypeError / ValueError (wrong type, unknown choice)
-            if not _same_value(ctrl.value, value):
+            expected = ctrl.to_label(value) if isinstance(ctrl, MappedChoiceControl) else value
+            if not _same_value(ctrl.value, expected):
                 warnings.warn(
                     f"{method}(): {name}={format_value(value)} is outside the range of control "
                     f"{ctrl.name!r} {ctrl.value_range}, clamped to {format_value(ctrl.value)}",
@@ -260,6 +261,11 @@ def prepare_inputs(
         pipeline.inputs = None
 
 
+def _output_styles(pipeline: Any) -> dict:
+    framework_state = getattr(pipeline, "framework_state", None)
+    return dict(framework_state.output_styles) if framework_state is not None else {}
+
+
 def _export(fig: Any, path: PathLike) -> Union[Path, np.ndarray]:
     if path is None:
         return figure_to_rgb(fig)
@@ -310,7 +316,9 @@ def run_snapshot(
         apply_overrides(pipeline, all_overrides, "snapshot")
         result = pipeline.run()
         grid = select_cells(result_grid(pipeline, result), output)
-        warn_output_problems(((cell.name, cell.content) for cell in flat_cells(grid)), "snapshot")
+        warn_output_problems(
+            ((cell.name, cell.content) for cell in flat_cells(grid)), "snapshot", _output_styles(pipeline)
+        )
         fig = render_grid(grid, figsize=figsize, dpi=dpi, title=title, caption=_caption(pipeline, caption))
     return _export(fig, path), result
 
@@ -527,6 +535,7 @@ def sweep(
     combos = list(itertools.product(*(axes[name] for name in names)))
     swept_targets = sorted({target for name in names for target in parameter_targets(pipeline)[name]})
     panels_flat: List[Grid] = []
+    run_styles: dict = {}
     with preserved_state(pipeline):
         apply_overrides(pipeline, fixed, "sweep")
         caption_text = _caption(pipeline, caption, exclude=swept_targets)
@@ -534,6 +543,7 @@ def sweep(
         for combo in combos:
             apply_overrides(pipeline, dict(zip(names, combo)), "sweep")
             grid = result_grid(pipeline, pipeline.run())
+            run_styles.update(_output_styles(pipeline))  # layout.style calls of this run
             if output is not None:
                 panels_flat.append(_panel(grid, output))
                 continue
@@ -544,12 +554,13 @@ def sweep(
                 chosen_name = cells[default_sweep_cell(grid)].name
             chosen_cell = next(cell for cell in cells if cell.name == chosen_name)
             panels_flat.append([[chosen_cell]])
+    styles = run_styles
     shown = {}  # output name -> first value with a display problem (one warning per output)
     for panel in panels_flat:
         for cell in flat_cells(panel):
-            if cell.name not in shown and output_problem(cell.content) is not None:
+            if cell.name not in shown and output_problem(cell.content, styles.get(cell.name)) is not None:
                 shown[cell.name] = cell.content
-    warn_output_problems(shown.items(), "sweep")
+    warn_output_problems(shown.items(), "sweep", styles)
     labels = [", ".join(f"{name}={format_value(val)}" for name, val in zip(names, combo)) for combo in combos]
     if len(names) == 1:
         count = len(panels_flat)

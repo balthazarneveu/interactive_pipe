@@ -19,7 +19,7 @@ def _declare(**decorator_controls):
     "declaration, match",
     [
         ({"gain": (5.0, [0.0, 3.0])}, "value_default 5.0 must be within value_range"),
-        ({"gain": (1.0, [3.0, 0.0])}, r"must satisfy min < max \(did you mean \[0.0, 3.0\]\?\)"),
+        ({"gain": (1.0, [3.0, 0.0])}, r"must satisfy min <= max \(did you mean \[0.0, 3.0\]\?\)"),
         ({"gain": (1.0, [0.0, 3.0, 10.0])}, "step 10.0 is larger than the range"),
         ({"gain": (1.0, [0.0, 3.0, 0])}, "step 0 must be > 0"),
         ({"gain": (1.0, [0.0, 3.0, -1])}, "step -1 must be > 0"),
@@ -58,14 +58,19 @@ def test_typo_suggests_the_parameter_and_names_the_filter():
     [
         (lambda: Control(1.0, [0.0, 3.0], step=10), "larger than the range"),
         (lambda: Control(1.0, [0.0, 3.0], step=0), "must be > 0"),
-        (lambda: Control(1, [3, 0]), "min < max"),
-        (lambda: Control(1, [1, 1]), "min < max"),
+        (lambda: Control(1, [3, 0]), "min <= max"),
         (lambda: KeyboardControl(1.0, [0.0, 3.0], keydown="a", step=-0.1), "must be > 0"),
     ],
 )
 def test_control_constructor_rejects_unusable_sliders(build, match):
     with pytest.raises(ValueError, match=match):
         build()
+
+
+def test_single_value_range_is_allowed():
+    # image selector pattern (0, [0, len(images) - 1]) with one image
+    assert Control(0, [0, 0]).value_range == [0, 0]
+    _declare(n=(0, [0, 0]))
 
 
 def test_valid_steps_and_mixed_number_types_still_work():

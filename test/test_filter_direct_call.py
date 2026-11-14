@@ -35,3 +35,20 @@ def test_missing_input_names_the_filter():
 def test_too_many_positional_values_names_the_filter():
     with pytest.raises(TypeError, match=r"direct_amplify\(\): too many positional arguments"):
         direct_amplify(IMG, 1.0, 2.0)
+
+
+@interactive(gain=(1.0, [0.0, 3.0]))
+def direct_mix(*imgs, gain=1.0):
+    return sum(imgs) * gain
+
+
+def test_varargs_filter_uses_live_control_values():
+    from interactive_pipe.headless.control import Control
+
+    ctrl = Control.get_controls(direct_mix)["gain"]
+    ctrl.value = 2.0
+    try:
+        # parameters after *imgs are keyword-only: three positional images do not fill `gain`
+        assert direct_mix(IMG, IMG, IMG)[0, 0] == 6.0
+    finally:
+        ctrl.reset()
