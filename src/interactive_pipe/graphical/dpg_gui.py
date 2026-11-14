@@ -100,6 +100,7 @@ class InteractivePipeDPG(InteractivePipeGUI):
     pointer_gestures = True
 
     def init_app(self, **kwargs):
+        self._init_app_kwargs = dict(kwargs)  # run() builds the window again in a new context
         create_context()
         self.window = MainWindow(
             controls=self.controls,
@@ -124,6 +125,10 @@ class InteractivePipeDPG(InteractivePipeGUI):
     def run(self) -> list:
         if not self.pipeline._PipelineCore__initialized_inputs:  # type: ignore[attr-defined]
             raise RuntimeError("Did you forget to initialize the pipeline inputs?")
+        if not context_alive():
+            # an earlier run() released the context with its window (a decorated pipeline
+            # called twice): every dpg call on the old widget tree would segfault
+            self.init_app(**self._init_app_kwargs)
         width, height = self.window.viewport_size
         try:
             dpg.create_viewport(title=self.name or "interactive_pipe", width=width, height=height)
