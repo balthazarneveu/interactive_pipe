@@ -215,6 +215,9 @@ class FilterCore(PureFilter):
                     f"add `return <result>` at the end of '{self._function_name() or self.name}'",
                 )
             return None
+        if self.outputs is not None and len(self.outputs) == 0:
+            # a bare call `f(img)`: nothing assigns the result, it is dropped (like Python)
+            return None
         if strict and expected == 1 and isinstance(out, list):
             # `x = f(img)` with f returning a list: lists are data, x is the list
             # whatever its length (only a tuple is unpacked into one name)
