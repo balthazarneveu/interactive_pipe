@@ -55,4 +55,49 @@ Finish by 10:30 CET even though the hard stop is 11:30: the branch has to be mer
 
 ## Status
 
-(to fill)
+Times are wall-clock from `date` (the five ports took about 2 minutes in all, as an agent: the
+numbers below count lines and restructurings, which is what matters for a person).
+
+### Log A: porting five scripts (before the fixes)
+
+| script | lines before / after | kept verbatim | restructuring the library could absorb |
+|---|---|---|---|
+| denoise | 50 / 56 | helpers `shifted_stack`, `psnr` (10) + data lines (4) | module-level `rng` used by a filter -> new noise on every run (seeded inside the filter by hand); `plt.title(f"PSNR...")` -> `Image(title=)`, then the next filter receives an `Image` and needs `.data` (`layout.style(title=)` is the better advice, already in the skill); constants -> controls (4) |
+| spectrogram | 37 / 57 | `stft` (8), signal generation (3) | `imshow(origin="lower")` has no `layout.style` equivalent -> `db[::-1]` by hand; `extent=` / labels map 1:1 to `layout.style`; `plt.subplots(2, 1)` -> `return [[wave], [db]]` |
+| tone curve | 34 / 48 | `polyfit` body (3) | the loop over degrees becomes a slider + `sweep(degree=[1, 3, 5])`: the overlay of all degrees in one plot is lost; helper returning a dict -> filter returning a dict works as is (not displayed) |
+| clusters | 35 / 50 | `kmeans` (6) and **the whole pyplot plotting block (7)** | the skill says "never pyplot", so an agent would rewrite the plotting to `Figure()`; the library actually renders `plt.subplots()` figures fine on every backend and in snapshots, **but headless calls leak one pyplot figure per run** (5 runs -> 5 open figures) |
+| edges | 41 / 51 | `convolve3` (7), detector body (6) | `if SMOOTH:` module-level reassignment -> a checkbox filter; thresholds x detectors `plt.subplot` grid -> `sweep(threshold=[...], output=["sobel", "laplacian"])` reproduces it exactly |
+
+Checked separately: a module-level array used in the pipeline body (`out = amp(NOISY)`) already
+fails with "'NOISY' is not a variable of the pipeline ... Hint: add `NOISY` to the arguments of the
+pipeline function" (good, kept). `my_filter.interact(img)` (one function with sliders, no
+pipeline, snapshot-captured) exists but is not in the skill. A "suggest controls" command was not
+needed: choosing ranges was never the slow part.
+
+Fixes chosen from this log: pyplot figures returned by filters released after headless runs;
+skill: pyplot is fine, a "Porting a script" part (inputs as arguments, loops -> sweep, subplot
+grid -> return layout, seed random generators inside filters, `.interact`); a docs page.
+`origin="lower"` and the lost overlay are left (see "Not done").
+
+### Log B: debugging eight broken pipelines (before the fixes)
+
+Tool calls counted from the symptom to the cause, using check / snapshot / sweep / headless.
+
+| script (bug) | calls | did a tool point at the cause? |
+|---|---|---|
+| kwargs_wrong_name (`gain` control, filter reads `kwargs["strength"]`) | 1 | yes: `check` fails at decoration, file:line; message "does not match any of the function keyword args []" does not say controls are not passed through `**kwargs` |
+| inplace_mutation (`img[img < t] = 0` on the input) | 1 | yes: filter, file:line, "assignment destination is read-only"; no hint that inputs are read-only nor `.copy()` / `inplace=True` |
+| float_255 (`astype(float32)` keeps 0-255) | 2 | half: `check` warns on the returned output; the filter that changed the scale (`load`, an intermediate) is found by reading code |
+| crop_size (crop height depends on zoom parity) | 5 | no: `check` silent at the default; snapshot / sweep look alike; the crop is not returned, so shapes were printed with a temporary `return crop` |
+| noop_control (`sharpen // 10` is always 0) | 2 | half: `sweep sharpen=0..5` shows identical cells, if one notices; nothing says so |
+| context_order (key read before the filter writing it) | 4 | no: snapshot / sweep cells start from a fresh context, so the overlay is always missing; found by reading code |
+| nondeterministic (module-level rng) | 3 | no: needed a hand-written double run and array diff |
+| nan_some_values (negative values ** (1/gamma)) | 4 | no: `check` at gamma=1 has no NaN (only a negative min); a sweep shows black areas; which filter -> prints |
+
+Total 22 calls, 2 of 8 with a tool pointing at the cause.
+
+Fixes chosen from this log: `check` runs a cheap diagnosis (per-filter trace of every intermediate
+variable; each control perturbed once: no-op controls, NaN appearing, output size changing, with
+the first filter where it happens; a second run with the same values: non-deterministic filters;
+context keys read before written), `check --trace` prints the per-filter table, the same as
+`pipe.diagnose(img)` in Python; better messages for `**kwargs` and read-only inputs.
