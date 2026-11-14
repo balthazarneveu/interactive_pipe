@@ -1,11 +1,12 @@
 """Can an output be displayed, and will it look like what the filter meant?
 
-The GUI backends and the snapshot renderer accept a fixed set of output types.
-Anything else is drawn as a placeholder (or makes a backend raise), and some
-arrays are displayed misleadingly (a uint8 image clipped to [0, 1] is white,
-NaN is black). ``output_problems`` names these cases with the fix; ``snapshot``
-and ``sweep`` log them, so an agent looking at the PNG knows why a cell is
-empty or saturated. Detection only: no output is converted here.
+The GUI backends and the snapshot renderer share one conversion
+(``graphical.display.prepare_display``): arrays it cannot interpret raise a
+``DisplayError`` there, other types are drawn as a placeholder, and some
+arrays are displayed misleadingly (a float image in 0-255 clipped to [0, 1] is
+white, NaN is black). ``output_problems`` names these cases with the fix;
+``snapshot`` and ``sweep`` log them, so an agent looking at the PNG knows why
+a cell is empty or saturated. Detection only: no output is converted here.
 """
 
 import logging
@@ -13,13 +14,16 @@ from typing import Any, Iterable, List, Optional, Tuple
 
 import numpy as np
 
+from interactive_pipe.data_objects.image import Image
+from interactive_pipe.graphical.display import array_display_problem, figure_of
+
 SUPPORTED_OUTPUTS = (
-    "numpy images (H, W) or (H, W, 3) - float in [0, 1] -, 1D numpy arrays (drawn as curves), "
-    "Curve, SingleCurve, Table, str, and None (empty cell)"
+    "numpy images (H, W), (H, W, 1), (H, W, 3) or (H, W, 4) - float in [0, 1], uint8, uint16 or bool -, "
+    "1D numpy arrays (drawn as curves), Image, Curve, SingleCurve, Table, str, matplotlib Figure / Axes, "
+    "and None (empty cell)"
 )
 
-#: (severity, problem, fix) - severity is "unsupported" (drawn nowhere), "gui" (snapshot draws it,
-#: some GUI backends crash on it or show it wrong) or "misleading" (drawn wrong everywhere)
+#: (severity, problem, fix) - severity is "unsupported" (drawn nowhere) or "misleading" (drawn wrong everywhere)
 Problem = Tuple[str, str, str]
 
 
@@ -29,7 +33,7 @@ def _known_object(value: Any) -> bool:
         from interactive_pipe.data_objects.table import Table
     except ImportError:  # pragma: no cover - optional dependencies
         return False
-    return isinstance(value, (Curve, SingleCurve, Table))
+    return isinstance(value, (Curve, SingleCurve, Table)) or figure_of(value) is not None
 
 
 def _object_fix(value: Any) -> str:
@@ -38,9 +42,9 @@ def _object_fix(value: Any) -> str:
     if module == "torch":
         return "convert it in the filter: `return tensor.detach().cpu().numpy()` (channels last, (H, W, 3))"
     if module == "PIL":
-        return "convert it in the filter: `return np.asarray(pil_image) / 255.0`"
+        return "convert it in the filter: `return np.asarray(pil_image)` (uint8 is scaled by 1/255)"
     if module == "matplotlib":
-        return "return the data (numpy array, Curve) instead of a matplotlib object"
+        return "return the Figure (`fig`) or the Axes (`ax`), or the data (numpy array, Curve)"
     if isinstance(value, dict):
         return "return the arrays as separate outputs (`return a, b`), or a Table for tabular data"
     if isinstance(value, (list, tuple)):
@@ -50,76 +54,58 @@ def _object_fix(value: Any) -> str:
     return f"convert the {name} to a numpy array, a Curve or a Table in the filter"
 
 
-HEATMAP_STYLE_KEYS = ("colormap", "vmin", "vmax")
+HEATMAP_STYLE_KEYS = ("colormap", "vmin", "vmax", "center", "colorbar")
 
 
 def array_problem(value: np.ndarray, style: Optional[dict] = None) -> Optional[Problem]:
     """Display problem of a numpy array, None when it is displayed faithfully.
 
     ``style``: the output's ``layout.style`` options; a heatmap style
-    (colormap / vmin / vmax) maps any value range itself.
+    (colormap / vmin / vmax / center / colorbar) maps any value range itself.
     """
-    shape = value.shape
-    if value.size == 0:
-        return ("unsupported", f"empty array {shape}", "return a non-empty array (or None for an empty cell)")
-    if value.dtype.kind in "cOSUVMm":
-        return (
-            "unsupported",
-            f"{value.dtype} array cannot be displayed as an image",
-            "convert to float (e.g. np.abs(z) for complex values)",
-        )
-    if value.ndim == 0 or value.ndim > 3:
-        fix = "select one image (e.g. batch[0])" if value.ndim > 3 else "return a 1D, 2D or 3D array"
-        return ("unsupported", f"{value.ndim}D array {shape}", fix)
-    if value.ndim == 3:
-        channels = shape[-1]
-        if channels != 3:
-            if shape[0] in (1, 3, 4) and channels > 4:
-                return (
-                    "unsupported",
-                    f"channel-first array {shape}",
-                    "move the channels last: np.moveaxis(img, 0, -1) (and img[..., 0] for one channel)",
-                )
-            if channels == 1:
-                return (
-                    "gui",
-                    f"single-channel array {shape} (the Qt and Dear PyGui backends raise on it)",
-                    "drop the channel axis: img[..., 0]",
-                )
-            if channels == 4:
-                return (
-                    "gui",
-                    f"RGBA array {shape} (the Qt backend raises on it)",
-                    "drop the alpha channel: img[..., :3]",
-                )
-            return ("unsupported", f"{channels}-channel array {shape}", "return (H, W) or (H, W, 3)")
+    unsupported = array_display_problem(value)
+    if unsupported is not None:
+        return ("unsupported", unsupported[0], unsupported[1])
     if value.ndim == 1:
         return None  # drawn as a curve
-    if value.dtype.kind in "ui":
-        return (
-            "gui",
-            f"{value.dtype} image: the GUI backends expect floats in [0, 1] and clip, it shows almost white there",
-            "scale it: img / 255.0 (uint8) or img / 65535.0 (uint16)",
-        )
-    heatmap = value.ndim == 2 and bool(style) and any(style.get(key) is not None for key in HEATMAP_STYLE_KEYS)
-    if value.dtype.kind == "f" and not heatmap:
-        finite = np.isfinite(value)
-        if not finite.all():
+    shape = value.shape
+    heatmap = (
+        (value.ndim == 2 or shape[-1] == 1)
+        and bool(style)
+        and any(style.get(key) is not None for key in HEATMAP_STYLE_KEYS)  # type: ignore[union-attr]
+    )
+    if heatmap or value.dtype.kind == "b" or value.dtype in (np.uint8, np.uint16):
+        return None  # scaled by the display (uint8 / 255, uint16 / 65535, bool 0 / 1)
+    data = np.ma.getdata(value)
+    if value.dtype.kind in "iu":
+        low, high = int(data.min()), int(data.max())
+        if low < 0 or high > 1:
             return (
                 "misleading",
-                f"image with {int((~finite).sum())} NaN/inf value(s), shown as black/white pixels",
-                "replace them: np.nan_to_num(img, nan=0.0, posinf=1.0, neginf=0.0)",
-            )
-        low, high = float(value.min()), float(value.max())
-        # mild saturation (an exposure gain) is the expected display; a range
-        # that is off by a lot means the data is on another scale (0-255, signed)
-        if low < -1.0 or high > 2.0:
-            return (
-                "misleading",
-                f"float image in [{low:.3g}, {high:.3g}] is clipped to [0, 1]",
-                "normalize it (e.g. (img - img.min()) / (img.max() - img.min())) or use "
+                f"{value.dtype} image in [{low}, {high}]: integers other than uint8 / uint16 are taken as values "
+                "(1 is white) and clipped to [0, 1]",
+                "scale it (e.g. img / 255.0, or img.astype(np.uint8) for 0-255 data) or use "
                 "layout.style(name, vmin=..., vmax=...) / a colormap",
             )
+        return None
+    finite = np.isfinite(data)
+    if not finite.all():
+        return (
+            "misleading",
+            f"image with {int((~finite).sum())} NaN/inf value(s), shown as black/white pixels",
+            "replace them: np.nan_to_num(img, nan=0.0, posinf=1.0, neginf=0.0), "
+            "or use layout.style(name, colormap=...) to show NaN in magenta",
+        )
+    low, high = float(data.min()), float(data.max())
+    # mild saturation (an exposure gain) is the expected display; a range
+    # that is off by a lot means the data is on another scale (0-255, signed)
+    if low < -1.0 or high > 2.0:
+        return (
+            "misleading",
+            f"float image in [{low:.3g}, {high:.3g}] is clipped to [0, 1]",
+            "normalize it (e.g. (img - img.min()) / (img.max() - img.min())) or use "
+            "layout.style(name, vmin=..., vmax=...) / a colormap",
+        )
     return None
 
 
@@ -127,6 +113,8 @@ def output_problem(value: Any, style: Optional[dict] = None) -> Optional[Problem
     """Display problem of one output value, None when it is displayed faithfully."""
     if value is None or isinstance(value, str):
         return None
+    if isinstance(value, Image) and isinstance(value.data, np.ndarray):
+        value = value.data
     if isinstance(value, np.ndarray):
         return array_problem(value, style)
     if _known_object(value):
@@ -142,7 +130,6 @@ def output_problem(value: Any, style: Optional[dict] = None) -> Optional[Problem
 
 _VERBS = {
     "unsupported": "cannot be displayed",
-    "gui": "is drawn by snapshot but not by every GUI backend",
     "misleading": "is displayed misleadingly",
 }
 

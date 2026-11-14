@@ -5,6 +5,7 @@
 Common mistakes in pipelines used to build something that ran and was wrong. They now either do what was meant or fail with an error naming the line and the fix.
 
 ### Changes that can affect existing code
+- **2D arrays are shown in gray on the matplotlib backend too** (it used matplotlib's default colormap, viridis, while Qt, Dear PyGui, Gradio and snapshots showed gray). Use `layout.style(name, colormap="viridis")` for a false-colour view.
 - **Variables and inputs are checked when the pipeline is built**: an undefined variable passed to a filter or returned (`offset(amplifed)`), a filter call missing a required input (`blend(img)` when `blend` takes two), and a method called on a pipeline variable (`img.copy()`) raise `PipelineSyntaxError` at the line, with a suggestion. Before, they failed inside the engine on the first run (`KeyError`, `missing a required argument`) or silently resolved a module-level name.
 - **`parameters={...}` is validated before being applied**: an unknown filter or parameter name raises `ValueError` with a suggestion and leaves the pipeline untouched. Before, an unknown parameter was stored, every later run failed inside the filter, and the pipeline stayed unusable.
 - **Stricter pipeline body**: every top-level statement of a pipeline function is now validated. `if` / `for` / `while` / `with` / `try`, arithmetic and other non-call expressions (`b = a * 2`), `+=`, comprehensions, lambdas, statements after the `return`, `*args` / `**kwargs`, positional literals and builtins raise the new `PipelineSyntaxError` (a `ValueError`, exported from `interactive_pipe`) at build time, with the file, line, source line and a hint. Before, the body was flattened silently: branches always taken, loop bodies run once, arithmetic dropped (the pipeline returned `()`).
@@ -84,6 +85,11 @@ Improvements & bug fixes:
 - A `layout.style` call without `title=` no longer blanks the cell title in the GUI windows: the output name is shown.
 - `vmin`, `vmax`, `center` and `dpi` style values must be numbers (`TypeError`).
 - New demos: `demo/matplotlib_figure_demo.py`, `demo/overlay_demo.py`. New guide page: [Figures, heatmaps and overlays](https://balthazarneveu.github.io/interactive_pipe/guide/figures-and-overlays/).
+
+### Robust display and quieter errors
+- What numpy code actually returns is displayed the same way by every backend and by snapshots: `(H, W, 1)` as `(H, W)`, `(H, W, 4)` RGBA composited on a checkerboard, `bool` as 0 / 1, `uint8` / 255, `uint16` / 65535 (other integer types are taken as values, like floats). Before, Qt raised on `(H, W, 1)` and RGBA, Dear PyGui on `(H, W, 1)`, and integer images were clipped (white) by the GUI backends.
+- Channel-first `(3, H, W)` / `(1, H, W)` arrays, batches, empty, complex and object arrays raise one `DisplayError` (a `ValueError`) naming the output, the filter and the fix, in `snapshot` / `sweep`; a GUI window shows that message in the cell and keeps running. Before: a different crash per backend (`Expected 3-channel image, got 16 channels`, `Invalid shape (3, 12, 16) for image data`...) naming nothing.
+- `snapshot()` / `sweep()` warnings no longer flag `(H, W, 1)`, RGBA, `uint8` / `uint16` images, matplotlib figures or `Image` outputs, which now display correctly everywhere.
 
 ## 0.9.4 (November 2026)
 

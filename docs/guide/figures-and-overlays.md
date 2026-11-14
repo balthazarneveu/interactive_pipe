@@ -196,3 +196,29 @@ def load_reference(img):
 | `str` | text |
 | matplotlib `Figure` / `Axes` | the figure, as an image |
 | `Image` | its array, with its title |
+
+Arrays are converted once, in the same way for every backend and for snapshots:
+
+- `(H, W)` and `(H, W, 1)` are shown in **gray** (no colormap unless
+  `layout.style(name, colormap=...)` asks for one), `(H, W, 3)` as RGB;
+- floats are expected in `[0, 1]` (values outside are clipped); `uint8` is
+  divided by 255, `uint16` by 65535, `bool` shows `False` black and `True`
+  white; other integer types are taken as values, like floats (a `0` / `1`
+  mask is fine, 0-255 data in `int64` is clipped: scale it or use
+  `vmin` / `vmax`);
+- `(H, W, 4)` RGBA is composited on a gray checkerboard, so transparent pixels
+  are visible as such (opaque pixels are unchanged).
+
+Arrays whose layout cannot be guessed — channel-first `(3, H, W)` /
+`(1, H, W)`, batches `(N, H, W, 3)`, empty arrays, complex, object or string
+arrays, 2 or more than 4 channels — raise a `DisplayError` (a `ValueError`)
+naming the output, the filter returning it and the fix, for example:
+
+```text
+output 'out' (returned by filter 'load') cannot be displayed: channel-first array (3, 480, 640).
+Fix: move the channels last: np.moveaxis(img, 0, -1).
+```
+
+`snapshot` and `sweep` raise it; a GUI window shows it in the cell instead and
+keeps running, and the cell recovers as soon as the filter returns a
+displayable value.
