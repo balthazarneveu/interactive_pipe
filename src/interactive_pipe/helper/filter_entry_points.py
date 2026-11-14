@@ -16,8 +16,8 @@ amplify.interact(img)  # open the GUI on this filter alone
 ```
 
 Each call builds a throwaway one-filter pipeline around the decorated
-function. The registered ``Control`` objects (shared through
-``Control._registry`` with the real pipelines using the filter) are borrowed:
+function. The registered ``Control`` objects (attached to the function,
+shared with the real pipelines using the filter) are borrowed:
 their filter connection and value are restored afterwards, so the filter keeps
 working in its pipelines.
 """

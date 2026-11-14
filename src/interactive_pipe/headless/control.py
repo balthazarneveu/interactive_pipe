@@ -60,30 +60,71 @@ class Control:
     """
 
     counter = 0
-    _registry = {}  # Global registry to store controls for each function
+    _registry = {}  # controls of callables that cannot hold attributes (see register)
     # Process-wide by design: same-named string groups share one Panel across filters
     _panel_cache = {}
 
+    #: attribute of the (unwrapped) filter function holding its registered controls
+    CONTROLS_ATTRIBUTE = "__interactive_pipe_controls__"
+
     @staticmethod
     def registry_key(func: Callable) -> str:
-        # Keyed by module + qualname so same-named functions in different
-        # modules do not collide. functools.wraps preserves both, so the key
-        # is identical for a decorated function and its wrapper.
+        """Readable ``module.qualname`` of a filter function (used in messages and
+        as the fallback key for callables that cannot hold attributes)."""
         qualname = getattr(func, "__qualname__", None)
         if qualname is None:
             # functools.partial and other callable objects: no declaration of their own
             return f"{getattr(func, '__module__', type(func).__module__)}.<{type(func).__name__} at {id(func):#x}>"
         return f"{func.__module__}.{qualname}"
 
+    @staticmethod
+    def _declaration_owner(func: Callable) -> Any:
+        """The function object that owns the controls: the innermost function
+        behind ``functools.wraps`` wrappers (the decorated function and its
+        wrapper share one set of controls)."""
+        import inspect
+
+        try:
+            return inspect.unwrap(func)
+        except ValueError:  # pragma: no cover - wrapper loop
+            return func
+
     @classmethod
     def register(cls, func, param_name, control_instance):
-        cls._registry.setdefault(cls.registry_key(func), {})[param_name] = control_instance
+        """Register `control_instance` for `param_name` of `func`.
+
+        Controls live on the function object itself, so two functions with the
+        same ``module.qualname`` (two ``__main__`` scripts run in one
+        interpreter, filters made by a factory) never share controls, and the
+        controls go away with the function.
+        """
+        owner = cls._declaration_owner(func)
+        controls = owner.__dict__.get(cls.CONTROLS_ATTRIBUTE) if hasattr(owner, "__dict__") else None
+        if controls is None:
+            controls = {}
+            try:
+                setattr(owner, cls.CONTROLS_ATTRIBUTE, controls)
+            except (AttributeError, TypeError):  # no attributes (builtins): keyed by name
+                controls = cls._registry.setdefault(cls.registry_key(func), {})
+        controls[param_name] = control_instance
 
     @classmethod
     def get_controls(cls, func):
         if not isinstance(func, Callable):
             raise TypeError(f"get_controls expects the function object, got {type(func)}")
+        owner = cls._declaration_owner(func)
+        controls = owner.__dict__.get(cls.CONTROLS_ATTRIBUTE) if hasattr(owner, "__dict__") else None
+        if controls is not None:
+            return controls
         return cls._registry.get(cls.registry_key(func), {})
+
+    @classmethod
+    def clear_controls(cls, func) -> None:
+        """Forget the controls registered for `func` (re-decoration starts clean)."""
+        owner = cls._declaration_owner(func)
+        if hasattr(owner, "__dict__"):
+            owner.__dict__.pop(cls.CONTROLS_ATTRIBUTE, None)
+        cls._registry.pop(cls.registry_key(func), None)
 
     def __init__(
         self,
