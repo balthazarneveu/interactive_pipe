@@ -339,3 +339,25 @@ before 11:30). Environment checked: the shared interpreter imports
   snapshot already did). `title=""` still hides the title, now also in the
   snapshot (it used to show the name there).
 - Tests: `test/test_image_output.py` (window, snapshot, Qt, DPG, mpl, Gradio).
+
+### 6. Docs — done
+
+- New guide page `docs/guide/figures-and-overlays.md` (nav: Guide >
+  Displaying results > "Figures, heatmaps & overlays"): figures, heatmap
+  keys and NaN policy, the `draw` API and conventions, `Image` outputs, and
+  a "what a filter can return" table. Its four code blocks were extracted
+  and executed (polar figure, heatmap, `draw` filter via `detect.snapshot`,
+  `Image`); the heatmap image is produced by the page's own block.
+- Images (all from `snapshot`, looked at): `docs/images/figures_heatmap_colorbar.png`,
+  `figures_matplotlib_demo.png` and `figures_overlay_demo.png` (the two
+  demos run unmodified with `INTERACTIVE_PIPE_SNAPSHOT`).
+- Small additive edits: `docs/guide/layout.md` (style table rows), backend
+  matrix in `docs/getting-started/backends.md` (3 rows), quickstart `save`
+  sentence, `docs/guide/curves.md` pointer, `docs/guide/examples.md` demo
+  table, `mkdocs.yml` nav, `CHANGELOG.md` (own "Scientific outputs"
+  subsection at the end of Unreleased), `SKILL.md` (own section before the
+  snapshot loop), `CLAUDE.md` (short "Scientific outputs" section pointing
+  to `prepare_display` as the single place for new output types).
+- Not touched (owned by `feature/agent-packaging`): `docs/index.md`,
+  `readme.md` feature list, the skill's demo count.
+- Not run: the mkdocs build (mkdocs is not installed in the shared venv).

@@ -97,6 +97,7 @@ nav:
           - Audio: guide/audio.md
           - Tables: guide/tables.md
           - Curve plots: guide/curves.md
+          - Figures, heatmaps & overlays: guide/figures-and-overlays.md
       - Widgets:
           - Controls: guide/controls.md
           - Panels: guide/panels.md
