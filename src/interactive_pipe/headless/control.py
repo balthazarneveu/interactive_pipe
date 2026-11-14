@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from copy import copy, deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple, Union
 
 from interactive_pipe.core.filter import FilterCore
 
@@ -335,6 +335,56 @@ class Control:
         self.update_param_func = update_param_func
         self.parameter_name_to_connect = parameter_name
         self.filter_to_connect = filt
+
+
+class MappedChoiceControl(Control):
+    """Dropdown whose choices are string labels standing for arbitrary values.
+
+    Built from ``Enum`` and non-string ``Literal`` annotations: the widget
+    shows the labels (``Mode.DARK`` -> ``"DARK"``, ``Literal[3, 5]`` ->
+    ``"3"``, ``"5"``) and the ``@interactive`` wrapper hands the filter the
+    value itself (the enum member, the int). The control value stays the
+    label, so every backend, tuning file and ``describe()`` sees a plain
+    string dropdown. Setting the control accepts a label or a value.
+    """
+
+    def __init__(
+        self,
+        choices: dict,
+        value_default: Any = None,
+        name: Optional[str] = None,
+        group: Optional[Union[str, "Panel"]] = None,
+        tooltip: Optional[str] = None,
+    ) -> None:
+        if not choices:
+            raise ValueError("a dropdown needs at least one choice")
+        self._choice_values = dict(choices)
+        label = next(iter(self._choice_values)) if value_default is None else self.to_label(value_default)
+        super().__init__(label, list(self._choice_values), name=name, group=group, tooltip=tooltip)
+
+    def to_label(self, value):
+        """Label of a choice given as its value (or already as its label)."""
+        for label, choice in self._choice_values.items():
+            if choice is value:
+                return label
+        if type(value) is str and value in self._choice_values:
+            return value
+        for label, choice in self._choice_values.items():
+            if type(choice) is type(value) and choice == value:
+                return label
+        return value  # not a choice: the base validation names the choices
+
+    def to_value(self, value):
+        """Value handed to the filter for a label (anything else is passed through)."""
+        if type(value) is str and value in self._choice_values:
+            return self._choice_values[value]
+        return value
+
+    def check_value(self, value):
+        return super().check_value(self.to_label(value))
+
+    def _checked_default(self, value):
+        return super()._checked_default(self.to_label(value))
 
 
 class CircularControl(Control):
