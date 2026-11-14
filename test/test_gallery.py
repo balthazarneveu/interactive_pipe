@@ -57,18 +57,12 @@ def test_camera_isp_white_balance_maximises_psnr(isolated_controls):
     mosaic, demosaic, white_balance, gamma, compare = (
         ns[k] for k in ("mosaic", "demosaic", "white_balance", "gamma", "compare")
     )
-
-    @interactive_pipeline(gui=None)
-    def isp(gt):
-        out = gamma(white_balance(demosaic(mosaic(gt))))
-        error = compare(out, gt)
-        return error
-
     scene = ns["make_scene"]()
 
     def psnr(method="bilinear", red=1.8, blue=1.4):
-        (error,) = isp(scene, method=method, red=red, blue=blue)
-        return float(error.title.split()[2])  # "error, PSNR 29.72 dB"
+        # filters called directly, like plain functions (compare calls layout.style)
+        out = gamma(white_balance(demosaic(mosaic(scene), method=method), red=red, blue=blue))
+        return float(compare(out, scene).title.split()[2])  # "error, PSNR 29.72 dB"
 
     assert psnr() > psnr(red=1.0, blue=1.0) + 5  # the defaults undo the sensor colour cast
     assert psnr() > psnr(method="nearest")

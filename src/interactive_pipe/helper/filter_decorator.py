@@ -5,6 +5,7 @@ import logging
 import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+from interactive_pipe.core.context import direct_call_scope
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.headless.control import Control, MappedChoiceControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
@@ -219,8 +220,10 @@ def _annotated_filter_wrapper(func: Callable, controls: Dict[str, Control], use_
             if choice_control is not None:
                 bound_args.arguments[k] = choice_control.to_value(v)
 
-        # Call the original function with the processed arguments
-        return func(*bound_args.args, **bound_args.kwargs)
+        # Call the original function with the processed arguments; called
+        # directly (no pipeline running), layout / context / events still work
+        with direct_call_scope(getattr(func, "__name__", "filter")):
+            return func(*bound_args.args, **bound_args.kwargs)
 
     return inner
 
