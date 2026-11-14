@@ -71,7 +71,7 @@ interactive-pipe describe my_script.py      # controls and outputs, as text or -
 interactive-pipe doctor                     # installed backends, display, what gui="auto" picks
 ```
 
-The skill teaches the agent the decorators, what a pipeline body may contain, and to check its visual work by reading snapshots. `python -m interactive_pipe ...` works too.
+The skill teaches the agent the decorators, what a pipeline body may contain, and to check its visual work by reading snapshots. `python -m interactive_pipe ...` works too; see [Command line & coding agents](https://balthazarneveu.github.io/interactive_pipe/guide/command-line/).
 
 ## Backends
 
@@ -88,6 +88,7 @@ Plus a GPU-rendered [Dear PyGui](https://github.com/hoffstadt/DearPyGui) window 
 - 🤖 Agent-friendly docs: [llms.txt](https://balthazarneveu.github.io/interactive_pipe/llms.txt) / [llms-full.txt](https://balthazarneveu.github.io/interactive_pipe/llms-full.txt)
 - 🎓 [Interactive tutorial on Hugging Face](https://huggingface.co/spaces/balthou/interactive-pipe-tutorial)
 - 📸 [Snapshots & sweeps](https://balthazarneveu.github.io/interactive_pipe/guide/snapshots/) — render what the GUI shows to a PNG, headless (CI, SSH, coding agents)
+- 💻 [Command line & coding agents](https://balthazarneveu.github.io/interactive_pipe/guide/command-line/) — `interactive-pipe skill / doctor / snapshot / describe`
 - 🗒️ [Examples gallery](https://balthazarneveu.github.io/interactive_pipe/guide/examples/) — 17 demo scripts, Colab notebooks, a Raspberry Pi jukebox
 - 📋 [Changelog](https://github.com/balthazarneveu/interactive_pipe/blob/master/CHANGELOG.md)
 - 🤝 [Contributing](https://github.com/balthazarneveu/interactive_pipe/blob/master/CONTRIBUTING.md)
