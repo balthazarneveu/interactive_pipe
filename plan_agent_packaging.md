@@ -348,3 +348,66 @@ reproduced before any change.
     Irrelevant for one script per process (the CLI), but anything running
     several user scripts in one interpreter (notebooks re-running cells from
     different files?) would hit it.
+
+### 5. Docs — done (`ead18ad`, `5c95beb`)
+
+- `test/test_doc_code_blocks.py` runs every python block of `readme.md` and
+  `docs/getting-started/quickstart.md` (the skill's in its own test), headless.
+  New marker `<!-- code: file image_filters.py -->` for the quickstart's
+  two-file "keep your library clean" example (the block is written as a module
+  next to the later blocks). Fix needed in the quickstart: `app.py` now names
+  its `input_image`, which the following headless / `save` blocks (marked
+  `continue`) use. No block needed a `skip`. The helper itself is unit-tested
+  (markers, invalid markers, `raises`). `docs/guide/snapshots.md` is not in the
+  list: its block reads `demo/images/` and regenerates the page's own
+  `docs/images/` pictures.
+- `readme.md`: "Works without a display" (snapshot, sweep, CLI) and "Using it
+  with a coding agent" sections; a link to the new guide page in "Learn more".
+- `docs/index.md`: "Without a display, and with coding agents" section.
+- `docs/faq.md`: the in-place answer was **stale** ("there are no checks") — inputs
+  are read-only by default since the read-only-inputs work; rewritten with the
+  real error and `inplace=True` / `readonly_inputs=False`. New entries:
+  `PipelineSyntaxError`, unknown keyword arguments, `amplify.gain` renamed
+  controls, "nothing shows up" (doctor), coding agents.
+- New page `docs/guide/command-line.md` (nav: Guide → "Command line & agents"),
+  with real `doctor` / `snapshot` / `describe` outputs (the doctor one from the
+  Qt-less throwaway venv without a display). `docs/guide/examples.md`: demos run
+  headless.
+- **mkdocs**: throwaway venv in the scratch folder (network available) with the
+  `docs` extra; `mkdocs build --strict` against this worktree passes with no
+  warning (also before my pages were added). `llms.txt` lists the snapshots and
+  command-line pages; `llms-full.txt` contains them, the FAQ entries and the
+  changelog; the HTML-comment markers do not appear in either.
+- `CHANGELOG.md` "Unreleased": new "Command line and coding agents" subsection,
+  two bullets at the end of "Improvements & bug fixes" (demos, FAQ).
+
+### 6. CI — done (`44001de` + workflow commit)
+
+- Reproduced the CI environment locally: throwaway Python 3.9 venv with only
+  the `[pytest]` extra's dependencies (no Qt, dpg, ipywidgets, gradio, pandas),
+  no `DISPLAY`, no `MPLBACKEND` / `QT_QPA_PLATFORM`. **The base branch already
+  failed 4 tests there** (CI would be red): `test_headless_save` (expected a
+  `.csv` table, which needs pandas) and 3 in `test_snapshot_env` (expected a GUI
+  object under `INTERACTIVE_PIPE_SNAPSHOT`, which needs Qt / ipywidgets). My new
+  demo test added a 5th: `key_event_demo.py` calls
+  `demo.pipeline.bind_key_to_context(...)`, and without Qt `.pipeline` was the
+  bare `HeadlessPipeline`.
+- Fix (`helper/pipeline_decorator.py`, not owned by the other branches): when
+  the requested backend cannot be built under `INTERACTIVE_PIPE_SNAPSHOT`, a
+  windowless `InteractivePipeGUI` subclass stands in (`init_app` no-op, `run`
+  raises), so scripts configuring `.pipeline` and the 2D results behave the
+  same with or without the backend; `HeadlessPipeline` only if even that fails
+  (the existing fallback test now covers that path). The pandas test expects
+  `.pkl` without pandas. Result in the CI-like env: `753 passed, 47 skipped`.
+- `.github/workflows/pytest.yaml`:
+  - `MPLBACKEND=Agg` and `QT_QPA_PLATFORM=offscreen` for every job;
+  - the existing matrix job also runs `interactive-pipe --version / doctor /
+    skill --path` (console script of the editable install);
+  - new job `gui-backends` (Python 3.12, `.[full]`, apt `libegl1 libxkbcommon0
+    libfontconfig1` for Qt's offscreen platform, `pytest -rs`) so the 47 backend
+    smoke tests skipped in the matrix job run somewhere. Locally the full suite
+    with every backend and no display passes. **Not verified on GitHub** (no
+    push allowed): the apt package list is the usual one for offscreen Qt on
+    ubuntu-24.04 but may need adjusting on the first run.
+- No publishing step added. The docs workflow already runs
+  `mkdocs build --strict` with the `docs` extra (verified locally, item 5).
