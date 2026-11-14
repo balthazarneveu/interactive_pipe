@@ -47,9 +47,29 @@ All in [`demo/`](https://github.com/balthazarneveu/interactive_pipe/tree/master/
 | `table_demo.py` | `Table` outputs |
 | `matplotlib_figure_demo.py` | matplotlib `Figure` outputs and a heatmap with colorbar ([figures](figures-and-overlays.md)) |
 | `overlay_demo.py` | Detections drawn with [`interactive_pipe.draw`](figures-and-overlays.md#drawing-on-images-interactive_pipedraw) |
+| `pointer_demo.py` | Mouse input: a clicked point and a dragged region ([mouse input](mouse-input.md)) |
 | `jukebox_demo.py` | Raspberry Pi jukebox (audio + image buttons) |
 
-Every demo also runs without a display: `interactive-pipe snapshot demo/table_demo.py` writes what its window would show to a PNG (the test suite does this for every demo and sample, see [Snapshots](snapshots.md)).
+Every demo also runs without a display: `interactive-pipe snapshot demo/table_demo.py` writes what its window would show to a PNG, `interactive-pipe check demo/table_demo.py` reports its outputs and problems (the test suite snapshots every demo and sample, see [Snapshots](snapshots.md) and the [command line](command-line.md)).
+
+| `matplotlib_figure_demo.py` | `overlay_demo.py` | `pointer_demo.py` |
+|:--:|:--:|:--:|
+| ![figure](../images/figures_matplotlib_demo.png) | ![overlay](../images/figures_overlay_demo.png) | ![pointer](../images/pointer_demo.png) |
+
+## Scientific gallery
+
+Eight visual-debugging tools for engineering problems in [`demo/gallery/`](https://github.com/balthazarneveu/interactive_pipe/tree/master/demo/gallery), synthetic data only, each with its picture and source on the [scientific gallery](../gallery.md) page:
+
+| Script | Shows |
+|---|---|
+| `camera_isp.py` | Raw-to-RGB chain against the ground truth: error heatmap with a colorbar, PSNR in the title |
+| `frequency_filtering.py` | Band-pass mask on the log-spectrum (`RangeControl`), radial power profile figure |
+| `signal_filtering.py` | FIR vs IIR low-pass on a chirp, Bode plot |
+| `blob_detection.py` | Threshold detector: boxes drawn with `draw`, a table of detections, precision / recall |
+| `optimizer_trace.py` | Gradient descent, momentum, Nesterov and Adam on Rosenbrock: trajectory figure, loss curve |
+| `lens_calibration.py` | Radial distortion recovered by eye: corrected checkerboard and residual vectors |
+| `pid_control.py` | PID step response and Bode plot, one set of sliders shared by two filters |
+| `reaction_diffusion.py` | Gray-Scott simulation driven by a clock, kept reproducible for snapshots |
 
 ## Curated samples
 
