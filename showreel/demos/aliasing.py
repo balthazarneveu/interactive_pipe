@@ -24,8 +24,8 @@ def zone_plate():
 
 @interactive(factor=(4, [1, 8], "downsampling factor"))
 def downsampling_factor(factor=4):
-    layout.style("original", title=f"Original: outside the circle, rings are too fine for 1/{factor} sampling")
-    layout.style("naive", title=f"Naive: keep 1 pixel out of {factor}")
+    layout.style("original", title=f"Original (red: Nyquist limit at 1/{factor})")
+    layout.style("naive", title=f"Naive: keep 1 pixel of {factor}")
     return factor
 
 
@@ -33,7 +33,7 @@ def downsampling_factor(factor=4):
 def low_pass(img, factor, sigma=0.5):
     """Gaussian blur, applied in the Fourier domain. sigma is in output pixels: ~0.5 is the sweet spot,
     less lets aliasing through, more blurs away detail the small image could have kept."""
-    layout.style("anti_aliased", title=f"Gaussian blur (sigma = {sigma * factor:.1f} px), then keep 1 out of {factor}")
+    layout.style("anti_aliased", title=f"Blur (sigma {sigma * factor:.1f} px), keep 1 of {factor}")
     pad = img.shape[0] // 2  # mirror padding: the FFT would otherwise wrap the borders around
     padded = np.pad(img, pad, mode="reflect")
     fy, fx = np.fft.fftfreq(padded.shape[0])[:, None], np.fft.rfftfreq(padded.shape[1])[None, :]

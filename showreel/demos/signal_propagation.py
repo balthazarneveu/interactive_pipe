@@ -20,18 +20,20 @@ saturation for tanh), barely changing with depth; the curves show the scale.
 import numpy as np
 import torch
 
-from interactive_pipe import Curve, interactive, interactive_pipeline
+from interactive_pipe import Curve, Panel, interactive, interactive_pipeline, layout
 
 torch.set_num_threads(1)  # small matrices: threading overhead costs more than it brings
 WIDTH, BATCH, LOG_RANGE, HIST_RANGE, BINS = 128, 256, 12, 4.0, 61
 ACTIVATIONS = {"relu": torch.relu, "tanh": torch.tanh, "gelu": torch.nn.functional.gelu, "linear": lambda z: z}
+INIT, NETWORK = Panel("Initialization"), Panel("Network")
+Panel().add_elements([[INIT, NETWORK]])  # side by side: the controls take less height below the plots
 INITS = {"Xavier (gain 1)": torch.nn.init.xavier_normal_, "He (gain √2)": torch.nn.init.kaiming_normal_}
 
 
 @interactive(
-    init=("Xavier (gain 1)", list(INITS), "initialization"),
-    gain=(1.0, [0.5, 2.0], "gain multiplier"),
-    depth=(50, [5, 100], "depth"),
+    init=("Xavier (gain 1)", list(INITS), "initialization", INIT),
+    gain=(1.0, [0.5, 2.0], "gain multiplier", INIT),
+    depth=(50, [5, 100], "depth", NETWORK),
 )
 def initialize(init="Xavier (gain 1)", gain=1.0, depth=50):
     generator = torch.Generator().manual_seed(0)
@@ -40,8 +42,8 @@ def initialize(init="Xavier (gain 1)", gain=1.0, depth=50):
 
 
 @interactive(
-    activation=("relu", list(ACTIVATIONS), "activation"),
-    normalize=(False, "LayerNorm before each activation"),
+    activation=("relu", list(ACTIVATIONS), "activation", NETWORK),
+    normalize=(False, "LayerNorm before each activation", NETWORK),
 )
 def propagate(weights, activation="relu", normalize=False):  # returns detached tensors: cacheable
     x = torch.randn(BATCH, WIDTH, generator=torch.Generator().manual_seed(1))  # unit-variance inputs
@@ -67,11 +69,13 @@ def plot_std(activations, gradients):  # titles: geometric mean of the factor pe
     act = activations.flatten(1).std(1).numpy()
     grad = gradients.flatten(1).std(1).numpy()
     n = len(act) - 1
-    forward_title = f"Forward: activation std x{(act[-1] / act[0]) ** (1 / n):.3f} per layer"
-    backward_title = f"Backward: gradient std x{(grad[0] / grad[-1]) ** (1 / n):.3f} per layer, to the input"
+    layout.style("activation_std", title="forward pass: activations, input to output")
+    layout.style("gradient_std", title="backward pass: gradients, output to input")
     return (
-        log_std_plot(act, forward_title, "activation std", "input std (1)"),
-        log_std_plot(grad, backward_title, "gradient std", "output gradient std (1)"),
+        log_std_plot(act, f"std x{(act[-1] / act[0]) ** (1 / n):.3f} per layer", "activation std", "input std (1)"),
+        log_std_plot(
+            grad, f"std x{(grad[0] / grad[-1]) ** (1 / n):.3f} per layer", "gradient std", "output grad std (1)"
+        ),
     )
 
 
@@ -82,8 +86,11 @@ def histograms(activations):  # the shape of the activations at a few depths, th
         x = (activations[layer] / activations[layer].std().clamp_min(1e-30)).numpy()
         density, edges = np.histogram(x, BINS, (-HIST_RANGE, HIST_RANGE), density=True)
         curves.append([(edges[1:] + edges[:-1]) / 2, np.sqrt(density), style, f"layer {layer}"])
-    title, ylabel = "Activation histograms, std divided out", "sqrt(density): tails visible next to peaks"
-    return Curve(curves, xlabel="activation / std", ylabel=ylabel, title=title, ylim=(0, 3), grid=True)
+    layout.style("activation_shape", title="activation histograms: the shape, scale divided out")
+    # sqrt(density) keeps the tails visible next to the peaks
+    return Curve(
+        curves, xlabel="activation / std", ylabel="sqrt(density)", title="Shape at four depths", ylim=(0, 3), grid=True
+    )
 
 
 @interactive_pipeline(cache="graph")

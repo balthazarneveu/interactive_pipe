@@ -19,7 +19,6 @@ from interactive_pipe import Curve, KeyboardControl, context, interactive, inter
 TOKENS = "the cat sat on the mat the dog sat on the cat".split()
 VOCABULARY = sorted(set(TOKENS))
 N, D, CELL = len(TOKENS), 32, 32  # sequence length, embedding size, heatmap pixels per token
-TICKS = " ".join(f"{i}:{token}" for i, token in enumerate(TOKENS))
 
 
 def unit(v):  # norm sqrt(D) for every vector, so that x x^T / sqrt(D) = sqrt(D) cos(angle)
@@ -47,7 +46,9 @@ def embed(position_weight=0.25, kind="sinusoidal"):
     return unit((1 - position_weight) * content + position_weight * position), position
 
 
-@interactive(log_temperature=(-0.5, [-2.0, 2.0], "log10 softmax temperature"), causal=(False, "causal mask"))
+@interactive(
+    log_temperature=(-0.5, [-2.0, 2.0], "temperature, log10 scale (-1 = 0.1, 0 = 1)"), causal=(False, "causal mask")
+)
 def attention(x, log_temperature=-0.5, causal=False):
     temperature = 10.0**log_temperature
     layout.style("attention_map", title=f"Attention A[query, key], temperature {temperature:.2g}")
@@ -73,14 +74,14 @@ def show_query(weights, query=6):
     entropy, visible = -(row[row > 0] * np.log2(row[row > 0])).sum(), context["visible_keys"][query]
     bars_x = (np.arange(N)[:, None] + [-0.4, -0.4, 0.4, 0.4, np.nan]).ravel()  # one rectangle outline per key
     bars_y = (row[:, None] * [0, 1, 1, 0, np.nan]).ravel()
+    layout.style("attention_row", title=f"row {query} of A: attention weights of '{TOKENS[query]}'")
     return image, Curve(
         [
             [bars_x, bars_y, dict(style="-", linewidth=3, label=f"query {query} '{TOKENS[query]}'")],
             [[-0.5, N - 0.5], [1 / visible] * 2, "k--", f"uniform: 1/{visible}"],
         ],
-        title=f"Query {query}: entropy {entropy:.2f} bits (0 one-hot, {np.log2(visible):.2f} = uniform on {visible})",
-        xlabel=TICKS,
-        ylabel="attention weight",
+        title=f"entropy {entropy:.2f} bits (uniform: {np.log2(visible):.2f})",
+        xlabel=" ".join(TOKENS),  # key j is the j-th word; no ylabel: it would push this one off the plot
         xlim=(-0.5, N - 0.5),
         ylim=(0, 1.05),
         grid=True,
@@ -88,7 +89,7 @@ def show_query(weights, query=6):
 
 
 def position_similarity(position):
-    layout.style("similarity", title="Positional encodings: cosine similarity (-1 black, 1 yellow)")
+    layout.style("similarity", title="cos(position i, position j): -1 black, 1 yellow")
     return heatmap(position @ position.T / D, low=-1.0)
 
 
@@ -98,7 +99,7 @@ def attention_demo():
     weights = attention(x)
     attention_map, attention_row = show_query(weights)
     similarity = position_similarity(position)
-    return [[attention_map, similarity], [attention_row]]
+    return [attention_map, attention_row, similarity]
 
 
 if __name__ == "__main__":

@@ -52,6 +52,7 @@ def psnr(reference, img):
 
 
 def test_image(size=256):
+    layout.style("original", title="Original: smooth, edge, noise, chirp")
     y, x = np.mgrid[:size, :size] / size
     img = 0.3 + 0.4 * x  # smooth gradient: cheap to code
     img[np.hypot(x - 0.3, y - 0.35) < 0.2] = 0.9  # sharp edge: rings when high frequencies are dropped
@@ -80,19 +81,17 @@ def surviving_coefficients(levels):
     return from_blocks((levels != 0).astype(float))
 
 
-def rate_distortion(original, coefficients, levels, decoded):
+def rate_distortion_sweep(original, coefficients):  # depends on the image only: cached, computed once
+    sweep = [quantize(coefficients, quality) for quality in range(5, 100, 5)]
+    return [bits_per_pixel(lvl) for lvl, _ in sweep], [psnr(original, reconstruct(lvl, steps)) for lvl, steps in sweep]
+
+
+def rate_distortion(rates, psnrs, original, levels, decoded):
     rate, quality_db = bits_per_pixel(levels), psnr(original, decoded)
     layout.style("decoded", title=f"Decoded: {quality_db:.1f} dB, ~{rate:.2f} bit/pixel instead of 8")
-    sweep = [quantize(coefficients, quality) for quality in range(5, 100, 5)]
-    rates = [bits_per_pixel(lvl) for lvl, _ in sweep]
-    psnrs = [psnr(original, reconstruct(lvl, steps)) for lvl, steps in sweep]
-    return Curve(
-        [[rates, psnrs, "k.-"], [[rate], [quality_db], "ro"]],
-        title="Rate / distortion: quality 5 to 95, red = current",
-        xlabel="rate (bit/pixel)",
-        ylabel="PSNR (dB)",
-        grid=True,
-    )
+    layout.style("rate_vs_distortion", title="Rate vs PSNR, quality 5 to 95 (red: current)")
+    curves = [[rates, psnrs, "k.-"], [[rate], [quality_db], "ro"]]
+    return Curve(curves, xlabel="rate (bit/pixel)", ylabel="PSNR (dB)", grid=True)
 
 
 @interactive_pipeline(cache="graph")
@@ -103,7 +102,8 @@ def jpeg():
     decoded = reconstruct(levels, steps)
     error = amplify_error(original, decoded)
     survivors = surviving_coefficients(levels)
-    rate_vs_distortion = rate_distortion(original, coefficients, levels, decoded)
+    rates, psnrs = rate_distortion_sweep(original, coefficients)
+    rate_vs_distortion = rate_distortion(rates, psnrs, original, levels, decoded)
     return [[original, decoded, error], [survivors, rate_vs_distortion]]
 
 
