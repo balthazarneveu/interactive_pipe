@@ -320,6 +320,13 @@ def _extent(values: List[List[float]]) -> Optional[Tuple[float, float]]:
     return float(data.min()), float(data.max())
 
 
+_DPG_SCALES = {
+    "linear": dpg.mvPlotScale_Linear,
+    "log": dpg.mvPlotScale_Log10,
+    "symlog": dpg.mvPlotScale_SymLog,
+}
+
+
 def _ensure_plot(cell: Dict[str, Any], curve: Curve) -> Dict[str, Any]:
     plot_state = cell.get("plot")
     if plot_state is not None and _exists(cell.get("content")):
@@ -382,6 +389,12 @@ def update_curve_cell(cell: Dict[str, Any], curve: Curve) -> bool:
     dpg.configure_item(plot_state["x_axis"], label=curve.xlabel or "", no_gridlines=curve.grid is False)
     dpg.configure_item(plot_state["y_axis"], label=curve.ylabel or "", no_gridlines=curve.grid is False)
     dpg.configure_item(plot_state["plot"], label=curve.title or "", no_title=not curve.title)
+    for key, scale in (("x", curve.xscale), ("y", curve.yscale)):
+        dpg_scale = _DPG_SCALES[scale or "linear"]
+        if plot_state.get(f"{key}_scale") != dpg_scale:
+            dpg.configure_item(plot_state[f"{key}_axis"], scale=dpg_scale)
+            plot_state[f"{key}_scale"] = dpg_scale
+            plot_state.setdefault("fitted", {}).pop(key, None)  # refit in the new scale
     # Fit auto axes only when the plot is created or the data extent changes, so that
     # the user's zoom & pan survive refreshes of animated / live-updating curves.
     fitted: Dict[str, Any] = plot_state.setdefault("fitted", {})

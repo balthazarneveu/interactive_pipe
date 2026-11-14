@@ -1311,3 +1311,14 @@ def test_viewport_resizes_asked_from_a_callback_thread_run_on_the_main_thread(mo
     assert window._pending_viewport_size is None
     for cell in window.image_cells():
         assert dpg_image.image_box(cell) == (600, 600)
+
+
+def test_curve_scales_set_the_native_axis_scale():
+    cell = _plot_cell()
+    data = np.exp(-np.linspace(0.0, 5.0, 20))
+    dpg_image.update_curve_cell(cell, Curve([SingleCurve(y=data)], yscale="log", xscale="symlog"))
+    plot = cell["plot"]
+    assert dpg.get_item_configuration(plot["y_axis"])["scale"] == dpg.mvPlotScale_Log10
+    assert dpg.get_item_configuration(plot["x_axis"])["scale"] == dpg.mvPlotScale_SymLog
+    dpg_image.update_curve_cell(cell, Curve([SingleCurve(y=data)]))
+    assert dpg.get_item_configuration(plot["y_axis"])["scale"] == dpg.mvPlotScale_Linear
