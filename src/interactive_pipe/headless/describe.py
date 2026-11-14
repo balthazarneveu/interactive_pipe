@@ -157,7 +157,7 @@ def describe(pipeline: "HeadlessPipeline") -> Dict[str, Any]:
         ```
     """
     controls = list(getattr(pipeline, "controls", None) or [])
-    check_targets(pipeline)
+    check_targets(pipeline, strict=False)
     controls_by_filter: Dict[str, List[str]] = {}
     for ctrl in controls:
         for filt, _param_name in ctrl.targets:

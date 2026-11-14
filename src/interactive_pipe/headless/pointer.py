@@ -20,6 +20,7 @@ tuning files) it is just a parameter.
 
 from __future__ import annotations
 
+import logging
 import math
 from typing import TYPE_CHECKING, Any, List, Optional, Sequence, Tuple, Union
 
@@ -351,9 +352,13 @@ def pointer_controls(controls: Any) -> List[PointerControl]:
     return [ctrl for ctrl in controls or [] if isinstance(ctrl, PointerControl)]
 
 
-def check_targets(pipeline: Any) -> None:
+def check_targets(pipeline: Any, strict: bool = True) -> None:
     """Raise ``ValueError`` when a point / region control names (``on=``) an
-    output that the pipeline does not produce, listing the available names."""
+    output that the pipeline does not produce, listing the available names.
+
+    ``strict=False`` (a pipeline without a window: ``gui=None``, a small test
+    pipeline reusing the filter) logs a warning instead: there is no mouse
+    there, the control only keeps its value."""
     controls = pointer_controls(getattr(pipeline, "controls", None))
     if not controls:
         return
@@ -365,7 +370,10 @@ def check_targets(pipeline: Any) -> None:
     for ctrl in controls:
         if ctrl.on is not None and ctrl.on not in produced:
             where = f" of filter '{ctrl.filter_to_connect.name}'" if ctrl.filter_to_connect is not None else ""
-            raise ValueError(
+            message = (
                 f"{type(ctrl).__name__} '{ctrl.name}'{where}: on={ctrl.on!r} is not an output of pipeline "
                 f"'{getattr(pipeline, 'name', '?')}'. Available outputs: {list(dict.fromkeys(displayed))}"
             )
+            if strict:
+                raise ValueError(message)
+            logging.warning(f"{message} (no window here: the control keeps its value; a GUI would raise)")
