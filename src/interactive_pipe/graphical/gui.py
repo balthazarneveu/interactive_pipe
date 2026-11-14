@@ -9,10 +9,12 @@ from interactive_pipe.data_objects.data import Data
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.parameters import Parameters
 from interactive_pipe.graphical.actions import DEFAULT_ACTIONS, MENU_GROUPS, Action
+from interactive_pipe.graphical.pointer_input import controls_for_backend
 from interactive_pipe.graphical.window import format_timings_table
 from interactive_pipe.headless.control import TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
+from interactive_pipe.headless.pointer import check_targets
 
 
 class InteractivePipeGUI:
@@ -37,7 +39,13 @@ class InteractivePipeGUI:
     - Redefining `print_message` will allow a window popup for instance.
 
     Do not re-implement the init function!
+
+    ``pointer_gestures``: a backend setting it to True binds the mouse for
+    ``PointControl`` / ``RegionControl`` itself; otherwise (the default, so
+    for any new backend) they are shown as one slider per coordinate.
     """
+
+    pointer_gestures = False
 
     def __init__(
         self,
@@ -69,7 +77,9 @@ class InteractivePipeGUI:
         merged_controls += controls
         if hasattr(pipeline, "controls"):
             merged_controls += pipeline.controls
-        self.controls = merged_controls
+        check_targets(self.pipeline)  # an unknown on= output name fails here, before any window
+        # point / region controls: coordinate sliders unless the backend handles the mouse
+        self.controls = controls_for_backend(merged_controls, self.pointer_gestures)
         if self.pipeline.outputs:
             if not isinstance(self.pipeline.outputs[0], list):
                 self.pipeline.outputs = [self.pipeline.outputs]
