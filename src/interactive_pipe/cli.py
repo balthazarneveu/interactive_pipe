@@ -9,6 +9,15 @@ Lets a script pick its backend / window size without editing code::
     demo = interactive_pipeline(**gui_kwargs)(my_pipeline)  # gui="auto" unless --gui given
     demo(img)
 
+Any script whose pipeline keeps the default ``gui="auto"`` also accepts
+``-b/--backend`` (alias ``--gui``) without any code::
+
+    python my_script.py -b mpl
+    python my_script.py -b headless   # run once, no window
+
+The decorator only peeks at ``sys.argv`` for that option (see ``gui_from_argv``),
+it does not parse or consume the command line.
+
 Environment variables (read when ``interactive_pipeline`` decorates a function):
 
 - ``INTERACTIVE_PIPE_GUI``: one of auto/qt/dpg/mpl/nb/gradio/headless/none,
@@ -20,13 +29,15 @@ Environment variables (read when ``interactive_pipeline`` decorates a function):
   instead of opening a window, whatever the ``gui`` value (see
   ``snapshot_path_from_env``).
 
-Precedence: CLI helper values > explicit decorator arguments (other than "auto") > environment.
+Precedence: CLI helper values > explicit decorator arguments (other than "auto")
+> ``-b`` on the command line > environment.
 
 This module only depends on the standard library and has no side effects on import.
 """
 
 import argparse
 import os
+import sys
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -36,6 +47,8 @@ SIZE_ENV_VAR = "INTERACTIVE_PIPE_SIZE"
 GUI_CHOICES: Tuple[str, ...] = ("auto", "qt", "dpg", "mpl", "nb", "gradio", "headless")
 # Accepted by the environment variable on top of GUI_CHOICES (aliases of "headless")
 _HEADLESS_ALIASES = ("headless", "none")
+# Command-line flags selecting the backend, read by add_gui_arguments and gui_from_argv
+BACKEND_FLAGS: Tuple[str, ...] = ("-b", "--backend", "--gui")
 
 SizeType = Union[str, Tuple[int, int]]
 
@@ -94,6 +107,36 @@ def gui_from_env() -> Optional[str]:
     return raw
 
 
+def gui_from_argv(argv: Optional[Sequence[str]] = None) -> Optional[str]:
+    """Backend requested on the command line with ``-b``, ``--backend`` or ``--gui``, or None.
+
+    Accepts ``-b qt``, ``--backend qt`` and ``--backend=qt``. The command line
+    is only read, never consumed, and the last occurrence wins. A value that is
+    not a backend name is ignored, since the flag may then belong to the
+    script itself (e.g. ``-b 32`` for a batch size). "none" is normalized to
+    "headless".
+
+    Args:
+        argv: Arguments to inspect (defaults to ``sys.argv[1:]``).
+    """
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    found = None
+    for index, argument in enumerate(arguments):
+        flag, separator, value = argument.partition("=")
+        if flag not in BACKEND_FLAGS or (separator and flag == "-b"):
+            continue
+        if not separator:
+            if index + 1 >= len(arguments):
+                continue
+            value = arguments[index + 1]
+        value = value.strip().lower()
+        if value in _HEADLESS_ALIASES:
+            found = "headless"
+        elif value in GUI_CHOICES:
+            found = value
+    return found
+
+
 def size_from_env() -> Optional[SizeType]:
     """Window size requested by ``INTERACTIVE_PIPE_SIZE``, or None when unset/empty.
 
@@ -110,18 +153,21 @@ def size_from_env() -> Optional[SizeType]:
 
 
 def resolve_gui(gui: Any) -> Any:
-    """Apply the ``INTERACTIVE_PIPE_GUI`` override to a ``gui`` decorator argument.
+    """Apply the command-line and ``INTERACTIVE_PIPE_GUI`` overrides to a ``gui`` decorator argument.
 
     Only ``"auto"`` (or ``Backend.AUTO``) is overridden; explicit backends and
-    ``None`` (headless) are returned unchanged. ``"headless"`` from the
-    environment is returned as None.
+    ``None`` (headless) are returned unchanged. ``-b/--backend`` on the command
+    line (see ``gui_from_argv``) wins over the environment variable.
+    ``"headless"`` is returned as None.
     """
     if not (isinstance(gui, str) and gui == "auto"):
         return gui
-    env_gui = gui_from_env()
-    if env_gui is None:
+    requested = gui_from_argv()
+    if requested is None:
+        requested = gui_from_env()
+    if requested is None:
         return gui
-    return None if env_gui == "headless" else env_gui
+    return None if requested == "headless" else requested
 
 
 SNAPSHOT_ENV_VAR = "INTERACTIVE_PIPE_SNAPSHOT"
@@ -181,7 +227,7 @@ def get_snapshot_hook() -> Optional[SnapshotHook]:
 def add_gui_arguments(
     parser: argparse.ArgumentParser, *, defaults: Optional[Dict[str, Any]] = None
 ) -> argparse._ArgumentGroup:
-    """Add ``--gui``, ``--fullscreen``, ``--maximized``, ``--size WxH`` and ``--name`` to a parser.
+    """Add ``-b/--backend`` (alias ``--gui``), ``--fullscreen``, ``--maximized``, ``--size WxH`` and ``--name``.
 
     Args:
         parser: Parser to extend.
@@ -199,7 +245,8 @@ def add_gui_arguments(
         raise ValueError(f"unknown GUI argument defaults: {sorted(unknown)}")
     group = parser.add_argument_group("GUI", "interactive_pipe backend and window options")
     group.add_argument(
-        "--gui",
+        *BACKEND_FLAGS,
+        dest="gui",
         choices=GUI_CHOICES,
         default=defaults.get("gui"),
         help="GUI backend (default: auto, or $%s)" % GUI_ENV_VAR,
