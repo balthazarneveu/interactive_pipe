@@ -37,7 +37,7 @@ Not yours: the rest of `src/interactive_pipe/` (two sibling agents: control sema
 
 ## Status
 
-Done, 2026-11-14, 04:06 -> 04:45 CET, on `feature/cli-skill-round2` (nothing pushed, no PR, no merge, no version bump). Final suite: **1525 passed, 6 skipped** (baseline 1444 passed, 6 skipped); ruff format / check clean; `mkdocs build --strict` clean, also with nav / link / anchor validation raised to warnings (throwaway venv under `/Data/`, deleted).
+Done, 2026-11-14, 04:06 -> 04:40 CET, on `feature/cli-skill-round2` (nothing pushed, no PR, no merge, no version bump). Final suite: **1525 passed, 6 skipped** (baseline 1444 passed, 6 skipped); ruff format / check clean; `mkdocs build --strict` clean, also with nav / link / anchor validation raised to warnings (throwaway venv under `/Data/`, deleted).
 
 ### Commits
 
