@@ -1,3 +1,4 @@
+import importlib.util
 import logging
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
@@ -14,18 +15,15 @@ SIGNAL_BACKENDS = [SIGNAL_BACKEND_PICKLE, SIGNAL_BACKEND_PD, SIGNAL_BACKEND_MPL]
 
 signal_backends = [SIGNAL_BACKEND_PICKLE]  # automatically available
 
-try:
-    import matplotlib.pyplot as plt
-
+# Availability is checked without importing: matplotlib and pandas are imported
+# when a curve is plotted or exported, so ``import interactive_pipe`` stays light.
+if importlib.util.find_spec("matplotlib") is not None:
     signal_backends.append(SIGNAL_BACKEND_MPL)
-except ImportError:
+else:
     logging.info("matplotlib is not available")
-
-try:
-    import pandas as pd
-
+if importlib.util.find_spec("pandas") is not None:
     signal_backends.append(SIGNAL_BACKEND_PD)
-except ImportError:
+else:
     logging.info("pandas is not available: curves cannot be exported as .csv spreadsheets (pip install pandas)")
 
 
@@ -162,6 +160,8 @@ class SingleCurve(Data):
             raise ValueError(f"Unsupported file extension: {path.suffix}, expected .csv or .pkl")
         self.path = path
         if path.suffix == ".csv":
+            import pandas as pd
+
             df = pd.read_csv(self.path)
             data = {
                 "x": df["x"],
@@ -210,6 +210,8 @@ class SingleCurve(Data):
     def dataframe_from_data(data):  # -> pd.DataFrame
         if SIGNAL_BACKEND_PD not in signal_backends:
             raise RuntimeError("pandas backend is not available. Install pandas to use this feature.")
+        import pandas as pd
+
         df = pd.DataFrame.from_dict(dict(x=data["x"], y=data["y"]))
         return df
 
@@ -444,10 +446,13 @@ class Curve(Data):
 
     @staticmethod
     def save_figure_mpl(data, path: Path, figsize=None):
-        fig, ax = plt.subplots(figsize=figsize)
+        from matplotlib.figure import Figure
+
+        # object API: no pyplot state, no GUI backend involved in a file export
+        fig = Figure(figsize=figsize)
+        ax = fig.subplots()
         Curve._plot_curve(data, ax=ax)
-        plt.savefig(path)
-        plt.close(fig)
+        fig.savefig(path)
 
     def create_plot(self, ax=None):
         plt_obj = Curve._plot_curve(self.data, ax=ax)
@@ -561,6 +566,8 @@ class Curve(Data):
         return plt_obj
 
     def show(self, figsize=None):
+        import matplotlib.pyplot as plt
+
         fig, ax = plt.subplots(figsize=figsize)
         Curve._plot_curve(self.data, ax=ax)
         plt.show()
