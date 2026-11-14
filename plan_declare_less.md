@@ -239,3 +239,109 @@ Decisions:
 - Observed, not changed: registered controls are shared by every pipeline built
   from the same filter, so a value tuned in one pipeline is the starting value
   of the next one (pre-existing, same with decorator controls).
+
+### 2. Runtime mistakes inside filters and at outputs — done
+
+Commits `9b7bbe4` (filter results, context), `e484c80` (control declarations),
+`ef4bc7e` (output checker), `2a25644` (call-time values, partial, exec).
+Probes were run headless (`HeadlessPipeline`, every cache mode) and against
+the Qt and matplotlib backends offscreen (window refresh); dpg by reading
+`dpg_image.numpy_to_rgba`, gradio only by its `convert_image` (clip to
+[0, 1] then uint8), nb not checked.
+
+Seed list:
+- **Wrong unpacking.** `a, b = f(x)` with one value already raised, but
+  pointed at a framework line. `a = f(x)` with `f` returning two values, and
+  `a, b = f(x)` with three, **silently kept the first value(s)**. Now a
+  `FilterOutputError(ValueError)` (wrapped in `FilterError`) names the filter,
+  the pipeline, file, line and source of the call, and the fix
+  (`out0, out1 = f(x)`, or `return (values,)` to keep a tuple as one value).
+  Decision: the strict check applies to filters built from a pipeline body
+  (they carry `call_location`); `FilterCore` lists assembled by hand, the
+  `@interact` dry run and single-filter entry points keep the lenient
+  behaviour. All demos/samples still run (checked with
+  `INTERACTIVE_PIPE_SNAPSHOT` on every script of `demo/` and `samples/`).
+- **`None` returned.** Raised only when the function has no `return <value>`
+  at all (AST check, cached per code object) and the pipeline assigns its
+  result: an explicit/conditional `return None` stays allowed (can be an
+  intentionally empty cell), and unassigned calls `f(img)` are untouched.
+- **Context read before write.** `FilterError` gets a hint (detected from the
+  traceback going through `core/context.py`, which I did not edit since the
+  scientific-outputs branch owns it): key name, keys present now, "filters run
+  in the order of the pipeline body", `context.get(key, default)` /
+  `pipeline(..., context={...})`, and the later filters whose source mentions
+  the key. Works in every cache mode, for `context["k"]` and `context.k`.
+- **Shadowing / reassignment** (`img = f(img)`, `a = f(img); a = g(a)`) and
+  **rerun after an exception**: already correct in `False`, `True` and
+  `"graph"` modes; regression tests added, no change.
+- **Control declarations.** int default + float range (and reverse) gives a
+  float slider, as documented: kept. Fixed: step <= 0 and step larger than the
+  range were accepted (now `ValueError` in `Control`), `min >= max` gave
+  "value_default must be within", a 4-element range dropped values, and the
+  shorthand reported the ultra-short fallback's error ("max parameter should
+  be numerical too", "wrong abbreviation") instead of the real one. Every
+  decorator error is now prefixed `@interactive filter '<f>', parameter '<p>':`
+  and the typo error suggests the closest parameter. Also fixed:
+  re-decorating a function with the same qualname (notebook re-run) kept
+  controls removed from the declaration in the registry.
+- **Direct calls.** Positional value for a controlled parameter now wins
+  (raised "multiple values"); unknown keyword names the filter with a
+  suggestion (in item 1's commit).
+
+Found while probing (added to the list):
+- `pipeline(img, gain=np.float32(2.0))` (any numpy scalar) raised
+  `TypeError: Expected <class 'float'>`: numpy scalars are now plain values.
+- `gain=True` on a float slider was taken as 1.0: now `TypeError`.
+- Control type errors did not name the control: now
+  `control 'gain' expects float, got str '2'`.
+- `functools.partial(filter, gain=2.0)` used as a filter crashed with
+  `AttributeError: __qualname__` (registry key): now works (no widget, the
+  partial's values are used).
+- A pipeline defined with `exec` / `python -c` raised a bare `OSError: could
+  not get source code`: now `PipelineSyntaxError` with the reason and the fix
+  (small hunk in `core/graph.py`, not owned by any branch).
+- `parameters={"amp": {"gian": 2}}` failed at run time as a `FilterError`: now
+  validated at call time (item 3 commit).
+
+**Unsupported / surprising outputs.** Detection only (the scientific-outputs
+branch owns output support): new `headless/output_check.py`; `snapshot()` and
+`sweep()` log one warning per problematic output, with the fix and the list
+of displayable types. Behaviour per path (before -> what this branch does):
+
+| Output | headless | snapshot (renderer) | Qt | matplotlib | dpg / gradio (code reading) | this branch |
+|---|---|---|---|---|---|---|
+| dict, list, int, PIL, matplotlib Axes, torch | returned as is | grey "cannot be displayed" box | nothing drawn | nothing drawn | not drawn | snapshot/sweep warn "not a displayable type" + fix |
+| `uint8` / `uint16` image | ok | uint8 shown 0-255, uint16 white | clipped to [0,1] -> **white** | clipped -> white | clipped -> white | warn "misleading", fix `/ 255.0` |
+| float far outside [0, 1] | ok | clipped | clipped | clipped | clipped | warn when < -1 or > 2 (mild saturation stays quiet) |
+| NaN / inf | ok | black / white pixels | same (+ numpy cast warning) | same | same | warn, fix `np.nan_to_num` |
+| `(H, W, 1)` | ok | shown gray | **ValueError** "Expected 3-channel image" (no output named) | ok | dpg NotImplementedError, gradio not checked | warn, fix `img[..., 0]` |
+| `(H, W, 4)` | ok | ok | **ValueError** | ok | dpg ok, gradio not checked | warn (Qt), fix `img[..., :3]` |
+| `(3, H, W)`, `(1, H, W)` | ok | placeholder | **ValueError** | **TypeError** Invalid shape | NotImplementedError | warn, fix `np.moveaxis` |
+| `(H, W, 2)`, 4D batch | ok | placeholder | **ValueError / NotImplementedError** | **TypeError** | NotImplementedError | warn |
+| bool mask | ok | ok | ok | ok | ok | nothing to do |
+| empty array | ok | placeholder | nothing drawn | singular-limits warning | - | warn |
+| complex / object | ok | white / placeholder | not probed | not probed | not checked | warn |
+
+Not fixed (left to the scientific-outputs branch, which owns the backends):
+the Qt / matplotlib / dpg crashes above, which name neither the output nor the
+filter, and integer images clipped to white in the GUIs. A suggested fix is to
+call `output_check.output_problem(value)` in `window.py::refresh_display`
+before `convert_image` and show the message in the cell. After the merge,
+`SUPPORTED_OUTPUTS` / `output_problem` must learn the new output types that
+branch adds, or snapshot will warn about them.
+
+### 3. Small fixes left over from the merge — done
+
+- Sweep caption (`c3857d5`): the caption now excludes only the swept
+  `(filter, parameter)` pairs; sweeping a bare name still hides it everywhere.
+- Placeholder tests deleted (`6bc8419`).
+- One resolver (`eb39edd`): `explore.resolve_names` / `unknown_names_error`
+  are used by `pipeline(...)` (`HeadlessPipeline.parameters_from_keyword_args`,
+  hence the GUI `__call__` too), `snapshot`, `sweep` and the filter entry
+  points. Same spellings everywhere (parameter name, control name such as
+  `amplify.gain` / `Exposure` / `gain_1`, `"filter.param"`), same message
+  (`<caller> got unexpected keyword argument(s) 'gian'. Available parameters:
+  ... Did you mean 'gian' -> 'gain'? ...`). Decision: kept the pipeline
+  call's wording (quoted in SKILL.md's error table) rather than snapshot's
+  `unknown parameter`; two tests pinning the old snapshot/sweep wording were
+  updated. `parameters={...}` is validated at call time with the same style.
