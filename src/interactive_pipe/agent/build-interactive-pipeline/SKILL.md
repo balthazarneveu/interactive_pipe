@@ -62,7 +62,7 @@ Rejected: `if` / `for` / `while` / `with` / `try`, arithmetic and any non-call e
 
 Import them from `interactive_pipe` (also `KeyboardControl`, `TextPrompt`: see the controls guide); group widgets with `group="name"` or a nestable `Panel`. No log-scale slider: declare `log_lr=(-2.0, [-4.0, 0.0])` and use `10**log_lr`. The control default wins over the signature default; a keyword argument without a declaration gets no widget. A bare number in the decorator (`gain=1.0`) raises `ValueError`: a slider needs a range.
 
-Same parameter in several filters: both `amplify` and `blend` declaring `gain` show as **two** sliders, `amplify.gain` and `blend.gain`. `pipe(img, gain=2.0)` sets every filter's `gain`; target one with `"amplify.gain"` in `snapshot` / `sweep`, or `pipe(img, parameters={"amplify": {"gain": 2.0}})`. **One slider for several filters**: declare it in a filter that only returns it, `pid = gains()` with `return ((kp, ki, kd),)`, and pass `pid` to each filter that needs it.
+Same parameter in several filters: both `amplify` and `blend` declaring `gain` show as **two** sliders, `amplify.gain` and `blend.gain`. `pipe(img, gain=2.0)` sets every filter's `gain`; target one with `"amplify.gain"` in `snapshot` / `sweep`, or `pipe(img, parameters={"amplify": {"gain": 2.0}})`. **One slider for several filters**: declare it in a filter that only returns it, `pid = gains()` with `return ((kp, ki, kd),)`, and pass `pid` to each filter that needs it (also for mouse controls: `seed, roi = pick()`, with `on=` naming an output of a later filter).
 
 ## Controls from type hints
 
@@ -175,7 +175,7 @@ You cannot see the window, but you can read a PNG. **Never call a visual change 
 1. **Describe**: `print(pipe.summary())` (or `pipe.describe()`, a JSON-friendly dict): inputs, outputs, filters, every control with range and value.
 2. **Snapshot**: `pipe.snapshot("/tmp/out.png", img, gain=2.0)` renders what the window shows, parameter values in the caption. Overrides apply to this call only.
 3. **Read the PNG** with your image-reading tool: black or clipped images, wrong colours, curves off-range, wrong layout? Adjust, snapshot again.
-4. **Sweep**: `pipe.sweep("/tmp/sweep.png", img, gain=[0.5, 1, 2])` (one row; two lists make a grid; `steps={"gain": 5}` spans the slider range) to choose defaults and ranges.
+4. **Sweep**: `pipe.sweep("/tmp/sweep.png", img, gain=[0.5, 1, 2])` (one cell per value, laid out to fit; two lists make a grid; `steps={"gain": 5}` spans the slider range) to choose defaults and ranges.
 
 <!-- code: continue -->
 ```python
@@ -195,7 +195,7 @@ report.snapshot("/tmp/report.png", img)  # curve, table and titled image side by
 
 - Unknown names raise `TypeError` listing the available ones; a parameter named like an option (`title`, `output`, `dpi`...) goes through `params={...}`. `path=None` returns the image as an array.
 - Inputs can be omitted after the first call; `output="name"`, `["a", "b"]` or `"all"` picks what a snapshot or sweep cell shows (default: the last output). Sweeps take any value a control takes: tuples for a `RangeControl`, strings for a dropdown.
-- Unmodified scripts: `interactive-pipe snapshot script.py -o /tmp/shots/ --set t=4 --set mode=dark` writes one PNG per pipeline call (`<pipeline>.png`, `<pipeline>_2.png`...) instead of opening a window; `interactive-pipe sweep script.py --param gain=0.5,1,2 [--param mode=dark,light] --output out -o /tmp/sweep.png` makes a contact sheet; `interactive-pipe describe script.py` prints the controls. Values are typed by the control (`seed=0.2,0.4` for a point; swept ranges / points are `;`-separated); unknown names fail with the list. Without the CLI, `INTERACTIVE_PIPE_SNAPSHOT=/tmp/shots/ python script.py` writes `<pipeline>.png`.
+- Unmodified scripts: `interactive-pipe snapshot script.py -o /tmp/shots/ --set t=4 --set mode=dark` writes one PNG per pipeline call (`<pipeline>.png`, `<pipeline>_2.png`...) instead of opening a window; `interactive-pipe sweep script.py --param gain=0.5,1,2 [--param mode=dark,light] --output out -o /tmp/sweep.png` makes a contact sheet (`--output` takes a name, `a,b` or `all`); `interactive-pipe describe script.py` prints the controls. Values are typed by the control (`seed=0.2,0.4` for a point; swept ranges / points are `;`-separated); unknown names fail with the list. Without the CLI, `INTERACTIVE_PIPE_SNAPSHOT=/tmp/shots/ python script.py` writes `<pipeline>.png`.
 - Set `MPLBACKEND=Agg` and `QT_QPA_PLATFORM=offscreen` so nothing opens a display.
 
 ## Headless use, saving, tuning
