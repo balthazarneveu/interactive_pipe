@@ -59,16 +59,13 @@ def score(img, det, max_dist: Annotated[float, (1.0, 15.0), "Match radius (px)"]
     dist = np.linalg.norm(centers[:, None] - CENTERS[None], axis=-1)  # detections x ground truth
     tp = dist.min(axis=1, initial=np.inf) < max_dist
     found = dist.min(axis=0, initial=np.inf) < max_dist
-    overlay = draw.boxes(
-        img, det["box"], labels=range(len(tp)), color=["lime" if t else "red" for t in tp] or None
-    )  # [] raises
+    overlay = draw.boxes(img, det["box"], labels=range(len(tp)), color=["lime" if t else "red" for t in tp])
     overlay = draw.points(overlay, CENTERS[~found], color="yellow", radius=6, filled=False)
     title = f"precision {tp.mean() if len(tp) else 0:.2f}, recall {found.mean():.2f}"
     columns = dict(
         id=np.arange(len(tp)), x=det["box"][:, 0], y=det["box"][:, 1], area=det["area"], peak=det["peak"], match=tp
     )
-    table = Table({name: np.asarray(values).tolist() for name, values in columns.items()})  # lists, not arrays
-    return Image(overlay, title=title), table if len(tp) else "no detection"  # an empty Table cannot be drawn
+    return Image(overlay, title=title), Table(columns)
 
 
 @interactive_pipeline(gui="auto")
