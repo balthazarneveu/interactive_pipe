@@ -221,6 +221,12 @@ _EXPRESSION_ERRORS: Dict[type, Tuple[str, str]] = {
 }
 
 
+def _is_pipeline(obj: Any) -> bool:
+    """A decorated pipeline (``HeadlessPipeline`` or a GUI launcher): it has ``.headless``
+    and is no filter (filters never have it)."""
+    return not isinstance(obj, FilterCore) and type(getattr(obj, "headless", None)).__name__ == "HeadlessPipeline"
+
+
 def _parse_function_source(func: Callable) -> Tuple[ast.AST, int, List[str]]:
     """Parse the source of ``func`` (possibly defined in an indented scope).
 
@@ -228,6 +234,19 @@ def _parse_function_source(func: Callable) -> Tuple[ast.AST, int, List[str]]:
     absolute line number in the file, source lines).
     """
     name = getattr(func, "__name__", repr(func))
+    if _is_pipeline(func):
+        raise PipelineSyntaxError(
+            "this function is already a pipeline (@interactive_pipeline applied twice?)",
+            pipeline_name=getattr(func, "__name__", None),
+            hint="decorate the `def` function once",
+        )
+    if not (inspect.isfunction(func) or inspect.ismethod(func)) and not isinstance(func, type):
+        kind = type(func).__name__
+        raise PipelineSyntaxError(
+            f"a pipeline must be a `def` function, got a {kind}: its body is parsed, not executed",
+            pipeline_name=getattr(func, "__name__", None),
+            hint="pass the `def` function itself (not a functools.partial, a callable object or a builtin)",
+        )
     try:
         source_lines, first_lineno = inspect.getsourcelines(func)
     except (OSError, TypeError) as exc:
@@ -247,13 +266,12 @@ def _parse_function_source(func: Callable) -> Tuple[ast.AST, int, List[str]]:
         tree = ast.parse("if True:\n" + source)
         tree = ast.Module(body=tree.body[0].body, type_ignores=[])  # type: ignore[attr-defined]
         line_offset -= 1
-    if not tree.body:  # type: ignore[attr-defined]
-        raise ValueError("Function body is empty")
-    main_function = tree.body[0]  # type: ignore[attr-defined]
+    main_function = tree.body[0] if tree.body else None  # type: ignore[attr-defined]
     if not isinstance(main_function, (ast.FunctionDef, ast.AsyncFunctionDef)):
-        raise ValueError(
-            f"pipeline '{name}' must be a regular `def` function (a lambda or an expression cannot be "
-            "analyzed): write `def my_pipeline(img): out = my_filter(img); return out`"
+        raise PipelineSyntaxError(
+            "a pipeline must be a regular `def` function (a lambda or an expression cannot be analyzed)",
+            pipeline_name=name,
+            hint="write `def my_pipeline(img): out = my_filter(img); return out`",
         )
     return main_function, line_offset, source_lines
 
@@ -420,7 +438,8 @@ class _PipelineParser:
             raise self.error(
                 call,
                 f"name '{root}' is not defined in the scope of the pipeline function",
-                suggestion or "define or import the filter before the pipeline function",
+                (f"{suggestion} " if suggestion else "")
+                + "A filter must be defined or imported before the pipeline function is decorated",
             )
         dotted = root
         for attr in reversed(chain):
@@ -440,6 +459,19 @@ class _PipelineParser:
                 call,
                 f"'{dotted}' is not callable (it is a {type(obj).__name__})",
                 "only filter functions or Filter instances can be called in a pipeline function",
+            )
+        if obj is self.func or getattr(obj, "__wrapped__", None) is self.func:
+            raise self.error(
+                call,
+                f"the pipeline function calls itself ('{dotted}')",
+                "a pipeline cannot be recursive: call filters only",
+            )
+        if _is_pipeline(obj):
+            raise self.error(
+                call,
+                f"'{dotted}' is a pipeline, not a filter: pipelines cannot be nested",
+                f"call the filters of '{dotted}' directly in this pipeline function, "
+                "or move the shared steps into one filter",
             )
         return function_name, obj
 
