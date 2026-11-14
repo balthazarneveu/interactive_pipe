@@ -316,9 +316,7 @@ def run_snapshot(
         apply_overrides(pipeline, all_overrides, "snapshot")
         result = pipeline.run()
         grid = select_cells(result_grid(pipeline, result), output)
-        warn_output_problems(
-            ((cell.name, cell.content) for cell in flat_cells(grid)), "snapshot", _output_styles(pipeline)
-        )
+        warn_output_problems(((cell.name, cell.raw) for cell in flat_cells(grid)), "snapshot", _output_styles(pipeline))
         fig = render_grid(grid, figsize=figsize, dpi=dpi, title=title, caption=_caption(pipeline, caption))
     return _export(fig, path), result
 
@@ -516,7 +514,9 @@ def sweep(
             (``count`` evenly spaced values; every choice of a dropdown, both
             states of a checkbox).
         params: Overrides / axes as a dict (for names clashing with options).
-        figsize, dpi, title: As for ``snapshot``.
+        figsize: As for ``snapshot``.
+        dpi: As for ``snapshot``.
+        title: As for ``snapshot``.
         caption: True prints the fixed parameter values under the sheet.
         **overrides: Swept axes (lists) and fixed overrides (scalars).
 
@@ -558,8 +558,8 @@ def sweep(
     shown = {}  # output name -> first value with a display problem (one warning per output)
     for panel in panels_flat:
         for cell in flat_cells(panel):
-            if cell.name not in shown and output_problem(cell.content, styles.get(cell.name)) is not None:
-                shown[cell.name] = cell.content
+            if cell.name not in shown and output_problem(cell.raw, styles.get(cell.name)) is not None:
+                shown[cell.name] = cell.raw
     warn_output_problems(shown.items(), "sweep", styles)
     labels = [", ".join(f"{name}={format_value(val)}" for name, val in zip(names, combo)) for combo in combos]
     if len(names) == 1:

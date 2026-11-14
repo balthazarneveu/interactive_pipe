@@ -1033,6 +1033,7 @@ class MainWindow(InteractivePipeWindow):
     def show_error(self, error: FilterError):
         """Display a pipeline error in the window instead of raising."""
         self.last_error = error
+        self.report_error(error)  # on the console too, once
         for row, col in self.error_cell_positions(error):
             cell = self.image_canvas[row][col]  # type: ignore[index]
             if cell.get("kind") != "text":

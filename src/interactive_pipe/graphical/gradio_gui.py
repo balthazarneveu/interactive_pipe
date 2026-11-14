@@ -5,6 +5,7 @@ from typing import List, Optional
 import gradio as gr
 import numpy as np
 
+from interactive_pipe.core.engine import FilterError
 from interactive_pipe.data_objects.audio import audio_to_html
 from interactive_pipe.graphical.gradio_control import ControlFactory
 from interactive_pipe.graphical.gradio_layout import (
@@ -24,7 +25,7 @@ from interactive_pipe.graphical.gradio_outputs import (  # noqa: F401
     convert_output_value,
 )
 from interactive_pipe.graphical.gui import InteractivePipeGUI
-from interactive_pipe.graphical.window import InteractivePipeWindow
+from interactive_pipe.graphical.window import InteractivePipeWindow, format_error_message
 from interactive_pipe.headless.control import Control
 from interactive_pipe.headless.panel import Panel
 from interactive_pipe.headless.pipeline import HeadlessPipeline
@@ -205,7 +206,12 @@ class MainWindow(InteractivePipeWindow):
                 self.ctrl[ctrl_key].update(args[idx])
         if self.pipeline is None:
             raise RuntimeError("Pipeline is not set")
-        out = self.pipeline.run()  # type: ignore[reportOptionalMemberAccess]
+        try:
+            out = self.pipeline.run()  # type: ignore[reportOptionalMemberAccess]
+        except FilterError as error:
+            # shown once in the console and in the page (gr.Error); the app keeps running
+            self.report_error(error)
+            raise gr.Error(format_error_message(error)) from None
         if out is None:
             return []
         if isinstance(out, tuple):

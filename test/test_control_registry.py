@@ -242,3 +242,100 @@ def test_repeated_filter_keyboard_control_stays_on_first_instance():
     assert [filt.name for filt in pipeline.filters] == ["kb_filter", "kb_filter_1"]
     assert len(pipeline.controls) == 1
     assert pipeline.controls[0].filter_to_connect is pipeline.filters[0]
+
+
+# --- process state: two scripts in one interpreter, pipelines sharing a filter ---------------
+
+SCRIPT_A = """
+from interactive_pipe import interactive
+
+@interactive(hue_shift=(0.0, [-1.0, 1.0]))
+def process_image(img, hue_shift=0.0):
+    return img + hue_shift
+
+def pipe_a(img):
+    out = process_image(img)
+    return out
+"""
+
+SCRIPT_B = """
+from interactive_pipe import interactive
+
+@interactive(gain=(1.0, [0.0, 2.0]))
+def process_image(img, gain=1.0):
+    return img * gain
+
+def pipe_b(img):
+    out = process_image(img)
+    return out
+"""
+
+
+def test_two_main_scripts_with_same_named_filters_do_not_collide(tmp_path):
+    # both scripts define `__main__.process_image`: the registry used to be keyed
+    # by module + qualname, so the second definition replaced the first one's
+    # controls (`filter 'process_image' has no parameter 'hue_shift'`)
+    import runpy
+
+    (tmp_path / "a.py").write_text(SCRIPT_A)
+    (tmp_path / "b.py").write_text(SCRIPT_B)
+    a = runpy.run_path(str(tmp_path / "a.py"), run_name="__main__")
+    b = runpy.run_path(str(tmp_path / "b.py"), run_name="__main__")
+    pipe_a = HeadlessPipeline.from_function(a["pipe_a"])
+    pipe_b = HeadlessPipeline.from_function(b["pipe_b"])
+    assert [ctrl.name for ctrl in pipe_a.controls] == ["hue_shift"]
+    assert [ctrl.name for ctrl in pipe_b.controls] == ["gain"]
+    (result,) = pipe_a(np.zeros((2, 2)), hue_shift=0.5)
+    assert np.allclose(result, 0.5)
+    (result,) = pipe_b(np.ones((2, 2)), gain=2.0)
+    assert np.allclose(result, 2.0)
+
+
+def test_filters_made_by_a_factory_keep_their_own_controls():
+    def make(default):
+        @interactive(gain=(default, [0.0, 4.0]))
+        def scaled(img, gain=default):
+            return img * gain
+
+        return scaled
+
+    one, three = make(1.0), make(3.0)  # same module, same qualname
+    assert Control.get_controls(one)["gain"].value_default == 1.0
+    assert Control.get_controls(three)["gain"].value_default == 3.0
+    assert one(np.ones(1))[0] == 1.0 and three(np.ones(1))[0] == 3.0
+
+
+@interactive(level=(1.0, [0.0, 4.0]))
+def shared_level(img, level=1.0):
+    return img * level
+
+
+def shared_pipeline_one(img):
+    out = shared_level(img)
+    return out
+
+
+def shared_pipeline_two(img):
+    out = shared_level(img)
+    return out
+
+
+def test_pipelines_built_from_one_filter_share_its_control():
+    """Documents the current behaviour (see docs/guide/controls.md, "One control
+    per filter"): the registered control is shared by every pipeline using the
+    filter and by direct calls, so a value set in one pipeline is the starting
+    value of the others. Per-pipeline clones need the GUIs to build their panel
+    widgets from the pipeline's controls instead of the process-wide
+    Panel._controls lists (see plan_robust_display.md, Status)."""
+    first = HeadlessPipeline.from_function(shared_pipeline_one)
+    second = HeadlessPipeline.from_function(shared_pipeline_two)
+    try:
+        assert first.controls[0] is second.controls[0]
+        first.controls[0].update(2.0)
+        assert second.controls[0].value == 2.0
+        assert np.allclose(second(np.ones(1))[0], 2.0)
+        assert np.allclose(shared_level(np.ones(1)), 2.0)  # direct call too
+        # a pipeline built later starts from the value set in the first one
+        assert HeadlessPipeline.from_function(shared_pipeline_one).controls[0].value == 2.0
+    finally:
+        first.controls[0].reset()

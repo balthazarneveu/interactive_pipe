@@ -1,3 +1,4 @@
+import importlib.util
 import logging
 from pathlib import Path
 from typing import Optional
@@ -12,18 +13,15 @@ IMAGE_BACKEND_PILLOW = "pillow"
 IMAGE_BACKEND_OPENCV = "opencv"
 IMAGE_BACKENDS = [IMAGE_BACKEND_PILLOW, IMAGE_BACKEND_OPENCV]
 
-try:
-    import cv2
-
+# Availability is checked without importing (cv2 and Pillow are imported when
+# an image is saved or loaded): ``import interactive_pipe`` stays light.
+if importlib.util.find_spec("cv2") is not None:
     image_backends.append(IMAGE_BACKEND_OPENCV)
-except ImportError:
+else:
     logging.info("cv2 is not available")
-
-try:
-    from PIL import Image as PilImage
-
+if importlib.util.find_spec("PIL") is not None:
     image_backends.append(IMAGE_BACKEND_PILLOW)
-except ImportError:
+else:
     logging.info("PIL is not available")
 if len(image_backends) == 0:
     logging.info("No image backend available. Install opencv-python or Pillow to save/load images")
@@ -40,12 +38,6 @@ def _resolve_image_backend(backend):
     if backend not in image_backends:
         raise RuntimeError(f"image backend '{backend}' is not installed (available: {image_backends})")
     return backend
-
-
-try:
-    import matplotlib.pyplot as plt
-except ImportError:
-    logging.info("matplotlib is not available, won't be able to show images")
 
 
 class Image(Data):
@@ -130,6 +122,8 @@ class Image(Data):
     def save_image_cv2(data, path: Path, precision=8):
         if not isinstance(path, Path):
             raise TypeError(f"path must be a Path object, got {type(path)}")
+        import cv2
+
         out = Image.rescale_dynamic(data, precision=precision)
         out = out.astype(np.uint8 if precision == 8 else np.uint16)
         channels = Image._check_channels(out)
@@ -146,11 +140,15 @@ class Image(Data):
         out = Image.rescale_dynamic(data, precision=precision)
         out = out.astype(np.uint8)  # PIL requires image data in uint8 format
         channels = Image._check_channels(out)
+        from PIL import Image as PilImage
+
         out = PilImage.fromarray(out, "RGB" if channels == 3 else "RGBA")
         out.save(str(path))
 
     @staticmethod
     def load_image_cv2(path: Path, precision=8) -> np.ndarray:
+        import cv2
+
         img = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
         if img is None:
             raise ValueError(f"Could not load image from {path}")
@@ -164,6 +162,8 @@ class Image(Data):
 
     @staticmethod
     def load_image_PIL(path: Path, precision=8) -> np.ndarray:
+        from PIL import Image as PilImage
+
         img = PilImage.open(path)
         return Image.normalize_dynamic(np.array(img), precision=precision)
 
@@ -183,6 +183,8 @@ class Image(Data):
 
     def show(self) -> None:
         """Display the image in a matplotlib figure (title includes the shape)."""
+        import matplotlib.pyplot as plt
+
         plt.figure()
         plt.imshow(self.data)
         ttl = (f"{self.title} -" if self.title else "") + f"{self.data.shape}"

@@ -416,18 +416,135 @@ def _colorbar_strip(colormap: Any, vmin: float, vmax: float, height: int, unit: 
     return np.asarray(strip, dtype=np.float64) / 255.0
 
 
-def prepare_display(content: Any, style: Optional[dict] = None) -> Any:
+class DisplayError(ValueError):
+    """An output array that cannot be displayed without guessing its layout
+    (channel-first, batch, empty, object / complex dtype...). The message names
+    the output (and the filter returning it) and the fix. Raised by
+    ``prepare_display``: by ``snapshot`` / ``sweep``; a GUI window shows the
+    message in the cell instead and keeps running."""
+
+
+# Size of a checkerboard square behind transparent pixels, relative to the
+# largest side of the image (at least CHECKER_MIN_SQUARE pixels)
+CHECKER_FRACTION = 1.0 / 32.0
+CHECKER_MIN_SQUARE = 4
+CHECKER_LIGHT, CHECKER_DARK = 0.8, 0.6
+
+
+def _describe_output(name: Optional[str], filter_name: Optional[str]) -> str:
+    if name is None:
+        return "output"
+    if filter_name is None or filter_name == name:
+        return f"output '{name}'"
+    return f"output '{name}' (returned by filter '{filter_name}')"
+
+
+def array_display_problem(array: np.ndarray) -> Optional[Tuple[str, str]]:
+    """``(problem, fix)`` when `array` cannot be displayed without guessing,
+    None when ``prepare_display`` shows it. 1D arrays are signals (curves)."""
+    shape = tuple(array.shape)
+    if array.size == 0:
+        return f"empty array {shape}", "return a non-empty array, or None for an empty cell"
+    kind = array.dtype.kind
+    if kind == "c":
+        return f"complex array {shape}", "return a real array, e.g. np.abs(z) or np.angle(z)"
+    if kind not in "biuf":
+        return (
+            f"{array.dtype} array {shape} (not numbers)",
+            "return a numeric array (convert with img.astype(np.float32)), or a str for text",
+        )
+    if array.ndim == 0:
+        return "0D array (a scalar)", "display it as text: return f'{float(value):.3f}'"
+    if array.ndim > 3:
+        return f"{array.ndim}D array {shape}", "return one image (e.g. batch[0]) or one output per image"
+    if array.ndim == 3 and shape[-1] not in (1, 3, 4):
+        if shape[0] in (1, 3, 4):
+            fix = "move the channels last: np.moveaxis(img, 0, -1)"
+            if shape[0] == 1:
+                fix = "drop the channel axis: img[0]"
+            return f"channel-first array {shape}", fix
+        return f"{shape[-1]}-channel array {shape}", "return (H, W), (H, W, 3) RGB or (H, W, 4) RGBA"
+    return None
+
+
+def check_displayable(array: np.ndarray, name: Optional[str] = None, filter_name: Optional[str] = None) -> None:
+    """Raise ``DisplayError`` naming the output when `array` cannot be displayed."""
+    problem = array_display_problem(array)
+    if problem is not None:
+        what, fix = problem
+        raise DisplayError(f"{_describe_output(name, filter_name)} cannot be displayed: {what}. Fix: {fix}.")
+
+
+def checkerboard(height: int, width: int) -> np.ndarray:
+    """``(H, W)`` float gray checkerboard shown behind transparent pixels."""
+    square = max(CHECKER_MIN_SQUARE, int(round(max(height, width) * CHECKER_FRACTION)))
+    rows = (np.arange(height) // square)[:, None]
+    cols = (np.arange(width) // square)[None, :]
+    return np.where((rows + cols) % 2 == 0, CHECKER_LIGHT, CHECKER_DARK).astype(np.float32)
+
+
+def normalize_image(array: np.ndarray) -> np.ndarray:
+    """A displayable 2D / 3D array as the ``(H, W, 3)`` float RGB image every
+    backend draws (values outside [0, 1] are clipped later by the backends):
+
+    - ``(H, W)`` and ``(H, W, 1)`` -> gray RGB (no colormap: use
+      ``layout.style(name, colormap=...)`` for a false-colour heatmap);
+    - ``bool`` -> 0 / 1; ``uint8`` -> / 255; ``uint16`` -> / 65535; other
+      integer types are taken as values, like floats (``1`` is white);
+    - ``(H, W, 4)`` RGBA -> composited on a gray checkerboard (opaque pixels
+      unchanged).
+
+    Float RGB arrays are returned as is (no copy).
+    """
+    array = np.ma.getdata(array)
+    if array.dtype == np.uint8:
+        array = array.astype(np.float32) / np.float32(255.0)
+    elif array.dtype == np.uint16:
+        array = array.astype(np.float32) / np.float32(65535.0)
+    elif array.dtype.kind in "biu":
+        array = array.astype(np.float32)
+    if array.ndim == 3 and array.shape[-1] == 1:
+        array = array[..., 0]
+    if array.ndim == 2:
+        return np.repeat(array[..., None], 3, axis=-1)
+    if array.shape[-1] == 4:
+        alpha = np.clip(array[..., 3:4], 0.0, 1.0)
+        background = checkerboard(*array.shape[:2])[..., None]
+        return array[..., :3] * alpha + background * (1.0 - alpha)
+    return array
+
+
+def prepare_display(
+    content: Any, style: Optional[dict] = None, name: Optional[str] = None, filter_name: Optional[str] = None
+) -> Any:
     """What a backend should draw for one output, given its ``layout.style``.
 
     The single conversion point used by every backend and by the snapshot
-    renderer: contents the backends draw natively (arrays, ``Curve``,
-    ``Table``, ``str``) come out as such, with the style's display options
-    applied; an ``Image`` is shown as its array; a matplotlib ``Figure`` /
-    ``Axes`` becomes an RGB image (``rasterize_figure``). The pipeline result itself is never modified.
+    renderer: contents the backends draw natively (``Curve``, ``Table``,
+    ``str``, 1D signals) come out as such; an ``Image`` is shown as its array;
+    a matplotlib ``Figure`` / ``Axes`` becomes an RGB image
+    (``rasterize_figure``); a 2D / 3D array gets its heatmap style applied
+    (``apply_display_style``) and becomes an ``(H, W, 3)`` float RGB image
+    (``normalize_image``: gray, uint8 / uint16 / bool scaling, RGBA on a
+    checkerboard). An array whose layout cannot be guessed raises
+    ``DisplayError`` naming the output (`name`, `filter_name`) and the fix.
+    The pipeline result itself is never modified.
     """
     content = display_data(content)
     if isinstance(content, np.ndarray):
-        return apply_display_style(content, style)
+        check_displayable(content, name, filter_name)
+        if content.ndim == 1:
+            return content
+        styled = apply_display_style(content, style)
+        return normalize_image(styled)
     if figure_of(content) is not None:
         return rasterize_figure(content, (style or {}).get("dpi"))
     return content
+
+
+def producer_of(filters: Any, output_name: Any) -> Optional[str]:
+    """Name of the filter (in `filters`) returning the output `output_name`, None if unknown."""
+    for filt in filters or []:
+        if output_name in (getattr(filt, "outputs", None) or []):
+            return getattr(filt, "name", None)
+    return None

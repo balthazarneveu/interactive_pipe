@@ -134,6 +134,7 @@ class MatplotlibWindow(InteractivePipeWindow):
     def show_error(self, error: FilterError):
         """Draw a pipeline error in red in the failing filter's axes (or the first ones)."""
         self.last_error = error
+        self.report_error(error)  # on the console too, once
         for row, col in self.error_cell_positions(error):
             ax_dict = self.image_canvas[row][col]  # type: ignore[index]
             ax = ax_dict["ax"]

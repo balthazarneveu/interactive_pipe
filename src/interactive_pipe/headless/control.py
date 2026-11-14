@@ -13,6 +13,11 @@ if TYPE_CHECKING:
     from interactive_pipe.headless.panel import Panel
 
 
+def _control_label(name: Optional[str]) -> str:
+    """``"control 'gain': "`` when the control has a name yet, else ``""``."""
+    return f"control '{name}': " if isinstance(name, str) else ""
+
+
 class Control:
     """Binds a GUI widget to a filter keyword argument.
 
@@ -55,30 +60,71 @@ class Control:
     """
 
     counter = 0
-    _registry = {}  # Global registry to store controls for each function
+    _registry = {}  # controls of callables that cannot hold attributes (see register)
     # Process-wide by design: same-named string groups share one Panel across filters
     _panel_cache = {}
 
+    #: attribute of the (unwrapped) filter function holding its registered controls
+    CONTROLS_ATTRIBUTE = "__interactive_pipe_controls__"
+
     @staticmethod
     def registry_key(func: Callable) -> str:
-        # Keyed by module + qualname so same-named functions in different
-        # modules do not collide. functools.wraps preserves both, so the key
-        # is identical for a decorated function and its wrapper.
+        """Readable ``module.qualname`` of a filter function (used in messages and
+        as the fallback key for callables that cannot hold attributes)."""
         qualname = getattr(func, "__qualname__", None)
         if qualname is None:
             # functools.partial and other callable objects: no declaration of their own
             return f"{getattr(func, '__module__', type(func).__module__)}.<{type(func).__name__} at {id(func):#x}>"
         return f"{func.__module__}.{qualname}"
 
+    @staticmethod
+    def _declaration_owner(func: Callable) -> Any:
+        """The function object that owns the controls: the innermost function
+        behind ``functools.wraps`` wrappers (the decorated function and its
+        wrapper share one set of controls)."""
+        import inspect
+
+        try:
+            return inspect.unwrap(func)
+        except ValueError:  # pragma: no cover - wrapper loop
+            return func
+
     @classmethod
     def register(cls, func, param_name, control_instance):
-        cls._registry.setdefault(cls.registry_key(func), {})[param_name] = control_instance
+        """Register `control_instance` for `param_name` of `func`.
+
+        Controls live on the function object itself, so two functions with the
+        same ``module.qualname`` (two ``__main__`` scripts run in one
+        interpreter, filters made by a factory) never share controls, and the
+        controls go away with the function.
+        """
+        owner = cls._declaration_owner(func)
+        controls = owner.__dict__.get(cls.CONTROLS_ATTRIBUTE) if hasattr(owner, "__dict__") else None
+        if controls is None:
+            controls = {}
+            try:
+                setattr(owner, cls.CONTROLS_ATTRIBUTE, controls)
+            except (AttributeError, TypeError):  # no attributes (builtins): keyed by name
+                controls = cls._registry.setdefault(cls.registry_key(func), {})
+        controls[param_name] = control_instance
 
     @classmethod
     def get_controls(cls, func):
         if not isinstance(func, Callable):
             raise TypeError(f"get_controls expects the function object, got {type(func)}")
+        owner = cls._declaration_owner(func)
+        controls = owner.__dict__.get(cls.CONTROLS_ATTRIBUTE) if hasattr(owner, "__dict__") else None
+        if controls is not None:
+            return controls
         return cls._registry.get(cls.registry_key(func), {})
+
+    @classmethod
+    def clear_controls(cls, func) -> None:
+        """Forget the controls registered for `func` (re-decoration starts clean)."""
+        owner = cls._declaration_owner(func)
+        if hasattr(owner, "__dict__"):
+            owner.__dict__.pop(cls.CONTROLS_ATTRIBUTE, None)
+        cls._registry.pop(cls.registry_key(func), None)
 
     def __init__(
         self,
@@ -145,7 +191,11 @@ class Control:
                         f"(did you mean [{value_range[1]}, {value_range[0]}]?)"
                     )
                 if not (value_range[0] <= value_default <= value_range[1]):  # type: ignore
-                    raise ValueError(f"value_default {value_default} must be within value_range {value_range}")
+                    low, high = value_range  # type: ignore[misc]
+                    raise ValueError(
+                        f"{_control_label(name)}the default {value_default} is outside the range "
+                        f"{list(value_range)}: choose a default between {low} and {high}, or widen the range"
+                    )
                 self._validate_step(value_range)
         elif isinstance(value_default, str):
             # similar to an enum
@@ -161,12 +211,18 @@ class Control:
                     if not isinstance(choice, str):
                         raise TypeError(f"value_range elements must be strings, got {type(choice)}")
                 if value_default not in value_range:
-                    raise ValueError(f"{value_default} must be in {value_range}")
+                    raise ValueError(
+                        f"{_control_label(name)}the default {value_default!r} is not one of the choices "
+                        f"{list(value_range)}"
+                    )
                 self._type = str
                 if self.step is None:
                     self.step = 1
         else:
-            raise TypeError(f"Wrong value type: {type(value_default)}, expected int/float/bool/str")
+            raise TypeError(
+                f"{_control_label(name)}wrong default type {type(value_default).__name__} {value_default!r}, "
+                "expected int, float, bool or str"
+            )
         self.value_range = value_range
 
         # init current value
@@ -236,7 +292,7 @@ class Control:
             return clamped
         elif self._type is str and self.value_range is not None:
             if value not in self.value_range:
-                raise ValueError(f"{value} must be in {self.value_range}")
+                raise ValueError(f"control '{self.name}': {value!r} is not one of the choices {list(self.value_range)}")
             return value
         else:
             return value
@@ -517,7 +573,9 @@ class RangeControl(Control):
         if default[0] > default[1]:
             raise ValueError(f"value_default {value_default} must satisfy lo <= hi")
         if not (bounds[0] <= default[0] and default[1] <= bounds[1]):
-            raise ValueError(f"value_default {value_default} must be within value_range {value_range}")
+            raise ValueError(
+                f"{_control_label(name)}the default {value_default} is outside the range {list(value_range)}"
+            )
         is_int = all(isinstance(v, int) for v in (*default, *bounds))
         elem_type = int if is_int else float
         super().__init__(
@@ -552,11 +610,13 @@ class RangeControl(Control):
 
     def _coerce_element(self, element):
         if isinstance(element, bool):
-            raise TypeError(f"Range bounds must be numbers, got {type(element)}")
+            raise TypeError(f"control '{self.name}': range bounds must be numbers, got {type(element).__name__}")
         try:
             number = float(element)  # also accepts numpy scalars from widgets
         except (TypeError, ValueError):
-            raise TypeError(f"Range bounds must be numbers, got {type(element)}") from None
+            raise TypeError(
+                f"control '{self.name}': range bounds must be numbers, got {type(element).__name__}"
+            ) from None
         return int(round(number)) if self._type is int else number
 
     def check_value(self, value):
@@ -572,17 +632,19 @@ class RangeControl(Control):
         if isinstance(value, str):
             parts = value.strip().strip("()[]").split(",")
             if len(parts) != 2:
-                raise ValueError(f"Cannot parse {value!r} as 'lo, hi'")
+                raise ValueError(f"control '{self.name}': cannot parse {value!r} as 'lo, hi'")
             try:
                 value = [float(part) for part in parts]
             except ValueError:
-                raise ValueError(f"Cannot parse {value!r} as 'lo, hi'") from None
+                raise ValueError(f"control '{self.name}': cannot parse {value!r} as 'lo, hi'") from None
         try:
             elements = list(value)
         except TypeError:
-            raise TypeError(f"RangeControl value must be a (lo, hi) pair, got {type(value)}") from None
+            raise TypeError(
+                f"control '{self.name}' expects a (lo, hi) pair, got {type(value).__name__} {value!r}"
+            ) from None
         if len(elements) != 2:
-            raise ValueError(f"RangeControl value must have exactly 2 elements, got {len(elements)}")
+            raise ValueError(f"control '{self.name}' expects a (lo, hi) pair, got {len(elements)} elements")
         lo, hi = sorted(self._coerce_element(element) for element in elements)
         value_min, value_max = self.value_range  # type: ignore[misc]
         clamped = (max(value_min, min(lo, value_max)), max(value_min, min(hi, value_max)))

@@ -1,14 +1,21 @@
 import logging
+import sys
+import textwrap
 from typing import Any, List, Optional, Tuple
 
 # display_kind / apply_display_style / HEATMAP_STYLE_KEYS are re-exported for compatibility
 from interactive_pipe.graphical.display import (  # noqa: F401
     HEATMAP_STYLE_KEYS,
+    DisplayError,
     apply_display_style,
     content_title,
     display_kind,
     prepare_display,
+    producer_of,
 )
+
+# characters per line of a display error shown in a cell (the mpl backend does not wrap text)
+DISPLAY_ERROR_WIDTH = 36
 
 
 def content_titles(grid: Any) -> dict:
@@ -181,6 +188,22 @@ class InteractivePipeWindow:
                 matching.append((row, col))
         return matching or positions[:1]
 
+    def report_error(self, error) -> None:
+        """Print a filter error shown in the window on the console, once.
+
+        Nothing catches an error in a GUI event loop and the engine only
+        raises, so the window prints it; the same error repeated on the next
+        slider moves is not printed again until a run succeeds.
+        """
+        message = str(error)
+        if self.__dict__.get("_reported_error") == message:
+            return
+        self._reported_error = message
+        if hasattr(error, "print_compact"):
+            error.print_compact()
+        else:
+            print(message, file=sys.stderr)
+
     def _styled(self, content: Any, row: int, col: int) -> Any:
         """Content as the backends should draw it, with its ``layout.style``
         display options applied (see ``graphical.display.prepare_display``)."""
@@ -188,13 +211,32 @@ class InteractivePipeWindow:
             style = self.get_current_style(row, col)
         except (IndexError, KeyError, TypeError, RuntimeError):
             style = None
-        return prepare_display(content, style)
+        name = filter_name = None
+        try:
+            name = self.pipeline.outputs[row][col]  # type: ignore[union-attr, index]
+            filter_name = producer_of(getattr(self.pipeline, "filters", None), name)
+        except (AttributeError, IndexError, KeyError, TypeError):
+            pass
+        errors = self.__dict__.setdefault("_display_errors", {})
+        try:
+            shown = prepare_display(content, style, name, filter_name)
+        except DisplayError as error:
+            # shown in the cell as text (every backend draws text): the window keeps running;
+            # logged once, not on every slider move
+            message = str(error)
+            if errors.get((row, col)) != message:
+                logging.error(message)
+            errors[(row, col)] = message
+            return textwrap.fill(message, DISPLAY_ERROR_WIDTH, break_long_words=False)
+        errors.pop((row, col), None)
+        return shown
 
     def convert_image(self, img):
         """Convert image to backend-specific format. Must be implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement convert_image")
 
     def refresh_display(self, _out) -> None:
+        self._reported_error = None  # a run succeeded: the next error is printed again
         if _out is None:
             logging.warning("No output to display")
             return

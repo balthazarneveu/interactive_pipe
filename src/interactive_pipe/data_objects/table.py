@@ -1,18 +1,23 @@
+import importlib.util
+import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import numpy as np
 
 from interactive_pipe.data_objects.data import Data
 
-# Optional pandas support
-PANDAS_AVAILABLE = False
-try:
+# Optional pandas support, imported on use (``import interactive_pipe`` stays light)
+PANDAS_AVAILABLE = importlib.util.find_spec("pandas") is not None
+
+if TYPE_CHECKING:
     import pandas as pd
 
-    PANDAS_AVAILABLE = True
-except ImportError:
-    pass
+
+def _is_dataframe(data: Any) -> bool:
+    """True for a pandas DataFrame (pandas is necessarily imported then)."""
+    pandas = sys.modules.get("pandas")
+    return pandas is not None and isinstance(data, pandas.DataFrame)
 
 
 def _require_pandas(feature_name: str):
@@ -51,9 +56,9 @@ class Table(Data):
             # Handled by parent class
             super().__init__(data, columns=columns, title=title, precision=precision)
             return
-        elif PANDAS_AVAILABLE and isinstance(data, pd.DataFrame):
+        elif _is_dataframe(data):
             # Handle pandas DataFrame input
-            data_dict = self._normalize_dataframe(data)
+            data_dict = self._normalize_dataframe(data)  # type: ignore[arg-type]  # a DataFrame (checked by _is_dataframe)
         else:
             data_dict = self._normalize_data(data, columns)
 
@@ -221,6 +226,8 @@ class Table(Data):
             RuntimeError: If pandas is not installed
         """
         _require_pandas("as_dataframe()")
+        import pandas as pd
+
         return pd.DataFrame(self.values, columns=self.columns)  # type: ignore
 
     def _save(self, path: Path, **kwargs):
@@ -240,6 +247,8 @@ class Table(Data):
             return data
         elif path.suffix == ".csv":
             _require_pandas("CSV import")
+            import pandas as pd
+
             df = pd.read_csv(path)
             data = {
                 "columns": list(df.columns),

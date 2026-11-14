@@ -19,15 +19,16 @@ turns results into pictures:
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
-from matplotlib.backends.backend_agg import FigureCanvasAgg
-from matplotlib.figure import Figure
+
+if TYPE_CHECKING:  # matplotlib is imported when something is rendered
+    from matplotlib.figure import Figure
 
 from interactive_pipe.data_objects.curves import Curve
 from interactive_pipe.data_objects.table import Table
-from interactive_pipe.graphical.display import content_title, display_kind, prepare_display
+from interactive_pipe.graphical.display import content_title, display_kind, prepare_display, producer_of
 
 # Natural cell sizes in inches (before the whole figure is scaled to fit MAX_WIDTH)
 CELL_HEIGHT = 3.2
@@ -53,6 +54,7 @@ class SnapshotCell:
     name: Any
     content: Any
     title: Optional[str]
+    raw: Any = None  # the output as the filter returned it (``content`` is converted for display)
 
 
 Grid = List[List[Optional[SnapshotCell]]]
@@ -110,8 +112,12 @@ def result_grid(pipeline: Any, result: Any) -> Grid:
                 continue
             label = name if name is not None else f"output {row_idx}, {col_idx}"
             # same display conversion as the GUI backends (heatmap colormap, ...)
-            shown = prepare_display(content, styles.get(label))
-            cells.append(SnapshotCell(name=label, content=shown, title=output_title(styles, label, content)))
+            shown = prepare_display(
+                content, styles.get(label), label, producer_of(getattr(pipeline, "filters", None), name)
+            )
+            cells.append(
+                SnapshotCell(name=label, content=shown, title=output_title(styles, label, content), raw=content)
+            )
         grid.append(cells)
     return grid
 
@@ -431,14 +437,17 @@ def draw_grid(container: Any, grid: Grid, scale: float, dpi: float) -> None:
             draw_cell(ax, cell, widths[col_idx] * scale, dpi, heights[row_idx] * scale)
 
 
-def _new_figure(width: float, height: float, dpi: float) -> Figure:
+def _new_figure(width: float, height: float, dpi: float) -> "Figure":
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
+
     fig = Figure(figsize=(width, height), dpi=dpi, layout="constrained")
     FigureCanvasAgg(fig)
     fig.get_layout_engine().set(w_pad=0.06, h_pad=0.06, wspace=0.03, hspace=0.03)  # type: ignore[union-attr]
     return fig
 
 
-def _decorate(fig: Figure, width: float, title: Optional[str], caption: Optional[str]) -> None:
+def _decorate(fig: "Figure", width: float, title: Optional[str], caption: Optional[str]) -> None:
     if title:
         fig.suptitle(_wrap(title, width, 13), fontsize=13, fontweight="bold")
     if caption:
@@ -461,7 +470,7 @@ def render_grid(
     dpi: Optional[float] = None,
     title: Optional[str] = None,
     caption: Optional[str] = None,
-) -> Figure:
+) -> "Figure":
     """Draw a grid of outputs in a new Figure (sized from the content when
     `figsize` is None)."""
     widths, heights = grid_size(grid)
@@ -490,7 +499,7 @@ def render_sweep(
     dpi: Optional[float] = None,
     title: Optional[str] = None,
     caption: Optional[str] = None,
-) -> Figure:
+) -> "Figure":
     """Draw a grid of panels (each one a grid of outputs) in a new Figure.
 
     Labels: `column_labels` above the first row, `row_labels` left of the first
@@ -556,14 +565,16 @@ def render_sweep(
 # ---------------------------------------------------------------------------
 
 
-def figure_to_rgb(fig: Figure) -> np.ndarray:
+def figure_to_rgb(fig: "Figure") -> np.ndarray:
     """Rendered figure as an (H, W, 3) uint8 array."""
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+
     canvas = fig.canvas if isinstance(fig.canvas, FigureCanvasAgg) else FigureCanvasAgg(fig)
     canvas.draw()
     return np.asarray(canvas.buffer_rgba())[..., :3].copy()
 
 
-def save_figure(fig: Figure, path: Union[str, Path]) -> Path:
+def save_figure(fig: "Figure", path: Union[str, Path]) -> Path:
     """Write the figure to `path` (PNG unless the suffix says otherwise),
     creating the parent directories."""
     path = Path(path)
