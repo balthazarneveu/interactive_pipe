@@ -26,10 +26,10 @@ from interactive_pipe import Curve, TimeControl, export_animation, interactive, 
 
 MODES, RADIUS, WIDTH, POINTS = 8, 1.5, 0.1, 3000
 MU = RADIUS * np.stack([np.cos(2 * np.pi * np.arange(MODES) / MODES), np.sin(2 * np.pi * np.arange(MODES) / MODES)], 1)
-BINS, EXTENT, ZOOM = 96, 2.4, 4  # splatting grid over [-EXTENT, EXTENT]^2, displayed ZOOM times larger
+# splatting grid over [-EXTENT, EXTENT]^2, displayed ZOOM times larger; a PERIOD-second loop at FPS
+BINS, EXTENT, ZOOM, PERIOD, FPS = 96, 2.4, 4, 8.0, 10
 X, Y = np.meshgrid(*[(np.arange(BINS) + 0.5) / BINS * 2 * EXTENT - EXTENT] * 2)
 RINGS = np.abs(np.hypot(X[..., None] - MU[:, 0], -Y[..., None] - MU[:, 1]) - 3 * WIDTH).min(-1) < 0.03
-PERIOD, FPS = 8.0, 10
 GIF = next((arg for arg in sys.argv[1:] if arg.endswith(".gif")), None)
 
 
@@ -50,23 +50,17 @@ def denoise(x, alpha, sigma):
     return m + alpha * WIDTH**2 / v * (x - alpha * m)
 
 
-def nearest_mode_distance(x):
-    return np.linalg.norm(x[:, None] - MU, axis=-1).min(1).mean()
-
-
 def dataset():
     rng = np.random.default_rng(0)
-    data = MU[rng.integers(MODES, size=POINTS)] + WIDTH * rng.standard_normal((POINTS, 2))
-    return data, rng.standard_normal((POINTS, 2))
+    return MU[rng.integers(MODES, size=POINTS)] + WIDTH * rng.normal(size=(POINTS, 2)), rng.normal(size=(POINTS, 2))
 
 
-@interactive(schedule=("linear", ["linear", "cosine"], "noise schedule"))
-def noise_schedule(schedule="linear"):
-    return schedule
-
-
-@interactive(steps=(10, [1, 200], "sampling steps"), sampler=("DDIM", ["DDIM", "ancestral"], "sampler"))
-def reverse_process(schedule, steps=10, sampler="DDIM"):
+@interactive(
+    steps=(10, [1, 200], "sampling steps"),
+    schedule=("linear", ["linear", "cosine"], "noise schedule"),
+    sampler=("DDIM", ["DDIM", "ancestral"], "sampler"),
+)
+def reverse_process(steps=10, schedule="linear", sampler="DDIM"):  # also passes the schedule on to the views
     rng = np.random.default_rng(1)
     x, times = rng.standard_normal((POINTS, 2)), np.linspace(1, 0, steps + 1)
     trajectory = [x]
@@ -78,20 +72,22 @@ def reverse_process(schedule, steps=10, sampler="DDIM"):
         fresh = sigma_s * np.sqrt(1 - (alpha_t * sigma_s / (alpha_s * sigma_t)) ** 2) if sampler != "DDIM" else 0
         x = alpha_s * x0 + np.sqrt(sigma_s**2 - fresh**2) * eps + fresh * rng.standard_normal(x.shape)
         trajectory.append(x)
-    return np.array(trajectory)
+    return schedule, np.array(trajectory)
 
 
 @interactive(time=TimeControl(name="time", update_interval_ms=int(1000 / FPS)))
 def clock(time=0.0):
     """One loop: show data and samples, run the sampler from pure noise, then noise the data."""
     phase = (time % PERIOD) / PERIOD
-    reverse_t = 0.0 if phase < 0.1 else 1 - min((phase - 0.1) / 0.35, 1)
-    return min(max((phase - 0.55) / 0.35, 0), 1), reverse_t
+    # forward t: 0 -> 1 over [0.55, 0.9] of the loop; reverse t: 1 -> 0 over [0.1, 0.45], 0 (final samples) before
+    return min(max((phase - 0.55) / 0.35, 0), 1), 0.0 if phase < 0.1 else 1 - min((phase - 0.1) / 0.35, 1)
 
 
-def splat(points, colour):
-    counts = np.histogram2d(-points[:, 1], points[:, 0], BINS, [[-EXTENT, EXTENT]] * 2)[0]
-    img = 1 - (1 - np.exp(-counts / 1.5))[..., None] * (1 - np.array(colour))
+def splat(*layers):  # (points, colour) pairs, painted in order
+    img = np.ones((BINS, BINS, 3))
+    for points, colour in layers:
+        counts = np.histogram2d(-points[:, 1], points[:, 0], BINS, [[-EXTENT, EXTENT]] * 2)[0]
+        img += (1 - np.exp(-counts / 1.5))[..., None] * (np.array(colour) - img)  # blend by point density
     img[RINGS] = (0.85, 0.1, 0.1)  # red circles of radius 3 s around the true mode centres
     return np.kron(img, np.ones((ZOOM, ZOOM, 1)))
 
@@ -99,14 +95,17 @@ def splat(points, colour):
 def forward_view(data, noise, schedule, t):
     alpha, sigma = schedule_at(t, schedule)
     layout.style("forward", title=f"Forward: x_t = {alpha:.2f} x_0 + {sigma:.2f} eps   (t = {t:.2f})")
-    return splat(alpha * data + sigma * noise, (0.1, 0.3, 0.8))
+    return splat((alpha * data + sigma * noise, (0.1, 0.3, 0.8)))
 
 
 def reverse_view(trajectory, data, t):
-    steps, quality = len(trajectory) - 1, nearest_mode_distance(trajectory[-1]) / nearest_mode_distance(data)
+    final, reference = (np.linalg.norm(x[:, None] - MU, axis=-1).min(1).mean() for x in (trajectory[-1], data))
+    steps, quality = len(trajectory) - 1, final / reference
     k = int(np.floor((1 - t) * steps + 1e-9))  # steps done once the sampler has reached time t
-    layout.style("reverse", title=f"Reverse, step {k}/{steps}: mean distance to modes = {quality:.2f} x data")
-    return splat(trajectory[k], (0.9, 0.45, 0.0))
+    # quality: mean distance of the final samples to the nearest mode, relative to the data's (1 = perfect)
+    layout.style("reverse", title=f"Reverse: step {k}/{steps}. Grey: final samples, spread {quality:.2f}x data")
+    # the final samples stay drawn in grey: the effect of the steps slider shows without waiting for the loop
+    return splat((trajectory[-1], (0.7, 0.7, 0.7)), (trajectory[k], (0.9, 0.45, 0.0)))
 
 
 def plot_schedule(schedule, trajectory, forward_t, reverse_t):
@@ -114,21 +113,23 @@ def plot_schedule(schedule, trajectory, forward_t, reverse_t):
     levels, snr = [], [(steps, 20 * np.log10(np.divide(*schedule_at(steps, schedule))), "ko", f"{schedule} steps")]
     for name, style in (("linear", "--"), ("cosine", "-")):
         alpha, sigma = schedule_at(grid, name)
-        width = 3 if name == schedule else 1  # the schedule in use is drawn thick
-        levels += [[grid, alpha, dict(style=f"C0{style}", label=f"alpha {name}", linewidth=width)]]
-        levels += [[grid, sigma, dict(style=f"C1{style}", label=f"sigma {name}", linewidth=width)]]
-        snr += [[grid, 20 * np.log10(alpha / sigma), dict(style=f"k{style}", label=name, linewidth=width)]]
-    levels += [([forward_t] * 2, [0, 1], "b:", "forward t"), ([reverse_t] * 2, [0, 1], "r:", "reverse t")]
-    levels = Curve(levels, xlabel="t", ylabel="level", title="Signal alpha_t and noise sigma_t", grid=True)
-    title = "SNR = alpha / sigma (structure appears near 0 dB)"
-    return levels, Curve(snr, xlabel="t", ylabel="SNR (dB)", title=title, grid=True, ylim=(-50, 40))
+        used = name == schedule  # drawn thick; only it is named in the legend: fewer entries over the curves
+        levels += [[grid, alpha, dict(style=f"C0{style}", label="alpha" if used else None, linewidth=1 + 2 * used)]]
+        levels += [[grid, sigma, dict(style=f"C1{style}", label="sigma" if used else None, linewidth=1 + 2 * used)]]
+        snr += [[grid, 20 * np.log10(alpha / sigma), dict(style=f"k{style}", label=name, linewidth=1 + 2 * used)]]
+    levels += [([forward_t] * 2, [0, 1], "b:", None), ([reverse_t] * 2, [0, 1], "r:", None)]
+    layout.style("levels", title=f"thick: {schedule}, thin: the other. Dotted: current t")
+    layout.style("snr", title="signal-to-noise ratio alpha/sigma, dots = the sampling steps")
+    # ylim leaves room for the legend above sigma = 1
+    levels = Curve(levels, xlabel="t", ylabel="level", title="Signal alpha_t, noise sigma_t", grid=True, ylim=(0, 1.4))
+    snr = Curve(snr, xlabel="t", ylabel="SNR (dB)", title="structure appears near 0 dB", grid=True, ylim=(-50, 40))
+    return levels, snr
 
 
 @interactive_pipeline(gui=None if GIF else "auto", cache="graph", name="Diffusion with an exact score")
 def diffusion():
     data, noise = dataset()
-    schedule = noise_schedule()
-    trajectory = reverse_process(schedule)
+    schedule, trajectory = reverse_process()
     forward_t, reverse_t = clock()
     forward = forward_view(data, noise, schedule, forward_t)
     reverse = reverse_view(trajectory, data, reverse_t)
