@@ -1212,6 +1212,15 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         if size is not None and not (self.full_screen_flag or self.isMaximized() or self.isFullScreen()):
             self._request_resize(*size, retry=False)
 
+    def _fit_window_once(self, cell) -> None:
+        """Grow the window for a cell that just received its first content."""
+        if cell.pop("fit_window", False):
+            # deferred: views added to a shown window only become visible
+            # (and count in the layout size hint) on the next event loop pass
+            if not getattr(self, "_fit_window_pending", False):
+                self._fit_window_pending = True
+                QTimer.singleShot(0, self._deferred_fit_window)
+
     def update_image(self, image_array_original, row, col):
         cell = self.image_canvas[row][col]  # type: ignore[reportOptionalSubscript]
         if isinstance(image_array_original, np.ndarray) and len(image_array_original.shape) == 1:
@@ -1228,16 +1237,13 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             if readout is None and (not isinstance(raw, np.ndarray) or raw.shape[:2] != shown.shape[:2]):
                 raw = shown
             cell["image"].set_image(numpy_to_pixmap(shown), raw, readout=readout)
-            if cell.pop("fit_window", False):
-                # deferred: views added to a shown window only become visible
-                # (and count in the layout size hint) on the next event loop pass
-                if not getattr(self, "_fit_window_pending", False):
-                    self._fit_window_pending = True
-                    QTimer.singleShot(0, self._deferred_fit_window)
+            self._fit_window_once(cell)
         elif MPL_SUPPORT and FigureCanvas is not None and isinstance(image_array_original, Curve):
             update_curve_cell(cell, self.image_grid_layout, row, col, image_array_original)
+            self._fit_window_once(cell)  # a window holding only plots also gives room to its controls
         elif MPL_SUPPORT and FigureCanvas is not None and isinstance(image_array_original, Table):
             update_table_cell(cell, self.image_grid_layout, row, col, image_array_original)
+            self._fit_window_once(cell)
         elif isinstance(image_array_original, str):
             # keep "fit_window": the window grows when an image shows up later
             cell["image"].setText(image_array_original)
