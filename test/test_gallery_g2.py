@@ -161,8 +161,9 @@ def test_training_curves_ranking_and_empty_selection(isolated_controls):
 
     assert best(smoothing=0.9) == "lr 0.03"
     assert best(smoothing=0.0) == "lr 0.01"  # by luck, as the docstring says
-    ax, table = inspect_runs(runs, threshold=0.99)
-    assert table.values == [] and not ax.lines
+    curves, table = inspect_runs(runs, threshold=0.99)
+    assert table.values == [] and curves.curves == []
+    assert inspect_runs(runs)[0].yscale == "log"  # the "log scale" checkbox, on by default
 
 
 def test_audio_drive_adds_harmonics_and_delay_echoes(isolated_controls):

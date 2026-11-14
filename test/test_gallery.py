@@ -14,8 +14,7 @@ from interactive_pipe.agent.run_script import run_script
 from interactive_pipe.headless.control import Control
 
 ROOT = Path(__file__).resolve().parent.parent
-# g2_*.py: second dogfooding round, tested by test_gallery_g2.py, not on the gallery page yet
-GALLERY = sorted(path for path in (ROOT / "demo" / "gallery").glob("*.py") if not path.stem.startswith("g2_"))
+GALLERY = sorted((ROOT / "demo" / "gallery").glob("*.py"))
 
 
 @pytest.fixture
@@ -30,8 +29,8 @@ def _load(name):
     return runpy.run_path(str(ROOT / "demo" / "gallery" / f"{name}.py"), run_name=f"gallery_{name}")
 
 
-def test_gallery_has_eight_examples():
-    assert len(GALLERY) == 8
+def test_gallery_has_sixteen_examples():
+    assert len(GALLERY) == 16  # eight per dogfooding round
 
 
 @pytest.mark.parametrize("script", GALLERY, ids=[script.stem for script in GALLERY])

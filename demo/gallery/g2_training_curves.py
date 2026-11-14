@@ -10,9 +10,8 @@ no run passes it: the plot and the table say so instead of failing.
 from typing import Annotated, Literal
 
 import numpy as np
-from matplotlib.figure import Figure
 
-from interactive_pipe import Table, interactive, interactive_pipeline, layout
+from interactive_pipe import Curve, SingleCurve, Table, interactive, interactive_pipeline, layout
 
 STEPS = np.arange(1, 501)
 
@@ -54,13 +53,8 @@ def inspect_runs(
 ):
     selected = {name: m for name, m in runs.items() if m["val accuracy"][-20:].mean() > threshold}
     lower_is_better = metric != "val accuracy"
-    ax = Figure(figsize=(5, 3.5)).subplots()  # a Curve has no log scale: matplotlib instead
-    for name, m in selected.items():
-        ax.plot(STEPS, ema(m[metric], smoothing), label=name)
-    ax.set(xlabel="step", ylabel=metric, yscale="log" if log_scale else "linear")
-    ax.grid(True, which="both", alpha=0.3)
-    if selected:
-        ax.legend()
+    lines = [SingleCurve(x=STEPS, y=ema(m[metric], smoothing), label=name) for name, m in selected.items()]
+    curves = Curve(lines, xlabel="step", ylabel=metric, grid=True, yscale="log" if log_scale else None)
     final = {name: float(ema(m[metric], smoothing)[-1]) for name, m in selected.items()}
     best = (min if lower_is_better else max)(final, key=final.get) if final else None
     layout.style("curves", title=f"best: {best} ({final[best]:.3f})" if best else "no run above the threshold")
@@ -68,7 +62,7 @@ def inspect_runs(
         {"run": name, f"final {metric}": f"{value:.3f}", "best": "*" if name == best else ""}
         for name, value in final.items()
     ]
-    return ax, Table(rows, title=f"{len(rows)} of {len(runs)} runs")
+    return curves, Table(rows, title=f"{len(rows)} of {len(runs)} runs")
 
 
 @interactive_pipeline(gui="auto")
