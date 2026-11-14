@@ -47,7 +47,7 @@ def zoom_needed(homography):
 
 @interactive()
 def fixed_scene():
-    return checkerboard(SCENE_H, SCENE_W, cell=40)
+    return checkerboard(SCENE_H, SCENE_W, cell=40, labels=False)
 
 
 @interactive()
@@ -91,8 +91,10 @@ def stabilize(shaky, angles, smooth, zooms, frame, zoom=1.25):
     box = stabilized[y0 : FRAME_H - y0, x0 : FRAME_W - x0]
     box[[0, 1, -2, -1]] = box[:, [0, 1, -2, -1]] = (0.1, 1.0, 0.2)
     layout.style("stabilized", title=f"Stabilized: zoom >= {zooms[frame]:.2f} hides the borders now")
-    layout.style("cropped", title=f"Cropped x{zoom:.2f} (whole clip needs x{zooms.max():.2f})")
-    return stabilized, warp(shaky, zoom_about_centre(zoom) @ homography)
+    cropped = warp(shaky, zoom_about_centre(zoom) @ homography, fill=(np.nan,) * 3)  # NaN: outside the frame
+    black = np.isnan(cropped[..., 0]).mean()
+    layout.style("cropped", title=f"Cropped x{zoom:.2f}: {black:.1%} black (clip needs x{zooms.max():.2f})")
+    return stabilized, np.nan_to_num(cropped)
 
 
 @interactive()
@@ -100,9 +102,9 @@ def plot_path(angles, smooth, frame):
     t, names = np.arange(len(angles)) / FPS, ("yaw", "pitch", "roll")
     raw = [(t, angles[:, i], {"style": f"C{i}-", "alpha": 0.5}) for i in range(3)]
     path = [(t, smooth[:, i], f"C{i}--", name) for i, name in enumerate(names)]
-    now = ([t[frame]] * 2, [-15, 15], "k-")
-    title = "Camera path: integrated gyro (solid), smoothed (dashed)"
-    return Curve(raw + path + [now], xlabel="time (s)", ylabel="angle (deg)", title=title, grid=True)
+    now = ([t[frame]] * 2, [-16, 20], "k-")
+    layout.style("path", title="Camera angles: gyro (solid), smoothed (dashed)")
+    return Curve(raw + path + [now], xlabel="time (s)", ylabel="angle (deg)", ylim=(-16, 20), grid=True)
 
 
 @interactive_pipeline(gui=None if GIF else "auto", cache="graph")

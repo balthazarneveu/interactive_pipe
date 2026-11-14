@@ -9,16 +9,24 @@ import numpy as np
 
 from interactive_pipe import interactive, interactive_pipeline, layout
 
-HEIGHT, WIDTH = 384, 512
+HEIGHT, WIDTH = 384, 480  # 8 x 10 cells of 48 pixels
 NO_DATA = (1.0, 0.0, 1.0)  # magenta: rays that the source image never saw
+DIGITS = "75557 26227 71747 71717 55711 74717 74757 71222 75757 75717".split()  # 3x5 bitmaps, a row per octal digit
 
 
-def checkerboard(height, width, cell=32):
-    """Checkerboard whose tint encodes the position: red grows to the right, blue downwards."""
+def checkerboard(height, width, cell=48, labels=True):
+    """Checkerboard whose tint encodes the position (red grows to the right, blue downwards), each cell
+    labelled with its row and column digits."""
     y, x = np.mgrid[:height, :width] + 0.5
     tint = np.stack([x / width, 0.35 + 0 * x, y / height], axis=-1)
     dark = ((x // cell + y // cell) % 2 == 1)[..., None]
     board = np.where(dark, 0.6 * tint, 0.45 + 0.55 * tint)
+    for row, col in np.ndindex(height // cell, width // cell) if labels else []:
+        for i, digit in enumerate((row, col)):  # 3x5 glyphs scaled 3x, in inverted colours
+            glyph = np.kron([[int(octal) >> bit & 1 for bit in (2, 1, 0)] for octal in DIGITS[digit]], np.ones((3, 3)))
+            top, left = row * cell + cell // 2 - 7, col * cell + cell // 2 - 10 + 12 * i
+            patch = board[top : top + 15, left : left + 9]
+            patch[glyph > 0] = 1 - patch[glyph > 0]
     board[(np.abs(x - width / 2) < 2) | (np.abs(y - height / 2) < 2)] = 1.0  # cross on the optical axis
     return board
 

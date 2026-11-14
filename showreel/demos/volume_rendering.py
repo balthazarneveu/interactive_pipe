@@ -9,7 +9,8 @@ from interactive_pipe import Curve, Panel, interactive, interactive_pipeline, la
 
 NEAR, FAR, FINE_SAMPLES = 0.0, 10.0, 20000
 COLOURS, BACKGROUND = np.array([[1.0, 0.4, 0.1], [0.1, 0.4, 1.0]]), np.ones(3)  # front orange, back blue
-front, back, sampling = Panel("Front surface"), Panel("Back surface"), Panel("Sampling")
+# controls on the right: below the plots, the eight sliders would not fit and would scroll
+front, back, sampling = (Panel(name, position="right") for name in ("Front surface", "Back surface", "Sampling"))
 
 
 def march(scene, n, offset):  # n samples, each placed at `offset` inside its bin of length delta
@@ -47,34 +48,31 @@ def stems(x, y):  # vertical bars as one polyline broken by NaNs
     return np.stack([x, x, np.nan * x], 1).ravel(), np.stack([0 * y, y, np.nan * y], 1).ravel()
 
 
-def plot(title, ylabel, ylim, *curves):
-    return Curve(curves, title=title, xlabel="t along the ray", ylabel=ylabel, xlim=(NEAR, FAR), ylim=ylim, grid=True)
+def plot(ylabel, ylim, *curves):
+    return Curve(curves, xlabel="t along the ray", ylabel=ylabel, xlim=(NEAR, FAR), ylim=ylim, grid=True)
 
 
 def plot_ray(smp, ref):
     n, t, t_fine = len(smp["t"]), smp["t"], ref["t"]
     fine, samples = dict(style="k-", label="fine grid"), dict(style="ro", label=f"{n} samples")
-    sigma_max = 1.1 * ref["sigma"].max() + 1e-3
-    density = plot(
-        "Density along the ray", "σ", (0, sigma_max), [t_fine, ref["sigma"], fine], [t, smp["sigma"], samples]
-    )
-    transmittance = plot(
-        "Transmittance", "T", (0, 1.05), [t_fine, ref["trans"][:-1], fine], [t, smp["trans"][:-1], samples]
-    )
+    density = plot("σ", (0, 1.1 * ref["sigma"].max() + 1e-3), [t_fine, ref["sigma"], fine], [t, smp["sigma"], samples])
+    transmittance = plot("T", (0, 1.4), [t_fine, ref["trans"][:-1], fine], [t, smp["trans"][:-1], samples])
     # the weight each bin should get: fine-grid weights summed over the bin
-    per_bin = np.bincount((t_fine // smp["delta"]).astype(int), ref["w"], n)
+    per_bin = np.bincount(((t_fine - NEAR) // smp["delta"]).astype(int), ref["w"], n)
     bin_centres = NEAR + (np.arange(n) + 0.5) * smp["delta"]
     weights = plot(
-        f"Weights: Σw = {smp['w'].sum():.4f}, 1 - T_N = {1 - smp['trans'][-1]:.4f}",
         "w",
-        (0, 1.05),
-        [*stems(bin_centres, per_bin), dict(style="k-", linewidth=8, alpha=0.25, label="fine grid, summed per bin")],
-        [*stems(t, smp["w"]), dict(style="r-", linewidth=2, label="w_i")],
-        [[ref["depth"]] * 2, [0, 1.05], "k--", f"depth {ref['depth']:.2f} (fine)"],
-        [[smp["depth"]] * 2, [0, 1.05], "r:", f"depth {smp['depth']:.2f} ({n} samples)"],
+        (0, 1.4),  # headroom above 1 for the legend
+        [*stems(bin_centres, per_bin), dict(style="k-", linewidth=8, alpha=0.25, label="fine grid, per bin")],
+        [*stems(t, smp["w"]), dict(style="r-", linewidth=2, label=f"{n} samples")],
+        [[ref["depth"]] * 2, [0, 1.05], "k--"],  # expected depths, drawn as vertical lines
+        [[smp["depth"]] * 2, [0, 1.05], "r:"],
     )
     swatch = np.ones((60, 130, 3))
     swatch[:, :60], swatch[:, 70:] = smp["colour"], ref["colour"]
+    layout.style("density", title="Density σ along the ray")
+    layout.style("transmittance", title=f"Transmittance T: {smp['trans'][-1]:.2f} of the light gets through")
+    layout.style("weights", title=f"Weights w = T α, depth {smp['depth']:.2f} (fine grid {ref['depth']:.2f})")
     layout.style("swatch", title=f"Pixel colour: {n} samples | fine grid")
     return density, transmittance, weights, np.clip(swatch, 0, 1)
 
