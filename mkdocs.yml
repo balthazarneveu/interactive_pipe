@@ -109,6 +109,7 @@ nav:
       - Command line & agents: guide/command-line.md
       - Tips & tricks: guide/tips.md
       - Examples gallery: guide/examples.md
+      - Scientific gallery: gallery.md
   - API reference:
       - Pipelines: api/pipeline.md
       - Controls: api/controls.md
