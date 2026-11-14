@@ -66,3 +66,47 @@ def test_script_renders_headless(script, tmp_path, monkeypatch):
     for path in run.written:
         assert path.stat().st_size > 2000, path
         assert not _is_blank(path), f"{path} is blank"
+
+
+# --- demo fixes ---------------------------------------------------------------------------------
+
+BLUR_DEMOS = ["grouped_controls_demo.py", "detached_panel_demo.py", "panel_demo.py", "panel_position_demo.py"]
+
+
+def _demo_namespace(name):
+    import runpy
+
+    return runpy.run_path(str(ROOT / "demo" / name), run_name="demo_under_test")  # skips the __main__ block
+
+
+def _reference_blur(result, radius):
+    """The per-pixel loop the demos used (several seconds per slider move on a 512x512 image)."""
+    h, w = result.shape[:2]
+    blurred = result.copy()
+    for y in range(h):
+        for x in range(w):
+            blurred[y, x] = result[y, max(0, x - radius) : min(w, x + radius + 1)].mean(axis=0)
+    return blurred
+
+
+@pytest.mark.parametrize("name", BLUR_DEMOS)
+def test_demo_blur_matches_the_former_loop(name):
+    blur = _demo_namespace(name)["horizontal_box_blur"]
+    img = np.random.default_rng(0).random((7, 11, 3))
+    for radius in (1, 3, 20):
+        np.testing.assert_allclose(blur(img, radius), _reference_blur(img, radius), atol=1e-12)
+    assert blur(img[..., 0], 2).shape == (7, 11)
+
+
+def test_panel_position_default_crop_keeps_the_whole_image():
+    process_image = _demo_namespace("panel_position_demo.py")["process_image"]
+    img = np.random.default_rng(0).random((512, 384, 3))
+    from interactive_pipe.core.context import _set_framework_state
+    from interactive_pipe.core.framework_state import FrameworkState
+
+    _set_framework_state(FrameworkState())  # process_image calls layout.style
+    try:
+        assert process_image(img).shape == img.shape
+        assert process_image(img, crop_x=50, crop_width=50).shape == (512, 192, 3)
+    finally:
+        _set_framework_state(None)

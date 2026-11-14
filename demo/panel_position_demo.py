@@ -25,6 +25,17 @@ from interactive_pipe import (
 )
 
 
+def horizontal_box_blur(img: np.ndarray, radius: int) -> np.ndarray:
+    """Mean over [x - radius, x + radius] along the width, clipped at the borders (vectorized)."""
+    width = img.shape[1]
+    cumulative = np.concatenate([np.zeros_like(img[:, :1]), np.cumsum(img, axis=1)], axis=1)
+    x = np.arange(width)
+    start = np.clip(x - radius, 0, width)
+    end = np.clip(x + radius + 1, 0, width)
+    count = (end - start).reshape((1, -1) + (1,) * (img.ndim - 2))
+    return (cumulative[:, end] - cumulative[:, start]) / count
+
+
 def get_image_path():
     """Get a sample image path"""
     img_folder = Path(__file__).parent / "images"
@@ -99,12 +110,12 @@ def process_image(
     h, w = result.shape[:2]
 
     # === Tools Panel (left) ===
-    # Crop
+    # Crop, in percent of the image size (the defaults keep the whole image, whatever its size)
     if crop_width > 0 and crop_height > 0:
-        x1 = max(0, min(crop_x, w - 1))
-        y1 = max(0, min(crop_y, h - 1))
-        x2 = max(x1 + 1, min(crop_x + crop_width, w))
-        y2 = max(y1 + 1, min(crop_y + crop_height, h))
+        x1 = min(int(w * crop_x / 100), w - 1)
+        y1 = min(int(h * crop_y / 100), h - 1)
+        x2 = max(x1 + 1, min(int(w * (crop_x + crop_width) / 100), w))
+        y2 = max(y1 + 1, min(int(h * (crop_y + crop_height) / 100), h))
         result = result[y1:y2, x1:x2]
         h, w = result.shape[:2]
 
@@ -141,24 +152,10 @@ def process_image(
 
     # === Effects Panel (bottom) ===
     if blur_amount > 0:
-        h, w, c = result.shape
-        blurred = result.copy()
-        for y in range(h):
-            for x in range(w):
-                x_start = max(0, x - blur_amount)
-                x_end = min(w, x + blur_amount + 1)
-                blurred[y, x] = result[y, x_start:x_end].mean(axis=0)
-        result = blurred
+        result = horizontal_box_blur(result, blur_amount)
 
     if sharpen > 0.0:
-        h, w, c = result.shape
-        blurred = result.copy()
-        blur_r = 1
-        for y in range(h):
-            for x in range(w):
-                x_start = max(0, x - blur_r)
-                x_end = min(w, x + blur_r + 1)
-                blurred[y, x] = result[y, x_start:x_end].mean(axis=0)
+        blurred = horizontal_box_blur(result, 1)
         result = result + sharpen * (result - blurred)
         result = np.clip(result, 0.0, 1.0)
 
@@ -235,10 +232,10 @@ if __name__ == "__main__":
 
     interactive(
         # Tools panel (left)
-        crop_x=(0, [0, 300], "Crop X", tools_panel),
-        crop_y=(0, [0, 200], "Crop Y", tools_panel),
-        crop_width=(100, [10, 300], "Crop Width", tools_panel),
-        crop_height=(100, [10, 200], "Crop Height", tools_panel),
+        crop_x=(0, [0, 90], "Crop X (%)", tools_panel),
+        crop_y=(0, [0, 90], "Crop Y (%)", tools_panel),
+        crop_width=(100, [10, 100], "Crop Width (%)", tools_panel),
+        crop_height=(100, [10, 100], "Crop Height (%)", tools_panel),
         rotate=(0.0, [-1.0, 1.0], "Rotate", tools_panel),
         # Settings panel (right)
         enable_gamma=(True, "Enable Gamma", settings_panel),
