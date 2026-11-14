@@ -11,6 +11,7 @@ from interactive_pipe.core.engine import FilterError
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.graphical.actions import Action
 from interactive_pipe.graphical.columns import choose_column_count, split_into_columns
+from interactive_pipe.graphical.display import heatmap_geometry
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.qt_audio import QtAudioPlayer
 
@@ -992,9 +993,11 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         if isinstance(image_array_original, np.ndarray):
             shown: np.ndarray = image_array_original
             raw = self._raw_output(row, col)
-            if not isinstance(raw, np.ndarray) or raw.shape[:2] != shown.shape[:2]:
+            # heatmap with a colorbar: report the scalar under the cursor, in data pixels
+            readout = heatmap_geometry(raw, self.get_current_style(row, col))
+            if readout is None and (not isinstance(raw, np.ndarray) or raw.shape[:2] != shown.shape[:2]):
                 raw = shown
-            cell["image"].set_image(numpy_to_pixmap(shown), raw)
+            cell["image"].set_image(numpy_to_pixmap(shown), raw, readout=readout)
             if cell.pop("fit_window", False):
                 # deferred: views added to a shown window only become visible
                 # (and count in the layout size hint) on the next event loop pass
