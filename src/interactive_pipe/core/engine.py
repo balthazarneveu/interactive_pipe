@@ -22,11 +22,12 @@ class FilterError(Exception):
     framework traceback, making it easier to identify issues in user code.
     """
 
-    def __init__(self, filter_name: str, original_error: Exception, tb=None):
+    def __init__(self, filter_name: str, original_error: Exception, tb=None, hint: Optional[str] = None):
         _install_excepthook()
         self.filter_name = filter_name
         self.original_error = original_error
         self.tb = tb
+        self.hint = hint
         self._user_frames = self._extract_user_frames()
         super().__init__(self._format_message())
 
@@ -35,6 +36,10 @@ class FilterError(Exception):
         if self.tb is None:
             return []
 
+        if getattr(self.original_error, "framework_check", False):
+            # raised by the framework about the filter's result: the message
+            # names the pipeline line, a framework traceback would only mislead
+            return []
         # Walk through traceback to find the user's code (outside the package directory)
         tb_list = traceback.extract_tb(self.tb)
         user_frames = [frame for frame in tb_list if not os.path.abspath(frame.filename).startswith(_PACKAGE_DIR)]
@@ -62,6 +67,10 @@ class FilterError(Exception):
                 if frame.line:
                     lines.append(f"      >>> {frame.line.strip()}")
 
+        if self.hint:
+            lines.append("")
+            lines.extend(f"  {line}" for line in self.hint.splitlines())
+
         lines.append("")
         return "\n".join(lines)
 
@@ -74,6 +83,57 @@ class FilterError(Exception):
         print(f"{'=' * 60}", file=file)
         print(str(self), file=file)
         print(f"{'=' * 60}\n", file=file)
+
+
+_CONTEXT_MODULE = os.path.join(_PACKAGE_DIR, "core", "context")
+
+
+def _missing_context_key_hint(error: Exception, tb, filters: List[FilterCore], idx: int) -> Optional[str]:
+    """Hint for ``context["key"]`` / ``context.key`` read before any filter wrote it."""
+    if not isinstance(error, (KeyError, AttributeError)) or tb is None:
+        return None
+    frames = traceback.extract_tb(tb)
+    if not any(
+        os.path.abspath(frame.filename).startswith(_CONTEXT_MODULE) and frame.name in ("__getitem__", "__getattr__")
+        for frame in frames
+    ):
+        return None
+    if isinstance(error, KeyError):
+        key = error.args[0] if error.args else None
+    else:
+        key = getattr(error, "name", None)
+        if key is None:
+            message = str(error)
+            key = message.split("'")[1] if message.count("'") >= 2 else None
+    from interactive_pipe.core.context import get_context
+
+    try:
+        available = sorted(str(k) for k in get_context().keys())
+    except Exception:  # Broad on purpose: hint only, never mask the real error
+        available = []
+    later = [filt.name for filt in filters[idx + 1 :] if _source_mentions(filt, key)]
+    lines = [
+        f"Context key {key!r} was read before any filter wrote it. "
+        f"Keys in the context now: {', '.join(repr(k) for k in available) or 'none'}.",
+        "Filters run in the order of the pipeline body: write the key in a filter placed before this one,",
+        f"or read it with a default (context.get({key!r}, default)), or pass it at call time "
+        f"(pipeline(..., context={{{key!r}: value}})).",
+    ]
+    if later:
+        lines.append(f"Filter(s) running later that mention {key!r}: {', '.join(later)}.")
+    return "\n".join(lines)
+
+
+def _source_mentions(filt: FilterCore, key) -> bool:
+    if not isinstance(key, str):
+        return False
+    try:
+        import inspect
+
+        source = inspect.getsource(inspect.unwrap(filt.apply))
+    except (OSError, TypeError):
+        return False
+    return f'"{key}"' in source or f"'{key}'" in source or f"context.{key}" in source
 
 
 def _install_excepthook():
@@ -355,7 +415,7 @@ class PipelineEngine:
                     # code; wrap whatever it raises in FilterError and re-raise.
                     # Create a clean, user-friendly error
                     _, _, tb = sys.exc_info()
-                    filter_error = FilterError(prc.name, e, tb)
+                    filter_error = FilterError(prc.name, e, tb, hint=_missing_context_key_hint(e, tb, filters, idx))
                     report.failed = prc.name
                     report.timings[prc.name] = time.perf_counter() - tic
                     report.total = time.perf_counter() - run_start
