@@ -215,6 +215,10 @@ class FilterCore(PureFilter):
                     f"add `return <result>` at the end of '{self._function_name() or self.name}'",
                 )
             return None
+        if strict and expected == 1 and isinstance(out, list):
+            # `x = f(img)` with f returning a list: lists are data, x is the list
+            # whatever its length (only a tuple is unpacked into one name)
+            return (out,)
         if isinstance(out, (tuple, list)):
             if self.outputs is not None and len(out) < len(self.outputs):
                 raise self._output_error(
@@ -242,7 +246,8 @@ class FilterCore(PureFilter):
         inputs = ", ".join(str(name) for name in (self.inputs or []))
         return (
             f"unpack exactly what the filter returns (`{names} = {self.name}({inputs})`) or change its `return`; "
-            "to keep a tuple/list as one value, return it wrapped: `return (values,)`"
+            "to keep a tuple as one value, return it wrapped (`return (values,)`) or as a list "
+            "(a list assigned to one name is kept whole)"
         )
 
     def _function_name(self) -> Optional[str]:
