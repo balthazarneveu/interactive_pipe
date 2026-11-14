@@ -130,6 +130,7 @@ SUPPORTED_STYLE_KEYS = (
     "vmax",
     "center",
     "colorbar",
+    "label",
     "unit",
     "dpi",
     "xlabel",
@@ -182,9 +183,14 @@ class _LayoutProxy:
                 - ``colorbar``: ``True`` draws the scale (min, max and round
                   ticks) to the right of a 2D array, inside the displayed image,
                   so it looks the same on every backend and in snapshots.
-                - ``unit``: text appended to the colorbar labels (``"dB"``).
-                - ``dpi``: resolution used to rasterise a matplotlib figure
-                  output (default 120).
+                  ``colorbar="log10 |F|"`` also writes that text vertically
+                  along the bar.
+                - ``label``: the same text along the bar, with ``colorbar=True``.
+                - ``unit``: short unit written once, above the colorbar (``"dB"``).
+                - ``dpi``: pixels per inch of a matplotlib figure output: 100
+                  in a window cell (where the figure fits the cell, its text
+                  the size of a ``Curve``'s), the snapshot's dpi in
+                  snapshots, 120 elsewhere.
 
                 NaN and masked (``numpy.ma``) values of a styled 2D array are
                 shown in magenta; ``±inf`` go to the ends of the scale.
