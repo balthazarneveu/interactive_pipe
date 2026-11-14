@@ -1,0 +1,121 @@
+"""demo/gallery/*.py run headless, show something, and compute what their docstrings claim."""
+
+import runpy
+from pathlib import Path
+
+import numpy as np
+import pytest
+from test_demos_headless import _shows_something
+
+from interactive_pipe import interactive_pipeline
+from interactive_pipe.agent.run_script import run_script
+from interactive_pipe.headless.control import Control
+
+ROOT = Path(__file__).resolve().parent.parent
+GALLERY = sorted((ROOT / "demo" / "gallery").glob("*.py"))
+
+
+@pytest.fixture
+def isolated_controls(monkeypatch):
+    """Each example as if run in its own process (the control registry is keyed by module + qualname)."""
+    monkeypatch.setattr(Control, "_registry", {})
+    monkeypatch.setattr(Control, "_panel_cache", {})
+    monkeypatch.delenv("INTERACTIVE_PIPE_SNAPSHOT", raising=False)
+
+
+def _load(name):
+    return runpy.run_path(str(ROOT / "demo" / "gallery" / f"{name}.py"), run_name=f"gallery_{name}")
+
+
+def test_gallery_has_eight_examples():
+    assert len(GALLERY) == 8
+
+
+@pytest.mark.parametrize("script", GALLERY, ids=[script.stem for script in GALLERY])
+def test_example_renders_headless(script, tmp_path, monkeypatch, isolated_controls):
+    monkeypatch.chdir(tmp_path)
+    run = run_script(str(script), output=f"{tmp_path.as_posix()}/shots/", max_calls=1)
+    assert run.exit_code == 0, run.error
+    assert len(run.calls) == 1, f"{script.name} should call its GUI pipeline once"
+    call = run.calls[0]
+    assert call.path.stat().st_size > 2000
+    assert _shows_something(call.results), f"{call.path}: every output is blank"
+
+
+@pytest.mark.parametrize("script", GALLERY, ids=[script.stem for script in GALLERY])
+def test_example_is_short_and_documented(script):
+    source = script.read_text()
+    assert len(source.splitlines()) <= 100, "gallery examples stay short"
+    assert source.startswith('"""') and "What to look at" in source
+    assert 'gui="auto"' in source and 'if __name__ == "__main__":' in source
+
+
+def test_camera_isp_white_balance_maximises_psnr(isolated_controls):
+    ns = _load("camera_isp")
+    mosaic, demosaic, white_balance, gamma, compare = (
+        ns[k] for k in ("mosaic", "demosaic", "white_balance", "gamma", "compare")
+    )
+
+    @interactive_pipeline(gui=None)
+    def isp(gt):
+        out = gamma(white_balance(demosaic(mosaic(gt))))
+        error, psnr = compare(out, gt)
+        return psnr
+
+    scene = ns["make_scene"]()
+
+    def psnr(method="bilinear", red=1.8, blue=1.4):
+        (text,) = isp(scene, method=method, red=red, blue=blue)
+        return float(text.split()[1])
+
+    assert psnr() > psnr(red=1.0, blue=1.0) + 5  # the defaults undo the sensor colour cast
+    assert psnr() > psnr(method="nearest")
+
+
+def test_lens_calibration_residual_vanishes_at_the_true_coefficients(isolated_controls):
+    ns = _load("lens_calibration")
+    k1, k2 = ns["K_TRUE"]
+    assert "RMS 0.00 px" in ns["correct"](k1=k1, k2=k2).title
+    assert "RMS 0.00 px" not in ns["correct"]().title
+
+
+def test_blob_detection_scores(isolated_controls):
+    ns = _load("blob_detection")
+    img = ns["make_image"]()
+    (detections,) = ns["detect"](img)
+    overlay, table, metrics = ns["score"](img, detections)
+    precision, recall = float(metrics.split()[1]), float(metrics.split()[3])
+    assert precision >= 0.8 and recall >= 0.6
+    assert overlay.shape == img.shape + (3,) and len(table.values) == len(detections)
+
+
+def test_signal_filters_have_unit_dc_gain(isolated_controls):
+    ns = _load("signal_filtering")
+    design, apply_filter = ns["design"], ns["apply_filter"]
+
+    @interactive_pipeline(gui=None)
+    def step_response(x):
+        b, a = design()
+        y = apply_filter(x, b, a)
+        return y
+
+    for kind in ("FIR", "IIR"):
+        (y,) = step_response(np.ones(2000), kind=kind)
+        assert abs(y[-1] - 1.0) < 1e-3
+
+
+def test_pid_reaches_the_reference(isolated_controls):
+    ns = _load("pid_control")
+    pid = (2.0, 3.0, 0.15)
+    response, command = ns["simulate"](pid)
+    output = response.curves[1].y
+    assert abs(output[-1] - 1.0) < 0.02
+
+
+def test_reaction_diffusion_frame_depends_on_the_clock_only(isolated_controls):
+    ns = _load("reaction_diffusion")
+    pipe = ns["reaction_diffusion"]
+    first = pipe.snapshot(None, t=1.0)
+    for t in (0.5, 2.0, 1.5):  # other runs in between must not change the frame at t=1
+        pipe.snapshot(None, t=t)
+    np.testing.assert_array_equal(pipe.snapshot(None, t=1.0), first)
