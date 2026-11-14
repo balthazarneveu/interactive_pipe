@@ -21,6 +21,17 @@ from interactive_pipe import (
 )
 
 
+def horizontal_box_blur(img: np.ndarray, radius: int) -> np.ndarray:
+    """Mean over [x - radius, x + radius] along the width, clipped at the borders (vectorized)."""
+    width = img.shape[1]
+    cumulative = np.concatenate([np.zeros_like(img[:, :1]), np.cumsum(img, axis=1)], axis=1)
+    x = np.arange(width)
+    start = np.clip(x - radius, 0, width)
+    end = np.clip(x + radius + 1, 0, width)
+    count = (end - start).reshape((1, -1) + (1,) * (img.ndim - 2))
+    return (cumulative[:, end] - cumulative[:, start]) / count
+
+
 def get_image_path():
     """Get a sample image path"""
     img_folder = Path(__file__).parent / "images"
@@ -111,24 +122,10 @@ def process_image(
 
     # === Effects (in main window) ===
     if blur_amount > 0:
-        h, w, c = result.shape
-        blurred = result.copy()
-        for y in range(h):
-            for x in range(w):
-                x_start = max(0, x - blur_amount)
-                x_end = min(w, x + blur_amount + 1)
-                blurred[y, x] = result[y, x_start:x_end].mean(axis=0)
-        result = blurred
+        result = horizontal_box_blur(result, blur_amount)
 
     if sharpen > 0.0:
-        h, w, c = result.shape
-        blurred = result.copy()
-        blur_r = 1
-        for y in range(h):
-            for x in range(w):
-                x_start = max(0, x - blur_r)
-                x_end = min(w, x + blur_r + 1)
-                blurred[y, x] = result[y, x_start:x_end].mean(axis=0)
+        blurred = horizontal_box_blur(result, 1)
         result = result + sharpen * (result - blurred)
         result = np.clip(result, 0.0, 1.0)
 
