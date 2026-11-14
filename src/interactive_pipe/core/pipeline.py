@@ -1,3 +1,4 @@
+import copy
 import difflib
 import logging
 from typing import Any, Dict, List, Optional, Union
@@ -96,7 +97,9 @@ class PipelineCore:
             outputs = self.filters[-1].outputs
             logging.warning(f"Using last filter outputs {self.filters[-1]} {outputs}")
 
-        self.outputs = outputs  # output indexes (routing)
+        self.outputs = outputs  # output indexes (routing); the display layout (layout.grid, GUIs change it)
+        # what the pipeline function returns: the shape of a headless call's result, whatever the layout
+        self.returned_outputs = copy.deepcopy(outputs)
         # You need to set the values to their default_value for each filter
         if parameters is None:
             parameters = {}
