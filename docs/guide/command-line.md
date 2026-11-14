@@ -180,7 +180,8 @@ contact sheet per pipeline call, with the script's inputs and values.
 - `--steps NAME=N` sweeps N values over the control's declared range (every
   choice of a dropdown, both states of a checkbox).
 - `--output` chooses what each cell shows: an output name or index, a list, or
-  `all` for the whole layout. Default: the only output, else the first image.
+  `all` for the whole layout. Default: the only output, else the first image
+  the swept parameters change, else the last image.
 - `--set` fixes other parameters; `-o` is a file, a folder or a `{name}`
   pattern as for `snapshot` (default file name: `<pipeline>_sweep.png`).
 
