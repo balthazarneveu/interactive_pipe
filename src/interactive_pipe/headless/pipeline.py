@@ -11,6 +11,7 @@ from interactive_pipe.data_objects.data import Data
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.parameters import Parameters
 from interactive_pipe.data_objects.table import PANDAS_AVAILABLE, Table
+from interactive_pipe.graphical.display import FIGURE_DPI, figure_of, release_pyplot_figure
 from interactive_pipe.headless.control import Control, TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
 
@@ -93,6 +94,13 @@ def _save_output(result: Any, path: Path) -> Optional[Path]:
     if isinstance(result, str):
         target = path.with_suffix(".txt")
         target.write_text(result)
+        return target
+    figure = figure_of(result)
+    if figure is not None:
+        # matplotlib Figure / Axes: vector formats kept when asked for
+        target = _with_supported_suffix(path, [".png", ".pdf", ".svg", ".jpg"])
+        release_pyplot_figure(figure)
+        figure.savefig(target, dpi=FIGURE_DPI, facecolor="white")
         return target
     return None
 

@@ -10,6 +10,7 @@ from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 
+from interactive_pipe.graphical.display import prepare_display
 from interactive_pipe.headless.control import TimeControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 
@@ -79,6 +80,40 @@ def _select_output(result: Any, output: Union[int, Tuple[int, int], None]) -> An
     if cell is None:
         raise ValueError(f"Output {output} is empty")
     return cell
+
+
+def _prepared_result(pipeline: HeadlessPipeline, result: Any) -> Any:
+    """`result` with every output converted for display like the GUI shows it
+    (``layout.style`` heatmap options, matplotlib figures rasterised), same structure."""
+    framework_state = getattr(pipeline, "framework_state", None)
+    styles = framework_state.output_styles if framework_state is not None else {}
+    names = getattr(pipeline, "outputs", None)
+
+    def name_at(*index: int) -> Any:
+        try:
+            value = names
+            for position in index:
+                value = value[position]  # type: ignore[index]
+            return value
+        except (IndexError, KeyError, TypeError):
+            return None
+
+    def prepare(content: Any, *index: int) -> Any:
+        if content is None:
+            return None
+        name = name_at(*index)
+        style = styles.get(name) if isinstance(name, (str, int)) else None
+        return prepare_display(content, style)
+
+    is_grid = isinstance(result, list) and any(isinstance(row, (list, tuple)) for row in result)
+    if is_grid:
+        return [
+            [prepare(cell, r, c) for c, cell in enumerate(row)] if isinstance(row, (list, tuple)) else prepare(row, r)
+            for r, row in enumerate(result)
+        ]
+    if isinstance(result, (list, tuple)):
+        return type(result)(prepare(cell, i) for i, cell in enumerate(result))
+    return prepare(result, 0)
 
 
 def _to_rgb_uint8(frame: Any) -> np.ndarray:
@@ -154,7 +189,8 @@ def export_animation(
     try:
         for k in range(n_frames):
             ctrl.value = k / fps
-            frames.append(_to_rgb_uint8(_select_output(pipeline.run(), output)))
+            result = _prepared_result(pipeline, pipeline.run())
+            frames.append(_to_rgb_uint8(_select_output(result, output)))
     except BaseException:
         ctrl.value = previous_value
         raise

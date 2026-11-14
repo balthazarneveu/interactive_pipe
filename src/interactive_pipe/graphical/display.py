@@ -23,7 +23,9 @@ from interactive_pipe.data_objects.table import Table
 
 def display_kind(content: Any) -> Optional[str]:
     """Classify a pipeline output for display: "image" (2D/3D array), "signal"
-    (1D array), "curve", "table", "text" or None when unsupported.
+    (1D array), "curve", "table", "text", "figure" (matplotlib ``Figure`` or
+    ``Axes``) or None when unsupported. ``prepare_display`` turns a "figure"
+    into an "image", so backends never receive one.
 
     Backends keep the kind of each canvas cell so that a filter switching
     output type between frames rebuilds the cell instead of feeding the new
@@ -37,7 +39,103 @@ def display_kind(content: Any) -> Optional[str]:
         return "table"
     if isinstance(content, str):
         return "text"
+    if figure_of(content) is not None:
+        return "figure"
     return None
+
+
+# ---------------------------------------------------------------------------
+# matplotlib figures, rasterised with Agg in one place for every backend
+# ---------------------------------------------------------------------------
+
+# Resolution of a rasterised figure: matplotlib's default 6.4 x 4.8 in figure
+# gives 768 x 576 px, sharp once fitted in a typical cell (shrunk rather than
+# blown up). ``layout.style(name, dpi=...)`` overrides it.
+FIGURE_DPI = 120
+_RASTER_ATTRIBUTE = "_interactive_pipe_raster"
+
+
+def figure_of(content: Any) -> Any:
+    """The root matplotlib ``Figure`` of a Figure / SubFigure / Axes, else None.
+
+    matplotlib is only looked at when it is already imported: an output of
+    another type never triggers the import.
+    """
+    import sys
+
+    if "matplotlib.figure" not in sys.modules:
+        return None
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure, SubFigure
+
+    if isinstance(content, Axes):
+        content = content.figure
+    if isinstance(content, SubFigure):
+        content = content.figure
+    return content if isinstance(content, Figure) else None
+
+
+def release_pyplot_figure(fig: Any) -> None:
+    """Close `fig` in pyplot if pyplot manages it (``plt.subplots()``, ...).
+
+    pyplot keeps every figure it creates until it is closed: a filter calling
+    ``plt.subplots()`` on each slider move would leak one figure per run. A
+    figure built with ``matplotlib.figure.Figure()`` is not registered and is
+    left alone. The figure itself stays usable (it is redrawn with Agg).
+    """
+    import sys
+
+    pyplot = sys.modules.get("matplotlib.pyplot")
+    if pyplot is None:
+        return
+    number = getattr(fig, "number", None)
+    manager = getattr(getattr(fig, "canvas", None), "manager", None)
+    if manager is None and number is None:
+        return
+    from matplotlib._pylab_helpers import Gcf
+
+    if any(registered.canvas.figure is fig for registered in Gcf.get_all_fig_managers()):
+        pyplot.close(fig)
+
+
+def rasterize_figure(content: Any, dpi: Optional[float] = None) -> np.ndarray:
+    """``(H, W, 3)`` float32 RGB image in ``[0, 1]`` of a matplotlib figure
+    (or the figure of an Axes), drawn with Agg at `dpi` (``FIGURE_DPI`` by
+    default), transparency composited on white.
+
+    The figure is released from pyplot first (see ``release_pyplot_figure``).
+    The raster is kept on the figure and reused while the figure is unchanged
+    (``fig.stale`` is False) — a cached filter output is not redrawn.
+    """
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+    fig = figure_of(content)
+    if fig is None:
+        raise TypeError(f"Expected a matplotlib Figure or Axes, got {type(content).__name__}")
+    dpi = float(FIGURE_DPI if dpi is None else dpi)
+    if dpi <= 0:
+        raise ValueError(f"dpi must be positive, got {dpi}")
+    release_pyplot_figure(fig)
+    cached = getattr(fig, _RASTER_ATTRIBUTE, None)
+    if cached is not None and cached[0] == dpi and not fig.stale:
+        return cached[1]
+    canvas = fig.canvas if isinstance(fig.canvas, FigureCanvasAgg) else FigureCanvasAgg(fig)
+    original_dpi = fig.dpi
+    try:
+        fig.set_dpi(dpi)
+        canvas.draw()
+        rgba = np.asarray(canvas.buffer_rgba())
+        rgb = rgba[..., :3].astype(np.float32) / np.float32(255.0)
+        alpha = rgba[..., 3]
+        if (alpha < 255).any():
+            weight = alpha[..., None].astype(np.float32) / np.float32(255.0)
+            rgb = rgb * weight + (1.0 - weight)
+    finally:
+        fig.set_dpi(original_dpi)
+    fig.stale = False  # set_dpi marks it stale; the content did not change
+    rgb.setflags(write=False)  # shared with the cache
+    setattr(fig, _RASTER_ATTRIBUTE, (dpi, rgb))
+    return rgb
 
 
 # Style keys that make a 2D array a heatmap (``unit`` only decorates the colorbar)
@@ -293,8 +391,11 @@ def prepare_display(content: Any, style: Optional[dict] = None) -> Any:
     The single conversion point used by every backend and by the snapshot
     renderer: contents the backends draw natively (arrays, ``Curve``,
     ``Table``, ``str``) come out as such, with the style's display options
-    applied. The pipeline result itself is never modified.
+    applied; a matplotlib ``Figure`` / ``Axes`` becomes an RGB image
+    (``rasterize_figure``). The pipeline result itself is never modified.
     """
     if isinstance(content, np.ndarray):
         return apply_display_style(content, style)
+    if figure_of(content) is not None:
+        return rasterize_figure(content, (style or {}).get("dpi"))
     return content
