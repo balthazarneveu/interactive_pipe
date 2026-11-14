@@ -270,12 +270,16 @@ def test_export_animation_rasterises_figures(tmp_path):
 # ---------------------------------------------------------------------------
 # Every backend
 # ---------------------------------------------------------------------------
-def test_qt_backend_shows_the_figure_and_switches_kinds():
+def test_qt_backend_shows_the_figure_and_switches_kinds(monkeypatch):
     qt_gui = pytest.importorskip("interactive_pipe.graphical.qt_gui")
     pipe = HeadlessPipeline.from_function(figure_shifter_pipeline, inputs=["img"])
     gui = qt_gui.InteractivePipeQT(pipeline=pipe, name="qt figure")
     gui.pipeline.inputs = [INPUT_IMAGE.copy()]
     window = gui.window
+    # the debounced redraw at the size of the (never shown) view fires or not depending
+    # on the machine's load (seen: 200 x 200 instead of 240 x 240): sizes at the view's
+    # size are covered by test_figure_text_size, here the figure keeps figsize x FIGURE_DPI
+    monkeypatch.setattr(window, "_refit_figure", lambda *_args: None)
     window.refresh()
     for kind in ["figure", "curve", "figure", "text", "figure", "table", "image", "figure"]:
         window.update_parameter("fig_kind", kind)
