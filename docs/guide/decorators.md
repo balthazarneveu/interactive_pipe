@@ -11,7 +11,7 @@ The pipeline function is never executed: its body is parsed to build the executi
 | Statement | Example |
 |---|---|
 | Docstring, `pass`, `...` | `"""Denoise then sharpen."""` |
-| Filter call, assigned or not | `out = blur(img)`, `a, b = split(img)`, `log_stats(img)`, `noise = generator()` |
+| Filter call, assigned or not | `out = blur(img)`, `a, b = split(img)`, `log_stats(img)` (whatever it returns is dropped, as in Python), `noise = generator()` |
 | Nested call | `out = sharpen(blur(img))` — the inner output is named `blur(img)` (shown as its title) |
 | Literal keyword argument | `out = blur(img, radius=3)` — sets this instance's value; when `radius` has a control it becomes that widget's default (must be within its range) |
 | Dotted call | `out = np.abs(img)`, `out = lib.blur(img)` |
