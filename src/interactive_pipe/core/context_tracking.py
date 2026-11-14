@@ -94,6 +94,7 @@ class ContextTracker(dict):
         self._external_changes: Set[Any] = set()  # keys changed outside any filter
         self._current_touched: Set[Any] = set()  # keys accessed by the current filter
         self._current_read_all = False  # current filter enumerated the whole context
+        self._current_written: Set[Any] = set()  # keys the current filter wrote (its later reads are its own)
         # keys starting with this prefix are not tracked at all
         # (defensive exclusion of framework-internal keys when wrapping shared dicts)
         self._ignore_prefix = ignore_prefix
@@ -124,6 +125,7 @@ class ContextTracker(dict):
         self._current = name
         self._current_touched = set()
         self._current_read_all = False
+        self._current_written = set()
 
     def finish_filter(self) -> Set[Any]:
         """Stop attributing accesses and return the keys the filter NET-changed.
@@ -153,6 +155,7 @@ class ContextTracker(dict):
         self._current = None
         self._current_touched = set()
         self._current_read_all = False
+        self._current_written = set()
         return changes
 
     def detect_silent_changes(self) -> Set[Any]:
@@ -215,8 +218,10 @@ class ContextTracker(dict):
     # ------------------------------------------------------------------
     def _record_read(self, key: Any) -> None:
         if self._current is not None and not self._ignored(key):
-            self._reads.setdefault(self._current, set()).add(key)
             self._current_touched.add(key)
+            if key in self._current_written:
+                return  # its own value of this call, not a dependency (no self feedback loop)
+            self._reads.setdefault(self._current, set()).add(key)
 
     def _record_read_all(self) -> None:
         if self._current is not None:
@@ -229,6 +234,7 @@ class ContextTracker(dict):
         if self._current is not None:
             # net change decided at finish_filter by fingerprint comparison
             self._current_touched.add(key)
+            self._current_written.add(key)
             return
         # write outside any filter (GUI events, user code between runs)
         if new_value is _UNSET:
