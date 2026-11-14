@@ -37,4 +37,42 @@ Not yours: the rest of `src/interactive_pipe/` (two sibling agents: control sema
 
 ## Status
 
-(to fill)
+Done, 2026-11-14, 04:06 -> 04:45 CET, on `feature/cli-skill-round2` (nothing pushed, no PR, no merge, no version bump). Final suite: **1525 passed, 6 skipped** (baseline 1444 passed, 6 skipped); ruff format / check clean; `mkdocs build --strict` clean, also with nav / link / anchor validation raised to warnings (throwaway venv under `/Data/`, deleted).
+
+### Commits
+
+| Item | Commit | What |
+|---|---|---|
+| 1 | `b42d99d` | CLI after a filter error: `interactive-pipe snapshot: pipeline 'p' raised FilterError, see above` (or `(caught by the script): <message>`), exit 1; the script error printed once without interactive_pipe / runpy / site-packages frames (FilterError / PipelineSyntaxError keep their message + the script's call site); `describe` still describes a pipeline whose run failed; `run_script.error_location()`. |
+| 2 | `09f7bbe` | `--set NAME=VALUE` (snapshot, sweep, check), `interactive-pipe sweep --param / --steps / --output`, `--pipeline NAME`, new `agent/parameters.py`. Names through `headless.explore.resolve_names` (the library's resolver: list + "did you mean"), values typed from `describe()` (control kind / type) or the default's type. Bad name / value: exit 2, nothing written. `--set` wins over the script's call values, which are kept. Also: the known-flaky `test_doctor_opens_no_window` now compares with the QApplication alive before (my Qt-decorated test scripts made it fail deterministically). `describe --json` already existed. |
+| 3 | `cdd3d37` | `interactive-pipe check SCRIPT.py [--json] [--set]`, `agent/check.py`: pipelines, inputs, controls, outputs (type / shape / dtype / range / NaN count), warnings (output_check problems of the real run, clamped values, anything logged; environment noise dropped), errors with user file:line; also runs pipelines the script only defines when they take no input, lists the others as "not run (needs inputs)". Tests on a good script, a `PipelineSyntaxError`, a filter raising, a misleading output, an undisplayable output, defined-only pipelines, no pipeline, `--set`, `--json`, stable output. All 28 demos and gallery scripts: `OK` (multi_image: 1 warning, "Torch is not available"). |
+| 4 | `c55631c`, `52c5237`, `1cb7b51` | Skill: mouse-input section with a runnable block, outputs line (RGBA, `(H, W, 1)`, uint16, bool, figures everywhere), error table with the current messages + `test/test_skill_error_table.py` (runs each documented mistake, checks the quoted text), `check` first in "Check your work", `--set` / sweep for scripts, "Testing your filters" with a runnable test, the wrong "default: the last output" fixed. Removed the `PipelineSyntaxError` example block (the dogfooding run hit zero of them); limit raised to 260 (259 lines). `.claude` copy re-installed. |
+| 5 | `1a7cb4c` | Examples page: `pointer_demo.py`, pictures of the figure / overlay / pointer demos (`docs/images/pointer_demo.png`, quantized snapshot, 262 kB), the eight gallery scripts; readme "Features" list (type hints, figures / overlays, mouse input, snapshots / sweeps, command line, skill), one image (gallery sweep), 92 lines; `docs/index.md` lines; `test/test_examples_page.py`. |
+| 6 | `faeb7bc` | `docs/upgrade-from-0.9.md` ("Upgrading from 0.9", nav after the changelog, in llms-full): every behaviour change with before / after; every "before" that now fails is a `raises` block (PipelineSyntaxError, FilterError, TypeError, ValueError, DisplayError) and every "after" runs (`test/test_upgrade_page.py`, 21 blocks); the test also checks every changelog behaviour bullet links to an existing anchor. |
+| 7 | `fdee24c` | CHANGELOG "Unreleased" reorganised: 23 behaviour changes first (grouped: pipeline body, running, declaring controls, display, errors and logs), each with the fix and its upgrade-page link; then features by theme; then fixes. Checked that every code span of the old section is still there. |
+
+Docs of the CLI (guide page `command-line.md` + `api/agent.md` table) are in the item 2 and 3 commits.
+
+### Decisions
+
+- **`-o/--out` is the path, `--output` selects outputs** (like `snapshot(output=...)`), as the plan's synopsis has it. The long form `--output` of the path existed only in "Unreleased": renamed `--out`, no deprecation.
+- **How `--set` combines with the script**: each captured call is let through until the pipeline is about to run (inputs, script keyword arguments, `parameters=` / `context=` applied), the values are captured, then the command renders with its own options (`run_snapshot` / `sweep` with `"filter.param"` overrides). So `p(img, gain=0.5)` in the script plus `--set mode=light` gives both, and `--set gain=2` wins. The trick is a temporary instance attribute `pipeline.run` (no change to library files).
+- **Several pipelines**: a name that only another pipeline of the script has is skipped for this one; a name no pipeline has fails with the resolver's message. A sweep whose names all belong to another pipeline skips this pipeline.
+- **Sweep values**: comma-separated; `;`-separated for ranges / points / regions; repeated `--param NAME=` appends.
+- **`check`** keeps output on stdout and the script's prints on stderr; exit 1 on any error, 2 on a bad `--set`, warnings never fail. The script now runs through `exec` in a module object kept on `ScriptRun.namespace` (same semantics as `runpy.run_path`), so pipelines defined by the script are found even when it raises.
+
+### Skill verification (item 4, "verify by doing")
+
+A fresh agent given only SKILL.md wrote `mouse_figure_demo.py` (57 lines: a `pick` filter returning a `PointControl` + `RegionControl` shared by two filters, a Figure with the row profile and the region histogram, a `RdBu_r` heatmap with colorbar centred on the clicked value). 2 `check` rounds (the first showed two independent `seed` controls, fixed with the skill's parameters-filter pattern), the snapshot right the first time, 3 sweeps correct. **Zero look-ups outside the skill; verdict: the skill was enough.** Gaps it reported, fixed in `52c5237`: whether the parameters-filter pattern works for mouse controls / `on=` a later output (yes, now said), "sweep = one row" (cells are laid out to fit), CLI `--output` accepting `all` / a list. Its remark that `draw.points(filled=False)` "is the default" was a misreading (the default is `filled=True`).
+
+### Not done
+
+- Nothing of the plan left. Not added: a `--strict` for `check` (warnings as errors) — not asked.
+
+### Left for review (files not mine)
+
+- **Qt offscreen noise in every CLI run**: `This plugin does not support propagateSizeHints()` on stderr, printed when `helper/pipeline_decorator._gui_for_snapshot` builds the (never shown) Qt GUI object. `QT_LOGGING_RULES="qt.qpa.*=false"` does not hide it; a `qInstallMessageHandler` filter in `graphical/qt_gui.py` (or not building the Qt window object under `INTERACTIVE_PIPE_SNAPSHOT` / the hook) would. Reproducer: `interactive-pipe check demo/key_event_demo.py`.
+- **Sweep default output** (`headless/snapshot.default_sweep_cell`): the first image output, which for the usual `return img, out` is the input, so every cell looks the same (`interactive-pipe sweep script.py --param gain=0.5,1,2` without `--output`). Suggestion: the last image output. The skill now documents it.
+- **Clamp warned twice** (`headless/explore.apply_overrides` + `headless/control`): `--set gain=7` (or `snapshot(gain=7)`) logs `Control 'gain': value 7.0 is outside its range ...` and warns `snapshot(): gain=7 is outside the range ...`; `check` lists both.
+- **A filter calling `layout.grid` changes the return shape of a headless pipeline** (a list of rows instead of a tuple): surprising in tests (found while writing the skill's testing block); documented in the skill.
+- `ruff format .` keeps rewriting python blocks in the other plan files (`plan_agent_dogfood.md`); reverted each time, not committed.
