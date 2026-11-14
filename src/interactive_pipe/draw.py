@@ -115,7 +115,12 @@ def _is_single_color(color: Any) -> bool:
 
 
 def _colors(color: ColorArg, count: int) -> List[Tuple[float, float, float]]:
-    """One RGB colour per item: the default cycle, a single colour or a list (cycled)."""
+    """One RGB colour per item: the default cycle, a single colour or a list (cycled).
+
+    Zero items need no colour: an empty list (``color=[]`` for zero
+    detections) is accepted then and draws nothing."""
+    if count == 0:
+        return []
     if color is None:
         palette = DEFAULT_COLORS
     elif _is_single_color(color):
@@ -123,7 +128,7 @@ def _colors(color: ColorArg, count: int) -> List[Tuple[float, float, float]]:
     else:
         palette = [to_rgb(c) for c in color]  # type: ignore[union-attr]
         if not palette:
-            raise ValueError("Empty colour list")
+            raise ValueError(f"Empty colour list for {count} item(s): give at least one colour, or color=None")
     return [palette[k % len(palette)] for k in range(count)]
 
 
@@ -661,10 +666,10 @@ def mask(
         if labels is None or (color is not None and _is_single_color(color)):
             rgb = np.asarray(_colors(color, 1)[0], dtype=compute)[None, :]
         else:
-            palette = np.asarray(
-                DEFAULT_COLORS if color is None else [to_rgb(c) for c in color],  # type: ignore[union-attr]
-                dtype=compute,
-            )
+            colors = DEFAULT_COLORS if color is None else [to_rgb(c) for c in color]  # type: ignore[union-attr]
+            if not colors:
+                raise ValueError("Empty colour list for a mask with labels: give at least one colour, or color=None")
+            palette = np.asarray(colors, dtype=compute)
             rgb = palette[(labels.astype(np.int64) - 1) % len(palette)]
         weight = np.full(flat.size, alpha, dtype=compute)
     elif np.issubdtype(array.dtype, np.floating):

@@ -19,11 +19,13 @@ def compute_statistics(img) -> Table:
 
 ## Accepted input shapes
 
-- a dict of columns: `{"Channel": [...], "Mean": [...]}` (as above)
+- a dict of columns: `{"Channel": [...], "Mean": [...]}` (as above); a column may be a list, a tuple, a 1D numpy array or a pandas `Series` (numpy scalars become plain `int` / `float`)
 - a 2D numpy array plus `columns=["X", "Y", ...]`
 - a numpy array with `columns=None` for a headerless raw matrix
 - a list of row dicts: `[{"x": 1, "y": 2}, ...]`
 - a pandas `DataFrame` (when pandas is installed; pandas is optional)
+
+An empty table — `Table({"x": [], "y": []})`, zero detections — shows its header row and "(no rows)" on every backend and in snapshots: no need to replace it with a string when nothing is found. The same goes for `draw.boxes(img, np.zeros((0, 4)), color=[])` and the other `draw` functions: zero marks return the image unchanged.
 
 `precision` controls float formatting. `table.as_dataframe()` converts back to pandas, and tables save to `.csv` / `.pkl` via `.save(path)`.
 
