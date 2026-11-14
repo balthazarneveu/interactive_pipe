@@ -150,3 +150,11 @@ def test_bad_extent_raises_type_error(extent):
         HeadlessPipeline.from_function(p)()
     assert isinstance(exc_info.value.original_error, TypeError)
     assert "(x0, x1, y0, y1)" in str(exc_info.value.original_error)
+
+
+def test_xlabel_with_descenders_is_not_clipped():
+    shown = apply_display_style(np.zeros((97, 370)), {"colormap": "gray", "vmin": -1, "vmax": 1, "xlabel": "time (s)"})
+    bottom_rows = shown[-3:]
+    assert bottom_rows.min() > 0.9  # white below the label: nothing cut at the edge
+    label_rows = shown[-(shown.shape[0] - 97 * 3) :]
+    assert label_rows.min() < 0.3  # the label is drawn

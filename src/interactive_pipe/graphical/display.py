@@ -687,7 +687,8 @@ def _axes_layout(style: dict, height: int, width: int, upscale: int) -> _AxesLay
     xlabel, ylabel = style.get("xlabel"), style.get("ylabel")
     y_text_w = max((text_w(text) for _, text in y_ticks), default=0)
     left_margin = tick_len + gap + y_text_w + gap + ((font_px + gap) if ylabel else 0)
-    bottom_margin = tick_len + gap + font_px + gap + ((font_px + gap) if xlabel else 0)
+    # tick labels, then the xlabel (descenders: a font height and a quarter)
+    bottom_margin = tick_len + gap + font_px + gap + ((int(font_px * 1.25) + gap) if xlabel else 0)
     last_x = max((text_w(text) for _, text in x_ticks[-1:]), default=0)
     right_margin = max(2, last_x // 2 + 2)
     top_margin = int(font_px * 0.7) + 2  # half of the top tick label sticks out above the map
@@ -740,8 +741,9 @@ def _draw_axes(rgb: np.ndarray, layout: _AxesLayout) -> np.ndarray:
         )
     if layout.xlabel:
         box = draw.textbbox((0, 0), layout.xlabel, font=font)
+        # its whole box (descenders of "(s)" included) ends `gap` above the bottom
         draw.text(
-            (x_map + (layout.map_w - (box[2] - box[0])) / 2.0, height - gap - layout.font_px - box[1] + 1),
+            (x_map + (layout.map_w - (box[2] - box[0])) / 2.0 - box[0], height - gap - box[3]),
             layout.xlabel,
             font=font,
             fill=(0, 0, 0),
