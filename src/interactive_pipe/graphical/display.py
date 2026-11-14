@@ -14,7 +14,7 @@ No GUI toolkit is imported here.
 
 import warnings
 from functools import lru_cache
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, List, NamedTuple, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -247,7 +247,7 @@ def rasterize_figure(
 
 
 # Style keys that make a 2D array a heatmap (``unit`` only decorates the colorbar)
-HEATMAP_STYLE_KEYS = ("colormap", "vmin", "vmax", "center", "colorbar")
+HEATMAP_STYLE_KEYS = ("colormap", "vmin", "vmax", "center", "colorbar", "extent")
 
 # NaN and masked pixels of a heatmap: a colour no common colormap uses, so a
 # missing value never reads as a valid one. A Colormap object with its own
@@ -269,7 +269,9 @@ def _heatmap_array(content: Any, style: Optional[dict]) -> Optional[np.ndarray]:
     if not isinstance(content, np.ndarray) or not style:
         return None
     # `is None`, not falsiness: vmin=0 / center=0 are real values
-    if all(style.get(key) is None for key in ("colormap", "vmin", "vmax", "center")) and not style.get("colorbar"):
+    if all(style.get(key) is None for key in ("colormap", "vmin", "vmax", "center", "extent")) and not style.get(
+        "colorbar"
+    ):
         return None
     array = content[..., 0] if content.ndim == 3 and content.shape[-1] == 1 else content
     if array.ndim != 2 or array.size == 0:
@@ -308,15 +310,49 @@ def colorbar_upscale(height: int, width: int = 1) -> int:
     return int(max(1, min(factor, COLORBAR_MAX_UPSCALED_WIDTH // max(width, 1))))
 
 
-def heatmap_geometry(content: Any, style: Optional[dict]) -> Optional[Tuple[int, int, int]]:
-    """``(upscale, height, width)`` of the data area of a heatmap displayed
-    with a colorbar (pixel readouts map display pixels back to data pixels),
-    None when the displayed image is pixel-aligned with the data."""
+class HeatmapGeometry(NamedTuple):
+    """Where the data of a heatmap sits in its displayed image.
+
+    The map is upscaled by ``upscale`` (an integer) and its top-left corner
+    is at ``(x0, y0)`` displayed pixels (axes margins on the left / top);
+    ``extent`` = ``(x_left, x_right, y_bottom, y_top)`` of ``layout.style``,
+    None when the axes count pixels."""
+
+    upscale: int
+    height: int
+    width: int
+    x0: int = 0
+    y0: int = 0
+    extent: Optional[Tuple[float, float, float, float]] = None
+
+    def data_coordinates(self, x: int, y: int) -> Tuple[float, float]:
+        """Extent coordinates of the centre of data pixel (x, y) (column, row)."""
+        if self.extent is None:
+            return float(x), float(y)
+        left, right, bottom, top = self.extent
+        return (
+            left + (x + 0.5) / self.width * (right - left),
+            top + (y + 0.5) / self.height * (bottom - top),
+        )
+
+
+def _has_axes(style: Optional[dict]) -> bool:
+    return bool(style) and any(style.get(key) is not None for key in ("extent", "xlabel", "ylabel"))  # type: ignore[union-attr]
+
+
+def heatmap_geometry(content: Any, style: Optional[dict]) -> Optional[HeatmapGeometry]:
+    """Geometry of the data area of a heatmap displayed with a colorbar or
+    axes (pixel readouts map display pixels back to data pixels), None when
+    the displayed image is pixel-aligned with the data."""
     array = _heatmap_array(content, style)
-    if array is None or not style or not style.get("colorbar"):  # type: ignore[union-attr]
+    if array is None or not style or not (style.get("colorbar") or _has_axes(style)):  # type: ignore[union-attr]
         return None
     height, width = array.shape
-    return colorbar_upscale(height, width), height, width
+    upscale = colorbar_upscale(height, width)
+    if not _has_axes(style):
+        return HeatmapGeometry(upscale, height, width)
+    layout = _axes_layout(style, height, width, upscale)
+    return HeatmapGeometry(upscale, height, width, layout.left, layout.top, layout.extent)
 
 
 def _resolve_colormap(colormap: Any) -> Any:
@@ -376,20 +412,32 @@ def apply_display_style(content: Any, style: Optional[dict]) -> Any:
     colorbar = bool(style.get("colorbar"))
     colormap = style.get("colormap")
     if colormap is None:
-        if not colorbar and not has_invalid:
+        if not colorbar and not has_invalid and not _has_axes(style):
             return normalized
         colormap = "gray"
     cmap = _resolve_colormap(colormap)
     rgb = np.asarray(cmap(normalized))[..., :3]
     if has_invalid:
         rgb[invalid] = _bad_color(cmap)
-    if not colorbar:
+    axes = _has_axes(style)
+    if not colorbar and not axes:
         return rgb
-    upscale = colorbar_upscale(rgb.shape[0], rgb.shape[1])
+    height, width = rgb.shape[:2]
+    upscale = colorbar_upscale(height, width)
     if upscale > 1:
         rgb = np.repeat(np.repeat(rgb, upscale, axis=0), upscale, axis=1)
+    layout = _axes_layout(style, height, width, upscale) if axes else None
+    if layout is not None:
+        rgb = _draw_axes(rgb, layout)
+    if not colorbar:
+        return rgb
     label = style.get("colorbar") if isinstance(style.get("colorbar"), str) else style.get("label")
-    strip = colorbar_strip(cmap, vmin, vmax, rgb.shape[0], style.get("unit"), label)
+    map_h = height * upscale
+    strip = colorbar_strip(cmap, vmin, vmax, map_h, style.get("unit"), label)
+    if layout is not None:  # the bar along the map, not along its axes
+        strip = np.concatenate(
+            [np.ones((layout.top, strip.shape[1], 3)), strip, np.ones((layout.bottom, strip.shape[1], 3))], axis=0
+        )
     return np.concatenate([rgb, strip], axis=1)
 
 
@@ -580,6 +628,132 @@ def _colorbar_strip(
         box = draw.textbbox((0, 0), text, font=font)
         draw.text((label_x, y - (box[1] + box[3]) / 2.0), text, font=font, fill=(0, 0, 0))
     return np.asarray(strip, dtype=np.float64) / 255.0
+
+
+# ---------------------------------------------------------------------------
+# Heatmap axes (extent / xlabel / ylabel), drawn into the image like the colorbar
+# ---------------------------------------------------------------------------
+
+
+class _AxesLayout(NamedTuple):
+    left: int
+    top: int
+    right: int
+    bottom: int
+    font_px: int
+    tick_len: int
+    map_w: int
+    map_h: int
+    extent: Optional[Tuple[float, float, float, float]]
+    x_ticks: List[Tuple[float, str]]  # (displayed x from the map's left edge, text)
+    y_ticks: List[Tuple[float, str]]  # (displayed y from the map's top edge, text)
+    xlabel: Optional[str]
+    ylabel: Optional[str]
+
+
+def _axis_ticks(low: float, high: float, length: int) -> List[Tuple[float, str]]:
+    """(position in displayed pixels from the `low` end, text) of round ticks between low and high."""
+    if high == low:
+        return []
+    lo, hi = min(low, high), max(low, high)
+    values, step = _tick_step(lo, hi)
+    decimals = _decimals(values, 1e-6 * step) if values else 0
+    return [((value - low) / (high - low) * length, _fixed(value, decimals)) for value in values]
+
+
+def _axes_layout(style: dict, height: int, width: int, upscale: int) -> _AxesLayout:
+    from PIL import Image as PILImage
+    from PIL import ImageDraw
+
+    map_h, map_w = height * upscale, width * upscale
+    font_px = int(np.clip(round(map_h * COLORBAR_FONT_FRACTION), COLORBAR_FONT_MIN, COLORBAR_FONT_MAX))
+    font = get_font(font_px)
+    tick_len = max(3, font_px // 4)
+    gap = max(3, font_px // 3)
+    extent = style.get("extent")
+    if extent is not None:
+        left, right, bottom, top = (float(v) for v in extent)
+        extent = (left, right, bottom, top)
+    else:  # pixel indices, rows counted downwards like the image
+        left, right, bottom, top = 0.0, float(width), float(height), 0.0
+    x_ticks = _axis_ticks(left, right, map_w)
+    y_ticks = _axis_ticks(top, bottom, map_h)  # from the top edge down
+    probe = ImageDraw.Draw(PILImage.new("RGB", (1, 1)))
+
+    def text_w(text: str) -> int:
+        return int(probe.textbbox((0, 0), text, font=font)[2])
+
+    xlabel, ylabel = style.get("xlabel"), style.get("ylabel")
+    y_text_w = max((text_w(text) for _, text in y_ticks), default=0)
+    left_margin = tick_len + gap + y_text_w + gap + ((font_px + gap) if ylabel else 0)
+    bottom_margin = tick_len + gap + font_px + gap + ((font_px + gap) if xlabel else 0)
+    last_x = max((text_w(text) for _, text in x_ticks[-1:]), default=0)
+    right_margin = max(2, last_x // 2 + 2)
+    top_margin = int(font_px * 0.7) + 2  # half of the top tick label sticks out above the map
+    return _AxesLayout(
+        int(left_margin),
+        int(top_margin),
+        int(right_margin),
+        int(bottom_margin),
+        font_px,
+        tick_len,
+        map_w,
+        map_h,
+        extent,
+        x_ticks,
+        y_ticks,
+        None if xlabel is None else str(xlabel),
+        None if ylabel is None else str(ylabel),
+    )
+
+
+def _draw_axes(rgb: np.ndarray, layout: _AxesLayout) -> np.ndarray:
+    """The (upscaled) map framed, with ticks and labels on its left and bottom, on white."""
+    from PIL import Image as PILImage
+    from PIL import ImageDraw
+
+    font = get_font(layout.font_px)
+    gap = max(3, layout.font_px // 3)
+    width = layout.left + layout.map_w + layout.right
+    height = layout.top + layout.map_h + layout.bottom
+    canvas = np.ones((height, width, 3), dtype=np.float64)
+    canvas[layout.top : layout.top + layout.map_h, layout.left : layout.left + layout.map_w] = rgb
+    image = PILImage.fromarray((canvas * 255.0 + 0.5).astype(np.uint8))
+    draw = ImageDraw.Draw(image)
+    x_map, y_map = layout.left, layout.top
+    draw.rectangle([x_map - 1, y_map - 1, x_map + layout.map_w, y_map + layout.map_h], outline=(0, 0, 0))
+    y_axis = y_map + layout.map_h
+    for x, text in layout.x_ticks:
+        px = x_map + min(x, layout.map_w - 1)
+        draw.line([px, y_axis, px, y_axis + layout.tick_len], fill=(0, 0, 0))
+        box = draw.textbbox((0, 0), text, font=font)
+        draw.text(
+            (px - (box[0] + box[2]) / 2.0, y_axis + layout.tick_len + gap - box[1]), text, font=font, fill=(0, 0, 0)
+        )
+    for y, text in layout.y_ticks:
+        py = y_map + min(y, layout.map_h - 1)
+        draw.line([x_map - 1 - layout.tick_len, py, x_map - 1, py], fill=(0, 0, 0))
+        box = draw.textbbox((0, 0), text, font=font)
+        draw.text(
+            (x_map - layout.tick_len - gap - box[2], py - (box[1] + box[3]) / 2.0), text, font=font, fill=(0, 0, 0)
+        )
+    if layout.xlabel:
+        box = draw.textbbox((0, 0), layout.xlabel, font=font)
+        draw.text(
+            (x_map + (layout.map_w - (box[2] - box[0])) / 2.0, height - gap - layout.font_px - box[1] + 1),
+            layout.xlabel,
+            font=font,
+            fill=(0, 0, 0),
+        )
+    if layout.ylabel:
+        box = draw.textbbox((0, 0), layout.ylabel, font=font)
+        side = PILImage.new("RGB", (int(box[2]) + 2, int(box[3]) + 2), (255, 255, 255))
+        ImageDraw.Draw(side).text((1, 1), layout.ylabel, font=font, fill=(0, 0, 0))
+        side = side.rotate(90, expand=True)
+        if side.height > layout.map_h:
+            side = side.crop((0, (side.height - layout.map_h) // 2, side.width, (side.height + layout.map_h) // 2))
+        image.paste(side, (gap, y_map + (layout.map_h - side.height) // 2))
+    return np.asarray(image, dtype=np.float64) / 255.0
 
 
 # ---------------------------------------------------------------------------

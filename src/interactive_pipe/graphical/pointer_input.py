@@ -14,7 +14,7 @@ fractions and draws the overlay with its own primitives:
 """
 
 import logging
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -146,17 +146,24 @@ class PointerTargets:
     def cell_of(self, ctrl: PointerControl) -> Optional[Cell]:
         return self.cells.get(id(ctrl))
 
-    def data_size(self, cell: Cell, shown_shape: Optional[Sequence[int]] = None) -> Optional[Tuple[float, float]]:
+    def data_size(self, cell: Cell, shown_shape: Optional[Sequence[int]] = None) -> Optional[Sequence[float]]:
         """(width, height) of the data area of ``cell`` in displayed pixels.
 
         The displayed image of a heatmap with a colorbar is the (upscaled) map
-        followed by the colorbar strip: only the map receives gestures.
+        followed by the colorbar strip: only the map receives gestures. With
+        axes the map starts after margins: a ``DataArea`` (width, height, x0,
+        y0) is returned, which ``to_fraction`` / ``overlay_items`` take.
         """
         content = display_data(self._content(cell))
         geometry = heatmap_geometry(content, self.styles.get(cell))
         if geometry is not None:
-            upscale, height, width = geometry
-            return float(width * upscale), float(height * upscale)
+            # (width, height, x0, y0): axes margins put the map's corner at (x0, y0)
+            return DataArea(
+                float(geometry.width * geometry.upscale),
+                float(geometry.height * geometry.upscale),
+                float(geometry.x0),
+                float(geometry.y0),
+            )
         if shown_shape is not None:
             return float(shown_shape[1]), float(shown_shape[0])
         shape = np.shape(content)
@@ -174,11 +181,26 @@ def _warn_once(message: str) -> None:
         logging.warning(message)
 
 
-def to_fraction(u: float, v: float, data_size: Tuple[float, float]) -> Tuple[float, float]:
+class DataArea(NamedTuple):
+    """Data area of a cell in displayed pixels: its size and top-left corner."""
+
+    width: float
+    height: float
+    x0: float = 0.0
+    y0: float = 0.0
+
+
+def _area(data_size: Sequence[float]) -> DataArea:
+    return DataArea(*data_size)
+
+
+def to_fraction(u: float, v: float, data_size: Sequence[float]) -> Tuple[float, float]:
     """Displayed pixel coordinates (continuous, origin at the top-left corner
-    of the image) -> fractions of the data area (not clamped)."""
-    width, height = data_size
-    return u / width, v / height
+    of the image) -> fractions of the data area (not clamped).
+
+    ``data_size``: (width, height), or a ``DataArea`` (width, height, x0, y0)."""
+    area = _area(data_size)
+    return (u - area.x0) / area.width, (v - area.y0) / area.height
 
 
 def inside(fraction: Tuple[float, float]) -> bool:
@@ -299,20 +321,22 @@ class Gesture:
 # ---------------------------------------------------------------------------
 
 
-def overlay_items(targets: PointerTargets, cell: Cell, data_size: Tuple[float, float]) -> List[Tuple[str, Any, str]]:
+def overlay_items(targets: PointerTargets, cell: Cell, data_size: Sequence[float]) -> List[Tuple[str, Any, str]]:
     """Marks to draw over ``cell``: ``("region", (u0, v0, u1, v1), label)``
     then ``("point", (u, v), label)``, in displayed pixel coordinates."""
-    width, height = data_size
+    width, height, ox, oy = _area(data_size)
     regions: List[Tuple[str, Any, str]] = []
     points: List[Tuple[str, Any, str]] = []
     for ctrl in targets.controls_at(cell):
         value: Any = ctrl.value
         if isinstance(ctrl, RegionControl):
             x0, y0, x1, y1 = value
-            regions.append(("region", (x0 * width, y0 * height, x1 * width, y1 * height), ctrl.name))
+            regions.append(
+                ("region", (ox + x0 * width, oy + y0 * height, ox + x1 * width, oy + y1 * height), ctrl.name)
+            )
         else:
             x, y = value
-            points.append(("point", (x * width, y * height), ctrl.name))
+            points.append(("point", (ox + x * width, oy + y * height), ctrl.name))
     return regions + points  # points drawn on top
 
 

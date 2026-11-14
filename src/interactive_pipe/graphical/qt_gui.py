@@ -796,7 +796,20 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             self.set_status(self._run_status)
         else:
             separator = " · " if self._run_status else ""
-            self.set_status(f"{self._run_status}{separator}({x}, {y}) = {_format_pixel_value(value)}")
+            where = self._pixel_location(row, col, x, y)
+            self.set_status(f"{self._run_status}{separator}{where} = {_format_pixel_value(value)}")
+
+    def _pixel_location(self, row, col, x, y) -> str:
+        """``(x, y)`` data pixel, preceded by its extent coordinates when the
+        heatmap has ``layout.style(extent=...)``."""
+        try:
+            readout = getattr(self.image_canvas[row][col]["image"], "readout", None)  # type: ignore[index]
+        except (TypeError, IndexError, KeyError):
+            readout = None
+        if readout is not None and getattr(readout, "extent", None) is not None:
+            data_x, data_y = readout.data_coordinates(x, y)
+            return f"x={data_x:.4g}, y={data_y:.4g} ({x}, {y})"
+        return f"({x}, {y})"
 
     def _status_title_hover(self, title: Optional[str]):
         """Full text of an elided output title appended to the status line while it is hovered."""
@@ -810,7 +823,10 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         if self.on_pixel_hover is not None:
             self.on_pixel_hover(row, col, x, y, value)
         else:
-            view.setToolTip("" if value is None else f"({x}, {y}): {_format_pixel_value(value)}")
+            if value is None:
+                view.setToolTip("")
+                return
+            view.setToolTip(f"{self._pixel_location(row, col, x, y)}: {_format_pixel_value(value)}")
 
     def _expand_image_grid(self):
         """Give the image grid all the spare room (it is wrapped in centering
