@@ -3,6 +3,7 @@ from functools import partial
 from typing import Optional
 
 from interactive_pipe.headless.control import Control, RangeControl, range_pair
+from interactive_pipe.headless.pointer import PointerControl
 
 # Qt symbols come from the shared binding cascade in qt_backend; unlike the GUI
 # modules this one stays importable without any Qt binding (the factory then
@@ -95,6 +96,8 @@ class ControlFactory:
             return None
         if isinstance(control, RangeControl):
             return RangeSliderControl(name, control, update_func)
+        if isinstance(control, PointerControl):
+            return None  # set with the mouse on its image (MainWindow pointer handlers)
 
         control_class_map = {
             bool: TickBoxControl,

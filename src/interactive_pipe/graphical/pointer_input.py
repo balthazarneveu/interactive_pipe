@@ -289,20 +289,33 @@ class Gesture:
 
 
 def overlay_items(targets: PointerTargets, cell: Cell, data_size: Tuple[float, float]) -> List[Tuple[str, Any, str]]:
-    """Marks to draw over ``cell``: ``("point", (u, v), label)`` and
-    ``("region", (u0, v0, u1, v1), label)`` in displayed pixel coordinates."""
+    """Marks to draw over ``cell``: ``("region", (u0, v0, u1, v1), label)``
+    then ``("point", (u, v), label)``, in displayed pixel coordinates."""
     width, height = data_size
-    items: List[Tuple[str, Any, str]] = []
+    regions: List[Tuple[str, Any, str]] = []
+    points: List[Tuple[str, Any, str]] = []
     for ctrl in targets.controls_at(cell):
         value = ctrl.value
         if isinstance(ctrl, RegionControl):
             x0, y0, x1, y1 = value
-            items.append(("region", (x0 * width, y0 * height, x1 * width, y1 * height), ctrl.name))
+            regions.append(("region", (x0 * width, y0 * height, x1 * width, y1 * height), ctrl.name))
         else:
             x, y = value
-            items.append(("point", (x * width, y * height), ctrl.name))
-    return items
+            points.append(("point", (x * width, y * height), ctrl.name))
+    return regions + points  # points drawn on top
 
 
 POINT_COLOR = (255, 64, 160)  # magenta-pink, readable on gray images and most colormaps
 REGION_COLOR = (64, 224, 255)  # cyan
+
+
+def help_lines(controls: Iterable[Any]) -> List[str]:
+    """Help (F1) lines of the mouse gestures, for a backend with gestures."""
+    lines = []
+    for ctrl in pointer_controls(controls):
+        where = f"'{ctrl.on}'" if ctrl.on is not None else "the first image"
+        if isinstance(ctrl, RegionControl):
+            lines.append(f"[shift+drag] on {where} : draw {ctrl.name}")
+        else:
+            lines.append(f"[click] on {where} : set {ctrl.name}")
+    return lines
