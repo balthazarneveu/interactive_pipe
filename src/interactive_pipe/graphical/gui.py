@@ -42,8 +42,9 @@ class InteractivePipeGUI:
     Do not re-implement the init function!
 
     ``pointer_gestures``: a backend setting it to True binds the mouse for
-    ``PointControl`` / ``RegionControl`` itself; otherwise (the default, so
-    for any new backend) they are shown as one slider per coordinate.
+    ``PointControl`` / ``RegionControl`` itself (a tuple of kinds, e.g.
+    ``("point",)``, for only some of them); otherwise (the default, so for any
+    new backend) they are shown as one slider per coordinate.
     """
 
     pointer_gestures = False
@@ -585,7 +586,7 @@ class InteractivePipeGUI:
             # filters read these flags through the `events` context proxy
             help_lines.append(f"[{formatted_key_context}]    : {formatted_doc} (event '{event_dict['param_name']}')")
         if self.pointer_gestures:
-            help_lines += pointer_help_lines(self.controls)
+            help_lines += pointer_help_lines(self.controls)  # only the controls left to the mouse
         self.print_message(help_lines)
         return help_lines
 
