@@ -576,6 +576,28 @@ def _colorbar_strip(
     return np.asarray(strip, dtype=np.float64) / 255.0
 
 
+# ---------------------------------------------------------------------------
+# Text outputs (str): one size and wrapping rule for every backend
+# ---------------------------------------------------------------------------
+
+# Text cells (str outputs: readouts, metrics) are written larger than titles
+TEXT_FONT_PT = 12
+TEXT_CHAR_WIDTH = 0.6  # average character width, in font heights (DejaVu Sans)
+
+
+def wrap_text(text: str, width: float, font_size: float) -> str:
+    """`text` wrapped to lines of about `width` (same unit as `font_size`:
+    pixels, or points). Existing line breaks are kept; a word longer than a
+    line is cut only if it would not fit at all."""
+    import textwrap
+
+    max_chars = max(8, int(width / (font_size * TEXT_CHAR_WIDTH)))
+    lines = []
+    for line in str(text).splitlines() or [""]:
+        lines.extend(textwrap.wrap(line, max_chars, break_long_words=True, break_on_hyphens=False) or [""])
+    return "\n".join(lines)
+
+
 class DisplayError(ValueError):
     """An output array that cannot be displayed without guessing its layout
     (channel-first, batch, empty, object / complex dtype...). The message names
