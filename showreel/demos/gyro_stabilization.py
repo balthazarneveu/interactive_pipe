@@ -24,7 +24,7 @@ K, K_SCENE = intrinsics(FOCAL, FRAME_W, FRAME_H), intrinsics(FOCAL, SCENE_W, SCE
 CENTRE = np.array([FRAME_W / 2, FRAME_H / 2])
 CORNERS = np.array([[-1, -1], [1, -1], [1, 1], [-1, 1]]) * CENTRE
 ZOOMS = np.linspace(1.0, 3.0, 401)
-GIF = sys.argv[1] if len(sys.argv) > 1 else None
+GIF = next((arg for arg in sys.argv[1:] if arg.endswith(".gif")), None)
 
 
 def stabilizing(raw, smooth):
