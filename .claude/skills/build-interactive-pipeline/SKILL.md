@@ -23,7 +23,7 @@ def blend(img0, img1, mix=0.5):
     return (1 - mix) * img0 + mix * img1
 
 
-@interactive_pipeline(gui="qt")  # or "dpg", "mpl", "nb", "gradio", "auto", None (headless)
+@interactive_pipeline(gui="qt")  # "dpg", "mpl", "nb", "gradio", None; default "auto": `python app.py -b mpl`
 def my_pipeline(img):
     amplified = amplify(img)
     blended = blend(img, amplified)
@@ -255,4 +255,4 @@ test_amplify()
 
 ## More
 
-Docs: https://balthazarneveu.github.io/interactive_pipe/ — guides for controls, layout, curves, tables, keyboard, audio, panels, snapshots and the command line (`interactive-pipe --help`); the whole site as one text file: https://balthazarneveu.github.io/interactive_pipe/llms-full.txt
+Docs: https://balthazarneveu.github.io/interactive_pipe/ — guides for controls, layout, curves, tables, keyboard, audio, panels, snapshots and the command line (`interactive-pipe --help`); the whole site as one text file: https://balthazarneveu.github.io/interactive_pipe/llms-full.txt. Teaching demos (caching, animation, GIF export, a quality bar for lessons): `showreel/lesson_guide.md` and `showreel/demos/` in the repository.
