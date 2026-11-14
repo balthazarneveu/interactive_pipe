@@ -12,7 +12,8 @@ Checks
 - every control changes at least one output and never raises
 - run time at default (a slider must stay usable)
 
-Default outputs are written to --out as PNG / txt for a visual review.
+Default outputs are written to --out as PNG / txt for a visual review
+(animations are graded and dumped at t = 1.7 s, not at the empty first frame).
 Exit code 0 when no check failed.
 """
 
@@ -35,6 +36,7 @@ import numpy as np  # noqa: E402
 REMOVED_KWARGS = {"global_params", "global_parameters", "global_state", "global_context", "context", "state"}
 PIPELINE_DECORATORS = {"interactive_pipeline", "pipeline"}
 SLOW_RUN_SECONDS = 1.0
+ANIMATION_TIME = 1.7  # seconds, value given to TimeControls while the other controls are swept
 
 
 def decorator_name(node: ast.expr) -> str:
@@ -61,10 +63,18 @@ def is_filter_call(node: ast.expr) -> bool:
 
 def static_checks(source: str, max_lines: int) -> dict:
     tree = ast.parse(source)
-    problems, pipelines = [], []
+    problems, pipelines, notes = [], [], []
     for node in ast.walk(tree):
         if not isinstance(node, ast.FunctionDef):
             continue
+        for deco in node.decorator_list:
+            if decorator_name(deco) in PIPELINE_DECORATORS and isinstance(deco, ast.Call):
+                options = {kw.arg: kw.value for kw in deco.keywords}
+                gui = options.get("gui")
+                if isinstance(gui, ast.Constant) and gui.value not in ("auto", None):
+                    notes.append(f"{node.name}: gui={gui.value!r} is hardcoded (the default 'auto' keeps it testable)")
+                if "cache" not in options:
+                    notes.append(f"{node.name}: no cache option, every filter reruns on each interaction")
         all_args = node.args.args + node.args.kwonlyargs
         removed = sorted(arg.arg for arg in all_args if arg.arg in REMOVED_KWARGS)
         if removed:
@@ -91,7 +101,7 @@ def static_checks(source: str, max_lines: int) -> dict:
         problems.append("no function decorated with @interactive_pipeline at module level")
     if len(code_lines) > max_lines:
         problems.append(f"{len(code_lines)} code lines, budget is {max_lines}")
-    return {"pipelines": pipelines, "code_lines": len(code_lines), "problems": problems}
+    return {"pipelines": pipelines, "code_lines": len(code_lines), "problems": problems, "notes": notes}
 
 
 def capture_pipeline(script: Path):
@@ -212,13 +222,19 @@ def dynamic_checks(script: Path, out_dir: Path) -> dict:
         return report
     pipe = calls[-1][0]
     report["filters"] = [filt.name for filt in pipe.filters]
-    report["cache"] = repr(getattr(pipe, "cache", None))
+    report["cache"] = repr(getattr(getattr(pipe, "engine", None), "cache", None))
     controls = [
         (ctrl.filter_to_connect.name, ctrl.parameter_name_to_connect, ctrl)
         for ctrl in getattr(pipe, "controls", [])
         if ctrl.filter_to_connect is not None
     ]
-    defaults = {(filter_name, param): ctrl.value_default for filter_name, param, ctrl in controls}
+    from interactive_pipe import TimeControl
+
+    # Animations are graded in the middle of the action: at t = 0 nothing has happened yet
+    defaults = {
+        (filter_name, param): ANIMATION_TIME if isinstance(ctrl, TimeControl) else ctrl.value_default
+        for filter_name, param, ctrl in controls
+    }
 
     def reset():
         for (filter_name, param), default in defaults.items():
