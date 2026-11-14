@@ -5,6 +5,7 @@
 Common mistakes in pipelines used to build something that ran and was wrong. They now either do what was meant or fail with an error naming the line and the fix.
 
 ### Changes that can affect existing code
+- **`snapshot` / `sweep` start from a fresh context** (see "Control semantics" below): a pipeline keeping state in `context` is rendered as on its first run, not continued from the live state.
 - **Each pipeline owns its controls**: two pipelines built from the same filter no longer share control values, and pipelines never connect nor change the declared `Control` object, so a direct call `f(img)` uses the declared default instead of the last value set in some pipeline. A pipeline starts from the declared control's value.
 - **2D arrays are shown in gray on the matplotlib backend too** (it used matplotlib's default colormap, viridis, while Qt, Dear PyGui, Gradio and snapshots showed gray). Use `layout.style(name, colormap="viridis")` for a false-colour view.
 - **Variables and inputs are checked when the pipeline is built**: an undefined variable passed to a filter or returned (`offset(amplifed)`), a filter call missing a required input (`blend(img)` when `blend` takes two), and a method called on a pipeline variable (`img.copy()`) raise `PipelineSyntaxError` at the line, with a suggestion. Before, they failed inside the engine on the first run (`KeyError`, `missing a required argument`) or silently resolved a module-level name.
@@ -107,6 +108,7 @@ Improvements & bug fixes:
 ### Control semantics: shared controls, per-pipeline state
 - **One control for several filters**: pass the same `Control` object to several `@interactive` decorators (`band = RangeControl(...)`; `@interactive(band=band)` on two filters, the parameter names may differ): one widget, one value, set in all of them, on every backend, in `pipe(img, band=...)`, `snapshot`, `sweep` (one axis, caption once), tuning files and `describe()` (new `targets` list per control). An annotation alias whose control has a `name=` is shared the same way; an unnamed alias stays one control per filter. Two different controls with the same explicit name still raise, the message says how to share.
 - GUI panels list the controls of their own pipeline only (`Panel.controls_among`).
+- **Snapshots and sweeps of stateful pipelines are reproducible**: each `snapshot` call and each `sweep` cell starts like a first run (the `context` holds only what was given from outside, at construction or with `context=`; key-bound events off; no cached result), and the live pipeline's context, events and cache are put back afterwards. Before, a filter accumulating state in `context` made every picture depend on the runs before it. `snapshot(..., runs=N)` / `sweep(..., runs=N)` show the N-th run from that fresh start (warm-up).
 
 ## 0.9.4 (November 2026)
 
