@@ -36,7 +36,14 @@ from interactive_pipe.data_objects.table import (
 )
 from interactive_pipe.data_objects.table import table_column_widths as _table_column_widths
 from interactive_pipe.data_objects.table import table_text as _table_text
-from interactive_pipe.graphical.display import content_title, display_kind, prepare_display, producer_of
+from interactive_pipe.graphical.display import (
+    content_title,
+    display_kind,
+    figure_of,
+    prepare_display,
+    producer_of,
+    rasterize_figure,
+)
 
 # Natural cell sizes in inches (before the whole figure is scaled to fit MAX_WIDTH)
 CELL_HEIGHT = 3.2
@@ -60,6 +67,7 @@ class SnapshotCell:
     content: Any
     title: Optional[str]
     raw: Any = None  # the output as the filter returned it (``content`` is converted for display)
+    style: Optional[dict] = None  # its layout.style (figures are re-drawn at the cell size)
 
 
 Grid = List[List[Optional[SnapshotCell]]]
@@ -121,7 +129,13 @@ def result_grid(pipeline: Any, result: Any) -> Grid:
                 content, styles.get(label), label, producer_of(getattr(pipeline, "filters", None), name)
             )
             cells.append(
-                SnapshotCell(name=label, content=shown, title=output_title(styles, label, content), raw=content)
+                SnapshotCell(
+                    name=label,
+                    content=shown,
+                    title=output_title(styles, label, content),
+                    raw=content,
+                    style=styles.get(label),
+                )
             )
         grid.append(cells)
     return grid
@@ -302,13 +316,15 @@ def draw_cell(ax: Any, cell: SnapshotCell, width_inches: float, dpi: float, heig
     if kind == "image":
         _draw_image(ax, content, pixels_available=width_inches * dpi)
         _set_title(ax, cell.title, width_inches)
+        if figure_of(cell.raw) is not None:
+            # drawn again at the size of its axes once the layout is known (_redraw_figure_cells)
+            setattr(ax, _FIGURE_CELL, (cell.raw, (cell.style or {}).get("dpi")))
     elif kind in ("signal", "curve"):
         curve = Curve([content]) if kind == "signal" else content
         curve.create_plot(ax=ax)
         # like the GUI: a Curve's own title wins over the layout style
         own_title = curve.title if kind == "curve" else None
         _set_title(ax, own_title or cell.title, width_inches)
-        ax.tick_params(labelsize=8)
     elif kind == "table":
         _draw_table(ax, content, height_inches)
         _set_title(ax, content.title or cell.title, width_inches)
@@ -369,9 +385,43 @@ def auto_dpi(cells: Sequence[SnapshotCell], scale: float = 1.0) -> int:
     """Resolution showing the largest image close to its native size (bounded)."""
     dpi = 100.0
     for cell in cells:
-        if _cell_kind(cell.content) == "image":
+        # a figure is drawn at whatever size its cell gets: its raster size does not count
+        if _cell_kind(cell.content) == "image" and figure_of(cell.raw) is None:
             dpi = max(dpi, cell.content.shape[0] / (CELL_HEIGHT * scale))
     return int(min(max(dpi, MIN_DPI), MAX_DPI))
+
+
+_FIGURE_CELL = "_interactive_pipe_figure_cell"
+FIGURE_OVERSAMPLE = 2  # figures are drawn twice as large (same layout), then smoothly reduced: no jaggies
+
+
+def _all_axes(container: Any) -> List[Any]:
+    axes = list(container.axes)
+    for subfig in getattr(container, "subfigs", []):
+        axes += _all_axes(subfig)
+    return axes
+
+
+def _redraw_figure_cells(fig: "Figure", dpi: float) -> None:
+    """Draw each matplotlib figure output again at the pixel size of its
+    axes, at the snapshot dpi: its text comes out the size of a Curve's in
+    the next cell, whatever its figsize (see ``rasterize_figure``)."""
+    axes = [ax for ax in _all_axes(fig) if getattr(ax, _FIGURE_CELL, None) is not None]
+    if not axes:
+        return
+    fig.draw_without_rendering()  # runs the (constrained) layout
+    width_px, height_px = fig.get_size_inches() * fig.dpi
+    for ax in axes:
+        figure, style_dpi = getattr(ax, _FIGURE_CELL)
+        position = ax.get_position(original=True)
+        box = (
+            FIGURE_OVERSAMPLE * position.width * width_px,
+            FIGURE_OVERSAMPLE * position.height * height_px,
+        )
+        raster = rasterize_figure(figure, FIGURE_OVERSAMPLE * (style_dpi or dpi), box=box)
+        for image in list(ax.images):
+            image.remove()
+        _draw_image(ax, raster, pixels_available=position.width * width_px)
 
 
 def draw_grid(container: Any, grid: Grid, scale: float, dpi: float) -> None:
@@ -441,6 +491,7 @@ def render_grid(
     fig = _new_figure(figsize[0], figsize[1], dpi)
     draw_grid(fig, grid, scale, dpi)
     _decorate(fig, figsize[0], title, caption)
+    _redraw_figure_cells(fig, dpi)
     return fig
 
 
@@ -512,6 +563,7 @@ def render_sweep(
             if cell_labels is not None and cell_labels[row_idx][col_idx]:
                 subfig.suptitle(cell_labels[row_idx][col_idx], fontsize=11, fontweight="bold")
     _decorate(fig, figsize[0], title, caption)
+    _redraw_figure_cells(fig, dpi)
     return fig
 
 

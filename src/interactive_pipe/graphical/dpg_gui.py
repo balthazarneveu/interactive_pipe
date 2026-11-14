@@ -38,6 +38,7 @@ from interactive_pipe.graphical.dpg_backend import (  # noqa: F401
 )
 from interactive_pipe.graphical.dpg_control import ControlFactory
 from interactive_pipe.graphical.dpg_image import (
+    FIGURE_CELL_SIZE,
     clear_cell_content,
     image_box,
     place_image,
@@ -1134,6 +1135,10 @@ class MainWindow(InteractivePipeWindow):
         if isinstance(out_im, np.ndarray) and out_im.ndim > 1:
             return out_im.clip(0.0, 1.0).astype(np.float32, copy=False)
         return out_im
+
+    def figure_box(self, row, col):
+        # a figure output gets the natural size of a curve cell: the layout scales both alike
+        return FIGURE_CELL_SIZE
 
     def refresh(self):
         """Run the pipeline now and display the results.
