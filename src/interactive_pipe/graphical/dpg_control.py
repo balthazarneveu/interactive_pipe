@@ -17,6 +17,7 @@ import math
 from pathlib import Path
 from typing import Any, List, Optional, cast
 
+from interactive_pipe.graphical.value_format import printf_format
 from interactive_pipe.headless.control import CircularControl, Control, RangeControl, range_pair
 from interactive_pipe.headless.pointer import PointerControl
 
@@ -143,6 +144,7 @@ class IntSliderControl(BaseControl):
         snapped = int(_snap(int(app_data), self.ctrl.value_range[0], step))  # type: ignore[index]
         if snapped != app_data:
             dpg.set_value(self.control_widget, snapped)
+        dpg.configure_item(self.control_widget, format=printf_format(snapped))  # "6", "0.1", "1e-05"
         self._emit(snapped)
 
     def reset(self):
@@ -158,30 +160,16 @@ class FloatSliderControl(BaseControl):
 
     def create(self, parent):
         value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
-        if self.ctrl.is_log:
-            # the slider moves over the position in [0, 1] (evenly over decades);
-            # its text is the real value (an ImGui format without %-field is shown as is)
-            self.control_widget = dpg.add_slider_float(
-                parent=parent,
-                default_value=self.ctrl.to_position(self.ctrl.value),
-                min_value=0.0,
-                max_value=1.0,
-                clamped=True,
-                width=-1,
-                format=_log_label(self.ctrl.value),
-                callback=self._on_change,
-            )
-        else:
-            self.control_widget = dpg.add_slider_float(
-                parent=parent,
-                default_value=float(self.ctrl.value),
-                min_value=float(value_min),
-                max_value=float(value_max),
-                clamped=True,
-                width=-1,
-                format="%.4g",
-                callback=self._on_change,
-            )
+        self.control_widget = dpg.add_slider_float(
+            parent=parent,
+            default_value=float(self.ctrl.value),
+            min_value=float(value_min),
+            max_value=float(value_max),
+            clamped=True,
+            width=-1,
+            format=printf_format(self.ctrl.value),
+            callback=self._on_change,
+        )
         self._add_tooltip(self.control_widget)
         return self.control_widget
 
@@ -204,6 +192,7 @@ class FloatSliderControl(BaseControl):
             dpg.configure_item(self.control_widget, format=_log_label(self.ctrl.value))
             return
         dpg.set_value(self.control_widget, float(self.ctrl.value))
+        dpg.configure_item(self.control_widget, format=printf_format(self.ctrl.value))
 
 
 def _log_label(value: float) -> str:

@@ -69,6 +69,7 @@ from interactive_pipe.graphical.qt_widgets import (  # noqa: F401
     DetachedPanelWindow,
     ElidedLabel,
 )
+from interactive_pipe.graphical.value_format import format_control_value
 from interactive_pipe.graphical.window import (
     InteractivePipeWindow,
     display_kind,
@@ -684,9 +685,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
     def update_label(self, idx):
         # pass
         val = self.ctrl[idx].value
-        val_to_print = val
-        if isinstance(val, float):
-            val_to_print = f"{val:.3e}"
+        val_to_print = format_control_value(val)
         if idx in self.result_label.keys():
             self.result_label[idx].setText(f"{val_to_print}")
         if idx in self.name_label.keys():
