@@ -23,7 +23,7 @@ import tempfile
 import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 DEFAULT_MAX_CALLS = 10
 
@@ -44,6 +44,11 @@ class PipelineCall:
     description: Optional[Dict[str, Any]] = None
     summary: Optional[str] = None
     results: Any = None  # what the call returned (the outputs shown in the PNG)
+    error: Optional[BaseException] = None  # what the call raised (FilterError, DisplayError...)
+
+    @property
+    def failed(self) -> bool:
+        return self.error is not None
 
 
 @dataclass
@@ -53,12 +58,70 @@ class ScriptRun:
     script: Path
     calls: List[PipelineCall] = field(default_factory=list)
     exit_code: int = 0
-    error: Optional[str] = None
+    error: Optional[str] = None  # the script's error, formatted once (see format_script_error)
+    exception: Optional[BaseException] = None
     stopped_early: bool = False
 
     @property
     def written(self) -> List[Path]:
-        return [call.path for call in self.calls if call.path is not None]
+        return [call.path for call in self.calls if call.path is not None and not call.failed]
+
+    @property
+    def failed_calls(self) -> List[PipelineCall]:
+        return [call for call in self.calls if call.failed]
+
+
+_RUNPY_FILE = os.path.abspath(runpy.__file__)
+
+
+def _package_dir() -> str:
+    import interactive_pipe
+
+    return os.path.dirname(os.path.abspath(interactive_pipe.__file__)) + os.sep
+
+
+def _is_user_frame(filename: str) -> bool:
+    """Frames of the user's code: not interactive_pipe, not runpy."""
+    path = os.path.abspath(filename)
+    return not path.startswith(_package_dir()) and path != _RUNPY_FILE and not filename.startswith("<frozen")
+
+
+def error_location(exc: BaseException) -> Optional[Tuple[str, int]]:
+    """(file, line) of the user code an error points to, None when unknown.
+
+    ``PipelineSyntaxError``: the offending pipeline line; ``FilterError``: the
+    innermost frame of the filter; anything else: the innermost frame outside
+    interactive_pipe."""
+    from interactive_pipe.core.engine import FilterError
+    from interactive_pipe.core.graph import PipelineSyntaxError
+
+    if isinstance(exc, PipelineSyntaxError) and exc.filename is not None and exc.lineno is not None:
+        return exc.filename, exc.lineno
+    if isinstance(exc, FilterError):
+        frames = getattr(exc, "_user_frames", None) or []
+        if frames:
+            return frames[-1].filename, frames[-1].lineno or 0
+    frames = [frame for frame in traceback.extract_tb(exc.__traceback__) if _is_user_frame(frame.filename)]
+    if frames:
+        return frames[-1].filename, frames[-1].lineno or 0
+    return None
+
+
+def format_script_error(exc: BaseException) -> str:
+    """The script's error, printed once and without interactive_pipe's own frames.
+
+    ``FilterError`` and ``PipelineSyntaxError`` messages already name the
+    user's file and line: only the call site in the script is added. Other
+    errors get a traceback of the user's frames."""
+    from interactive_pipe.core.engine import FilterError
+    from interactive_pipe.core.graph import PipelineSyntaxError
+
+    user_frames = [frame for frame in traceback.extract_tb(exc.__traceback__) if _is_user_frame(frame.filename)]
+    message = "".join(traceback.format_exception_only(type(exc), exc)).rstrip()
+    if isinstance(exc, (FilterError, PipelineSyntaxError)):
+        user_frames = user_frames[-1:]  # where the script called / decorated the pipeline
+    lines = ["Traceback (user code only):", *traceback.format_list(user_frames)] if user_frames else []
+    return "".join(line if line.endswith("\n") else line + "\n" for line in lines) + message
 
 
 def default_output(script: Path) -> Path:
@@ -180,16 +243,21 @@ def run_script(
     def hook(name: str, pipeline: Any, render: Callable[[Path], Any]) -> Any:
         path = choose_path(name)
         path.parent.mkdir(parents=True, exist_ok=True)
-        if describe:  # the PNG goes to a temporary folder, deleted afterwards
-            with contextlib.redirect_stdout(io.StringIO()):
-                results = render(path)
-        else:
-            results = render(path)
-        call = PipelineCall(name=name, path=None if describe else path, results=results)
-        if describe:
+        call = PipelineCall(name=name, path=None if describe else path)
+        run.calls.append(call)
+        if describe:  # also when the run fails: the controls are known before running
             call.description = pipeline.describe()
             call.summary = pipeline.summary()
-        run.calls.append(call)
+        try:
+            if describe:  # the PNG goes to a temporary folder, deleted afterwards
+                with contextlib.redirect_stdout(io.StringIO()):
+                    results = render(path)
+            else:
+                results = render(path)
+        except Exception as exc:
+            call.error = exc  # the script decides: it usually stops with this error
+            raise
+        call.results = results
         if len(run.calls) >= max_calls:
             raise _StopScript()
         return results
@@ -226,7 +294,8 @@ def run_script(
         raise
     except BaseException as exc:  # noqa: BLE001 - any error of the user script is reported, not raised
         run.exit_code = 1
-        run.error = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+        run.exception = exc
+        run.error = format_script_error(exc)
     finally:
         sys.argv = saved_argv
         sys.path[:] = saved_path
