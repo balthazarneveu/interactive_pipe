@@ -56,6 +56,23 @@ pipe(np.array([0.0, 0.5, 0.8]) * np.ones((256, 512, 3)))
 
 Calling `pipe(...)` opens a window with sliders for every declared parameter. 🎉
 
+## Works without a display
+
+- `pipe.snapshot("out.png", img, coeff=1.5)` renders what the window shows to a PNG (any `gui=`, no window).
+- `pipe.sweep("sweep.png", img, coeff=[0.5, 1.0, 2.0])` compares parameter values side by side.
+- `interactive-pipe snapshot my_script.py` runs an unmodified GUI script and writes one PNG per pipeline call.
+
+## Using it with a coding agent
+
+```bash
+interactive-pipe skill --install            # Claude Code skill in ~/.claude/skills/ (or --project DIR)
+interactive-pipe skill --agents-md          # a short block for your AGENTS.md / CLAUDE.md
+interactive-pipe describe my_script.py      # controls and outputs, as text or --json
+interactive-pipe doctor                     # installed backends, display, what gui="auto" picks
+```
+
+The skill teaches the agent the decorators, what a pipeline body may contain, and to check its visual work by reading snapshots. `python -m interactive_pipe ...` works too.
+
 ## Backends
 
 | *PyQt / PySide* | *Matplotlib* | *Jupyter / Colab* | *Gradio* |

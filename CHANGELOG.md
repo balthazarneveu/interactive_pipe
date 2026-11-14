@@ -29,12 +29,23 @@ Common mistakes in pipelines used to build something that ran and was wrong. The
 - `HeadlessPipeline.save()` writes the outputs according to their type: numpy images through `Image`, 1D arrays as `.csv`, other arrays as `.npy`, `Image` / `Curve` / `Table` with their own `save`, strings as `.txt`; other types are skipped with one warning. The GUI save action (`w`) uses the same dispatch.
 - `HeadlessPipeline.load_tuning(path)`, the name the docs already used (alias of `import_tuning`).
 
+### Command line and coding agents
+- **`interactive-pipe` command** (also `python -m interactive_pipe`), standard library only:
+  - `interactive-pipe skill` prints the agent skill; `--install` copies it to `~/.claude/skills/build-interactive-pipeline/` (or `--project DIR`), refusing to overwrite a different file without `--force`; `--agents-md` prints a short block for a project's `AGENTS.md` / `CLAUDE.md`.
+  - `interactive-pipe doctor [--json]`: versions, which GUI backends import (with the `pip install` extra for each missing one), whether a display is available, which backend `gui="auto"` picks.
+  - `interactive-pipe snapshot SCRIPT.py [-o OUT] [-- args]`: runs an unmodified GUI script as `__main__` and writes one PNG per pipeline call (`<pipeline>.png`, `<pipeline>_2.png` for a repeated call), stopping after `--max-calls` (10).
+  - `interactive-pipe describe SCRIPT.py [--json]`: the controls and outputs of the pipelines a script runs, without a window.
+- **The agent skill ships in the package** (`interactive_pipe.skill_path()`), rewritten against the current API: pipeline-body rules, controls, outputs, proxies, the describe / snapshot / sweep loop, headless use and an error table. Its code blocks, the readme's and the quickstart's run in the test suite.
+- `interactive_pipe.cli.set_snapshot_hook()`: lets a tool intercept the `INTERACTIVE_PIPE_SNAPSHOT` rendering of each pipeline call (used by the command).
+
 ### Improvements & bug fixes
 - A value outside a control's range (`pipeline(img, gain=99)`, tuning files, sessions) is still clamped, but now logs a warning naming the control, the value and the range.
 - Calling a pipeline with the wrong number of inputs says `pipeline 'p' expects 1 input (img), got 0` (and names the missing keys for `inputs={...}`), instead of `Cannot set inputs to None when inputs_routing is defined`.
 - The GUI `__call__` accepts `inputs={...}` like the headless one.
 - `HeadlessPipeline.save()` used to log one traceback per numpy output and write nothing but curves; it also saved nothing for 2D output layouts.
 - A plain `FilterCore` instance used in a pipeline function no longer fails with `AttributeError: controls`.
+- Every script of `demo/` and `samples/` now runs headless in the test suite and must render a non-blank snapshot. Fixed on the way: the blur / sharpen of the panel and grouped-controls demos took ~5 s per slider move (per-pixel Python loop, now vectorized), and `panel_position_demo.py`'s default crop showed a blank corner of the image (the crop is now in percent).
+- FAQ: in-place operations on inputs raise by default (read-only inputs) — the answer said there were no checks; new entries for `PipelineSyntaxError`, unknown keyword arguments, renamed controls, "no window" and coding agents.
 
 ## 0.9.4 (November 2026)
 

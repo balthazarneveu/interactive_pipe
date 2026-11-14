@@ -47,6 +47,8 @@ All in [`demo/`](https://github.com/balthazarneveu/interactive_pipe/tree/master/
 | `table_demo.py` | `Table` outputs |
 | `jukebox_demo.py` | Raspberry Pi jukebox (audio + image buttons) |
 
+Every demo also runs without a display: `interactive-pipe snapshot demo/table_demo.py` writes what its window would show to a PNG (the test suite does this for every demo and sample, see [Snapshots](snapshots.md)).
+
 ## Curated samples
 
 The [`samples/`](https://github.com/balthazarneveu/interactive_pipe/tree/master/samples) folder walks through the declaration styles:
