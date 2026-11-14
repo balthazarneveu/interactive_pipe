@@ -3,7 +3,13 @@ import logging
 import os
 from typing import Any, Callable, Optional, Union
 
-from interactive_pipe.cli import resolve_gui, size_from_env, snapshot_path_from_env, snapshot_requested
+from interactive_pipe.cli import (
+    get_snapshot_hook,
+    resolve_gui,
+    size_from_env,
+    snapshot_path_from_env,
+    snapshot_requested,
+)
 from interactive_pipe.core.backend import Backend
 from interactive_pipe.core.context import REMOVED_CONTEXT_ALIASES
 from interactive_pipe.headless.pipeline import HeadlessPipeline
@@ -38,6 +44,13 @@ def _snapshot_launcher(
 
     @functools.wraps(pipeline_function)
     def inner(*args: Any, **kwargs: Any) -> Any:
+        hook = get_snapshot_hook()  # set by `interactive-pipe snapshot` / `describe`
+        if hook is not None:
+            return hook(
+                pipeline_function.__name__,
+                headless_pipeline,
+                lambda path: snapshot_instead_of_gui(headless_pipeline, path, *args, **kwargs),
+            )
         path = snapshot_path_from_env(pipeline_function.__name__)
         if path is None:  # unset after decoration
             raise RuntimeError("INTERACTIVE_PIPE_SNAPSHOT was unset after the pipeline was decorated")

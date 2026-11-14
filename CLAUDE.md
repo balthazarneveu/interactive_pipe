@@ -132,6 +132,15 @@ Works with any `gui=` value; overrides apply to the call only. For an unmodified
 GUI script: `INTERACTIVE_PIPE_SNAPSHOT=/tmp/shots/ python demo/some_demo.py`.
 See `docs/guide/snapshots.md`.
 
+## Agent skill and `interactive-pipe` command
+
+- The agent skill's source of truth is `src/interactive_pipe/agent/build-interactive-pipeline/SKILL.md`
+  (shipped in the wheel). `.claude/skills/build-interactive-pipeline/SKILL.md` is a copy kept identical
+  by a test: edit the packaged file, then `python -m interactive_pipe skill --install --project . --force`.
+  Its code blocks run in `test/test_skill_code_blocks.py` (markers: `test/doc_code_blocks.py`).
+- `python -m interactive_pipe` / `interactive-pipe`: `skill`, `doctor`, `snapshot SCRIPT.py`,
+  `describe SCRIPT.py` (`src/interactive_pipe/agent/command_line.py`).
+
 ## Project Structure
 
 - Source code: `src/interactive_pipe/`

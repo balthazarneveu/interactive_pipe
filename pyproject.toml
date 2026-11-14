@@ -37,6 +37,9 @@ classifiers = [
     "Typing :: Typed",
 ]
 
+[project.scripts]
+interactive-pipe = "interactive_pipe.agent.command_line:main"
+
 [project.urls]
 "Homepage" = "https://github.com/balthazarneveu/interactive_pipe"
 "Documentation" = "https://balthazarneveu.github.io/interactive_pipe/"

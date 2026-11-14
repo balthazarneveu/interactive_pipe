@@ -253,3 +253,64 @@ reproduced before any change.
   only the wheel installed, `interactive_pipe.skill_path()` points to an existing
   file in site-packages.
 - Tests: `test/test_agent_skill_packaging.py`.
+
+### 3. Command line — done
+
+- `python -m interactive_pipe` (`__main__.py`) and the console script
+  `interactive-pipe` (`[project.scripts]`) both call
+  `interactive_pipe.agent.command_line:main(argv) -> int`; argparse only.
+  Helpers: `agent/doctor.py`, `agent/run_script.py`.
+- `skill` prints the skill; `--install` defaults to `--user`
+  (`~/.claude/skills/...`), `--project DIR`; refuses a different existing file
+  without `--force` (exit 1); `--agents-md` prints the AGENTS.md block;
+  `--path` prints the packaged file's path (extra, cheap).
+- `doctor [--json]`: version + path, Python, each backend (import of the module
+  `gui=` would use; Qt binding name and version; the pip extra when missing),
+  display (Linux: `DISPLAY` / `WAYLAND_DISPLAY`; notes for
+  `QT_QPA_PLATFORM=offscreen` and `MPLBACKEND=Agg`), what `gui="auto"` picks
+  (same order as `choose_backend.py`, `INTERACTIVE_PIPE_GUI` first) and advice
+  (no display → snapshot / headless). Logging is muted during the imports (the Qt
+  cascade logs every missing binding). Tested: no `QApplication` is created.
+- `snapshot SCRIPT.py [-o OUT] [--max-calls N] [-- args]` and
+  `describe SCRIPT.py [--json] [--max-calls N] [-- args]`: the script runs
+  in-process with `runpy.run_path(run_name="__main__")` (so `if __name__ ==
+  "__main__":` works), its folder on `sys.path`, `sys.argv` set to its
+  arguments; `INTERACTIVE_PIPE_GUI` is removed for the run (a `headless` value
+  would bypass the snapshots), matplotlib forced to Agg; everything is restored
+  afterwards.
+- Smallest hook added: `interactive_pipe.cli.set_snapshot_hook()` (a module-level
+  callback, None by default) and 7 lines in `pipeline_decorator._snapshot_launcher`
+  calling it with `(name, headless_pipeline, render)`. Without the hook the
+  `INTERACTIVE_PIPE_SNAPSHOT` behaviour is unchanged.
+- Decisions:
+  - Several pipelines / several calls: **every call writes its own PNG**:
+    `<folder>/<pipeline>.png`, then `<pipeline>_2.png`... for a repeated call;
+    with `-o out.png`: `out.png`, `out_2.png`...; `{name}` patterns work as for
+    the environment variable. Same folder / file rule as the variable (trailing
+    `/` or existing folder = folder; `.png` added when no suffix).
+  - Default output: `<tempdir>/interactive_pipe_snapshots/<script stem>/`, outside
+    the user's repository; paths are printed.
+  - `--max-calls` (default 10) stops the script (a `BaseException`, not
+    swallowed by `except Exception`) so a script looping over a dataset ends.
+  - Script failure: traceback on stderr, exit 1, snapshots written so far are
+    still listed; the script's own `sys.exit(n)` is returned. No pipeline call:
+    message + exit 1.
+  - `describe` renders into a temporary folder (deleted), prints each pipeline
+    once (first call); the script's own prints go to stderr so `--json` output
+    is parseable.
+  - Not captured: `gui=None` pipelines (the script already runs them headless)
+    and pipelines that are defined but never called.
+- `demo [NAME]`: **skipped**. The demos are outside the package and
+  `demo/images` + `demo/audio` weigh several MB; shipping them would bloat the
+  wheel for every user. `interactive-pipe snapshot demo/xxx.py` covers the
+  repository case.
+- `--help` imports no GUI toolkit (checked with `-X importtime` in a test).
+  Deviation: it still imports matplotlib (and cv2 when installed), because
+  `import interactive_pipe` does (`data_objects/curves.py` imports pyplot at
+  module level, a file owned by `feature/scientific-outputs`); making that lazy
+  is left for review.
+- Verified with the built wheel in a fresh venv (no Qt there): the
+  `interactive-pipe` script runs `doctor` and `snapshot table_demo.py`.
+- `CLAUDE.md`: short additive section on the skill copy and the command.
+- Tests: `test/test_command_line.py` (in-process `main(argv)`, and through
+  `python -m interactive_pipe` in a subprocess).
