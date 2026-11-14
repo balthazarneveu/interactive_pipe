@@ -109,6 +109,7 @@ Improvements & bug fixes:
 - **matplotlib figure outputs are drawn at the size of their cell** (keeping their aspect ratio) in snapshots, sweeps, the Qt window (again after a resize), the matplotlib and notebook windows and Dear PyGui (the size of a plot cell): their text is the size of a `Curve`'s next to them whatever the `figsize`, and a shrunk figure with default margins is laid out tight so its axis labels are not cut. Gradio and `export_animation` keep the `figsize` at 120 dpi. Snapshot curves use matplotlib's default tick size (was 8 pt), like the GUI.
 - **Readouts**: a title set per frame (`layout.style("out", title=f"PSNR {psnr:.2f} dB")`) now also updates the Gradio component label (it kept the first one); it already followed each frame elsewhere and in each sweep cell. `str` outputs are written at 12 pt and wrapped to their cell on every backend (the matplotlib and notebook windows did not wrap; display errors are no longer pre-wrapped at 36 characters).
 - **Slider values are written like a person would**: `6`, `0.1`, `0.005`, `20000`, and `1e-05` only below 1e-4 / from 1e6 (Qt showed `6.000e+00`), the same on Qt, Dear PyGui, matplotlib, Gradio's range slider and in snapshot captions (`interactive_pipe.graphical.value_format`); the notebook uses ipywidgets' closest format (6 significant digits).
+- Errors raised while building a Gradio or notebook control widget name the control and its filter (`control 'gain' (filter 'amplify'): Expected int control type, ...`).
 
 ## 0.9.4 (November 2026)
 

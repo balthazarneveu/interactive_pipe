@@ -1,5 +1,6 @@
 import logging
 
+from interactive_pipe.graphical.control_errors import name_control_errors
 from interactive_pipe.graphical.value_format import D3_FORMAT
 from interactive_pipe.headless.control import Control, RangeControl, range_pair
 
@@ -54,6 +55,10 @@ class BaseControl:
 
     def check_control_type(self):
         raise NotImplementedError("This method should be overridden by subclass to check the right slider control type")
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        name_control_errors(cls)  # "control 'gain' (filter 'amplify'): Expected int control type, ..."
 
 
 class IntSliderNotebookControl(BaseControl):
