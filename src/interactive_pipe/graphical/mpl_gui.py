@@ -6,11 +6,15 @@ import matplotlib.pyplot as plt
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.mpl_control import ControlFactory
 from interactive_pipe.graphical.mpl_window import MatplotlibWindow
+from interactive_pipe.graphical.pointer_input import Gesture, to_fraction
 from interactive_pipe.headless.keyboard import KeyboardControl
+from interactive_pipe.headless.pointer import PointerControl
 
 
 class InteractivePipeMatplotlib(InteractivePipeGUI):
     """Interactive image pipe with matplotlib backend"""
+
+    pointer_gestures = True  # click / shift-drag on the images (see MainWindow.on_mouse_*)
 
     def init_app(self, **kwargs):
         self.window = MainWindow(
@@ -115,6 +119,11 @@ class MainWindow(MatplotlibWindow):
         self.fig, self.ax = plt.subplots(figsize=figsize, num=self.name)
         plt.axis("off")
         self.init_sliders()
+        self.gesture = Gesture()
+        canvas = self.fig.canvas
+        canvas.mpl_connect("button_press_event", self.on_mouse_press)
+        canvas.mpl_connect("motion_notify_event", self.on_mouse_move)
+        canvas.mpl_connect("button_release_event", self.on_mouse_release)
 
     def reset_sliders(self):
         self.__wipe_sliders()
@@ -166,6 +175,8 @@ class MainWindow(MatplotlibWindow):
             slider_name = ctrl.name
             if not dry_run:
                 self.ctrl[slider_name] = ctrl
+            if isinstance(ctrl, PointerControl):
+                continue  # driven by the mouse on its image, drawn as an overlay
             if isinstance(ctrl, KeyboardControl):
                 if not dry_run and self.main_gui is not None:
                     self.main_gui.bind_keyboard_slider(ctrl, self.key_update_parameter)
@@ -219,3 +230,69 @@ class MainWindow(MatplotlibWindow):
             self.ctrl[idx].on_key_up()
         self.need_redraw = True
         self.refresh()
+
+    # ------------------------------------------------------------------
+    # Mouse: click sets a PointControl, shift-drag draws a RegionControl
+
+    def _event_cell(self, event):
+        """(cell, fraction) under a mouse event, None outside the image axes."""
+        if event.inaxes is None or event.xdata is None or event.ydata is None:
+            return None
+        for row, cells in enumerate(self.image_canvas or []):
+            for col, cell in enumerate(cells):
+                if cell is not None and cell["ax"] is event.inaxes:
+                    size = self.cell_data_size(row, col)
+                    if size is None:
+                        return None
+                    # imshow: pixel centres on integers, displayed pixel coordinate = data + 0.5
+                    return (row, col), to_fraction(event.xdata + 0.5, event.ydata + 0.5, size)
+        return None
+
+    def _toolbar_busy(self) -> bool:
+        toolbar = getattr(self.fig.canvas, "toolbar", None) if self.fig is not None else None
+        return bool(getattr(toolbar, "mode", ""))  # pan / zoom tool selected
+
+    def on_mouse_press(self, event):
+        targets = getattr(self, "pointer_targets", None)
+        if targets is None or getattr(event, "button", None) != 1 or self._toolbar_busy():
+            return
+        hit = self._event_cell(event)
+        if hit is None:
+            return
+        cell, fraction = hit
+        shift = "shift" in (event.key or "")
+        self.gesture.press(targets, cell, fraction, (event.x, event.y), shift)
+
+    def _gesture_position(self, event):
+        """Fraction of the gesture's cell under the mouse (also outside the axes)."""
+        if self.gesture.cell is None or self.image_canvas is None:
+            return None
+        row, col = self.gesture.cell
+        ax = self.image_canvas[row][col]["ax"]
+        size = self.cell_data_size(row, col)
+        if size is None:
+            return None
+        xdata, ydata = ax.transData.inverted().transform((event.x, event.y))
+        return to_fraction(xdata + 0.5, ydata + 0.5, size)
+
+    def on_mouse_move(self, event):
+        if not self.gesture.active:
+            return
+        fraction = self._gesture_position(event)
+        if fraction is None:
+            return
+        changed = self.gesture.move(fraction, (event.x, event.y))
+        if changed is not None:
+            self.update_parameter(changed.name, changed.value)
+
+    def on_mouse_release(self, event):
+        if not self.gesture.active:
+            return
+        fraction = self._gesture_position(event)
+        targets = getattr(self, "pointer_targets", None)
+        if fraction is None or targets is None:
+            self.gesture.cancel()
+            return
+        changed = self.gesture.release(targets, fraction, (event.x, event.y))
+        if changed is not None:
+            self.update_parameter(changed.name, changed.value)
