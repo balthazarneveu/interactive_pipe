@@ -1,11 +1,16 @@
 import functools
+import logging
+import os
 from typing import Any, Callable, Optional, Union
 
-from interactive_pipe.cli import resolve_gui, size_from_env
+from interactive_pipe.cli import resolve_gui, size_from_env, snapshot_path_from_env, snapshot_requested
 from interactive_pipe.core.backend import Backend
 from interactive_pipe.core.context import REMOVED_CONTEXT_ALIASES
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
+
+#: HeadlessPipeline methods also reachable from a GUI-decorated pipeline function
+SEE_THE_RESULT_METHODS = ("snapshot", "sweep", "describe", "summary")
 
 
 def pipeline(pipeline_function: Callable, **kwargs) -> HeadlessPipeline:
@@ -19,6 +24,56 @@ def pipeline(pipeline_function: Callable, **kwargs) -> HeadlessPipeline:
     ``interactive_pipeline`` (the decorator), not to this helper.
     """
     return HeadlessPipeline.from_function(pipeline_function, **kwargs)
+
+
+def _snapshot_launcher(
+    pipeline_function: Callable[..., Any], headless_pipeline: HeadlessPipeline, gui_pipeline: Any = None
+) -> Callable:
+    """Stand-in for the GUI launcher when INTERACTIVE_PIPE_SNAPSHOT is set.
+
+    `.pipeline` stays the (never shown) GUI object when it could be built, so
+    scripts configuring it (``demo.pipeline.bind_key_to_context(...)``) still run.
+    """
+    from interactive_pipe.headless.explore import snapshot_instead_of_gui
+
+    @functools.wraps(pipeline_function)
+    def inner(*args: Any, **kwargs: Any) -> Any:
+        path = snapshot_path_from_env(pipeline_function.__name__)
+        if path is None:  # unset after decoration
+            raise RuntimeError("INTERACTIVE_PIPE_SNAPSHOT was unset after the pipeline was decorated")
+        return snapshot_instead_of_gui(headless_pipeline, path, *args, **kwargs)
+
+    owner = gui_pipeline if gui_pipeline is not None else headless_pipeline
+    setattr(inner, "pipeline", owner)
+    setattr(inner, "graph_representation", owner.graph_representation)
+    for method_name in SEE_THE_RESULT_METHODS:
+        setattr(inner, method_name, getattr(headless_pipeline, method_name))
+    return inner
+
+
+def _gui_for_snapshot(
+    selected_gui: Any,
+    headless_pipeline: HeadlessPipeline,
+    markdown_description: Optional[str],
+    name: Optional[str],
+    pipeline_function: Callable[..., Any],
+    gui_options: dict,
+) -> Any:
+    """GUI object that is configured but never run (INTERACTIVE_PIPE_SNAPSHOT),
+    or None when it cannot be built here (backend not installed, no display...)."""
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")  # the window is never shown
+    try:
+        gui_class = get_interactive_pipeline_class(selected_gui)
+        return gui_class(
+            pipeline=headless_pipeline,
+            markdown_description=markdown_description,
+            name=name if name is not None else pipeline_function.__name__,
+            **gui_options,
+        )
+    except Exception as exc:
+        # Broad on purpose: the snapshot only needs the headless pipeline
+        logging.warning(f"INTERACTIVE_PIPE_SNAPSHOT: GUI object not built ({exc}), using the headless pipeline")
+        return None
 
 
 def interactive_pipeline(
@@ -89,6 +144,11 @@ def interactive_pipeline(
         the environment; ``interactive_pipe.cli.parse_gui_args`` values are
         explicit arguments, so the command line wins over both.
 
+        ``INTERACTIVE_PIPE_SNAPSHOT`` (a PNG path or folder, ``{name}`` is
+        replaced by the function name): when set, any GUI ``gui`` value
+        returns a launcher that renders a snapshot there and returns the
+        results instead of opening a window (``gui=None`` is unaffected).
+
     Returns:
         A decorator. Applied to a pipeline function it returns either a
         ``HeadlessPipeline`` (when ``gui`` is None or ``"headless"``) or a
@@ -131,6 +191,15 @@ def interactive_pipeline(
         selected_gui = resolve_gui(gui)
         if selected_gui is None or selected_gui == "headless":
             return headless_pipeline
+        if snapshot_requested():
+            # INTERACTIVE_PIPE_SNAPSHOT: render a PNG instead of opening a window
+            return _snapshot_launcher(
+                pipeline_function,
+                headless_pipeline,
+                _gui_for_snapshot(
+                    selected_gui, headless_pipeline, markdown_description, name, pipeline_function, dict(kwargs_gui)
+                ),
+            )
         else:
             gui_options = dict(kwargs_gui)
             if gui_options.get("size") is None:
@@ -152,6 +221,9 @@ def interactive_pipeline(
         # Attach the GUI pipeline object to the function so users can access methods like graph_representation
         setattr(inner, "pipeline", gui_pipeline)
         setattr(inner, "graph_representation", gui_pipeline.graph_representation)
+        # See-the-result loop without opening the window (same calls as on a HeadlessPipeline)
+        for method_name in SEE_THE_RESULT_METHODS:
+            setattr(inner, method_name, getattr(headless_pipeline, method_name))
 
         return inner
 

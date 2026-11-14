@@ -1,0 +1,427 @@
+# Plan: a see-the-result loop — snapshot, sweep, describe (pipelines and single filters)
+
+Branch: `feature/agent-snapshot-loop`, cut from `feature/next-level` at `8213c59`.
+Checkout: the git worktree `/home/bneveu/code/interactive_pipe_snapshot`.
+Baseline: `713 passed, 6 skipped`.
+
+## Why
+
+A coding agent (or a user over SSH, or CI) cannot look at a Qt window. Headless
+mode already runs the pipeline and hands back raw arrays, `Curve` and `Table`
+objects, but there is no way to get **what the GUI would have shown** — the
+grid, the titles set through `layout.style`, the plots — as a file that can be
+read back. Today `HeadlessPipeline.save` even fails on numpy images.
+
+This work adds that on top of headless mode: headless is the engine, the
+snapshot is its display. It also covers GitHub issue #21 ("@interactive
+decorator could return a filter instance… even a simple filter should be
+testable with a graphical interface"): a single decorated filter gets the same
+entry points as a pipeline.
+
+Target usage:
+
+```python
+@interactive(gain=(1.0, [0.0, 3.0]))
+def amplify(img, gain=1.0): ...
+
+
+@interactive_pipeline()  # any gui= value
+def pipe(img):
+    amplified = amplify(img)
+    histo = histogram(amplified)
+    return amplified, histo
+
+
+pipe.describe()  # controls, ranges, outputs
+pipe.snapshot("out.png", img, gain=2.0)  # the whole grid in one PNG
+pipe.sweep("sweep.png", img, gain=[0.5, 1, 2])  # contact sheet
+
+amplify.snapshot("amp.png", img, gain=2.0)  # same, for one filter
+amplify.sweep("amp_sweep.png", img, gain=[0.5, 1, 2])
+amplify.describe()
+amplify.interact(img)  # open the GUI on this filter
+```
+
+## Environment — read this first
+
+This worktree has **no `venv/`**, and the shared venv's editable install points
+at the *other* checkout (`/home/bneveu/code/interactive_pipe`), where another
+agent is working on a different branch. So `CLAUDE.md`'s `./venv/bin/python`
+commands must be replaced by:
+
+```bash
+cd /home/bneveu/code/interactive_pipe_snapshot
+export PYTHONPATH=$PWD/src QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg
+PY=/home/bneveu/code/interactive_pipe/venv/bin/python
+$PY -c "import interactive_pipe; print(interactive_pipe.__file__)"   # must print a path inside THIS worktree
+$PY -m pytest test/ -q --tb=short
+$PY -m ruff format . && $PY -m ruff check --fix .
+```
+
+Check the printed path before trusting any test result. Do not `pip install`
+anything into the shared venv, and do not read, edit or run git commands in
+`/home/bneveu/code/interactive_pipe`.
+
+## Ground rules
+
+- Otherwise follow `CLAUDE.md`: ruff format + check and the full suite before
+  every commit, small focused commits bundled with their tests, exceptions not
+  `assert`, no mutable defaults.
+- Work only on this branch in this worktree. Do not push, open a PR, merge,
+  bump the version, publish, or comment on the GitHub issue.
+- Never open a real window (`QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg`).
+- **Hard stop: 11:30 CET on 2026-11-14.** Check `date` regularly. By 11:15
+  stop starting new work: finish or revert the item in progress, leave the
+  tree clean and the suite green, and fill in the Status section.
+- Items are ordered by value and each is shippable alone.
+- **Stay out of the other branch's way.** `fix/silent-pipeline-failures` is
+  rewriting, in parallel: `core/graph.py` (pipeline parser),
+  `HeadlessPipeline.__call__` / `.save` / input validation, the duplicate
+  control-name logic in `HeadlessPipeline.from_function`,
+  `helper/keyword_args_analyzer.py`, `helper/control_abbreviation.py`, and the
+  `layout.style` colormap handling. Do not modify those. Put the new code in
+  new modules and keep edits to existing files to small additive hunks (new
+  methods at the end of a class, new attributes on a wrapper, new exports) so
+  the two branches merge cleanly. In `CHANGELOG.md`, `CLAUDE.md` and the
+  skill, add your own section rather than editing existing paragraphs.
+- If a decision here proves wrong once you read the code, pick the option that
+  keeps existing user code working and record it in Status.
+
+## Work items
+
+### 1. Renderer — new module `headless/snapshot.py`
+
+A pure-headless function that turns one run result into a PNG.
+
+- Use `matplotlib.figure.Figure` + `FigureCanvasAgg` directly, never
+  `pyplot`, so it has no global state, does not depend on the active
+  matplotlib backend and is safe next to a running Qt/DPG GUI.
+- Respect the pipeline's output layout: flat tuple → one row; 2D layout →
+  grid; `None` cells stay empty.
+- One cell per output, by kind (reuse `graphical/window.py::display_kind`):
+  image arrays (`imshow`, no axes, float in [0, 1] or uint8, grayscale 2D),
+  1D arrays (line plot), `Curve` (reuse its own `create_plot(ax)` so it looks
+  like the GUI), `Table` (reuse `create_table(ax)`), `str` (text cell).
+  An unsupported type renders a labelled placeholder cell, not an exception.
+- Cell titles: the `layout.style(name, title=...)` value when set, otherwise
+  the output variable name — same rule as the GUI (`graphical/window.py`).
+  Read styles from `pipeline.framework_state.output_styles` after the run.
+- Options: `figsize` / `dpi` with sensible automatic defaults derived from
+  the grid shape and image aspect ratios, and an optional figure title.
+  Optionally print the parameter values used as a small caption, so a
+  snapshot is self-describing (on by default; `caption=False` turns it off).
+- Look at the mpl backend (`graphical/mpl_gui.py`, `mpl_window.py`) before
+  writing new drawing code and share helpers where that is a small change.
+
+### 2. `HeadlessPipeline.snapshot`
+
+`snapshot(path, *inputs, inputs=None, output=None, **params) -> Path`
+
+- Runs the pipeline with the given inputs and parameter overrides, renders,
+  writes the PNG (create parent directories) and returns the path.
+- Inputs may be omitted when the pipeline takes none or has already been
+  called (reuse the last inputs); otherwise raise a message saying which
+  inputs are expected.
+- **Stateless with respect to tuning:** parameter overrides apply to this
+  call only; the pipeline's parameters and control values are restored
+  afterwards, also when the run raises. (`export_animation` in
+  `headless/animation.py` is the existing example of this pattern.)
+- Parameter names are validated here, in the new code: an unknown name raises
+  `TypeError` listing the available names with a `difflib` close match. Do not
+  change `__call__` for this — the other branch owns that.
+- `output=` selects a subset (name, index, or list of them) to render.
+- With `path=None`, return the rendered image as an `(H, W, 3)` uint8 array
+  instead of writing a file (useful in notebooks and tests).
+- A `FilterError` during the run propagates unchanged.
+
+### 3. `HeadlessPipeline.sweep`
+
+`sweep(path, *inputs, output=None, **{param: [values]}) -> Path`
+
+- One swept parameter → one row (or column) of snapshots, each labelled
+  `param=value`. Two swept parameters → a 2D grid with row and column labels.
+  More than two → `ValueError` with a hint.
+- Scalar keyword values are fixed overrides applied to every cell; list /
+  tuple / numpy-array values are the swept axes. `RangeControl` values are
+  themselves tuples: decide how to disambiguate and document it.
+- `output=` picks which output is shown per cell; default is the first image
+  output, or the whole grid when the pipeline has a single output.
+- Same statelessness and name validation as `snapshot`.
+- Add a convenience for "sweep this control over its declared range":
+  e.g. `gain=5` meaning five evenly spaced values is ambiguous with a fixed
+  override, so use an explicit spelling such as `steps={"gain": 5}` or a
+  small helper — pick one and document it.
+
+### 4. `HeadlessPipeline.describe`
+
+`describe() -> dict`, JSON-serialisable (test it with `json.dumps`):
+
+- pipeline name, input names, output layout;
+- filters in execution order with their input and output variable names and
+  current parameter values;
+- controls: name, owning filter, parameter name, kind (slider / checkbox /
+  dropdown / range / text / time / keyboard), default, current value, range or
+  choices, step, group/panel, key bindings and tooltip when present.
+
+Also give `HeadlessPipeline` a short `help()`-style text rendering of the same
+data (or improve `__repr__` additively) so a terminal user gets a readable
+summary. numpy scalars and `Panel` objects must be converted to plain types.
+
+### 5. Reachable from any decorated pipeline
+
+`@interactive_pipeline(gui="qt")` returns a plain function with a `.pipeline`
+attribute (the GUI object), not a `HeadlessPipeline`. Attach `snapshot`,
+`sweep` and `describe` to that function too (delegating to the underlying
+headless pipeline, without opening a window), and add them to
+`InteractivePipeGUI` if that is a small additive change. The point: the same
+script works with any `gui=` value, and an agent can add one `pipe.snapshot`
+line to a user's GUI script without touching the decorator.
+
+### 6. Single-filter entry points (GitHub issue #21)
+
+The issue asks for `@interactive` to return a filter instance so that a lone
+filter is easy to run and test. Keep returning a plain function (it stays
+picklable, keeps `functools.wraps` metadata, and `test/` relies on it), and
+attach the entry points to the wrapper instead:
+
+- `f.snapshot(path, *inputs, **params)`, `f.sweep(...)`, `f.describe()` — build
+  a one-filter pipeline internally (`filter_from_function` /
+  `EnhancedFilterCore` in `helper/filter_decorator.py` already do this for
+  `@interact`) and reuse items 2–4. Output names: reuse the dry-run deduction
+  that `run_gui` does, so multi-output filters work.
+- `f.interact(*inputs, gui="auto", **gui_kwargs)` — open the GUI on this one
+  filter; this is `@interact` made available after the fact.
+- Building the one-filter pipeline must not disturb the filter's use in a
+  real pipeline afterwards: registered `Control` objects are shared through
+  `Control._registry`, so do not leave them connected to the throwaway
+  filter, and do not leave control values changed.
+- The issue's original bug (`get_curve_2(frequency=5.)` ignoring the keyword)
+  is already fixed on this base; add a regression test for it.
+
+### 7. Snapshot without editing the script (stretch)
+
+Environment variable `INTERACTIVE_PIPE_SNAPSHOT=<path.png>`: when set, calling
+a GUI-decorated pipeline renders the snapshot to that path and returns the
+results instead of opening a window. This lets an agent run a user's
+unmodified demo and look at the result. Put the environment parsing in
+`cli.py` next to the existing `INTERACTIVE_PIPE_GUI` helpers, and document the
+precedence. Verify it on three or four scripts from `demo/`. Skip this item if
+time is short; say so in Status.
+
+### 8. Docs, skill, changelog
+
+- New guide page `docs/guide/snapshots.md` (add it to the `mkdocs.yml` nav):
+  the usage block above, one real rendered snapshot and one sweep image
+  generated by your code and committed under `docs/images/`, and a short
+  "working with a coding agent" section describing the loop: `describe()` →
+  `snapshot()` → read the PNG → adjust → `sweep()`.
+- Link it from the quickstart headless section and the readme "Learn more"
+  list.
+- `.claude/skills/build-interactive-pipeline/SKILL.md`: add a section
+  "Check your work without a display" with the same loop. This is the most
+  important doc change — it is what other agents will read.
+- `CHANGELOG.md`: an "Unreleased" entry.
+- Export what should be public from `interactive_pipe/__init__.py`.
+
+## Quality bar
+
+- Tests for every item in new test files: PNG exists, has the expected grid
+  proportions, is not blank, cells differ when parameters differ; parameters
+  are restored after `snapshot` / `sweep`, including after an exception;
+  `describe()` round-trips through `json.dumps`; unknown parameter names
+  raise; filter-level calls leave the filter usable in a pipeline.
+- **Look at your own output.** After implementing the renderer, generate
+  snapshots and sweeps for several demos (`demo/image_analysis_demo.py`,
+  `demo/table_demo.py`, `demo/independent_curve_image_demo.py`, a 2D-layout
+  one) and open the PNGs with the Read tool. Fix what looks wrong: clipped
+  titles, squashed images, unreadable tables, overlapping labels, wasted
+  whitespace. The feature is only worth having if the image is good enough to
+  debug from.
+- Full suite green, ruff clean, pyright not worse than baseline.
+
+## Status
+
+**Summary (00:53 CET):** all 8 items done, plus a review pass. 12 commits on
+`feature/agent-snapshot-loop` (`ccb7bdc`..HEAD): renderer `ccb7bdc`, snapshot
+`4de5e83`, sweep `ac99ebc`, describe `5ab3b79`, GUI-decorated pipelines
+`59a8ee8`, single filters `64ae893`, env variable `b391376`, sheet layout
+polish `df4e637`, docs `d5d8441`, review fixes `0ae67f9` `ab69ecb` and the
+commit finishing this file. Final state: `789 passed, 6 skipped`, ruff clean,
+pyright 8 errors, all in the untouched `graphical/dpg_panels.py` and
+`graphical/qt_control.py` (not introduced by this branch). Nothing pushed, no
+PR, other checkout untouched. Not run: the mkdocs site build (mkdocs is not
+installed in the shared venv).
+
+Agent run of 2026-11-14 (started 00:08 CET). Environment check: the shared
+interpreter imports `interactive_pipe` from this worktree's `src/`; baseline
+`713 passed, 6 skipped` confirmed before any change.
+
+### 1. Renderer — done
+
+New module `headless/snapshot.py` (Figure + FigureCanvasAgg, no pyplot).
+Decisions:
+- Tables are drawn by the renderer itself (`ax.table` with a bbox filling the
+  cell, natural row height, top-aligned, bold header, truncated after 30 rows
+  with a "... N more rows" line) instead of `Table.create_table`: with
+  `loc="center"` + `scale(1, 2)` the GUI helper overflows its axes and the
+  table title collided with the neighbouring cells in `demo/table_demo.py`.
+  `Curve.create_plot(ax)` is reused as planned.
+- uint8 images are shown on a 0-255 scale (the GUIs clip every array to
+  [0, 1], which turns uint8 images almost binary); floats are clipped to
+  [0, 1], grayscale uses a gray colormap, small images use nearest
+  interpolation so test patterns stay crisp.
+- A Curve's own title wins over the `layout.style` title (same rule as the mpl
+  backend); a style without `title` falls back to the variable name.
+- `layout.style(colormap=...)` is not applied: no backend implements it on this
+  base and the other branch owns that handling.
+- Automatic dpi shows the largest image near native size (80-150 dpi); the
+  figure is scaled down when wider than 22 in.
+
+
+### 2. `HeadlessPipeline.snapshot` — done
+
+`headless/explore.py::snapshot`, exposed as a method through an import at the
+end of the `HeadlessPipeline` class body (a 2-line additive hunk). Decisions:
+- Python forbids `*inputs` next to `inputs=`: the varargs are `*input_values`;
+  `inputs={...}` takes a dict as planned.
+- Accepted override names: keyword-argument names (applied to every filter
+  having it, like `pipeline(img, gain=2)`), control names (e.g. the `gain_1`
+  clone of a repeated filter) and `"filter_name.param"` for one filter.
+  `params={...}` is an escape hatch for parameter names that clash with the
+  method's own options (`title`, `dpi`, `output`, ...).
+- Out-of-range values are clamped by the control like a GUI slider would, with
+  a `UserWarning`.
+- Restored afterwards (also on error): filter parameters, control values,
+  `pipeline.outputs` (a filter may call `layout.grid`), framework state
+  (styles) and `pipeline.results`. New inputs passed to `snapshot` are kept
+  (like `__call__`), so later calls can omit them.
+- Unknown names are checked before running anything (no half-written file).
+
+### 3. `HeadlessPipeline.sweep` — done
+
+Decisions:
+- Axis detection: a list or numpy array is a swept axis; a tuple is an axis
+  too, except for a range parameter (a `RangeControl`, or a parameter whose
+  current value is a tuple) where a tuple is one `(lo, hi)` value — sweep a
+  range with a *list* of pairs. Scalars are fixed overrides for every cell.
+- "Sweep over the declared range": `steps={"gain": 5}` (evenly spaced values;
+  ints de-duplicated; every choice of a dropdown, or evenly picked ones when
+  fewer steps are asked; `[False, True]` for a checkbox). A `RangeControl` or
+  a control without range raises `ValueError` pointing to explicit lists.
+- One axis: one row up to 6 values, then a near-square grid; each cell is
+  labelled `param=value`. Two axes: rows = first keyword, columns = second,
+  row labels on the left, column labels on top.
+- `output=None` shows the only output, else the first image output (chosen on
+  the first cell, then kept by name); `output="all"` shows the whole layout in
+  every cell (nested matplotlib subfigures); a name/index/list as in
+  `snapshot`.
+- The caption lists the fixed parameter values (swept ones are in the labels).
+
+### 4. `describe()` — done
+
+`headless/describe.py`: `describe()` (dict, JSON round-trip tested) and
+`summary()` (text) on `HeadlessPipeline`. Decisions:
+- The text rendering is a new `summary()` method rather than `help()`
+  (`InteractivePipeGUI.help` already means "print the key bindings") or a
+  `__repr__` change (`print_parameters` relies on the current repr).
+- Control kinds: slider, number (numeric without range), checkbox, dropdown,
+  range, text, time, keyboard; `CircularControl` is a slider with
+  `"circular": true`. Filters also carry the first docstring line (`doc`),
+  useful to an agent reading an unknown pipeline.
+
+### 5. Reachable from any decorated pipeline — done
+
+`@interactive_pipeline(gui=...)` functions get `snapshot`, `sweep`,
+`describe`, `summary` bound to the underlying `HeadlessPipeline` (additive
+hunk next to the existing `graph_representation` attribute);
+`InteractivePipeGUI` gets the same four methods (additive, end of class).
+Tested with `gui="mpl"` and `gui="qt"` (offscreen), no window is opened.
+
+### 6. Single-filter entry points (issue #21) — done
+
+New module `helper/filter_entry_points.py`; `@interactive` attaches
+`snapshot`, `sweep`, `describe`, `summary` and `interact` to the returned
+plain function (one added line in `interactive()`). Decisions:
+- The one-filter pipeline is rebuilt for each call (stateless): registered
+  controls are borrowed and their filter connection, update callback and value
+  are restored afterwards, also on error (tested against a real pipeline using
+  the same filter, with a tuned control value).
+- Output names come from a dry run (one name per returned element, like
+  `run_gui`): `amplify` for a single output, `amplify[0]`, `amplify[1]`, ...
+  otherwise. A failing dry run raises `FilterError` like a pipeline run.
+- Filter inputs are always required (except for a filter without inputs);
+  nothing is cached on the function, so no image is kept alive by it.
+- `describe()` / `summary()` take the inputs optionally: without them there is
+  no dry run and `outputs` is None.
+- `interact()` blocks until the window closes, returns the results and gives
+  the control values back (slider moves do not leak into pipelines).
+- Issue #21's original bug (explicit keyword ignored) has a regression test.
+
+### 7. `INTERACTIVE_PIPE_SNAPSHOT` (stretch) — done
+
+`cli.snapshot_requested` / `cli.snapshot_path_from_env` next to the GUI env
+helpers; the decorator returns a snapshot launcher instead of building the GUI
+when the variable is set (read at decoration time, like the other variables).
+Decisions:
+- Precedence: it wins over any GUI `gui=` value (explicit `"qt"` included,
+  since demos hard-code their backend) and over `INTERACTIVE_PIPE_GUI`;
+  `gui=None` / headless pipelines are returned unchanged and render nothing.
+  The GUI object is still built (never run, `QT_QPA_PLATFORM` defaulted to
+  `offscreen`) so scripts configuring `demo.pipeline` keep working (e.g.
+  `demo/key_event_demo.py` calls `bind_key_to_context`); if it cannot be built
+  (backend missing...), a warning is logged and `.pipeline` is the
+  `HeadlessPipeline`. Results are returned like the GUI call returns them
+  (a 2D list once the GUI made the layout 2D).
+- Path: `{name}` is replaced by the pipeline function name; a value ending in
+  `/` or naming an existing folder writes `<folder>/<name>.png`; `.png` is
+  added when the suffix is missing.
+- The launcher accepts the GUI call signature (`parameters=`, `context=`,
+  keyword overrides), warns about and ignores unknown keyword names (the GUI
+  ignores them silently, so unmodified scripts keep running), prints the
+  written path and returns the results as a list, like the GUI backends.
+- `filter.interact()` honours the variable too (`@interact` does not: it
+  runs at import time through `run_gui`, left untouched).
+- Verified on unmodified demos: `image_analysis_demo.py`, `table_demo.py`,
+  `independent_curve_image_demo.py`, `grouped_controls_demo.py`,
+  `multi_image.py`, `panel_demo.py`, `key_event_demo.py` (qt and `-b dpg`),
+  also without `QT_QPA_PLATFORM` set: all wrote a correct PNG and exited.
+
+### 8. Docs, skill, changelog — done
+
+- `docs/guide/snapshots.md` (in the `mkdocs.yml` nav under Guide): the
+  example pipeline, the two images it generates (`docs/images/snapshot_example.png`,
+  `docs/images/snapshot_sweep.png`, produced by running the page's own code
+  block), option reference, single filters, the environment variable and the
+  "working with a coding agent" loop. Linked from the quickstart headless
+  section and the readme "Learn more" list.
+- Skill: new section "Check your work without a display"; `CLAUDE.md`: new
+  section "Checking visual output without a display"; `CHANGELOG.md`: new
+  "Unreleased" section (absolute link to the guide, since the changelog is
+  also included in the docs site).
+- Public API: no new top-level exports. The loop is reached through methods
+  (`HeadlessPipeline`, decorated pipeline functions, `InteractivePipeGUI`,
+  `@interactive` functions); top-level `snapshot` / `sweep` / `describe`
+  names would be easy to shadow in user scripts and add nothing.
+- `mkdocs` is not installed in the shared venv, so the site build was not
+  run (left for review); the guide's code block was extracted and executed.
+
+### Review pass — done
+
+An independent read-only review of the branch (separate agent, verifying by
+running code) confirmed that state restoration holds with `cache=False`,
+`True` and `"graph"`, repeated filters, Range/Keyboard/Time controls and
+failing filters, and found six bugs, all fixed with regression tests:
+filter entry points failing for filters using the `context` proxy (dry run
+had no user context); `INTERACTIVE_PIPE_SNAPSHOT` keyword arguments colliding
+with snapshot options (`title`, `path`, ...); `.pipeline` not being the GUI
+object under the variable (`key_event_demo.py` crashed); int output names of
+index-routed pipelines read as positions; default sweep output missing after a
+`layout.grid` change; numpy-typed sweep values rejected by controls. Smaller
+fixes: no false "clamped" warning for a `[lo, hi]` list on a RangeControl,
+`None` as a control override raises, `{name}` in folder values.
+
+Not changed (left for review): the user `context` dict is not saved/restored
+by snapshot/sweep — values written by filters during those runs stay in it
+(considered derived state; restoring a `ContextTracker` in graph-cache mode
+needs care). The sweep caption hides every fixed value sharing a swept
+parameter's bare name (cosmetic).

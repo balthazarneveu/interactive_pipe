@@ -106,6 +106,34 @@ def my_filter(img):
 
 **NEVER generate `global_params=` (or `context=`, `state=`, ...) in a filter signature** — this injection pattern was removed in 0.9.0 and raises `TypeError` at construction. Use the proxies above; seed initial values via `@interactive_pipeline(context={...})`.
 
+## Check your work without a display
+
+You cannot see the GUI window, but you can read a PNG. Never declare a visual change done without looking at a snapshot. The loop:
+
+1. **Describe** — `print(pipe.summary())` (or `pipe.describe()`, a JSON-serialisable dict): inputs, output layout, filters, every control with its range/choices and current value.
+2. **Snapshot** — `pipe.snapshot("/tmp/out.png", img, gain=2.0)` renders exactly what the window would show (grid, `layout.style` titles, curves, tables) with the parameter values as a caption. Overrides apply to this call only; the pipeline is left untouched. `path=None` returns an `(H, W, 3)` uint8 array.
+3. **Read the PNG** (open the file with your image-reading tool) and judge it: clipped or black images, wrong colours, curves out of range, an unexpected layout.
+4. **Adjust** the filter code or the values, snapshot again.
+5. **Sweep** — `pipe.sweep("/tmp/sweep.png", img, gain=[0.5, 1, 2])` (one row) or two lists for a grid; `steps={"gain": 5}` spans the slider range; `output="name"` or `"all"` picks what each cell shows. Use it to choose defaults and ranges, or to check a fix over the whole range.
+
+```python
+@interactive_pipeline(gui="qt")  # any gui= value: these never open the window
+def pipe(img):
+    amplified = amplify(img)
+    return img, amplified
+
+
+print(pipe.summary())
+pipe.snapshot("/tmp/out.png", img, gain=2.0, output="amplified")
+amplify.snapshot("/tmp/amp.png", img, gain=2.0)  # a single @interactive filter, no pipeline needed
+amplify.sweep("/tmp/amp.png", img, steps={"gain": 4})
+```
+
+- Unknown parameter names raise `TypeError` listing the available ones; a name clashing with an option (`title`, `dpi`, `output`...) goes through `params={"title": ...}`. `"filter_name.param"` targets one filter.
+- Inputs can be omitted after the first call (they are reused) or when the pipeline takes none.
+- A user's unmodified GUI script: `INTERACTIVE_PIPE_SNAPSHOT=/tmp/shots/ python their_script.py` writes `/tmp/shots/<pipeline>.png` instead of opening a window.
+- Set `MPLBACKEND=Agg` and `QT_QPA_PLATFORM=offscreen` so nothing tries to open a display.
+
 ## Common errors
 
 | Symptom | Fix |

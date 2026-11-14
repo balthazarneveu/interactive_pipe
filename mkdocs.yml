@@ -101,6 +101,7 @@ nav:
           - Controls: guide/controls.md
           - Panels: guide/panels.md
           - Keyboard: guide/keyboard.md
+      - Snapshots & sweeps: guide/snapshots.md
       - Tips & tricks: guide/tips.md
       - Examples gallery: guide/examples.md
   - API reference:

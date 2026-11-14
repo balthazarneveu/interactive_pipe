@@ -7,6 +7,7 @@ from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.headless.control import Control
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
+from interactive_pipe.helper.filter_entry_points import attach_filter_entry_points
 from interactive_pipe.helper.keyword_args_analyzer import (
     get_controls_from_decorated_function_declaration,
 )
@@ -181,6 +182,8 @@ def interactive(inplace: bool = False, **decorator_controls: Any):
 
         # picked up by HeadlessPipeline.from_function when building the FilterCore
         setattr(inner, "__interactive_pipe_inplace__", inplace)
+        # inner.snapshot / .sweep / .describe / .summary / .interact (GitHub issue #21)
+        attach_filter_entry_points(inner)
         return inner
 
     return wrapper
