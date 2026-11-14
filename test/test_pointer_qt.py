@@ -1,6 +1,7 @@
 """Mouse input on the Qt backend (offscreen): QTest clicks and shift-drags on the image views."""
 
 import os
+import time
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -215,11 +216,13 @@ def test_threaded_mode():
     gui = _gui(qp_pipeline, [IMAGE], threaded=True)
     view = _view(gui)
     QTest.mouseClick(view, LEFT, NONE, _at(view, 40.5, 30.5))
-    for _ in range(100):
+    deadline = time.monotonic() + 5.0  # the run happens in the worker thread
+    while time.monotonic() < deadline:
         _settle()
         outputs = getattr(gui.window, "_raw_outputs", None)
         if outputs is not None and np.array_equal(outputs[0][2], IMAGE[30, :, 0]):
             break
+        time.sleep(0.005)
     np.testing.assert_array_equal(gui.window._raw_outputs[0][2], IMAGE[30, :, 0])
     gui.window.stop_threaded_runs()
     _close(gui)
