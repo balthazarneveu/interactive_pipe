@@ -17,6 +17,53 @@ Twelve short demos, one engineering lesson each. Every demo is a single file a s
 | 11 | `attention` | Softmax temperature, causal mask, position vs content |
 | 12 | `diffusion` | Noise schedules and sampling steps, with an exact score |
 
+## Screenshots
+
+The reference demos in their real Qt window, at their default values (`tools/screenshot.py`, offscreen). The two PyTorch demos (`mlp_decision_boundary`, `signal_propagation`) are not shown here.
+
+```bash
+python showreel/tools/screenshot.py showreel/demos/jpeg.py showreel/screenshots/jpeg.png
+```
+
+### `aliasing`
+
+![aliasing](screenshots/aliasing.png)
+
+### `camera_isp`
+
+![camera_isp](screenshots/camera_isp.png)
+
+### `jpeg`
+
+![jpeg](screenshots/jpeg.png)
+
+### `integrator_stability`
+
+![integrator_stability](screenshots/integrator_stability.png)
+
+### `camera_rotation`
+
+![camera_rotation](screenshots/camera_rotation.png)
+
+### `gyro_stabilization`
+
+![gyro_stabilization](screenshots/gyro_stabilization.png)
+
+### `volume_rendering`
+
+![volume_rendering](screenshots/volume_rendering.png)
+
+### `fourier_features`
+
+![fourier_features](screenshots/fourier_features.png)
+
+### `attention`
+
+![attention](screenshots/attention.png)
+
+### `diffusion`
+
+![diffusion](screenshots/diffusion.png)
 ## Layout
 
 - `prompts/NN_name.md`: the request a user would type. It names the lesson, not the API.
