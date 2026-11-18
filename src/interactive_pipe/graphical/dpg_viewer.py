@@ -17,27 +17,25 @@ stays centered; zoomed in, it pans no further than its edges: the image
 never leaves empty room in its cell that it could fill.
 """
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
-__all__ = ["ViewState", "VIEW_MODES", "ZOOM_STEP", "MIN_ZOOM", "MAX_ZOOM"]
+from interactive_pipe.graphical import view_geometry
+from interactive_pipe.graphical.view_geometry import FIT_TOLERANCE, MAX_ZOOM, MIN_ZOOM, CellContent, CellLayout
+
+__all__ = ["ViewState", "VIEW_MODES", "ZOOM_STEP", "MIN_ZOOM", "MAX_ZOOM", "FIT_TOLERANCE", "CellContent"]
 
 VIEW_MODES = ("fit", "1:1")
 ZOOM_STEP = 1.25
-MIN_ZOOM = 1.0 / 64.0
-MAX_ZOOM = 256.0
-# screen pixels of slack when telling whether the image fits the box
-FIT_TOLERANCE = 0.5
 
 Size = Tuple[float, float]
+# (width, height) of a plain image, or a CellContent (heatmap with a colorbar / axes)
+Content = Union[Size, CellContent]
 
 
-def _clamp_center(center: float, drawn: float, room: float) -> float:
-    """Normalized center along one axis: 0.5 when the drawn image fits `room`,
-    else limited so its edges do not come inside the room."""
-    if drawn <= room + FIT_TOLERANCE:
-        return 0.5
-    half = room / (2.0 * drawn)
-    return min(max(center, half), 1.0 - half)
+def _content(size: Content) -> CellContent:
+    if isinstance(size, CellContent):
+        return size
+    return CellContent.plain(size[0], size[1])
 
 
 class ViewState:
@@ -71,65 +69,44 @@ class ViewState:
         self.zoom = float(min(max(zoom, MIN_ZOOM), MAX_ZOOM))
         self.center = (float(center[0]), float(center[1]))
 
-    # --- geometry (box = displayed cell size, size = image size, in pixels) ---
+    # --- geometry (box = displayed cell size, size = image size or CellContent, in pixels) ---
     @staticmethod
-    def fit_scale(box: Size, size: Size) -> float:
-        if size[0] <= 0 or size[1] <= 0:
-            return 1.0
-        return max(min(box[0] / size[0], box[1] / size[1]), 1e-6)
+    def fit_scale(box: Size, size: Content) -> float:
+        return view_geometry.fit_scale(box, (size[0], size[1]))
 
-    def scale(self, box: Size, size: Size) -> float:
-        """Screen pixels per image pixel."""
-        base = 1.0 if self.absolute else self.fit_scale(box, size)
-        return base * self.zoom
+    def layout(self, box: Size, size: Content) -> CellLayout:
+        """Where the image (and a colorbar strip) is drawn in the box (view_geometry.cell_layout)."""
+        return view_geometry.cell_layout(box, _content(size), self.zoom, self.absolute, self.center)
 
-    def min_zoom(self, box: Size, size: Size) -> float:
+    def scale(self, box: Size, size: Content) -> float:
+        """Screen pixels per image pixel (of the map, not of a colorbar)."""
+        return self.layout(box, size).scale
+
+    def min_zoom(self, box: Size, size: Content) -> float:
         """Smallest zoom: the image fits the box (or stays at its current base
         scale when that is already smaller, e.g. a small image at 1:1)."""
-        if size[0] <= 0 or size[1] <= 0:
-            return MIN_ZOOM
-        base = 1.0 if self.absolute else self.fit_scale(box, size)
-        return max(MIN_ZOOM, min(1.0, self.fit_scale(box, size) / base))
+        return view_geometry.min_zoom(box, _content(size), self.absolute)
 
-    def image_rect(self, box: Size, size: Size) -> Tuple[float, float, float, float]:
-        """(x, y, width, height) of the drawn image in box coordinates; centered
-        along an axis where it fits the box."""
-        s = self.scale(box, size)
-        w, h = size[0] * s, size[1] * s
-        cu, cv = self._clamped_center(box, size, s)
-        return (box[0] / 2.0 - cu * w, box[1] / 2.0 - cv * h, w, h)
+    def image_rect(self, box: Size, size: Content) -> Tuple[float, float, float, float]:
+        """(x, y, width, height) of the drawn image (without a colorbar strip,
+        which stays fixed) in box coordinates; centered along an axis where it fits."""
+        return self.layout(box, size).main
 
-    def _clamped_center(self, box: Size, size: Size, s: float) -> Tuple[float, float]:
-        """The view center, kept so the image never leaves empty room in the
-        cell it could fill: centered along an axis where it fits, otherwise
-        its edges stay at or beyond the cell's."""
-        cu, cv = self.center
-        return (_clamp_center(cu, size[0] * s, box[0]), _clamp_center(cv, size[1] * s, box[1]))
-
-    def zoom_by(self, factor: float, box: Size, size: Size, anchor: Optional[Tuple[float, float]] = None) -> None:
+    def zoom_by(self, factor: float, box: Size, size: Content, anchor: Optional[Tuple[float, float]] = None) -> None:
         """Zoom by `factor` keeping the image point under `anchor` (box
         coordinates, default: box center) in place."""
         if size[0] <= 0 or size[1] <= 0:
             self.set_state(self.zoom * factor, self.center)
             return
-        if anchor is None:
-            anchor = (box[0] / 2.0, box[1] / 2.0)
-        x0, y0, _, _ = self.image_rect(box, size)
-        s = self.scale(box, size)
-        fx, fy = (anchor[0] - x0) / s, (anchor[1] - y0) / s
-        new_zoom = min(max(self.zoom * factor, self.min_zoom(box, size)), MAX_ZOOM)
-        base = 1.0 if self.absolute else self.fit_scale(box, size)
-        new_scale = base * new_zoom
-        cu = (fx - (anchor[0] - box[0] / 2.0) / new_scale) / size[0]
-        cv = (fy - (anchor[1] - box[1] / 2.0) / new_scale) / size[1]
-        self.set_state(new_zoom, (cu, cv))
-        self.center = self._clamped_center(box, size, new_scale)
+        zoom, center = view_geometry.zoom_center(
+            box, _content(size), self.zoom, self.absolute, self.center, factor, anchor
+        )
+        self.set_state(zoom, center)
 
-    def pan_by(self, dx: float, dy: float, box: Size, size: Size) -> None:
+    def pan_by(self, dx: float, dy: float, box: Size, size: Content) -> None:
         """Move the image by (dx, dy) screen pixels."""
         if size[0] <= 0 or size[1] <= 0:
             return
-        s = self.scale(box, size)
-        cu, cv = self.center
-        self.set_state(self.zoom, (cu - dx / (s * size[0]), cv - dy / (s * size[1])))
-        self.center = self._clamped_center(box, size, s)
+        self.set_state(
+            self.zoom, view_geometry.pan_center(box, _content(size), self.zoom, self.absolute, self.center, dx, dy)
+        )
