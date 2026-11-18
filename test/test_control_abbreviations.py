@@ -81,3 +81,12 @@ def test_abbreviation_control_expected_fail(inp_tuple_and_error_type):
     inp_tuple, error_type = inp_tuple_and_error_type
     with pytest.raises(error_type):
         ctrl = control_from_tuple(inp_tuple)  # noqa: F841
+
+
+def test_removed_keyboard_tuple_points_to_keyboard_control():
+    """The pre-0.9 form (default, range, name, ["key down", "key up"]) names its replacement."""
+    with pytest.raises(TypeError, match=r"KeyboardControl\(default, \[min, max\], name=\.\.\., keydown="):
+        control_from_tuple((100, [0, 200], "X", ["left", "right"]))
+    with pytest.raises(TypeError) as exc_info:
+        control_from_tuple((100, [0, 200], "X", 3))
+    assert "KeyboardControl" not in str(exc_info.value)
