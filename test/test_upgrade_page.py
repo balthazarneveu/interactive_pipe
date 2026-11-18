@@ -30,9 +30,9 @@ def _anchors(page):
 
 def _behaviour_changes():
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    start = changelog.index("## Unreleased")
-    unreleased = changelog[start : changelog.index("\n## ", start + 5)]
-    section = unreleased[unreleased.index("### Changes that can affect existing code") :]
+    start = changelog.index("## 0.9.5")  # the release this page documents
+    release = changelog[start : changelog.index("\n## ", start + 5)]
+    section = release[release.index("### Changes that can affect existing code") :]
     section = section[: section.index("\n### ", 5)]
     return [line for line in section.splitlines() if line.startswith("- ")]
 
