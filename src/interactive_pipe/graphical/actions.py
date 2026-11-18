@@ -39,7 +39,7 @@ DEFAULT_ACTIONS: Tuple[Action, ...] = (
     Action("zoom_out", "Zoom out", "-", "View", "zoom_out", "zoom out on every image cell"),
     Action("reset", "Reset parameters", "r", "Pipeline", "reset_parameters", "reset sliders to default parameters"),
     Action("print", "Print parameters", "i", "Pipeline", "print_parameters", "print parameters in the console"),
-    Action("graph", "Show graph", "g", "Pipeline", "display_graph", "display the execution graph"),
+    Action("graph", "Show graph", "g", "Pipeline", "display_graph", "open the pipeline graph (HTML) in the browser"),
     Action("profile", "Profile last run", "t", "Pipeline", "print_timings", "print per-filter timings of the last run"),
     Action("help", "Keyboard shortcuts", "f1", "Help", "show_help", "show this help"),
     Action(

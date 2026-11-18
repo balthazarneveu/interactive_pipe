@@ -11,7 +11,7 @@ Built-in shortcuts while using the GUI (Qt, Dear PyGui and matplotlib backends):
 - ++i++ print parameters dictionary in the command line
 - ++e++ export parameters dictionary to a yaml file
 - ++o++ import parameters dictionary from a yaml file (sliders update)
-- ++g++ export a pipeline diagram (requires graphviz)
+- ++g++ write the pipeline diagram to `<name>_graph.html` and open it in the web browser
 - ++t++ print the per-filter timings of the last run
 - ++q++ quit
 

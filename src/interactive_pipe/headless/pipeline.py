@@ -122,6 +122,24 @@ def _save_output(result: Any, path: Path) -> Optional[Path]:
     return None
 
 
+#: ``graph_representation`` formats rendered by graphviz (optional); anything else is HTML
+GRAPHVIZ_FORMATS = ("svg", "png", "pdf", "jpg", "jpeg", "gif", "ps", "eps", "dot", "gv")
+
+
+def _open_in_browser(path: Path) -> None:
+    """Open a written HTML file in the web browser (skipped under INTERACTIVE_PIPE_SNAPSHOT)."""
+    from interactive_pipe.cli import snapshot_requested
+
+    if snapshot_requested():
+        return
+    import webbrowser
+
+    try:
+        webbrowser.open(Path(path).resolve().as_uri())
+    except Exception as exc:  # no browser: the file is written anyway
+        logging.warning(f"could not open {path} in a browser: {exc}")
+
+
 class HeadlessPipeline(PipelineCore):
     """PipelineCore extensions - saving/loading to disk - graphs - init from interpreted functions
 
@@ -673,39 +691,65 @@ class HeadlessPipeline(PipelineCore):
         # the pipeline's return order and shape, not the display layout (layout.grid)
         return self._returned_results()
 
-    def graph_representation(self, path=None, ortho=True, view=False):
-        def find_previous_key(searched_out, current_index, input_indexes, debug=False):
-            last_filter_found = None
-            inp_name = None
-            for inp in input_indexes:
-                if searched_out == inp:
-                    last_filter_found = f"{inp}"
-                    inp_name = f"{inp}"
-            for prev_idx in range(current_index):
-                filt_prev = self.filters[prev_idx]
-                if filt_prev.outputs is None:
-                    continue
-                for inp in filt_prev.outputs:
-                    if debug:
-                        logging.debug(f"{searched_out}, {filt_prev.name} {inp}")
-                    if searched_out == inp:
-                        last_filter_found = filt_prev.name
-                        inp_name = f"{inp}"
-            return last_filter_found, inp_name
+    def graph_representation(self, path=None, ortho=True, view=False, format=None):
+        """Draw the pipeline graph: inputs, filters (with their parameters), outputs.
 
-        def edge_label(label):
-            return f"[{label}]"
+        By default writes one standalone HTML page (inline SVG, no dependency,
+        opens in any browser) and returns its ``Path``.
+
+        Args:
+            path: file to write. Default: ``<pipeline name>.html``. A path
+                without ``.html`` suffix gets one, unless its suffix names a
+                graphviz format (``.svg``, ``.png``, ``.pdf``...).
+            ortho: graphviz only: orthogonal edges.
+            view: open the result (the HTML page in the web browser; never
+                under ``INTERACTIVE_PIPE_SNAPSHOT``).
+            format: ``"html"`` (default) or a graphviz output format (``"svg"``,
+                ``"png"``, ``"pdf"``...), which needs the ``graphviz`` package
+                and system executables and returns the ``graphviz.Digraph``
+                (None when graphviz is missing, as before).
+
+        Example:
+            ```python
+            path = pipe.graph_representation("my_pipeline.html")
+            dot = pipe.graph_representation("my_pipeline", format="pdf")  # graphviz
+            ```
+        """
+        from interactive_pipe.headless.graph_html import write_graph_html
+
+        suffix = Path(str(path)).suffix.lower().lstrip(".") if path is not None else ""
+        if format is None:
+            format = suffix if suffix in GRAPHVIZ_FORMATS else "html"
+        format = str(format).lower().lstrip(".")
+        if format != "html":
+            if path is not None and suffix == format:
+                path = str(Path(str(path)).with_suffix(""))
+            return self._graphviz_representation(path=path, ortho=ortho, view=view, format=format)
+        if path is None:
+            path = "".join(char if char.isalnum() or char in "-_." else "_" for char in str(self.name)) or "pipeline"
+        path = Path(path)
+        if path.suffix.lower() not in (".html", ".htm"):
+            path = path.with_name(path.name + ".html")
+        written = write_graph_html(self, path)
+        if view:
+            _open_in_browser(written)
+        return written
+
+    def _graphviz_representation(self, path=None, ortho=True, view=False, format="pdf"):
+        """graphviz rendering of ``pipeline_graph`` (optional dependency)."""
+        from interactive_pipe.headless.graph_html import pipeline_graph
 
         graphviz_hint = (
             "Graphviz executables not found. Please install Graphviz system package:\n"
             "  - Ubuntu/Debian: sudo apt-get install graphviz\n"
             "  - macOS: brew install graphviz\n"
-            "  - Windows: Download from https://graphviz.org/download/"
+            "  - Windows: Download from https://graphviz.org/download/\n"
+            "or use the dependency-free HTML graph: graph_representation('graph.html')"
         )
         try:
             import graphviz
         except ImportError as exc:
-            logging.warning("cannot generate pipeline graph, need to install graphviz")
+            logging.warning("cannot generate pipeline graph, need to install graphviz (or use format='html')")
             logging.warning(exc)
             return None
 
@@ -715,56 +759,35 @@ class HeadlessPipeline(PipelineCore):
         except (ImportError, AttributeError):
             ExecutableNotFound = None
 
+        if self.inputs_routing is None:
+            raise ValueError("Cannot plot graph: input routing is not provided")
+        if self.outputs is None:
+            raise ValueError("Cannot generate graph: outputs not defined")
+        graph = pipeline_graph(self)
+        ids = {node.id: f"node{idx}" for idx, node in enumerate(graph.nodes)}  # ":" means a port to graphviz
         dot = graphviz.Digraph(comment=self.name)
         if ortho:
             dot.attr(splines="ortho")
-        if self.inputs_routing is None:
-            raise ValueError("Cannot plot graph: input routing is not provided")
-        input_indexes = self.inputs_routing
         with dot.subgraph(name="cluster_in") as inputs_graph:  # type: ignore[reportAssignmentType]
             inputs_graph.attr(style="dashed", color="gray", label="Inputs")  # type: ignore[reportAttributeAccessIssue]
-            for inp in input_indexes:
-                inputs_graph.node(f"{inp}", f"🖴 {inp}", shape="rect", color="gray", styleItem="dash")  # type: ignore[reportAttributeAccessIssue]
-
+            for node in graph.nodes:
+                if node.kind == "input":
+                    inputs_graph.node(ids[node.id], f"🖴 {node.name}", shape="rect", color="gray", styleItem="dash")  # type: ignore[reportAttributeAccessIssue]
         with dot.subgraph(name="cluster_filters") as filter_graphs:  # type: ignore[reportAssignmentType]
-            # filter_graphs.attr(color="transparent",)
             filter_graphs.attr(color="gray", style="dashed", label=self.name)  # type: ignore[reportAttributeAccessIssue]
-            for filt in self.filters:
-                all_params = []
-                for pa_name, pa_val in filt.values.items():
-                    all_params.append(f"\n✔️ {pa_name}")
-                filter_graphs.node(filt.name, f"⚙️ {filt.name}" + ("".join(all_params)), shape="rect")  # type: ignore[reportAttributeAccessIssue]
-            for idx, filt in enumerate(self.filters):
-                if filt.inputs is None:
-                    continue
-                for out in filt.inputs:
-                    last_filter_found, inp_name = find_previous_key(out, idx, input_indexes)
-                    if last_filter_found is not None:
-                        dot.edge(last_filter_found, filt.name, label=edge_label(inp_name))
-        out_list = []
-        if self.outputs is None:
-            raise ValueError("Cannot generate graph: outputs not defined")
-        for out_item in self.outputs:
-            out_row = out_item
-            if not isinstance(out_item, (list, tuple)):
-                out_row = [out_item]
-            for out in out_row:
-                if out is None:
-                    continue
-                out_list.append(out)
+            for node in graph.nodes:
+                if node.kind == "filter":
+                    params = "".join(f"\n✔️ {main}" for main, _detail in node.lines)
+                    filter_graphs.node(ids[node.id], f"⚙️ {node.name}" + params, shape="rect")  # type: ignore[reportAttributeAccessIssue]
         with dot.subgraph(name="cluster_out") as out_graph:  # type: ignore[reportAssignmentType]
             out_graph.attr(style="dashed", color="gray", label="Outputs")  # type: ignore[reportAttributeAccessIssue]
-            for out in out_list:
-                out_graph.node(f"out {out}", f"🛢️ {out}", shape="rect", color="gray")  # type: ignore[reportAttributeAccessIssue]
-        for out in out_list:
-            last_filter_found, inp_name = find_previous_key(out, len(self.filters), input_indexes)
-            if last_filter_found is not None:
-                dot.edge(last_filter_found, f"out {out}", label=edge_label(inp_name))
+            for node in graph.nodes:
+                if node.kind == "output":
+                    out_graph.node(ids[node.id], f"🛢️ {node.name}", shape="rect", color="gray")  # type: ignore[reportAttributeAccessIssue]
+        for edge in graph.edges:
+            dot.edge(ids[edge.source], ids[edge.target], label=f"[{edge.label}]")
         try:
-            if path is not None:
-                dot.render(path, view=view)
-            else:
-                dot.render(self.name, view=view)
+            dot.render(path if path is not None else self.name, view=view, format=format)
         except Exception as exc:
             # Broad on purpose: graph rendering is a best-effort extra; the
             # string matching below handles ExecutableNotFound even when the

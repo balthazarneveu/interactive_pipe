@@ -54,7 +54,7 @@ if __name__ == "__main__":
         # you can already visualize the execution graph
         pipeline.graph_representation(view=True, ortho=False)
     except Exception as e:
-        print(f"Graphviz was probably not found, ignoring: {e}")
+        print(f"Could not write the pipeline graph, ignoring: {e}")
         pass
     print(pipeline)
     image_in = get_sample_image()

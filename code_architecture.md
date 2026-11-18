@@ -37,7 +37,7 @@ Core of the library to define pure pipeline processings & parameters controls in
 ## Headless
 [`HeadlessPipeline`](/src/interactive_pipe/headless/pipeline.py) extends the minimalistic `PipelineCore` with useful features (mostly unrelated to Graphical User Interface but useful). 
 - saving results to disk / loading results & parameters from disk 
-- visualizing execution graphs (*requires graphviz*)
+- visualizing execution graphs (standalone HTML page, no dependency; graphviz formats optional)
 - initialize a pipeline from a function. This is one of the powerful features of `interactive_pipe` which allows defining a pipeline & its routing mechanism from a single function (+all filters defined as functions only).
 
 [`Control`](/src/interactive_pipe/headless/control.py) and [`KeyboardControl`](/src/interactive_pipe/headless/keyboard.py) define how a parameter can vary (default_value, range, step, which key to press). In the graphical interface, these controls will later be interpreted & materialized as widgets (slider, buttons, checkboxes) or a keyboard interaction.
@@ -119,7 +119,7 @@ Tests: [🧪 test_cache.py](/test/test_cache.py)
 ### [`HeadlessPipeline`](/src/interactive_pipe/headless/pipeline.py) 
 `HeadlessPipeline` extends `PipelineCore` with useful features
     - saving results to disk / loading results & parameters from disk 
-    - visualizing execution graphs (*requires graphviz*) with `.graph_representation`. This works particularly well in jupyter notebooks.
+    - visualizing execution graphs with `.graph_representation`: a standalone HTML page (inline SVG, laid out in pure Python by `headless/graph_html.py`); `format="pdf"` / `"svg"` / `"png"` renders with graphviz when installed.
     - initialize a pipeline from a function. This is one of the powerful features of `interactive_pipe` which allows defining a pipeline & its routing mechanism from a single function (+all filters defined as functions only).
     - you need to set the inputs before calling `.run`. A simpler way to do this is to use the `.__call__` method instead so you can use the pipeline as if it was a normal function.
 
