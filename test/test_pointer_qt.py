@@ -235,3 +235,45 @@ def test_help_lists_the_gestures(capsys):
     assert "[click] on the first image : set qp_seed" in lines
     assert "[shift+drag] on the first image : draw qp_roi" in lines
     _close(gui)
+
+
+@interactive(qz_roi=RegionControl((0.1, 0.1, 0.3, 0.3), name="qz_roi"))
+def qz_zoom(img, qz_roi=(0.1, 0.1, 0.3, 0.3)):
+    x0, y0, x1, y1 = to_pixels(qz_roi, img)
+    return np.repeat(np.repeat(img[y0:y1, x0:x1], 4, axis=0), 4, axis=1)
+
+
+def qz_pipeline(img):
+    crop = qz_zoom(img)
+    return [img, crop]
+
+
+def test_region_drag_at_1_1_keeps_the_grid_still():
+    """Issue 79: at 1:1 the enlarged crop changes size while the region is
+    dragged; the grid must not relayout under the mouse (the image would move,
+    changing the region again, and everything flickers)."""
+    pipeline = HeadlessPipeline.from_function(qz_pipeline, inputs=["img"])
+    gui = qt_gui.InteractivePipeQT(pipeline=pipeline, name="pointer qt")
+    gui.pipeline.inputs = [np.random.default_rng(4).random((256, 256, 3))]
+    window = gui.window
+    window.refresh()
+    window.show()
+    _settle()
+    view = _view(gui)
+    view.set_mode("1:1")
+    _settle()
+    geometry, rect, size = view.geometry().getRect(), view.image_rect(), window.size()
+    QTest.mousePress(view, LEFT, SHIFT, _at(view, 20, 20))
+    for k in range(1, 8):
+        QTest.mouseMove(view, _at(view, 20 + 25 * k, 20 + 20 * k))
+        _settle()
+        assert view.geometry().getRect() == geometry
+        assert view.image_rect() == pytest.approx(rect)
+        assert window.size() == size
+    crop = _view(gui, 0, 1)
+    assert crop.image_size()[0] > crop.width()  # outgrew its cell meanwhile
+    QTest.mouseRelease(view, LEFT, SHIFT, _at(view, 200, 160))
+    _settle()
+    assert not view.sync.gesture_active
+    assert crop.minimumSizeHint().width() == crop.image_size()[0]  # the layout takes the new size
+    _close(gui)

@@ -388,6 +388,28 @@ class MainWindow(InteractivePipeWindow):
         size = dpg.get_item_rect_size(item)
         return int(size[1]) if size and len(size) >= 2 else 0
 
+    @staticmethod
+    def _layout_size(cell: Dict[str, Any]) -> Tuple[int, int]:
+        """Size a cell is laid out at: its native size, or the one it had when a
+        pointer gesture started (``frozen_size``, see ``_freeze_layout``)."""
+        frozen = cell.get("frozen_size")
+        return frozen if frozen is not None else cell["natural_size"]
+
+    def _freeze_layout(self, frozen: bool) -> None:
+        """While a point / region gesture runs, the grid keeps the cell sizes it had
+        when it started: an output that changes size while the mouse drags (a crop
+        of the region being drawn) must not move the image under the mouse, which
+        would change the region again (issue 79). Unfrozen, the grid relayouts once."""
+        for row in self.image_canvas or []:
+            for cell in row:
+                if cell is None:
+                    continue
+                if frozen:
+                    natural = cell.get("natural_size")
+                    cell["frozen_size"] = None if natural is None else tuple(natural)
+                elif cell.pop("frozen_size", None) is not None:
+                    self._needs_layout = True
+
     def natural_grid_size(self) -> Tuple[List[int], List[int]]:
         """Per-column widths and per-row heights of the canvas at native size (titles included)."""
         if not self.image_canvas:
@@ -399,7 +421,7 @@ class MainWindow(InteractivePipeWindow):
             for c, cell in enumerate(row):
                 if cell is None or cell.get("natural_size") is None:
                     continue
-                width, height = cell["natural_size"]
+                width, height = self._layout_size(cell)
                 col_widths[c] = max(col_widths[c], int(width))
                 row_heights[r] = max(row_heights[r], int(height) + TITLE_HEIGHT)
         return col_widths, row_heights
@@ -480,7 +502,7 @@ class MainWindow(InteractivePipeWindow):
             for c, cell in enumerate(row):
                 if cell is None or cell.get("natural_size") is None or cell.get("content") is None:
                     continue
-                width, height = cell["natural_size"]
+                width, height = self._layout_size(cell)
                 cell["title_width"] = max(40, int(width * scale), title_share)
                 title_w = set_cell_title(cell)
                 cell_widths[c] = max(cell_widths[c], int(title_w))
@@ -720,6 +742,7 @@ class MainWindow(InteractivePipeWindow):
         if not self.pointer_gesture.press(targets, index, fraction, screen, shift):
             return None
         self._pointer_cell = cell
+        self._freeze_layout(True)
         return "region" if self.pointer_gesture.drawing_region else "point"
 
     def _gesture_fraction(self, pos):
@@ -735,6 +758,9 @@ class MainWindow(InteractivePipeWindow):
             self._pointer_changed(self.pointer_gesture.move(fraction, pos))
 
     def pointer_release(self, pos) -> None:
+        self._freeze_layout(False)
+        if self._needs_layout:
+            self.relayout()  # the sizes the outputs took during the gesture, once
         fraction = self._gesture_fraction(pos)
         if fraction is None or self.pointer_targets is None:
             self.pointer_gesture.cancel()
