@@ -180,6 +180,9 @@ Demos and docs:
 ### Improvements & bug fixes
 - Calling a headless pipeline that takes no inputs again (`pipe()`, `pipe(gain=2.0)`) no longer resets its cache: only the filters affected by the parameter change are recomputed, and `last_run_report.cached` reports the others. Passing inputs still invalidates everything, as before.
 - A pipeline without inputs can be run before its first call (`pipe.run()`, `export_animation(pipe, ...)`) instead of raising "Cannot access uninitialized inputs!".
+- **Zooming a heatmap with a colorbar** ([#79](https://github.com/balthazarneveu/interactive_pipe/issues/79)): the map and its colorbar were zoomed as one image, so the cell framed another place than its neighbours (often the colorbar itself). On Qt and Dear PyGui the colorbar now stays fixed on the right of the cell and keeps its size; only the map zooms and pans, and the shared view center is taken on the data area, so cells whose data have the same size show the same pixels. At zoom 1 nothing changes.
+- **Dragging a region no longer makes the window flicker** ([#79](https://github.com/balthazarneveu/interactive_pipe/issues/79)): an output depending on the region (a crop) changed size at every mouse move, the grid was laid out again and moved the image under the mouse, which changed the region again (worst at 1:1). On Qt and Dear PyGui the grid keeps its layout during a point / region gesture and takes the new sizes once the mouse is released.
+- The pre-0.9 control tuple with keyboard keys, `(100, [0, 200], "X", ["left", "right"])`, now says the form was removed and shows `KeyboardControl(default, [min, max], name=..., keydown=..., keyup=...)` instead of only "group shall be a string or Panel".
 
 ## 0.9.4 (November 2026)
 
