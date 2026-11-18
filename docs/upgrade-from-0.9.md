@@ -459,6 +459,35 @@ def under_test(img):
 (row,) = under_test(np.eye(3))
 ```
 
+### `graph_representation()` writes an HTML page
+
+It rendered a graphviz diagram (PDF by default) and returned the
+`graphviz.Digraph`, or logged install instructions when graphviz was missing.
+It now writes a standalone HTML page (inline SVG, no dependency) and returns
+its `Path`; a path without suffix gets `.html`. The graphviz rendering is kept
+for `format="pdf"` / `"svg"` / `"png"` (or a path ending with that suffix):
+
+```python
+import numpy as np
+from interactive_pipe import interactive, interactive_pipeline
+
+
+@interactive(gain=(1.0, [0.0, 2.0]))
+def amplify(img, gain=1.0):
+    return img * gain
+
+
+@interactive_pipeline(gui=None)
+def pipe(img):
+    out = amplify(img)
+    return out
+
+
+path = pipe.graph_representation("/tmp/pipe")  # /tmp/pipe.html, was a graphviz PDF
+assert path.suffix == ".html" and "amplify" in path.read_text()
+# pipe.graph_representation("/tmp/pipe", format="pdf")  # graphviz, as before
+```
+
 ## Declaring controls
 
 ### A bare value in `@interactive` raises

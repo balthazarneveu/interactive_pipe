@@ -512,38 +512,21 @@ class InteractivePipeGUI:
         default_name = f"{self._default_file_stem()}{extensions[0]}"
         self._with_path("Save images", True, extensions, default_name, save)
 
-    def graph_representation(self, path=None, ortho=True, view=False):
-        """Generate graph representation of the pipeline"""
-        return self.pipeline.graph_representation(path=path, ortho=ortho, view=view)
+    def graph_representation(self, path=None, ortho=True, view=False, format=None):
+        """Generate graph representation of the pipeline (HTML by default, see HeadlessPipeline)"""
+        return self.pipeline.graph_representation(path=path, ortho=ortho, view=view, format=format)
 
     def display_graph(self):
-        """display execution graph"""
+        """write the pipeline graph to an HTML page and open it in the web browser"""
         try:
-            result = self.pipeline.graph_representation(view=True, ortho=False)
-            if result is None:
-                self.print_message(
-                    [
-                        "Graph visualization failed.",
-                        "Graphviz executables are required to display the graph.",
-                        "Please install Graphviz system package:",
-                        "  - Ubuntu/Debian: sudo apt-get install graphviz",
-                        "  - macOS: brew install graphviz",
-                        "  - Windows: Download from https://graphviz.org/download/",
-                    ]
-                )
+            written = self.pipeline.graph_representation(path=f"{self._default_file_stem()}_graph.html", view=True)
         except Exception as exc:
             # Broad on purpose: graph display is an optional extra triggered by
             # a key binding; surface the failure to the user, never crash.
-            self.print_message(
-                [
-                    f"Failed to display graph: {exc}",
-                    "Graphviz executables are required to display the graph.",
-                    "Please install Graphviz system package:",
-                    "  - Ubuntu/Debian: sudo apt-get install graphviz",
-                    "  - macOS: brew install graphviz",
-                    "  - Windows: Download from https://graphviz.org/download/",
-                ]
-            )
+            self.print_message([f"Failed to export the pipeline graph: {exc}"])
+            return
+        if written is not None:
+            self.print_message([f"Pipeline graph written to {Path(written).resolve()}"])
 
     def export_animation(self):
         """render the time control to a GIF (5 s at 10 fps) or PNG frames"""

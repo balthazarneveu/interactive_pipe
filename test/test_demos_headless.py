@@ -99,7 +99,9 @@ def test_script_renders_headless(script, tmp_path, monkeypatch):
     monkeypatch.setattr(Control, "_registry", {})
     monkeypatch.setattr(Control, "_panel_cache", {})
     monkeypatch.delenv("INTERACTIVE_PIPE_SNAPSHOT", raising=False)
-    # graph_representation(view=True) (samples/) would open an image viewer when graphviz is installed
+    # graph_representation(view=True) (samples/): never open a browser
+    # (run_script sets INTERACTIVE_PIPE_SNAPSHOT, which already prevents it)
+    monkeypatch.setattr("webbrowser.open", lambda *args, **kwargs: False)
     monkeypatch.setitem(sys.modules, "graphviz", None)
     run = run_script(str(script), output=f"{tmp_path.as_posix()}/shots/", max_calls=3)
     assert run.exit_code == 0, run.error
