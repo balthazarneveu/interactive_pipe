@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.5 (November 2026)
 
 Common mistakes in pipelines used to build something that ran and was wrong. They now either do what was meant or fail with an error naming the line and the fix.
 

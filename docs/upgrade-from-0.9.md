@@ -1,10 +1,10 @@
 # Upgrading from 0.9
 
-The next release turns many silent mistakes into errors raised when the
+0.9.5 turns many silent mistakes into errors raised when the
 pipeline is built or run, with the file, the line and the fix. Code that was
 correct keeps working; code that only *looked* like it worked may now raise.
 This page lists every behaviour change of the [changelog](changelog.md)
-("Unreleased") with the code before and after.
+(0.9.5) with the code before and after.
 
 Quick way to find what changed for your project: run each script once with
 `interactive-pipe check my_script.py` ([command line](guide/command-line.md#check-run-after-every-edit)):
