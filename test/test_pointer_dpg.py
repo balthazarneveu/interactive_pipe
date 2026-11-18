@@ -247,3 +247,27 @@ def test_heatmap_colorbar_stays_fixed_when_zoomed(monkeypatch):
     mouse.click(mouse.at(cell, 14.5 * upscale, 9.5 * upscale))
     assert to_pixels(window.ctrl["dh_seed"].value, HEATMAP) == (14, 9)
     gui.close()
+
+
+def test_region_drag_keeps_the_grid_still(monkeypatch):
+    """Issue 79: the crop changes size while the region is dragged; the grid must
+    not relayout under the mouse (the image would move, changing the region)."""
+    gui, window, mouse = _gui(monkeypatch, dp_pipeline, [IMAGE])
+    window.set_view_mode("1:1")
+    cell, crop = window.image_canvas[0][0], window.image_canvas[0][1]
+    box = dpg_image.image_box(cell)
+    rect = window.view.image_rect(box, dpg_image.cell_content(cell))
+    crop_box = dpg_image.image_box(crop)
+    mouse.press(mouse.at(cell, 10, 10), shift=True)
+    for k in range(1, 6):
+        mouse.move(mouse.at(cell, 10 + 30 * k, 10 + 15 * k))
+        _run_pending(window)
+        assert dpg_image.image_box(cell) == box
+        assert window.view.image_rect(dpg_image.image_box(cell), dpg_image.cell_content(cell)) == rect
+        assert dpg_image.image_box(crop) == crop_box
+    assert crop["natural_size"] != crop_box  # the crop did change size meanwhile
+    mouse.release(mouse.at(cell, 190, 90))
+    _run_pending(window)
+    assert "frozen_size" not in crop
+    assert dpg_image.image_box(crop) == tuple(crop["natural_size"])  # 1:1: laid out at its new size
+    gui.close()

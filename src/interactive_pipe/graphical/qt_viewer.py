@@ -159,6 +159,26 @@ class ViewSync:
         for view in self.views:
             view.update()
 
+    @property
+    def gesture_active(self) -> bool:
+        return any(view._frozen_hints is not None for view in self.views)
+
+    def begin_gesture(self) -> None:
+        """A point / region gesture starts: every view keeps its current size
+        hints until it ends. An output that changes size while the mouse drags
+        (a crop of the region being drawn) must not relayout the grid: the image
+        under the mouse would move, changing the region again (issue 79)."""
+        for view in self.views:
+            view._frozen_hints = None
+            view._frozen_hints = (view.sizeHint(), view.minimumSizeHint())
+
+    def end_gesture(self) -> None:
+        """The gesture is over: the layout takes the current sizes, once."""
+        for view in self.views:
+            if view._frozen_hints is not None:
+                view._frozen_hints = None
+                view.updateGeometry()
+
 
 class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
     """QLabel that displays images fitted/zoomed/panned, text as usual."""
@@ -177,6 +197,8 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         self.pointer_handler: Optional[PointerHandler] = None
         self.overlay: List[OverlayItem] = []
         self._pointer_gesture: Optional[str] = None
+        # (sizeHint, minimumSizeHint) kept while a pointer gesture runs (ViewSync.begin_gesture)
+        self._frozen_hints: Optional[Tuple[QSize, QSize]] = None
         self._drag_origin = None
         # called once the view has stopped changing size for RESIZE_DEBOUNCE_MS
         # (a figure output is drawn again at the new size)
@@ -302,6 +324,8 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         return x, y, value
 
     def sizeHint(self) -> QSize:  # noqa: N802 - Qt API
+        if self._frozen_hints is not None:
+            return self._frozen_hints[0]
         if not self.has_image():
             return super().sizeHint()
         w, h = self.image_size()
@@ -311,6 +335,8 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         return QSize(max(1, int(w * ratio)), max(1, int(h * ratio)))
 
     def minimumSizeHint(self) -> QSize:  # noqa: N802 - Qt API
+        if self._frozen_hints is not None:
+            return self._frozen_hints[1]
         if not self.has_image():
             return super().minimumSizeHint()
         w, h = self.image_size()
@@ -458,6 +484,8 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
             if self.pointer_handler is not None:
                 shift = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
                 self._pointer_gesture = self.pointer_handler.press(*self.map_to_image(*pos), pos, shift)
+                if self._pointer_gesture is not None:
+                    self.sync.begin_gesture()
             # a region drag draws instead of panning; a click on a point target still pans if it moves
             self._drag_origin = None if self._pointer_gesture == "region" else pos
             event.accept()
@@ -485,6 +513,7 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
                 self._pointer_gesture = None
                 pos = self._event_pos(event)
                 self.pointer_handler.release(*self.map_to_image(*pos), pos)
+            self.sync.end_gesture()
         super().mouseReleaseEvent(event)
 
     def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 - Qt API
