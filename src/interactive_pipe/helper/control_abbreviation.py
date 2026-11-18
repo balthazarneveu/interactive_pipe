@@ -4,6 +4,18 @@ from interactive_pipe.headless.control import Control
 from interactive_pipe.headless.keyboard import KeyboardControl
 
 
+def _group_error(group) -> str:
+    """Message for a group that is neither a string nor a Panel; a list of key
+    names is the keyboard form removed in 0.9.0."""
+    message = f"{group} group shall be a string or Panel"
+    if isinstance(group, (list, tuple)) and group and all(isinstance(key, str) for key in group):
+        message += (
+            ". Keyboard keys in a control tuple were removed in 0.9.0: use "
+            "KeyboardControl(default, [min, max], name=..., keydown=..., keyup=...) instead"
+        )
+    return message
+
+
 def default_value_check(val):
     if isinstance(val, (bool, int, float, str)):
         return True
@@ -81,7 +93,7 @@ def control_from_tuple(short_params: Tuple, param_name: Optional[str] = None) ->
                 from interactive_pipe.headless.panel import Panel
 
                 if not isinstance(group, (str, Panel)):
-                    raise TypeError(f"{group} group shall be a string or Panel")
+                    raise TypeError(_group_error(group))
     else:
         if first_value_is_default_val:
             # INT/FLOAT/STR
@@ -167,7 +179,7 @@ def control_from_tuple(short_params: Tuple, param_name: Optional[str] = None) ->
                 from interactive_pipe.headless.panel import Panel
 
                 if not isinstance(group, (str, Panel)):
-                    raise TypeError(f"{group} group shall be a string or Panel")
+                    raise TypeError(_group_error(group))
 
     auto_named = name is None
     if name is None:
