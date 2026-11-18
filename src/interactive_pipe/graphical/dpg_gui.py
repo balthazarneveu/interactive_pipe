@@ -28,6 +28,7 @@ from interactive_pipe.data_objects.curves import Curve
 from interactive_pipe.data_objects.table import Table
 from interactive_pipe.graphical.actions import Action
 from interactive_pipe.graphical.columns import choose_column_count, columns_height, split_into_columns
+from interactive_pipe.graphical.display import display_data, heatmap_geometry
 from interactive_pipe.graphical.dpg_backend import (  # noqa: F401
     INSTALL_HINT,
     context_alive,
@@ -39,6 +40,7 @@ from interactive_pipe.graphical.dpg_backend import (  # noqa: F401
 from interactive_pipe.graphical.dpg_control import ControlFactory
 from interactive_pipe.graphical.dpg_image import (
     FIGURE_CELL_SIZE,
+    cell_content,
     clear_cell_content,
     image_box,
     place_image,
@@ -54,6 +56,7 @@ from interactive_pipe.graphical.dpg_panels import DpgPanelBuilder, DpgTimer  # n
 from interactive_pipe.graphical.dpg_viewer import ZOOM_STEP, ViewState
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.pointer_input import Gesture, PointerTargets, overlay_items, to_fraction
+from interactive_pipe.graphical.view_geometry import CellContent, content_of
 from interactive_pipe.graphical.window import (
     InteractivePipeWindow,
     display_kind,
@@ -601,7 +604,7 @@ class MainWindow(InteractivePipeWindow):
             if not cells:
                 return
             cell = cells[0]
-        self.view.zoom_by(factor, image_box(cell), cell["natural_size"], anchor)
+        self.view.zoom_by(factor, image_box(cell), cell_content(cell), anchor)
         self.apply_view()
 
     def image_cell_at(self, pos) -> Optional[Tuple[Dict[str, Any], Tuple[float, float]]]:
@@ -668,7 +671,7 @@ class MainWindow(InteractivePipeWindow):
         if not dpg.is_mouse_button_down(dpg.mvMouseButton_Left) or not dpg.does_item_exist(cell["content"]):
             self._drag = None
             return
-        self.view.pan_by(pos[0] - last[0], pos[1] - last[1], image_box(cell), cell["natural_size"])
+        self.view.pan_by(pos[0] - last[0], pos[1] - last[1], image_box(cell), cell_content(cell))
         self._drag = (cell, (pos[0], pos[1]))
         self.apply_view()
 
@@ -693,13 +696,15 @@ class MainWindow(InteractivePipeWindow):
         if targets is None or index is None or cell.get("natural_size") is None:
             return None
         natural_w, natural_h = cell["natural_size"]
-        x, y, width, _ = self.view.image_rect(image_box(cell), cell["natural_size"])
-        x, y = round(x), round(y)  # as drawn by place_image
-        scale = width / max(natural_w, 1)
+        content = cell_content(cell)
+        layout = self.view.layout(image_box(cell), content)
+        if layout.strip is not None and local[0] >= layout.room[0]:
+            return None  # on the colorbar
+        x, y = round(layout.main[0]), round(layout.main[1])  # as drawn by place_image
         size = targets.data_size(index, (natural_h, natural_w))
         if size is None:
             return None
-        return to_fraction((local[0] - x) / scale, (local[1] - y) / scale, size)
+        return to_fraction((local[0] - x) / layout.scale, (local[1] - y) / layout.scale, size)
 
     def _local(self, cell: Dict[str, Any], pos: Tuple[float, float]) -> Tuple[float, float]:
         x0, y0 = dpg.get_item_rect_min(cell["content"])
@@ -775,6 +780,8 @@ class MainWindow(InteractivePipeWindow):
                     set_overlay(cell, items, self.view)
 
     def refresh_display(self, _out) -> None:
+        # the outputs before display styling: update_image maps a heatmap's colorbar out of the zoom
+        self._raw_outputs = [list(_out)] if isinstance(_out, tuple) else _out
         super().refresh_display(_out)
         self._update_pointer_targets(_out)
 
@@ -1123,6 +1130,7 @@ class MainWindow(InteractivePipeWindow):
             clear_cell_content(cell)
         if isinstance(content, np.ndarray):
             changed = update_image_cell(cell, content, self.texture_registry)
+            cell["view_content"] = self._view_content(content, row, col)
         elif isinstance(content, Curve):
             changed = update_curve_cell(cell, content)
         elif isinstance(content, Table):
@@ -1135,6 +1143,18 @@ class MainWindow(InteractivePipeWindow):
         cell["kind"] = kind
         self._needs_layout = self._needs_layout or changed
         set_cell_title(cell, self.get_current_style(row, col).get("title", ""))
+
+    def _view_content(self, shown: np.ndarray, row: int, col: int) -> Optional[CellContent]:
+        """CellContent of a heatmap drawn with a colorbar / axes (its map zooms, its
+        colorbar stays fixed), None for a plain image."""
+        try:
+            raw = display_data(self._raw_outputs[row][col])
+            geometry = heatmap_geometry(raw, self.get_current_style(row, col))
+        except (AttributeError, IndexError, KeyError, TypeError, RuntimeError):
+            return None
+        if geometry is None:
+            return None
+        return content_of(shown.shape[1], shown.shape[0], geometry)
 
     @staticmethod
     def convert_image(out_im):

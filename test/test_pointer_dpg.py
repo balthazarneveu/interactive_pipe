@@ -72,8 +72,8 @@ class FakeMouse:
 
     def at(self, cell, u, v):
         """Viewport position over image pixel coordinates (u, v) of `cell`."""
-        x, y, width, _ = self.window.view.image_rect(dpg_image.image_box(cell), cell["natural_size"])
-        scale = width / cell["natural_size"][0]
+        layout = self.window.view.layout(dpg_image.image_box(cell), dpg_image.cell_content(cell))
+        x, y, scale = layout.main[0], layout.main[1], layout.scale
         x0, y0 = self.origin.get(cell["content"], (0.0, 0.0))
         return (x0 + round(x) + u * scale, y0 + round(y) + v * scale)
 
@@ -221,3 +221,29 @@ def test_heatmap_with_colorbar_maps_to_data_pixels(monkeypatch):
     assert gui.pipeline.results[0][1] == f"{HEATMAP[4, 6]:.4f}"
     mouse.click(mouse.at(cell, natural_w - 5, 10))  # on the colorbar
     assert window.ctrl["dh_seed"].value == seed
+
+
+def test_heatmap_colorbar_stays_fixed_when_zoomed(monkeypatch):
+    """Issue 79: the colorbar is not part of the zoom; the shared center is
+    normalized over the map, so a zoomed click still lands on its data pixel."""
+    gui, window, mouse = _gui(monkeypatch, dh_pipeline, [HEATMAP])
+    cell = window.image_canvas[0][0]
+    content = dpg_image.cell_content(cell)
+    assert content.strip > 0
+    box = dpg_image.image_box(cell)
+    strip_before = window.view.layout(box, content).strip
+    window.zoom_by(4.0, cell)
+    layout = window.view.layout(box, content)
+    assert layout.strip[2:] == pytest.approx(strip_before[2:])
+    assert layout.strip[0] + layout.strip[2] == pytest.approx(box[0])
+    assert dpg.does_item_exist(cell["strip_image"])
+    assert tuple(dpg.get_item_configuration(cell["strip_image"])["pmin"][:2]) == pytest.approx(layout.strip[:2])
+    upscale = cell["natural_size"][1] // 20
+    # the middle of the map is still at the middle of the room left to it
+    room_w, room_h = layout.room
+    u = (room_w / 2.0 - layout.main[0]) / layout.scale / upscale
+    v = (room_h / 2.0 - layout.main[1]) / layout.scale / upscale
+    assert (u, v) == pytest.approx((15.0, 10.0), abs=0.5)
+    mouse.click(mouse.at(cell, 14.5 * upscale, 9.5 * upscale))
+    assert to_pixels(window.ctrl["dh_seed"].value, HEATMAP) == (14, 9)
+    gui.close()

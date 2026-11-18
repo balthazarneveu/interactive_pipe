@@ -488,3 +488,73 @@ def test_plot_cells_have_a_legible_minimum_size():
     canvas = cell["image"]
     assert (canvas.minimumWidth(), canvas.minimumHeight()) == MPL_CELL_MINIMUM_SIZE
     assert canvas.figure.get_layout_engine() is not None  # labels are kept inside the cell
+
+
+_APPLICATION = []  # the QApplication of the heatmap view tests, kept alive
+
+
+def _heatmap_views():
+    """Two synced views of the same 32 x 48 map, the second drawn with a colorbar."""
+    _APPLICATION.append(QApplication.instance() or QApplication([]))
+    from interactive_pipe.graphical.display import apply_display_style, heatmap_geometry
+    from interactive_pipe.graphical.qt_image import numpy_to_pixmap
+
+    data = np.linspace(-1.0, 1.0, 32 * 48).reshape(32, 48)
+    style = {"colormap": "RdBu", "center": 0, "colorbar": True}
+    sync = ViewSync()
+    views = []
+    for shown, geometry in (
+        (apply_display_style(data, {"colormap": "RdBu", "center": 0}), None),
+        (apply_display_style(data, style), heatmap_geometry(data, style)),
+    ):
+        view = ImageView(sync=sync)
+        view.resize(435, 290)
+        view.set_image(numpy_to_pixmap((np.clip(shown, 0, 1) * 255).astype(np.uint8)), data, readout=geometry)
+        views.append(view)
+    QApplication.processEvents()
+    return views
+
+
+def _data_pixel_at_center(view):
+    """Data pixel at the middle of the room the map zooms in (the cell minus a colorbar)."""
+    room_w, room_h = view.view_layout().room
+    return view.pixel_at(room_w / 2.0, room_h / 2.0)[:2]
+
+
+def test_colorbar_cell_zooms_on_the_same_data_pixels():
+    """Issue 79: zooming in, a heatmap with a colorbar frames the same data
+    pixels as its plain neighbour; the colorbar stays fixed on the right."""
+    plain, with_bar = _heatmap_views()
+    assert with_bar.content().strip > 0
+    bar_before = with_bar.view_layout().strip
+    x0, y0, _, _ = plain.image_rect()
+    s = plain.scale()
+    plain.zoom_by(6.0, (x0 + 36.5 * s, y0 + 8.5 * s))
+    assert _data_pixel_at_center(with_bar) == _data_pixel_at_center(plain)
+    plain.pan_by(-40.0, 25.0)
+    assert _data_pixel_at_center(with_bar) == _data_pixel_at_center(plain)
+    strip = with_bar.view_layout().strip
+    assert strip[2:] == pytest.approx(bar_before[2:])  # same size: the colorbar does not zoom
+    assert strip[0] + strip[2] == pytest.approx(with_bar.width())  # pinned to the right edge
+    # the strip columns never report a data value
+    assert with_bar.pixel_at(strip[0] + strip[2] / 2.0, with_bar.height() / 2.0)[2] is None
+    # zooming from the colorbar cell drives the plain one the same way
+    with_bar.reset_view()
+    with_bar.zoom_by(3.0)
+    assert _data_pixel_at_center(with_bar) == _data_pixel_at_center(plain)
+    for view in (plain, with_bar):
+        view.detach()
+        view.deleteLater()
+
+
+def test_colorbar_cell_at_zoom_one_is_the_fitted_whole_image():
+    _, with_bar = _heatmap_views()
+    layout = with_bar.view_layout()
+    fit = with_bar.fit_scale()
+    total_w = with_bar.image_size()[0] * fit
+    assert layout.scale == pytest.approx(fit)
+    assert layout.strip_scale == pytest.approx(fit)
+    assert layout.main[0] == pytest.approx((with_bar.width() - total_w) / 2.0)
+    assert layout.strip[0] == pytest.approx(layout.main[0] + layout.main[2])
+    with_bar.detach()
+    with_bar.deleteLater()

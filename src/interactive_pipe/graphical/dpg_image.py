@@ -166,7 +166,7 @@ def clear_cell_content(cell: Dict[str, Any]) -> None:
     """Remove the content item (and texture) of a cell, keeping the group and title."""
     _delete(cell.get("content"))
     _delete(cell.get("texture"))
-    for key in ("content", "drawn_image", "texture", "buffer", "plot", "kind"):
+    for key in ("content", "drawn_image", "texture", "buffer", "plot", "kind", "strip_background", "strip_image"):
         cell[key] = None
     cell["overlay_drawn"] = []  # children of the deleted drawlist
     cell["natural_size"] = None
@@ -206,14 +206,47 @@ def image_box(cell: Dict[str, Any]) -> Tuple[int, int]:
     return (config.get("width") or natural[0], config.get("height") or natural[1])
 
 
+def cell_content(cell: Dict[str, Any]) -> Any:
+    """What the view state lays out for an image cell: its ``CellContent`` (a
+    heatmap with a colorbar / axes, set by ``update_image``) when it matches the
+    image shown, else the plain (width, height)."""
+    natural = cell.get("natural_size")
+    content = cell.get("view_content")
+    if content is not None and natural is not None and (content.width, content.height) == tuple(natural):
+        return content
+    return natural
+
+
 def place_image(cell: Dict[str, Any], view: ViewState) -> None:
-    """Move the drawn image of an image cell to where the zoom/pan state puts it."""
+    """Move the drawn image of an image cell to where the zoom/pan state puts it
+    (a colorbar strip stays fixed on the right, drawn over a white column)."""
     if not _exists(cell.get("drawn_image")) or cell.get("natural_size") is None:
         return
-    x, y, width, height = view.image_rect(image_box(cell), cell["natural_size"])
+    content = cell_content(cell)
+    box = image_box(cell)
+    layout = view.layout(box, content)
+    x, y, width, height = layout.main
     x, y = round(x), round(y)  # whole-pixel origin: no half-pixel blur at 1:1
-    dpg.configure_item(cell["drawn_image"], pmin=(x, y), pmax=(x + width, y + height))
-    draw_overlay(cell, x, y, width / max(cell["natural_size"][0], 1))
+    strip = getattr(content, "strip", 0)
+    split = 1.0 - strip / max(cell["natural_size"][0], 1)
+    dpg.configure_item(cell["drawn_image"], pmin=(x, y), pmax=(x + width, y + height), uv_max=(split, 1.0))
+    draw_overlay(cell, x, y, layout.scale)
+    _place_strip(cell, layout, box, split)
+
+
+def _place_strip(cell: Dict[str, Any], layout: Any, box: Tuple[int, int], split: float) -> None:
+    for key in ("strip_background", "strip_image"):
+        _delete(cell.get(key))
+        cell[key] = None
+    if layout.strip is None or not _exists(cell.get("content")):
+        return
+    sx, sy, sw, sh = layout.strip
+    cell["strip_background"] = dpg.draw_rectangle(
+        (sx, 0), (box[0], box[1]), color=(255, 255, 255, 255), fill=(255, 255, 255, 255), parent=cell["content"]
+    )
+    cell["strip_image"] = dpg.draw_image(
+        cell["texture"], (sx, sy), (sx + sw, sy + sh), uv_min=(split, 0.0), uv_max=(1.0, 1.0), parent=cell["content"]
+    )
 
 
 def set_overlay(cell: Dict[str, Any], items: List[Tuple[str, Any, str]], view: ViewState) -> None:

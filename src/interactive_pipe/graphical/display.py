@@ -317,7 +317,8 @@ class HeatmapGeometry(NamedTuple):
     The map is upscaled by ``upscale`` (an integer) and its top-left corner
     is at ``(x0, y0)`` displayed pixels (axes margins on the left / top);
     ``extent`` = ``(x_left, x_right, y_bottom, y_top)`` of ``layout.style``,
-    None when the axes count pixels."""
+    None when the axes count pixels. ``main_width``: displayed width of the
+    map with its axes, the colorbar strip (``colorbar``) follows it."""
 
     upscale: int
     height: int
@@ -325,6 +326,8 @@ class HeatmapGeometry(NamedTuple):
     x0: int = 0
     y0: int = 0
     extent: Optional[Tuple[float, float, float, float]] = None
+    main_width: int = 0
+    colorbar: bool = False
 
     def data_coordinates(self, x: int, y: int) -> Tuple[float, float]:
         """Extent coordinates of the centre of data pixel (x, y) (column, row)."""
@@ -350,10 +353,12 @@ def heatmap_geometry(content: Any, style: Optional[dict]) -> Optional[HeatmapGeo
         return None
     height, width = array.shape
     upscale = colorbar_upscale(height, width)
+    colorbar = bool(style.get("colorbar"))  # type: ignore[union-attr]
     if not _has_axes(style):
-        return HeatmapGeometry(upscale, height, width)
-    layout = _axes_layout(style, height, width, upscale)
-    return HeatmapGeometry(upscale, height, width, layout.left, layout.top, layout.extent)
+        return HeatmapGeometry(upscale, height, width, main_width=width * upscale, colorbar=colorbar)
+    layout = _axes_layout(style, height, width, upscale)  # type: ignore[arg-type]
+    main_width = layout.left + layout.map_w + layout.right
+    return HeatmapGeometry(upscale, height, width, layout.left, layout.top, layout.extent, main_width, colorbar)
 
 
 def _resolve_colormap(colormap: Any) -> Any:

@@ -26,10 +26,19 @@ from typing import Any, Callable, List, Optional, Tuple
 
 import numpy as np
 
+from interactive_pipe.graphical import view_geometry
 from interactive_pipe.graphical.display import TEXT_FONT_PT
 from interactive_pipe.graphical.pointer_input import POINT_COLOR as POINT_RGB
 from interactive_pipe.graphical.pointer_input import REGION_COLOR as REGION_RGB
 from interactive_pipe.graphical.qt_backend import PYQTVERSION, QLabel, QPixmap, QSize, Qt, QTimer
+from interactive_pipe.graphical.view_geometry import (
+    MAX_ZOOM,
+    MIN_ZOOM,
+    CellContent,
+    CellLayout,
+    cell_layout,
+    content_of,
+)
 
 # Painting / geometry classes not re-exported by qt_backend: import them from
 # the very binding qt_backend picked (never mix two Qt bindings).
@@ -52,10 +61,6 @@ __all__ = ["ImageView", "PointerHandler", "ViewSync", "VIEW_MODES", "pixel_value
 VIEW_MODES = ("fit", "1:1")
 RESIZE_DEBOUNCE_MS = 150
 ZOOM_STEP = 1.25
-MIN_ZOOM = 1.0 / 64.0
-MAX_ZOOM = 256.0
-# screen pixels of slack when telling whether the image fits the view
-FIT_TOLERANCE = 0.5
 # Bound on the preferred (initial) size of an image cell; the cell can still
 # be enlarged by the user and shrunk down to minimumSizeHint.
 MAX_HINT = QSize(800, 600)
@@ -87,15 +92,6 @@ class PointerHandler:
 
     def release(self, u: float, v: float, screen: Tuple[float, float]) -> None:
         pass
-
-
-def _clamp_center(center: float, drawn: float, room: float) -> float:
-    """Normalized center along one axis: 0.5 when the drawn image fits `room`,
-    else limited so its edges do not come inside the room."""
-    if drawn <= room + FIT_TOLERANCE:
-        return 0.5
-    half = room / (2.0 * drawn)
-    return min(max(center, half), 1.0 - half)
 
 
 def pixel_value(array: Optional[np.ndarray], x: int, y: int) -> Any:
@@ -246,6 +242,17 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
             return (0, 0)
         return (self._pixmap.width(), self._pixmap.height())  # type: ignore[union-attr]
 
+    def content(self) -> CellContent:
+        """Size of the image and its zoomable part / data frame (view_geometry)."""
+        w, h = self.image_size()
+        return content_of(w, h, self.readout)
+
+    def _box(self) -> Tuple[float, float]:
+        return (float(self.width()), float(self.height()))
+
+    def view_layout(self) -> CellLayout:
+        return cell_layout(self._box(), self.content(), self.sync.zoom, self.sync.absolute, self.sync.center)
+
     def fit_scale(self) -> float:
         w, h = self.image_size()
         if w == 0 or h == 0:
@@ -253,40 +260,22 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         return max(min(self.width() / w, self.height() / h), 1e-6)
 
     def scale(self) -> float:
-        """Screen pixels per image pixel currently used to paint."""
-        base = 1.0 if self.sync.absolute else self.fit_scale()
-        return base * self.sync.zoom
+        """Screen pixels per image pixel currently used to paint (the map, not a colorbar)."""
+        return self.view_layout().scale
 
     def min_zoom(self) -> float:
         """Smallest zoom: the image fits the view (or stays at its current base
         scale when that is already smaller, e.g. a small image at 1:1)."""
-        w, h = self.image_size()
-        if w == 0 or h == 0:
-            return MIN_ZOOM
-        base = 1.0 if self.sync.absolute else self.fit_scale()
-        return max(MIN_ZOOM, min(1.0, self.fit_scale() / base))
-
-    def _clamped_center(self, s: float) -> Tuple[float, float]:
-        """The view center, kept so the image never leaves empty room in the
-        cell it could fill: centered along an axis where it fits, otherwise
-        its edges stay at or beyond the cell's."""
-        w, h = self.image_size()
-        cu, cv = self.sync.center
-        return (_clamp_center(cu, w * s, self.width()), _clamp_center(cv, h * s, self.height()))
+        return view_geometry.min_zoom(self._box(), self.content(), self.sync.absolute)
 
     def image_rect(self) -> Tuple[float, float, float, float]:
-        """(x, y, width, height) of the painted image in widget coordinates;
-        centered along an axis where it fits the view."""
-        w, h = self.image_size()
-        s = self.scale()
-        cu, cv = self._clamped_center(s)
-        return (self.width() / 2.0 - cu * w * s, self.height() / 2.0 - cv * h * s, w * s, h * s)
+        """(x, y, width, height) of the painted image (without a colorbar strip,
+        which stays fixed) in widget coordinates; centered along an axis where it fits."""
+        return self.view_layout().main
 
     def map_to_image(self, px: float, py: float) -> Tuple[float, float]:
         """Widget coordinates -> (continuous) image pixel coordinates."""
-        x0, y0, _, _ = self.image_rect()
-        s = self.scale()
-        return ((px - x0) / s, (py - y0) / s)
+        return self.view_layout().to_image(self.content(), px, py)
 
     def pixel_at(self, px: float, py: float) -> Tuple[int, int, Any]:
         """(x, y, value) of the image pixel under widget point (px, py)."""
@@ -350,27 +339,20 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         if w == 0 or h == 0:
             self.sync.set_state(self.sync.zoom * factor, self.sync.center)
             return
-        if anchor is None:
-            anchor = (self.width() / 2.0, self.height() / 2.0)
-        fx, fy = self.map_to_image(*anchor)
-        new_zoom = min(max(self.sync.zoom * factor, self.min_zoom()), MAX_ZOOM)
-        base = 1.0 if self.sync.absolute else self.fit_scale()
-        new_scale = base * new_zoom
-        cu = (fx - (anchor[0] - self.width() / 2.0) / new_scale) / w
-        cv = (fy - (anchor[1] - self.height() / 2.0) / new_scale) / h
-        self.sync.zoom = float(new_zoom)
-        self.sync.center = (cu, cv)
-        self.sync.set_state(new_zoom, self._clamped_center(new_scale))
+        zoom, center = view_geometry.zoom_center(
+            self._box(), self.content(), self.sync.zoom, self.sync.absolute, self.sync.center, factor, anchor
+        )
+        self.sync.set_state(zoom, center)
 
     def pan_by(self, dx: float, dy: float) -> None:
         """Move the image by (dx, dy) widget pixels."""
         w, h = self.image_size()
         if w == 0 or h == 0:
             return
-        s = self.scale()
-        cu, cv = self.sync.center
-        self.sync.center = (cu - dx / (s * w), cv - dy / (s * h))
-        self.sync.set_state(self.sync.zoom, self._clamped_center(s))
+        center = view_geometry.pan_center(
+            self._box(), self.content(), self.sync.zoom, self.sync.absolute, self.sync.center, dx, dy
+        )
+        self.sync.set_state(self.sync.zoom, center)
 
     # --- Qt events -----------------------------------------------------------
     def paintEvent(self, event) -> None:  # noqa: N802 - Qt API
@@ -378,13 +360,28 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
             super().paintEvent(event)
             return
         painter = QPainter(self)
-        if self.scale() < 1.0:
+        layout = self.view_layout()
+        content = self.content()
+        if layout.scale < 1.0:
             # downscaling: smooth; upscaling keeps crisp pixels for inspection
             painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
-        x, y, w, h = self.image_rect()
-        painter.drawPixmap(QRectF(x, y, w, h), self._pixmap, QRectF(self._pixmap.rect()))  # type: ignore[arg-type]
+        x, y, w, h = layout.main
+        main_w = content.main_width
+        if layout.strip is not None:
+            painter.save()
+            painter.setClipRect(QRectF(0.0, 0.0, layout.room[0], layout.room[1]))
+        painter.drawPixmap(QRectF(x, y, w, h), self._pixmap, QRectF(0.0, 0.0, main_w, content.height))  # type: ignore[arg-type]
         if self.overlay:
-            self._paint_overlay(painter, x, y, self.scale())
+            self._paint_overlay(painter, x, y, layout.scale)
+        if layout.strip is not None:
+            painter.restore()
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, layout.strip_scale < 1.0)
+            sx, sy, sw, sh = layout.strip
+            painter.drawPixmap(
+                QRectF(sx, sy, sw, sh),
+                self._pixmap,  # type: ignore[arg-type]
+                QRectF(float(main_w), 0.0, float(content.strip), float(content.height)),
+            )
         painter.end()
 
     def _paint_overlay(self, painter, x0: float, y0: float, s: float) -> None:
