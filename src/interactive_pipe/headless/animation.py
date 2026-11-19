@@ -13,6 +13,7 @@ import numpy as np
 from interactive_pipe.graphical.display import prepare_display
 from interactive_pipe.headless.control import TimeControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
+from interactive_pipe.headless.timeline import TimelineControl, timeline_of
 
 PNG_SUFFIX = ".png"
 GIF_SUFFIX = ".gif"
@@ -139,29 +140,47 @@ def _to_rgb_uint8(frame: Any) -> np.ndarray:
     return (np.clip(frame.astype(np.float64), 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8)
 
 
+def _animated_control(
+    pipeline: HeadlessPipeline, time_control: Optional[Union[str, TimeControl, TimelineControl]]
+) -> Union[TimeControl, TimelineControl]:
+    """The control an animation export drives: the named one, else the TimeControl,
+    else the timeline of a ``Video`` input."""
+    timeline = timeline_of(pipeline)
+    if timeline is not None and (time_control is timeline or time_control == timeline.name):
+        return timeline
+    if time_control is None and timeline is not None:
+        has_time = any(isinstance(ctrl, TimeControl) for ctrl in getattr(pipeline, "controls", None) or [])
+        if not has_time:
+            return timeline
+    return find_time_control(pipeline, time_control)  # type: ignore[arg-type]
+
+
 def export_animation(
     pipeline: HeadlessPipeline,
     path: Union[str, Path],
     *,
-    duration: float = 5.0,
-    fps: float = 10.0,
-    time_control: Optional[Union[str, TimeControl]] = None,
+    duration: Optional[float] = None,
+    fps: Optional[float] = None,
+    time_control: Optional[Union[str, TimeControl, TimelineControl]] = None,
     output: Union[int, Tuple[int, int], None] = None,
     loop: int = 0,
 ) -> Path:
     """Render `duration` seconds of a TimeControl-driven pipeline to disk.
 
     Frame `k` is rendered with the time control set to `k / fps` seconds.
+    A pipeline whose input is a ``Video`` (and without TimeControl) renders its
+    timeline instead: every frame by default, at the video frame rate.
 
     Args:
         pipeline: pipeline holding a `TimeControl` (e.g. `gui.pipeline`).
         path: `.gif` file -> animated GIF (Pillow); a directory, a `.png` path or a
             path without suffix -> numbered PNG frames `<stem>_0000.png`, ...
             (written inside the directory, or next to the path).
-        duration: animation length in seconds.
-        fps: frames per second.
+        duration: animation length in seconds (default 5 s; a video: all of it).
+        fps: frames per second (default 10; a video: its frame rate).
         time_control: name (or instance) of the TimeControl to drive; required
-            only when the pipeline has several.
+            only when the pipeline has several. The timeline of a ``Video``
+            input is named ``frame``.
         output: which output to record: an index into the output tuple, a
             `(row, col)` cell of a 2D layout, or None for the first non-empty one.
         loop: GIF loop count (0 = forever).
@@ -171,20 +190,25 @@ def export_animation(
 
     The control's previous value is restored (and the pipeline re-run) afterwards.
     """
+    ctrl = _animated_control(pipeline, time_control)
+    is_timeline = isinstance(ctrl, TimelineControl)
+    if fps is None:
+        fps = ctrl.fps if isinstance(ctrl, TimelineControl) else 10.0
+    if duration is None:
+        duration = ctrl.n_frames / ctrl.fps if isinstance(ctrl, TimelineControl) else 5.0
     if fps <= 0:
         raise ValueError(f"fps must be positive, got {fps}")
     if duration <= 0:
         raise ValueError(f"duration must be positive, got {duration}")
     if loop < 0:
         raise ValueError(f"loop must be >= 0, got {loop}")
-    n_frames = int(duration * fps)
+    n_frames = int(round(duration * fps, 6))
     if n_frames < 1:
         raise ValueError(f"duration * fps must give at least one frame (duration={duration}, fps={fps})")
     path = Path(path)
     suffix = path.suffix.lower()
     if suffix not in ("", GIF_SUFFIX, PNG_SUFFIX) and not path.is_dir():
         raise ValueError(f"Unsupported animation format {path.suffix!r}: use .gif, .png or a directory")
-    ctrl = find_time_control(pipeline, time_control)
 
     from PIL import Image as PILImage
 
@@ -192,7 +216,8 @@ def export_animation(
     frames: List[np.ndarray] = []
     try:
         for k in range(n_frames):
-            ctrl.value = k / fps
+            seconds = k / fps
+            ctrl.value = min(int(round(seconds * ctrl.fps)), ctrl.n_frames - 1) if is_timeline else seconds
             result = _prepared_result(pipeline, pipeline.run())
             frames.append(_to_rgb_uint8(_select_output(result, output)))
     except BaseException:

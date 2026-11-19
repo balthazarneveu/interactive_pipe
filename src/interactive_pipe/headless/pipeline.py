@@ -11,6 +11,7 @@ from interactive_pipe.data_objects.data import Data
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.parameters import Parameters
 from interactive_pipe.data_objects.table import PANDAS_AVAILABLE, Table
+from interactive_pipe.data_objects.video import is_video as _is_video
 from interactive_pipe.graphical.display import FIGURE_DPI, figure_of, release_pyplot_figure
 from interactive_pipe.headless.control import Control, TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
@@ -169,6 +170,36 @@ class HeadlessPipeline(PipelineCore):
                 for filt, param_name in ctrl.targets:
                     if filt.name in new_parameters and param_name in new_parameters[filt.name]:
                         ctrl.value = new_parameters[filt.name][param_name]
+
+    @property
+    def inputs(self):
+        return PipelineCore.inputs.fget(self)  # type: ignore[attr-defined]
+
+    @inputs.setter
+    def inputs(self, inputs):
+        """Set the inputs; a ``Video`` input gets a frame filter and the timeline (``headless/timeline.py``)."""
+        PipelineCore.inputs.fset(self, inputs)  # type: ignore[attr-defined]
+        from interactive_pipe.headless.timeline import install_videos
+
+        given = getattr(self, "_PipelineCore__inputs", None) or {}  # None: a pipeline without inputs
+        install_videos(self, {name: value for name, value in given.items() if _is_video(value)})
+
+    def adopt_video_inputs(self, input_values: Any = None, inputs: Optional[dict] = None) -> None:
+        """Install the timeline of the ``Video`` inputs about to be given, before
+        the keyword arguments naming it (``frame=10``) are checked. Nothing
+        happens without a ``Video`` among them (the inputs may be reused)."""
+        from interactive_pipe.headless.timeline import install_videos, videos_in
+
+        videos = videos_in(self.inputs_routing, inputs if inputs is not None else list(input_values or []))
+        if videos:
+            install_videos(self, videos)
+
+    @property
+    def timeline(self):
+        """The ``TimelineControl`` of the ``Video`` inputs (None without video input)."""
+        from interactive_pipe.headless.timeline import timeline_of
+
+        return timeline_of(self)
 
     @property
     def headless(self) -> "HeadlessPipeline":
@@ -659,6 +690,7 @@ class HeadlessPipeline(PipelineCore):
             TypeError: unknown keyword / wrong number of inputs.
             FilterError: a filter raised (the message names the filter and the line).
         """
+        self.adopt_video_inputs(inputs_tuple, inputs)  # frame=... names the timeline of a Video input
         # validated first: an unknown keyword raises before anything is changed
         kwargs_params = self.parameters_from_keyword_args(**kwargs)
         if parameters is not None:

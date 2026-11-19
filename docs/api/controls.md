@@ -10,6 +10,10 @@
 
 ::: interactive_pipe.TimeControl
 
+::: interactive_pipe.TimelineControl
+
+::: interactive_pipe.Timeline
+
 ::: interactive_pipe.KeyboardControl
 
 ::: interactive_pipe.Panel

@@ -355,6 +355,7 @@ def run_snapshot(
 ) -> Tuple[Union[Path, np.ndarray], Any]:
     """`snapshot` returning (written path or image, run results)."""
     all_overrides = {**(params or {}), **overrides}
+    pipeline.adopt_video_inputs(input_values, inputs)  # frame=... names the timeline of a Video input
     resolve_names(pipeline, list(all_overrides), "snapshot")  # fail before running anything
     prepare_inputs(pipeline, input_values, inputs, "snapshot")
     with preserved_state(pipeline):
@@ -592,6 +593,7 @@ def sweep(
         FilterError: a filter raised (state is restored).
     """
     all_overrides = {**(params or {}), **overrides}
+    pipeline.adopt_video_inputs(input_values, inputs)  # frame=[...] sweeps the timeline of a Video input
     axes, fixed = split_sweep_arguments(pipeline, all_overrides, steps)
     prepare_inputs(pipeline, input_values, inputs, "sweep")
     names = list(axes)
@@ -674,6 +676,7 @@ def snapshot_instead_of_gui(
     (with a warning) so unmodified scripts keep running.
     """
     pipeline.update_user_context(context)
+    pipeline.adopt_video_inputs(input_values)  # frame=... names the timeline of a Video input
     if parameters:
         pipeline.parameters = parameters
     known = parameter_targets(pipeline)
