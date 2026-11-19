@@ -305,7 +305,7 @@ class Video:
             graded = color_grade(frame)
             return frame, graded
 
-        grade(Video("clip.mp4"))  # a timeline under the images
+        grade(Video("clip.mp4"))  # a timeline at the bottom of the window
         grade.headless(Video(frames_array), frame=10)  # frame 10 without a window
         ```
     """

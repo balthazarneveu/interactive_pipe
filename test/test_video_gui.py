@@ -35,6 +35,42 @@ def test_qt_timeline_widget():
     pipeline.timeline.value = 5
     gui.window.reset_sliders()
     assert "frame 5/9" in widget.time_label.text()
+    layout = gui.window.layout()
+    assert layout.indexOf(widget) == layout.indexOf(gui.window.status_label) - 1  # at the bottom
+
+
+def test_qt_timeline_zoom():
+    qt_gui = pytest.importorskip("interactive_pipe.graphical.qt_gui")
+    from interactive_pipe.graphical.qt_timeline import MIN_VISIBLE_FRAMES
+
+    pipeline = HeadlessPipeline.from_function(one_video)
+    gui = qt_gui.InteractivePipeQT(pipeline=pipeline, name="video zoom")
+    qt_gui.QTimer.singleShot(0, gui.close)
+    gui(Video(ramp(200), fps=20))
+    widget = gui.window.timeline_widget
+    strip = widget.strip
+    strip.resize(400, 58)
+    assert strip.view == (0.0, 199.0) and not strip.zoomed
+    strip.zoom(4.0, around=100.0)  # the frame under the cursor stays in place
+    first, last = strip.view
+    assert last - first == pytest.approx(199.0 / 4) and first < 100.0 < last
+    assert (100.0 - first) / (last - first) == pytest.approx(100.0 / 199.0)
+    assert strip.frame_at(1.0) == round(first) and strip.frame_at(399.0) == round(last)
+    assert not strip.grab().isNull()  # thumbnails of the zoomed part, overview bar
+    strip.zoom(1000.0)
+    first, last = strip.view
+    assert last - first == pytest.approx(MIN_VISIBLE_FRAMES)
+    strip.pan(-100.0)  # clamped to the start
+    assert strip.view[0] == 0.0
+    assert not strip.grab().isNull()  # one thumbnail per frame
+    widget.seek(150)  # the view pages to the playhead
+    first, last = strip.view
+    assert first <= 150 <= last
+    strip.zoom(0.001)  # zoomed out past the whole video: back to the full view
+    assert not strip.zoomed
+    strip.zoom(2.0)
+    strip.mouseDoubleClickEvent(None)
+    assert not strip.zoomed
 
 
 def test_qt_user_key_binding_wins():

@@ -2,7 +2,7 @@
 Demo: grade a video file — exposure, saturation, white balance — with a timeline.
 
 The pipeline is written for one frame; ``Video(path)`` turns it into a video
-tool: the window gets a timeline under the images (play / pause with space,
+tool: the window gets a timeline at the bottom (play / pause with space,
 step with the left / right arrows, click or drag on the film strip to seek),
 and every slider applies to the frame on screen.
 

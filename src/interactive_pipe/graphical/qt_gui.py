@@ -736,7 +736,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             self.detached_windows.append(detached_window)
 
     def add_timeline(self, ctrl: TimelineControl) -> None:
-        """Full-width timeline of the ``Video`` inputs, between the images and the controls."""
+        """Full-width timeline of the ``Video`` inputs, at the bottom of the window (above the status line)."""
         from interactive_pipe.graphical.qt_timeline import TimelineWidget
 
         if ctrl.name in self.widget_list:
@@ -745,7 +745,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         self.ctrl[ctrl.name] = ctrl
         self.widget_list[ctrl.name] = widget  # reset_sliders -> widget.reset()
         main_layout = self.layout()
-        main_layout.insertWidget(main_layout.indexOf(self.bottom_scroll), widget)  # type: ignore[union-attr]
+        main_layout.insertWidget(main_layout.indexOf(self.status_label), widget)  # type: ignore[union-attr]
         self.timeline_widget = widget
         if self.main_gui is not None:
             self.main_gui.bind_timeline_keys(widget.play_pause, widget.step)

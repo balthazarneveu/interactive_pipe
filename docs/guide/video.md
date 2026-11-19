@@ -1,7 +1,7 @@
 # Video inputs & timeline
 
 Write the pipeline for **one frame**, give it a **`Video`**: the window gets a
-timeline under the images (film strip, play / pause, step, timecode) and every
+timeline at the bottom (film strip, play / pause, step, timecode) and every
 filter receives the frame under the playhead.
 
 ![Qt window with a video timeline](../images/video_timeline.png)
@@ -58,10 +58,13 @@ Other options: `fps=` (default: the file's, else 25), `start=`, `stop=`,
 | play / pause | <kbd>Space</kbd> or ▶ | <kbd>Space</kbd> or *Play* | – |
 | step one frame | <kbd>←</kbd> <kbd>→</kbd> | <kbd>←</kbd> <kbd>→</kbd> | slider |
 | seek | click / drag on the strip | slider | slider |
+| zoom | scroll on the strip (shift + scroll pans, double-click shows it all) | – | – |
 
 Playback runs at the video frame rate. When the pipeline is slower than the
 video, frames are skipped like a player does (the display never lags behind).
-The ⟳ button toggles looping. A `KeyboardControl` or a context event already
+The ⟳ button toggles looping. Zoomed in, the strip shows the frames one by
+one, a thin bar under it shows which part of the video is visible, and the
+view follows the playhead during playback. A `KeyboardControl` or a context event already
 bound to space or the arrows keeps them.
 
 The timeline is an ordinary control named **`frame`**: the call can set the
