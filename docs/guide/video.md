@@ -52,20 +52,20 @@ Other options: `fps=` (default: the file's, else 25), `start=`, `stop=`,
 
 ## The timeline
 
-| | Qt | Dear PyGui | matplotlib / Gradio / notebook |
-|---|---|---|---|
-| widget | transport, timecode, then a full-width film strip | play / step buttons + slider | frame slider |
-| play / pause | <kbd>Space</kbd> or ▶ | <kbd>Space</kbd> or *Play* | – |
-| step one frame | <kbd>←</kbd> <kbd>→</kbd> | <kbd>←</kbd> <kbd>→</kbd> | slider |
-| seek | click / drag on the strip | slider | slider |
-| zoom | scroll on the strip (shift + scroll pans, double-click shows it all) | – | – |
+| | Qt and Dear PyGui | matplotlib / Gradio / notebook |
+|---|---|---|
+| widget | a panel at the bottom: transport and timecode, then a full-width film strip | frame slider |
+| play / pause | <kbd>Space</kbd> or ▶ | – |
+| step one frame | <kbd>←</kbd> <kbd>→</kbd> or ‹ › | slider |
+| seek | click / drag on the strip | slider |
+| zoom | scroll on the strip (shift + scroll pans, double-click shows it all) | – |
 
 Playback runs at the video frame rate. When the pipeline is slower than the
 video, frames are skipped like a player does (the display never lags behind).
 The ⟳ button toggles looping. Zoomed in, the strip shows the frames one by
 one, a thin bar under it shows which part of the video is visible, and the
-view follows the playhead during playback. A `KeyboardControl` or a context event already
-bound to space or the arrows keeps them.
+view follows the playhead during playback. A `KeyboardControl` or a context
+event already bound to space or the arrows keeps them.
 
 The timeline is an ordinary control named **`frame`**: the call can set the
 starting frame, and snapshots, sweeps, tuning files and sessions see it too.
