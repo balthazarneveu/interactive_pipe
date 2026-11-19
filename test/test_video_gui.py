@@ -1,0 +1,97 @@
+"""Video inputs in the GUIs: the Qt timeline widget, the Dear PyGui transport, a frame slider elsewhere."""
+
+import os
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+import pytest  # noqa: E402
+from test_video import one_video, ramp  # noqa: E402
+
+from interactive_pipe import KeyboardControl, Video, interactive  # noqa: E402
+from interactive_pipe.headless.pipeline import HeadlessPipeline  # noqa: E402
+
+
+def test_qt_timeline_widget():
+    qt_gui = pytest.importorskip("interactive_pipe.graphical.qt_gui")
+    pipeline = HeadlessPipeline.from_function(one_video)
+    gui = qt_gui.InteractivePipeQT(pipeline=pipeline, name="video")
+    qt_gui.QTimer.singleShot(0, gui.close)
+    gui(Video(ramp(10), fps=20), frame=3)
+    widget = gui.window.timeline_widget
+    assert gui.window.ctrl["frame"] is pipeline.timeline
+    assert "frame 3/9" in widget.time_label.text()
+    gui.on_press("right")
+    assert pipeline.timeline.value == 4
+    widget.seek(9)
+    widget.play()
+    widget._tick()  # loops to the start
+    assert pipeline.timeline.value == 0 and pipeline.timeline.playing
+    gui.on_press(" ")
+    assert not pipeline.timeline.playing
+    widget.strip.resize(300, 58)
+    assert widget.strip.frame_at(299) == 9 and widget.strip.frame_at(0) == 0
+    pixmap = widget.strip.grab()  # paints the film strip and the ruler
+    assert not pixmap.isNull()
+    pipeline.timeline.value = 5
+    gui.window.reset_sliders()
+    assert "frame 5/9" in widget.time_label.text()
+
+
+def test_qt_user_key_binding_wins():
+    qt_gui = pytest.importorskip("interactive_pipe.graphical.qt_gui")
+
+    @interactive(level=KeyboardControl(0, [0, 3], keydown="left", keyup="right"))
+    def keyed(img, level=0):
+        return img + level
+
+    def keyed_pipeline(clip):
+        out = keyed(clip)
+        return out
+
+    pipeline = HeadlessPipeline.from_function(keyed_pipeline)
+    gui = qt_gui.InteractivePipeQT(pipeline=pipeline, name="video keys")
+    qt_gui.QTimer.singleShot(0, gui.close)
+    gui(Video(ramp(4)))
+    assert getattr(gui.key_bindings["right"], "_timeline_key", False) is False
+    assert getattr(gui.key_bindings[" "], "_timeline_key", False) is True
+
+
+def test_dpg_transport():
+    dpg_gui = pytest.importorskip("interactive_pipe.graphical.dpg_gui")
+    pipeline = HeadlessPipeline.from_function(one_video)
+    gui = dpg_gui.InteractivePipeDPG(pipeline=pipeline, name="video dpg")
+    gui.run = lambda: None  # no viewport in tests
+    gui(Video(ramp(10), fps=20))
+    window = gui.window
+    assert window.timelines["frame"] is pipeline.timeline and "frame" in window.widget_list
+    gui.on_press("right")
+    assert pipeline.timeline.value == 1
+    gui.on_press(" ")
+    assert pipeline.timeline.playing
+    timer = window.timers[-1]
+    timer.tick(0.0)
+    timer.tick(1.0)
+    assert pipeline.timeline.value == 2
+    gui.close()
+
+
+@pytest.mark.parametrize("backend", ["mpl", "gradio"])
+def test_other_backends_show_a_frame_slider(backend):
+    from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
+
+    try:
+        gui_class = get_interactive_pipeline_class(backend)
+    except Exception as exc:  # noqa: BLE001 - backend not installed
+        pytest.skip(f"{backend}: {exc}")
+    pipeline = HeadlessPipeline.from_function(one_video)
+    gui = gui_class(pipeline=pipeline, name="video")
+    gui.run = lambda: None
+    before = gui.window
+    gui(Video(ramp(4)))
+    assert any(ctrl is pipeline.timeline for ctrl in gui.controls)
+    assert gui.window is not before  # built again (not shown yet) with the frame slider
+    if backend == "mpl":
+        import matplotlib.pyplot as plt
+
+        open_figures = [plt.figure(number) for number in plt.get_fignums()]
+        assert all(figure is not before.fig for figure in open_figures)  # the first figure is closed

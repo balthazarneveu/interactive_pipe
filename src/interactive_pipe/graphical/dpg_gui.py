@@ -66,6 +66,7 @@ from interactive_pipe.graphical.window import (
 from interactive_pipe.headless.control import Control, TimeControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.headless.pointer import pointer_controls
+from interactive_pipe.headless.timeline import timecode
 
 DEFAULT_VIEWPORT_SIZE = (1280, 800)
 GRID_SPACING = 6  # pixels between cells
@@ -213,6 +214,12 @@ class InteractivePipeDPG(InteractivePipeGUI):
             ctrl.value = ctrl.value_default
         self.window.reset_sliders()
 
+    def add_controls(self, new_controls):
+        """Build the window again (not shown yet) with the timeline of a ``Video`` input."""
+        if context_alive():
+            destroy_context()
+        self.init_app(**self._init_app_kwargs)
+
     def on_parameters_loaded(self):
         """sync the widgets with the imported parameters"""
         # HeadlessPipeline.parameters (set by import_tuning) writes the loaded
@@ -268,6 +275,7 @@ class MainWindow(InteractivePipeWindow):
         self._viewport_client: Optional[Tuple[int, int]] = None
         self.detached_windows: List[Any] = []
         self.timers: List[DpgTimer] = []
+        self.timelines: Dict[str, Any] = {}  # name -> TimelineControl shown with play / step buttons
         self.timer: Optional[DpgTimer] = None
         self.prompt_widgets: List[Any] = []
         self.sized_items: List[Tuple[Any, Callable[[], int]]] = []  # (item, width_fn) re-applied on relayout
@@ -1075,7 +1083,10 @@ class MainWindow(InteractivePipeWindow):
 
     def update_label(self, idx):
         if idx in self.name_label:
-            dpg.set_value(self.name_label[idx], f"{self.ctrl[idx].name}")
+            ctrl = self.ctrl[idx]
+            # a Video timeline shows its timecode in place of its name
+            text = timecode(ctrl.value / ctrl.fps) if idx in self.timelines else f"{ctrl.name}"
+            dpg.set_value(self.name_label[idx], text)
 
     def update_parameter(self, idx, value):
         """Apply a new value (expressed in the control's own domain) and refresh."""

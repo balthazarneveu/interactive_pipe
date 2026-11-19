@@ -27,6 +27,14 @@ class InteractivePipeMatplotlib(InteractivePipeGUI):
         )
         self.set_default_key_bindings()
 
+    def add_controls(self, new_controls):
+        """Build the window again with the frame slider of a ``Video`` input; the
+        figure of the first one is closed (pyplot would show it too)."""
+        previous = getattr(getattr(self, "window", None), "fig", None)
+        if previous is not None:
+            plt.close(previous)
+        super().add_controls(new_controls)
+
     def run(self) -> list:
         # Access private attribute for checking initialization state
         if not self.pipeline._PipelineCore__initialized_inputs:  # type: ignore[attr-defined]
