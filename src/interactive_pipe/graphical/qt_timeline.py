@@ -15,7 +15,7 @@ a player instead of lagging.
 """
 
 import math
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -103,7 +103,7 @@ def _hex(color: Any) -> str:
 
 
 # ---------------------------------------------------------------- icons
-def _polygon(points: List[Tuple[float, float]]) -> Any:
+def _polygon(points: Sequence[Tuple[float, float]]) -> Any:
     path = QPainterPath()
     path.moveTo(QPointF(*points[0]))
     for point in points[1:]:
@@ -112,7 +112,7 @@ def _polygon(points: List[Tuple[float, float]]) -> Any:
     return path
 
 
-def _polyline(points: List[Tuple[float, float]]) -> Any:
+def _polyline(points: Sequence[Tuple[float, float]]) -> Any:
     path = QPainterPath()
     path.moveTo(QPointF(*points[0]))
     for point in points[1:]:
