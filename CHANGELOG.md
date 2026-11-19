@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.10.0 (November 2026)
 
 ### New: video inputs and a timeline
 
