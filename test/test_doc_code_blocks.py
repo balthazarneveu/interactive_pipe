@@ -14,6 +14,7 @@ PAGES = [
     ROOT / "readme.md",
     ROOT / "docs" / "getting-started" / "quickstart.md",
     ROOT / "docs" / "guide" / "video.md",
+    ROOT / "docs" / "guide" / "audio.md",
 ]
 # docs/guide/snapshots.md is not listed: its example reads demo/images/ and regenerates the
 # docs/images/ pictures shown on the page (run it from the repository root to update them).

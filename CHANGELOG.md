@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Audio helpers, `interactive_pipe.sound`**: pure numpy (no new dependency) functions to use inside filters: `load` (WAV with the standard library, other formats through `ffmpeg` when installed), `resample`, `stft` / `istft`, `spectrogram` + `spectrogram_style` (a heatmap with time / kHz axes and a dB colour bar via `layout.style`), `add_noise` (white, pink, mains hum at a given SNR), `snr_db`, `denoise` (spectral gating, blind or from a noise sample), `time_stretch` and `pitch_shift` (phase vocoder). See [Audio](https://balthazarneveu.github.io/interactive_pipe/guide/audio/#audio-helpers-interactive_pipesound).
+- **`demo/audio_processing_demo.py`**: switch between a synthesized singing voice and a music clip, corrupt with noise, denoise, pitch-shift and A/B listen (clean / noisy / processed) in the Qt or Gradio window.
 
 ## 0.10.0 (November 2026)
 

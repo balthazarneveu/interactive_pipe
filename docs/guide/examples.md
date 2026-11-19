@@ -53,6 +53,7 @@ All in [`demo/`](https://github.com/balthazarneveu/interactive_pipe/tree/master/
 | `overlay_demo.py` | Detections drawn with [`interactive_pipe.draw`](figures-and-overlays.md#drawing-on-images-interactive_pipedraw) |
 | `pointer_demo.py` | Mouse input: a clicked point and a dragged region ([mouse input](mouse-input.md)) |
 | `jukebox_demo.py` | Raspberry Pi jukebox (audio + image buttons) |
+| `audio_processing_demo.py` | Switch between a voice and a music clip, add noise, denoise, pitch-shift, A/B listen ([`interactive_pipe.sound`](audio.md#audio-helpers-interactive_pipesound)) |
 
 Every demo also runs without a display: `interactive-pipe snapshot demo/table_demo.py` writes what its window would show to a PNG, `interactive-pipe check demo/table_demo.py` reports its outputs and problems (the test suite snapshots every demo and sample, see [Snapshots](snapshots.md) and the [command line](command-line.md)).
 
