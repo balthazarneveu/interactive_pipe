@@ -42,6 +42,9 @@ All in [`demo/`](https://github.com/balthazarneveu/interactive_pipe/tree/master/
 | `panel_position_demo.py` / `detached_panel_demo.py` | Panel placement and detached windows |
 | `key_event_demo.py` | Key-bound one-shot [events](keyboard.md#key-bound-one-shot-events) |
 | `time_wave_demo.py` / `time_physics_demo.py` | `TimeControl` animations |
+| `video_grading_demo.py` | Grade a video file with a [timeline](video.md); the timecode in a title |
+| `video_motion_demo.py` | Motion detection on a numpy video, temporal `window=` ([video](video.md#temporal-filters-window)) |
+| `video_compare_demo.py` | A torch model checked against a reference: two videos at different frame rates on one timeline |
 | `image_editing_demo.py` / `image_analysis_demo.py` | Realistic image workflows |
 | `independent_curve_image_demo.py` | Mixing `Curve` plots and images |
 | `table_demo.py` | `Table` outputs |

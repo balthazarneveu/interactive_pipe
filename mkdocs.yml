@@ -106,6 +106,7 @@ nav:
           - Panels: guide/panels.md
           - Keyboard: guide/keyboard.md
           - Mouse input: guide/mouse-input.md
+      - Video inputs & timeline: guide/video.md
       - Snapshots & sweeps: guide/snapshots.md
       - Testing filters & pipelines: guide/testing.md
       - Command line & agents: guide/command-line.md
