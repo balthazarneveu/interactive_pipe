@@ -20,6 +20,7 @@ from interactive_pipe.graphical.display import DisplayError
 from interactive_pipe.data_objects.curves import Curve, SingleCurve
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.table import Table
+from interactive_pipe.data_objects.video import Video
 
 # Special controls
 from interactive_pipe.headless.control import (
@@ -30,6 +31,9 @@ from interactive_pipe.headless.control import (
     TimeControl,
 )
 from interactive_pipe.headless.keyboard import KeyboardControl
+
+# Video inputs: the timeline a Video input brings, its position read as context["timeline"]
+from interactive_pipe.headless.timeline import Timeline, TimelineControl
 
 # Mouse input: a clicked point / a dragged region, as fractions of the image size
 from interactive_pipe.headless.pointer import PointControl, RegionControl, to_pixels
@@ -72,6 +76,9 @@ __all__ = [
     "SingleCurve",
     "Image",
     "Table",
+    "Video",
+    "Timeline",
+    "TimelineControl",
     "Control",
     "CircularControl",
     "RangeControl",
