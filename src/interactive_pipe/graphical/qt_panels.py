@@ -113,7 +113,7 @@ class QtPanelBuilder:
                 window.main_gui.bind_keyboard_slider(ctrl, window.key_update_parameter)  # type: ignore[reportOptionalMemberAccess]
             return None
         elif isinstance(ctrl, TimelineControl):
-            window.add_timeline(ctrl)  # full width under the images, not in a panel
+            window.add_timeline(ctrl)  # full width at the bottom of the window, not in a panel
             return None
         elif isinstance(ctrl, TimeControl):
             timer = QTimer(window)
