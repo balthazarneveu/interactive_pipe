@@ -21,7 +21,8 @@ from typing import Any, Dict, Iterator, List, Optional, Union
 
 import numpy as np
 
-from interactive_pipe.core.framework_state import FrameworkState
+from interactive_pipe.core.audio_mixer import to_float_frames
+from interactive_pipe.core.framework_state import AudioRequest, FrameworkState
 from interactive_pipe.core.framework_state import _noop as _NO_AUDIO
 
 # ============================================================================
@@ -387,7 +388,13 @@ class _AudioProxy:
     without polluting function signatures with global_params.
     """
 
-    def set(self, audio: Any, sample_rate: Optional[int] = None) -> None:
+    def set(
+        self,
+        audio: Any,
+        sample_rate: Optional[int] = None,
+        keep_position: Optional[bool] = None,
+        loop: bool = False,
+    ) -> None:
         """Set the sound the GUI plays: a file, or a signal computed by the filter.
 
         Two forms:
@@ -395,22 +402,32 @@ class _AudioProxy:
         - ``audio.set("path/to/track.wav")``: a file path (``str`` or ``Path``).
         - ``audio.set(signal, sample_rate)``: a numpy array, mono ``(n,)`` or
           ``(n, channels)`` with 1 or 2 channels, float in ``[-1, 1]``
-          (clipped) or ``int16``; ``sample_rate`` in Hz. The library writes it
-          to a temporary WAV file, deleted when the next sound replaces it and
-          at exit.
+          (clipped) or ``int16``; ``sample_rate`` in Hz. The Qt window
+          streams it from memory; Gradio gets a temporary WAV file, deleted
+          when the next sound replaces it and at exit.
 
-        Each call stops what is playing and loads the new sound from its
-        start; call ``audio.play()`` after it to start playback (a filter
-        calling ``set`` then ``play`` restarts the sound each time a slider
-        changes its output; with the cache on, an unchanged filter does not
-        re-run and the sound goes on). Playback exists in the Qt and Gradio
-        windows only: in headless calls, snapshots, sweeps, tests and the
-        other backends the call checks its arguments and does nothing else
-        (no file, no audio device).
+        Each call replaces what is playing; call ``audio.play()`` after it to
+        start playback. ``keep_position`` chooses where the new sound starts:
+
+        - ``True``: at the same instant as the previous sound (Qt), so a
+          slider tweaking a sound you are listening to does not send you back
+          to the start. Signals are swapped sample-accurately with a short
+          cross-fade: dragging a slider is heard live, without clicks. A
+          position past the new sound's end starts it from the beginning.
+        - ``False``: from the beginning.
+        - ``None`` (default): ``True`` for a signal (a processed version of
+          the same sound), ``False`` for a file (another track).
+
+        ``loop=True`` repeats the sound (Qt). Use ``cache="graph"`` for audio
+        pipelines: with the cache off every slider re-runs every filter, the
+        one calling ``audio.set`` included. Playback exists in the Qt and
+        Gradio windows only: in headless calls, snapshots, sweeps, tests and
+        the other backends the call checks its arguments and does nothing
+        else (no file, no audio device).
 
         Example:
             ```python
-            audio.set(np.sin(2 * np.pi * 440 * t), 16000)
+            audio.set(np.sin(2 * np.pi * 440 * t), 16000, loop=True)
             audio.play()
             ```
 
@@ -419,14 +436,19 @@ class _AudioProxy:
             TypeError: If the arguments match neither form.
         """
         state = _get_framework_state("audio.set(...)")
+        if keep_position is not None and not isinstance(keep_position, bool):
+            raise TypeError(f"audio.set: keep_position must be True, False or None, got {keep_position!r}")
+        if not isinstance(loop, bool):
+            raise TypeError(f"audio.set: loop must be True or False, got {loop!r}")
         forms = (
             "audio.set(path) with a file path, or audio.set(signal, sample_rate) with a numpy array "
             "(n,) or (n, channels), float in [-1, 1] or int16, and the rate in Hz"
         )
+        bindings = state.audio
         if isinstance(audio, (str, os.PathLike)):
             if sample_rate is not None:
                 raise TypeError(f"audio.set: a file has its own sample rate, do not pass one. Use {forms}")
-            path: Any = audio
+            request = AudioRequest(path=os.fspath(audio), keep_position=bool(keep_position), loop=loop)
         else:
             if not isinstance(audio, np.ndarray):
                 raise TypeError(f"audio.set: got {type(audio).__name__}. Use {forms}")
@@ -439,11 +461,21 @@ class _AudioProxy:
                 raise TypeError(f"audio.set: signal of shape {audio.shape}{hint}. Use {forms}")
             if audio.dtype != np.int16 and audio.dtype.kind not in "fiu":
                 raise TypeError(f"audio.set: signal of dtype {audio.dtype}. Use {forms}")
-            if state.audio.set_audio is _NO_AUDIO:
+            if bindings.set_audio is _NO_AUDIO and bindings.load_audio is None:
                 return  # no player (headless, snapshot, a backend without audio): no file either
-            path = _write_temporary_wav(state, audio, int(sample_rate))
+            keep = keep_position is None or keep_position
+            if bindings.load_audio is not None and bindings.accepts_signals:
+                request = AudioRequest(
+                    signal=to_float_frames(audio), sample_rate=int(sample_rate), keep_position=keep, loop=loop
+                )
+            else:
+                path = _write_temporary_wav(state, audio, int(sample_rate))
+                request = AudioRequest(path=path, keep_position=keep, loop=loop)
         # AudioBindings defaults to no-ops: does nothing outside a GUI with audio
-        state.audio.set_audio(path)
+        if bindings.load_audio is not None:
+            bindings.load_audio(request)
+        else:
+            bindings.set_audio(request.path)
 
     def play(self) -> None:
         """Start audio playback.

@@ -9,7 +9,7 @@
 - **semitones**: pitch shift (phase vocoder), the duration is kept.
 - **listen**: A/B between the clean, noisy and processed sounds, or mute (Qt and Gradio play them).
   The graph cache re-runs only the filters a slider affects: the zoom slider leaves the sound
-  playing; a slider changing the sound restarts it from the beginning.
+  playing; a slider changing the sound is heard live, at the same instant (Qt).
 
 Spectrograms show what the ear hears: the noise floor, the hum lines, the harmonics moving with the pitch.
 
@@ -159,7 +159,9 @@ def play(clean, noisy, processed, listen="processed"):
         audio.stop()
         return
     chosen = {"clean": clean, "noisy": noisy, "processed": processed}[listen]
-    audio.set(np.clip(chosen, -1, 1), RATE)
+    # Streamed (Qt): a new version continues at the same instant with a short cross-fade,
+    # so dragging a slider or switching clean / noisy / processed is heard live
+    audio.set(np.clip(chosen, -1, 1), RATE, loop=True)
     audio.play()
 
 

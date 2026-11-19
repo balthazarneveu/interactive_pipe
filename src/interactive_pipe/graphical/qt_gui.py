@@ -3,6 +3,7 @@ import logging
 import sys
 import threading
 import time
+from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -10,6 +11,7 @@ import numpy as np
 
 from interactive_pipe.core.engine import FilterError
 from interactive_pipe.data_objects.image import Image
+from interactive_pipe.graphical import qt_audio_stream
 from interactive_pipe.graphical.actions import Action
 from interactive_pipe.graphical.columns import choose_column_count, split_into_columns
 from interactive_pipe.graphical.display import display_data, figure_of, heatmap_geometry, rasterize_figure
@@ -276,10 +278,18 @@ class InteractivePipeQT(InteractivePipeGUI):
         if threaded:
             self.window.start_threaded_runs()
 
+        self.player = None
         if self.audio:
-            # AudioBindings defaults are no-ops, so the pipeline can run
-            # before the real player exists.
-            # Defer audio initialization to avoid PipeWire sync blocking
+            # The player is created a little later (avoids PipeWire sync blocking at start-up):
+            # until then the sound the first runs ask for is recorded, and replayed once it exists.
+            self._pending_audio = None
+            self._pending_playback = None
+            audio = self.pipeline.framework_state.audio
+            audio.accepts_signals = qt_audio_stream.QAudioSink is not None
+            audio.load_audio = self._record_audio_request
+            audio.play = partial(self._record_playback, "play")
+            audio.pause = partial(self._record_playback, "pause")
+            audio.stop = partial(self._record_playback, "stop")
             QTimer.singleShot(100, self.audio_player)
 
     def run(self) -> list:
@@ -433,13 +443,34 @@ class InteractivePipeQT(InteractivePipeGUI):
 
     # ---------------------------- AUDIO FEATURE ----------------------------------------
 
+    def _record_audio_request(self, request):
+        self._pending_audio = request
+
+    def _record_playback(self, action):
+        self._pending_playback = action
+
     def audio_player(self):
         self.player = QtAudioPlayer()
         audio = self.pipeline.framework_state.audio
         audio.set_audio = self.player.set_audio
+        audio.load_audio = self.player.load
+        audio.accepts_signals = self.player.accepts_signals
         audio.play = self.player.play
         audio.pause = self.player.pause
         audio.stop = self.player.stop
+        if self.app is not None:
+            self.app.aboutToQuit.connect(self.close_audio)
+        if self._pending_audio is not None:
+            self.player.load(self._pending_audio)
+            if self._pending_playback is not None:
+                getattr(self.player, self._pending_playback)()
+        self._pending_audio = self._pending_playback = None
+
+    def close_audio(self):
+        """Stop the sound and its thread (window closed, application quitting)."""
+        if self.player is not None:
+            self.player.stop()
+            self.player.close()
 
 
 class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGeneralTypeIssues]
@@ -1449,6 +1480,9 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
     def closeEvent(self, event):
         """Handle main window close event - close all detached windows."""
         self.stop_threaded_runs()
+        main_gui = getattr(self, "main_gui", None)
+        if main_gui is not None and hasattr(main_gui, "close_audio"):
+            main_gui.close_audio()
         # Close all detached panel windows
         for detached_window in self.detached_windows:
             detached_window.close()

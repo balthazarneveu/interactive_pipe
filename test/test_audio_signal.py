@@ -130,3 +130,74 @@ def test_wrong_calls_show_both_forms(signal, rate, match):
     assert isinstance(error, TypeError)
     assert "audio.set(path)" in str(error) and "audio.set(signal, sample_rate)" in str(error)
     assert pytest.importorskip("re").search(match, str(error))
+
+
+# ------------------------------------------------------------- load_audio (AudioRequest)
+
+
+def _routing_pipeline(source, accepts_signals=True, **set_kwargs):
+    @interactive()
+    def sound(gain=0.5):
+        if source == "file":
+            audio.set("track.mp3", **set_kwargs)
+        else:
+            audio.set(gain * TONE, RATE, **set_kwargs)
+        audio.play()
+
+    def pipe():
+        sound()
+
+    pipe_ = HeadlessPipeline.from_function(pipe, cache=False)
+    requests = []
+    bindings = pipe_.framework_state.audio
+    bindings.load_audio = requests.append
+    bindings.accepts_signals = accepts_signals
+    return pipe_, requests
+
+
+@pytest.mark.parametrize(
+    "source, kwargs, keep",
+    [
+        ("signal", {}, True),  # a processed version of the same sound: keep listening where you were
+        ("file", {}, False),  # another track: from its start
+        ("signal", {"keep_position": False}, False),
+        ("file", {"keep_position": True}, True),
+    ],
+)
+def test_keep_position_defaults(source, kwargs, keep):
+    pipe, requests = _routing_pipeline(source, **kwargs)
+    pipe()
+    (request,) = requests
+    assert request.keep_position is keep and request.loop is False
+
+
+def test_signals_are_passed_in_memory_to_backends_accepting_them():
+    pipe, requests = _routing_pipeline("signal", loop=True)
+    pipe()
+    (request,) = requests
+    assert request.path is None and request.sample_rate == RATE and request.loop is True
+    assert request.signal.dtype == np.float32 and request.signal.shape == (len(TONE), 1)
+    np.testing.assert_allclose(request.signal[:, 0], 0.5 * TONE, atol=1e-6)
+
+
+def test_signals_become_a_wav_file_for_other_backends():
+    pipe, requests = _routing_pipeline("signal", accepts_signals=False)
+    pipe()
+    (request,) = requests
+    assert request.signal is None and request.path.endswith(".wav") and request.keep_position is True
+    channels, rate, _frames = _read_wav(request.path)
+    assert (channels, rate) == (1, RATE)
+
+
+def test_legacy_set_audio_binding_still_receives_a_path():
+    pipe = _pipeline(lambda gain: gain * TONE)
+    player = Player(pipe)  # registers set_audio only, as custom bindings did before load_audio existed
+    pipe()
+    assert player.calls[0][0] == "set" and player.calls[0][2] is not None
+
+
+@pytest.mark.parametrize("kwargs", [{"keep_position": "yes"}, {"loop": 1}])
+def test_keep_position_and_loop_must_be_bools(kwargs):
+    pipe, _requests = _routing_pipeline("signal", **kwargs)
+    with pytest.raises(Exception, match="keep_position|loop"):
+        pipe()

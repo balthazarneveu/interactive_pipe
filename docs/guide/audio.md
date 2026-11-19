@@ -16,8 +16,12 @@ def choose_song(img, song="silence"):
     return img
 ```
 
-- `audio.set(path)` registers a file; `audio.set(signal, sample_rate)` a numpy signal computed by the filter: mono `(n,)` or `(n, 2)` stereo, float in `[-1, 1]` (clipped) or `int16`. The library writes it to a temporary WAV, deleted when the next sound replaces it and at exit. Any other call raises `TypeError` showing both forms.
-- `audio.play()` starts playback (call it after `set`); each `set` stops the current sound and loads the new one from its start, so a filter calling `set` then `play` restarts the sound whenever a slider changes its output. `audio.pause()` / `audio.stop()` control playback.
+- `audio.set(path)` registers a file; `audio.set(signal, sample_rate)` a numpy signal computed by the filter: mono `(n,)` or `(n, 2)` stereo, float in `[-1, 1]` (clipped) or `int16`. The Qt window streams signals from memory; Gradio gets a temporary WAV file, deleted when the next sound replaces it and at exit. Any other call raises `TypeError` showing both forms.
+- `audio.play()` starts playback (call it after `set`); `audio.pause()` / `audio.stop()` control playback.
+- **Tweaking a sound while listening (Qt)**: `audio.set(signal, rate)` continues the new version at the same sample, cross-fading over 30 ms from the previous one, in an audio thread of its own. Dragging a slider is heard live, without clicks or gaps, even when the pipeline takes ~100 ms per run (the change is heard ~0.1 s later). Play, pause and stop ramp the volume over a few ms.
+- Where a new sound starts: signals keep the playback position, files (`audio.set(path)`, another track) start from the beginning; override with `keep_position=True` / `False`. `loop=True` repeats the sound (Qt). Gradio's player always starts from the beginning.
+- Streaming needs Qt 6 (PyQt6 or PySide6) and an audio output; otherwise (PyQt5, no device) signals play through a temporary WAV file, restarting on each change.
+- Run audio pipelines with `cache="graph"`: with the default `cache=False` every slider re-runs every filter, the one calling `audio.set` included, even for a slider that does not change the sound.
 
 ```python
 import numpy as np
