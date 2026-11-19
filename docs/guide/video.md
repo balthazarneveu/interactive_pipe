@@ -54,7 +54,7 @@ Other options: `fps=` (default: the file's, else 25), `start=`, `stop=`,
 
 | | Qt | Dear PyGui | matplotlib / Gradio / notebook |
 |---|---|---|---|
-| widget | film strip + transport bar | play / step buttons + slider | frame slider |
+| widget | transport, timecode, then a full-width film strip | play / step buttons + slider | frame slider |
 | play / pause | <kbd>Space</kbd> or ▶ | <kbd>Space</kbd> or *Play* | – |
 | step one frame | <kbd>←</kbd> <kbd>→</kbd> | <kbd>←</kbd> <kbd>→</kbd> | slider |
 | seek | click / drag on the strip | slider | slider |

@@ -19,22 +19,29 @@ def test_qt_timeline_widget():
     gui(Video(ramp(10), fps=20), frame=3)
     widget = gui.window.timeline_widget
     assert gui.window.ctrl["frame"] is pipeline.timeline
-    assert "frame 3/9" in widget.time_label.text()
+    assert widget.frame_label.text() == "frame 3 / 9" and "00:00.15" in widget.time_label.text()
     gui.on_press("right")
     assert pipeline.timeline.value == 4
     widget.seek(9)
     widget.play()
     widget._tick()  # loops to the start
     assert pipeline.timeline.value == 0 and pipeline.timeline.playing
+    assert widget.play_button.kind == "pause"
     gui.on_press(" ")
-    assert not pipeline.timeline.playing
+    assert not pipeline.timeline.playing and widget.play_button.kind == "play"
+    widget.play_button.click()  # the painted button plays / pauses too
+    assert pipeline.timeline.playing
+    widget.play_button.click()
+    widget.loop_button.click()
+    assert not pipeline.timeline.loop and not widget.loop_button.checked
+    assert not widget.grab().isNull()  # paints the panel and its buttons
     widget.strip.resize(300, 58)
     assert widget.strip.frame_at(299) == 9 and widget.strip.frame_at(0) == 0
     pixmap = widget.strip.grab()  # paints the film strip and the ruler
     assert not pixmap.isNull()
     pipeline.timeline.value = 5
     gui.window.reset_sliders()
-    assert "frame 5/9" in widget.time_label.text()
+    assert widget.frame_label.text() == "frame 5 / 9"
     layout = gui.window.layout()
     assert layout.indexOf(widget) == layout.indexOf(gui.window.status_label) - 1  # at the bottom
 
@@ -69,8 +76,14 @@ def test_qt_timeline_zoom():
     strip.zoom(0.001)  # zoomed out past the whole video: back to the full view
     assert not strip.zoomed
     strip.zoom(2.0)
+    assert widget.zoom_label.text() == "zoom ×2.0" and not widget.fit_button.isHidden()
     strip.mouseDoubleClickEvent(None)
+    assert not strip.zoomed and widget.fit_button.isHidden()
+    strip.zoom(2.0)
+    widget.fit_button.click()
     assert not strip.zoomed
+    strip.hover_frame = 12
+    assert not strip.grab().isNull()  # hover line and time bubble
 
 
 def test_qt_user_key_binding_wins():
