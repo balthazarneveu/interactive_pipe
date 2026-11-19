@@ -25,9 +25,11 @@ __all__ = [
     "QApplication",
     "QAudioOutput",
     "QCheckBox",
+    "QColor",
     "QComboBox",
     "QDial",
     "QDoubleSpinBox",
+    "QFont",
     "QFrame",
     "QGridLayout",
     "QGroupBox",
@@ -72,7 +74,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
     from PyQt6.QtCore import QRectF, QSize, Qt, QThread, QTimer, QUrl
     from PyQt6.QtCore import pyqtSignal as Signal
-    from PyQt6.QtGui import QIcon, QImage, QPainter, QPen, QPixmap
+    from PyQt6.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPen, QPixmap
     from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
     from PyQt6.QtWidgets import (
         QApplication,
@@ -116,7 +118,7 @@ else:
         try:
             from PyQt6.QtCore import QRectF, QSize, Qt, QThread, QTimer, QUrl
             from PyQt6.QtCore import pyqtSignal as Signal
-            from PyQt6.QtGui import QIcon, QImage, QPainter, QPen, QPixmap
+            from PyQt6.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPen, QPixmap
             from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
             from PyQt6.QtWidgets import (  # noqa: F811
                 QApplication,
@@ -147,7 +149,7 @@ else:
             try:
                 from PyQt5.QtCore import QRectF, QSize, Qt, QThread, QTimer, QUrl
                 from PyQt5.QtCore import pyqtSignal as Signal
-                from PyQt5.QtGui import QIcon, QImage, QPainter, QPen, QPixmap
+                from PyQt5.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPen, QPixmap
                 from PyQt5.QtMultimedia import QAudioOutput, QMediaContent, QMediaPlayer
                 from PyQt5.QtWidgets import (  # noqa: F811
                     QApplication,
@@ -180,7 +182,7 @@ else:
     if not PYQTVERSION:
         try:
             from PySide6.QtCore import QRectF, QSize, Qt, QThread, QTimer, QUrl, Signal  # noqa: F811
-            from PySide6.QtGui import QIcon, QImage, QPainter, QPen, QPixmap  # noqa: F811
+            from PySide6.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPen, QPixmap  # noqa: F811
             from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer  # noqa: F811
             from PySide6.QtWidgets import (  # noqa: F811
                 QApplication,

@@ -23,6 +23,7 @@ from interactive_pipe.graphical.qt_widgets import CollapsibleBox
 from interactive_pipe.headless.control import Control, TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.panel import Panel
+from interactive_pipe.headless.timeline import TimelineControl
 
 if TYPE_CHECKING:
     from interactive_pipe.graphical.qt_gui import MainWindow
@@ -110,6 +111,9 @@ class QtPanelBuilder:
         if isinstance(ctrl, KeyboardControl):
             if window.main_gui is not None:
                 window.main_gui.bind_keyboard_slider(ctrl, window.key_update_parameter)  # type: ignore[reportOptionalMemberAccess]
+            return None
+        elif isinstance(ctrl, TimelineControl):
+            window.add_timeline(ctrl)  # full width under the images, not in a panel
             return None
         elif isinstance(ctrl, TimeControl):
             timer = QTimer(window)

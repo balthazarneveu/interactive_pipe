@@ -83,6 +83,7 @@ from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.panel import Panel
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.headless.pointer import pointer_controls
+from interactive_pipe.headless.timeline import TimelineControl
 
 # seconds within which a smaller size after a resize request is the window
 # manager's answer (rather than the user resizing the window)
@@ -353,6 +354,17 @@ class InteractivePipeQT(InteractivePipeGUI):
                 self.start_time = None  # Reset the timer
             ctrl.value = ctrl.value_default
         self.window.reset_sliders()
+
+    def add_controls(self, new_controls):
+        """A ``Video`` input's timeline joins the window built before the inputs were given."""
+        others = []
+        for ctrl in new_controls:
+            if isinstance(ctrl, TimelineControl):
+                self.window.add_timeline(ctrl)
+            else:
+                others.append(ctrl)
+        if others:
+            logging.warning(f"controls added after the window was built are not shown: {[c.name for c in others]}")
 
     def on_parameters_loaded(self):
         """sync the widgets with the imported parameters"""
@@ -722,6 +734,21 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         for panel in detached_panels:
             detached_window = DetachedPanelWindow(panel, self, control_factory)
             self.detached_windows.append(detached_window)
+
+    def add_timeline(self, ctrl: TimelineControl) -> None:
+        """Full-width timeline of the ``Video`` inputs, between the images and the controls."""
+        from interactive_pipe.graphical.qt_timeline import TimelineWidget
+
+        if ctrl.name in self.widget_list:
+            return
+        widget = TimelineWidget(self, ctrl)
+        self.ctrl[ctrl.name] = ctrl
+        self.widget_list[ctrl.name] = widget  # reset_sliders -> widget.reset()
+        main_layout = self.layout()
+        main_layout.insertWidget(main_layout.indexOf(self.bottom_scroll), widget)  # type: ignore[union-attr]
+        self.timeline_widget = widget
+        if self.main_gui is not None:
+            self.main_gui.bind_timeline_keys(widget.play_pause, widget.step)
 
     def update_label(self, idx):
         # pass

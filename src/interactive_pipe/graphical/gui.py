@@ -16,6 +16,7 @@ from interactive_pipe.headless.control import TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.headless.pointer import check_targets
+from interactive_pipe.headless.timeline import TimelineControl
 
 
 class InteractivePipeGUI:
@@ -82,6 +83,8 @@ class InteractivePipeGUI:
         check_targets(self.pipeline)  # an unknown on= output name fails here, before any window
         # point / region controls: coordinate sliders unless the backend handles the mouse
         self.controls = controls_for_backend(merged_controls, self.pointer_gestures)
+        # pipeline controls with a widget already (a Video input adds its timeline when called)
+        self._shown_pipeline_controls = {id(ctrl) for ctrl in getattr(pipeline, "controls", None) or []}
         if self.pipeline.outputs:
             if not isinstance(self.pipeline.outputs[0], list):
                 self.pipeline.outputs = [self.pipeline.outputs]
@@ -91,6 +94,7 @@ class InteractivePipeGUI:
         self.pipeline.framework_state.output_styles.clear()
         self.key_bindings = {}
         self.context_key_bindings = {}
+        self._init_app_kwargs = dict(kwargs)  # add_controls may build the window again
         self.init_app(**kwargs)
         self.reset_context_events()
         if self.restore_session:
@@ -135,6 +139,7 @@ class InteractivePipeGUI:
     def __call__(self, *args, inputs=None, parameters=None, context=None, **kwargs) -> list:
         if parameters is None:
             parameters = {}
+        self.pipeline.adopt_video_inputs(args, inputs)  # frame=... names the timeline of a Video input
         # validated first: an unknown keyword or parameters={...} entry raises before anything is changed
         keyword_parameters = self.pipeline.parameters_from_keyword_args(**kwargs)
         if parameters:
@@ -151,8 +156,46 @@ class InteractivePipeGUI:
             self.pipeline.inputs = inputs  # type: ignore
         else:
             self.pipeline.inputs = list(args)
+        self._add_new_controls()  # a Video input brings its timeline
         results = self.run()
         return results
+
+    def _add_new_controls(self) -> None:
+        """Show the controls the pipeline gained since the window was built:
+        the timeline of a ``Video`` input, created when the inputs are given."""
+        pipeline_controls = getattr(self.pipeline, "controls", None) or []
+        new_controls = [ctrl for ctrl in pipeline_controls if id(ctrl) not in self._shown_pipeline_controls]
+        if not new_controls:
+            return
+        self._shown_pipeline_controls |= {id(ctrl) for ctrl in new_controls}
+        self.controls = list(self.controls) + controls_for_backend(new_controls, self.pointer_gestures)
+        self.add_controls(new_controls)
+
+    def add_controls(self, new_controls: List) -> None:
+        """Make ``new_controls`` (already in ``self.controls``) appear in the window.
+
+        Default: build the window again (it is not shown before ``run()``).
+        Backends with a dedicated timeline widget override this."""
+        self.init_app(**self._init_app_kwargs)
+
+    def bind_timeline_keys(self, play_pause: Callable, step: Callable[[int], None]) -> None:
+        """Space plays / pauses the timeline, the left / right arrows step one frame
+        (unless a KeyboardControl or a context event already uses these keys)."""
+        bindings = [
+            (KeyboardControl.KEY_SPACEBAR, play_pause, "play / pause the video timeline"),
+            (KeyboardControl.KEY_LEFT, partial(step, -1), "previous video frame"),
+            (KeyboardControl.KEY_RIGHT, partial(step, 1), "next video frame"),
+        ]
+        for key, func, doc in bindings:
+            if key in self.context_key_bindings:
+                continue
+            previous = self.key_bindings.get(key)
+            if previous is not None and getattr(previous, "_timeline_key", False) is False:
+                continue  # the user's binding wins
+            bound = partial(func)  # its own object: carries the help line
+            bound.__doc__ = doc  # type: ignore[attr-defined]
+            bound._timeline_key = True  # type: ignore[attr-defined]
+            self.key_bindings[key] = bound
 
     @staticmethod
     def _binding_identity(func: Callable) -> tuple:
@@ -529,12 +572,12 @@ class InteractivePipeGUI:
             self.print_message([f"Pipeline graph written to {Path(written).resolve()}"])
 
     def export_animation(self):
-        """render the time control to a GIF (5 s at 10 fps) or PNG frames"""
+        """render the time control (5 s at 10 fps) or the video timeline to a GIF or PNG frames"""
         # Local import: keeps this module's import block untouched
-        from interactive_pipe.headless.animation import export_animation, find_time_control
+        from interactive_pipe.headless.animation import _animated_control, export_animation
 
         try:
-            find_time_control(self.pipeline)
+            ctrl = _animated_control(self.pipeline, None)
         except ValueError as exc:
             # No (or several) TimeControl: nothing to animate, do not ask for a path
             self.print_message([str(exc)])
@@ -542,7 +585,11 @@ class InteractivePipeGUI:
 
         def on_path(path: Path):
             try:
-                written = export_animation(self.pipeline, path, duration=5.0, fps=10.0)
+                # 5 s at 10 fps; the timeline of a Video input: the whole video
+                is_video = isinstance(ctrl, TimelineControl)
+                written = export_animation(
+                    self.pipeline, path, duration=None if is_video else 5.0, fps=None if is_video else 10.0
+                )
             except Exception as exc:
                 # Broad on purpose: an action triggered by a key must never crash the GUI
                 self.print_message([f"Animation export failed: {exc}"])
