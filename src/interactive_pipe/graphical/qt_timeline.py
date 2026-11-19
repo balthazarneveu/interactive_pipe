@@ -17,8 +17,7 @@ a player instead of lagging.
 import math
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Sequence, Tuple
 
-import numpy as np
-
+from interactive_pipe.graphical import timeline_view as view
 from interactive_pipe.graphical.qt_backend import (
     QColor,
     QFont,
@@ -36,54 +35,40 @@ from interactive_pipe.graphical.qt_backend import (
     QVBoxLayout,
 )
 from interactive_pipe.graphical.qt_image import numpy_to_pixmap
+from interactive_pipe.graphical.timeline_view import (
+    BUTTON_SIZE,
+    OVERVIEW_HEIGHT,
+    PANEL_RADIUS,
+    PLAY_SIZE,
+    RULER_HEIGHT,
+    STRIP_HEIGHT,
+    STRIP_HINT,
+    STRIP_RADIUS,
+    THUMB_HEIGHT,
+    StripView,
+    ruler_label,
+)
 from interactive_pipe.headless.timeline import TimelineControl, timecode
 
 if TYPE_CHECKING:
     from interactive_pipe.graphical.qt_gui import MainWindow
 
-# ---------------------------------------------------------------- look
-PANEL = QColor(28, 29, 32)
-TRACK_BACKGROUND = QColor(16, 17, 19)
-RULER_BAND = QColor(38, 40, 44)
-TEXT = QColor(232, 234, 237)
-MUTED = QColor(138, 143, 152)
-ACCENT = QColor(255, 176, 32)  # playhead, play button, loop on
-ACCENT_HOVER = QColor(255, 196, 84)
-ACCENT_PRESSED = QColor(224, 150, 16)
+# ---------------------------------------------------------------- look (shared values: timeline_view.py)
+PANEL = QColor(*view.PANEL)
+TRACK_BACKGROUND = QColor(*view.TRACK_BACKGROUND)
+RULER_BAND = QColor(*view.RULER_BAND)
+TEXT = QColor(*view.TEXT)
+MUTED = QColor(*view.MUTED)
+ACCENT = QColor(*view.ACCENT)
+ACCENT_HOVER = QColor(*view.ACCENT_HOVER)
+ACCENT_PRESSED = QColor(*view.ACCENT_PRESSED)
 HOVER_FILL = QColor(255, 255, 255, 26)
 PRESSED_FILL = QColor(255, 255, 255, 46)
 HOVER_LINE = QColor(255, 255, 255, 220)
 SHADOW = QColor(0, 0, 0, 140)
-OVERVIEW_BACKING = QColor(16, 17, 19, 215)
+OVERVIEW_BACKING = QColor(*view.TRACK_BACKGROUND, 215)
 OVERVIEW_TRACK = QColor(255, 255, 255, 45)
 OVERVIEW_VIEW = QColor(255, 255, 255, 190)
-PANEL_RADIUS = 8
-STRIP_RADIUS = 5
-
-RULER_HEIGHT = 18
-THUMB_HEIGHT = 46
-STRIP_HEIGHT = RULER_HEIGHT + THUMB_HEIGHT
-OVERVIEW_HEIGHT = 4
-BUTTON_SIZE = 28
-PLAY_SIZE = 34
-#: tick spacing candidates in seconds (the first giving >= MIN_TICK_PIXELS between ticks wins)
-TICK_STEPS = (1 / 25, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800, 3600)
-MIN_TICK_PIXELS = 70
-#: the most zoomed-in view shows this many frames
-MIN_VISIBLE_FRAMES = 8
-#: zoom factor per wheel notch (120 units of angleDelta)
-ZOOM_PER_NOTCH = 1.25
-STRIP_HINT = "click / drag: seek · scroll: zoom · shift + scroll: pan · double-click: whole video"
-
-
-def ruler_label(seconds: float, step: float) -> str:
-    """``"0:05"`` for whole-second ticks, ``"1.5s"`` / ``"0.04s"`` below."""
-    if step >= 1:
-        minutes, secs = divmod(int(round(seconds)), 60)
-        hours, minutes = divmod(minutes, 60)
-        return f"{hours}:{minutes:02d}:{secs:02d}" if hours else f"{minutes}:{secs:02d}"
-    decimals = 1 if step >= 0.1 else 2
-    return f"{seconds:.{decimals}f}s"
 
 
 def _event_x(event: Any) -> float:
@@ -262,7 +247,7 @@ class IconButton(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
 
 
 # ---------------------------------------------------------------- film strip
-class FilmStrip(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
+class FilmStrip(QtWidgetBase, StripView):  # type: ignore[reportGeneralTypeIssues]
     """Thumbnails of the video along the time axis, a time ruler and the playhead; click / drag seeks."""
 
     def __init__(
@@ -273,12 +258,10 @@ class FilmStrip(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
         on_view_change: Optional[Callable[[], None]] = None,
     ) -> None:
         super().__init__(parent)
-        self.timeline = timeline
+        self.init_strip_view(timeline)
         self.on_seek = on_seek
-        self.on_view_change = on_view_change
-        self.hover_frame: Optional[int] = None
-        self._view: Optional[Tuple[float, float]] = None  # (first, last) visible frame; None: the whole video
-        self._strip_cache: Optional[tuple] = None  # (width, view, n_frames, ids of videos) -> pixmap
+        self._on_view_change = on_view_change
+        self._pixmap_cache: Optional[tuple] = None  # (strip image id) -> pixmap
         self.setMinimumHeight(STRIP_HEIGHT)
         self.setMaximumHeight(STRIP_HEIGHT)
         self.setMinimumWidth(200)
@@ -289,136 +272,19 @@ class FilmStrip(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
     def sizeHint(self) -> QSize:
         return QSize(600, STRIP_HEIGHT)
 
-    # ---------------------------------------------------------------- view (zoom / pan)
-    def _full(self) -> Tuple[float, float]:
-        return 0.0, float(max(self.timeline.n_frames - 1, 1))
+    def strip_width(self) -> int:
+        return self.width()
 
-    @property
-    def view(self) -> Tuple[float, float]:
-        """``(first, last)`` frame shown at the left and right edges (fractional when zoomed)."""
-        if self._view is None:
-            return self._full()
-        return self._view
-
-    @property
-    def zoomed(self) -> bool:
-        return self._view is not None
-
-    @property
-    def zoom_factor(self) -> float:
-        first, last = self.view
-        low, high = self._full()
-        return (high - low) / max(last - first, 1e-9)
-
-    def set_view(self, first: float, last: float) -> None:
-        """Show frames ``first`` to ``last``: clamped to the video, at least ``MIN_VISIBLE_FRAMES`` wide."""
-        low, high = self._full()
-        span = min(max(last - first, min(MIN_VISIBLE_FRAMES, high - low)), high - low)
-        first = min(max(first, low), high - span)
-        view = None if span >= high - low else (first, first + span)
-        changed = view != self._view
-        self._view = view
+    def on_view_change(self) -> None:
         self.update()
-        if changed and self.on_view_change is not None:
-            self.on_view_change()
+        if self._on_view_change is not None:
+            self._on_view_change()
 
-    def reset_view(self) -> None:
-        low, high = self._full()
-        self.set_view(low, high)
-
-    def zoom(self, factor: float, around: Optional[float] = None) -> None:
-        """Zoom in (``factor`` > 1) or out keeping frame ``around`` (default: the centre) in place."""
-        first, last = self.view
-        if around is None:
-            around = (first + last) / 2
-        self.set_view(around - (around - first) / factor, around + (last - around) / factor)
-
-    def pan(self, fraction: float) -> None:
-        """Move the view by ``fraction`` of its width (positive: later in the video)."""
-        first, last = self.view
-        offset = fraction * (last - first)
-        self.set_view(first + offset, last + offset)
-
-    def follow(self, frame: int) -> None:
-        """Page the zoomed view so that ``frame`` is visible (playback, keys, buttons)."""
-        if self._view is None:
-            return
-        first, last = self._view
-        if first <= frame <= last:
-            return
-        span = last - first
-        start = frame - 0.1 * span if frame > last else frame - 0.9 * span
-        self.set_view(start, start + span)
-
-    # ---------------------------------------------------------------- geometry
-    def _x_of(self, frame: float) -> float:
-        first, last = self.view
-        return 1.0 + (self.width() - 2.0) * (frame - first) / max(last - first, 1e-9)
-
-    def _frame_of(self, x: float) -> float:
-        first, last = self.view
-        return first + (x - 1.0) / max(self.width() - 2.0, 1.0) * (last - first)
-
-    def frame_at(self, x: float) -> int:
-        frame = round(self._frame_of(x))
-        return int(min(max(frame, 0), self.timeline.n_frames - 1))
-
-    # ---------------------------------------------------------------- painting
     def _strip_pixmap(self) -> Any:
-        """Film strip of the first video, cached per width and view.
-
-        Thumbnails sit on a grid of frames (a power of two apart, chosen from
-        the zoom), so panning and zooming reuse the ones already decoded.
-        """
-        width = max(self.width(), 1)
-        videos = self.timeline.videos
-        key = (width, self.view, self.timeline.n_frames, tuple(id(video) for video in videos))
-        if self._strip_cache is not None and self._strip_cache[0] == key:
-            return self._strip_cache[1]
-        background = (TRACK_BACKGROUND.red(), TRACK_BACKGROUND.green(), TRACK_BACKGROUND.blue())
-        strip = np.zeros((THUMB_HEIGHT, width, 3), dtype=np.uint8)
-        strip[...] = background
-        if videos:
-            video = videos[0]
-            try:
-                tile = max(video.thumbnail(0, THUMB_HEIGHT).shape[1], 8)
-                first, last = self.view
-                pixels_per_frame = (width - 2.0) / max(last - first, 1e-9)
-                step = 1
-                while step * pixels_per_frame < 0.75 * tile:
-                    step *= 2
-                n_frames = self.timeline.n_frames
-                half = 0.5 if step == 1 else 0.0  # one frame per tile: the tile is centred on its frame
-                for anchor in range(int(first // step) * step, int(last) + 1, step):
-                    if anchor >= n_frames:
-                        break
-                    left = int(round(self._x_of(anchor - half)))
-                    right = min(int(round(self._x_of(anchor + step - half))), width)
-                    thumb = video.thumbnail(video.index_at(anchor / self.timeline.fps), THUMB_HEIGHT)
-                    crop = max(-left, 0)
-                    left = max(left, 0)
-                    shown = thumb[:, crop : crop + max(min(right - left, thumb.shape[1] - crop), 0)]
-                    strip[:, left : left + shown.shape[1]] = shown
-                    if 0 < left < width:
-                        strip[:, left - 1 : left + 1] = background  # gap between the frames of the film
-            except Exception:  # noqa: BLE001 - a frame that cannot be previewed leaves a plain track
-                pass
-        pixmap = numpy_to_pixmap(np.ascontiguousarray(strip))
-        self._strip_cache = (key, pixmap)
-        return pixmap
-
-    def _pixels_per_second(self) -> float:
-        first, last = self.view
-        return (self.width() - 2.0) / max((last - first) / self.timeline.fps, 1e-9)
-
-    def _tick_step(self) -> float:
-        fps = self.timeline.fps
-        pixels_per_second = self._pixels_per_second()
-        frame_steps = tuple(k / fps for k in (1, 2, 5, 10))
-        for step in sorted(set(frame_steps + tuple(t for t in TICK_STEPS if t > 1 / fps))):
-            if step * pixels_per_second >= MIN_TICK_PIXELS:
-                return step
-        return TICK_STEPS[-1]
+        image = self.strip_image(THUMB_HEIGHT)
+        if self._pixmap_cache is None or self._pixmap_cache[0] is not image:
+            self._pixmap_cache = (image, numpy_to_pixmap(image))
+        return self._pixmap_cache[1]
 
     def paintEvent(self, event: Any) -> None:  # noqa: N802 - Qt API
         painter = QPainter(self)
@@ -426,14 +292,6 @@ class FilmStrip(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
             self._paint(painter)
         finally:
             painter.end()
-
-    def _ticks(self, step: float) -> List[float]:
-        """Times (s) of the multiples of ``step`` inside the view."""
-        fps = self.timeline.fps
-        first, last = self.view
-        start = int(math.ceil(first / fps / step - 1e-9))
-        stop = int(math.floor(last / fps / step + 1e-9))
-        return [k * step for k in range(start, stop + 1)]
 
     def _paint(self, painter: Any) -> None:
         width, height = self.width(), self.height()
@@ -448,27 +306,27 @@ class FilmStrip(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
 
         # ruler: labelled ticks every "nice" number of seconds, minor ticks in between
         painter.setFont(_monospace(7.5))
-        step = self._tick_step()
-        minor = step / 5 if step * self._pixels_per_second() >= 60 else step / 2
+        step = self.tick_step()
+        minor = self.minor_step(step)
         painter.setPen(QPen(QColor(MUTED.red(), MUTED.green(), MUTED.blue(), 110), 1))
-        for seconds in self._ticks(minor):
-            x = int(self._x_of(seconds * fps)) + 0.5
+        for seconds in self.ticks(minor):
+            x = int(self.x_of(seconds * fps)) + 0.5
             painter.drawLine(QPointF(x, RULER_HEIGHT - 3), QPointF(x, RULER_HEIGHT))
         painter.setPen(QPen(MUTED, 1))
-        for seconds in self._ticks(step):
-            x = int(self._x_of(seconds * fps)) + 0.5
+        for seconds in self.ticks(step):
+            x = int(self.x_of(seconds * fps)) + 0.5
             painter.drawLine(QPointF(x, RULER_HEIGHT - 7), QPointF(x, RULER_HEIGHT))
             if x < width - 36:
                 painter.drawText(QPointF(x + 4, RULER_HEIGHT - 6), ruler_label(seconds, step))
 
-        x_head = self._x_of(int(self.timeline.value))
+        x_head = self.x_of(int(self.timeline.value))
         # played part: a thin accent line along the top of the thumbnails
         played = min(max(x_head, 0.0), float(width))
         painter.fillRect(QRectF(0, RULER_HEIGHT, played, 2), ACCENT)
 
         # hover: a line and the time under the cursor, in a bubble on the ruler
         if self.hover_frame is not None:
-            x_hover = int(self._x_of(self.hover_frame)) + 0.5
+            x_hover = int(self.x_of(self.hover_frame)) + 0.5
             painter.setPen(QPen(SHADOW, 3))
             painter.drawLine(QPointF(x_hover, RULER_HEIGHT), QPointF(x_hover, height))
             painter.setPen(QPen(HOVER_LINE, 1))
@@ -485,22 +343,18 @@ class FilmStrip(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
 
         # overview when zoomed: the whole video, the visible part, the playhead
         if self.zoomed:
-            first, last = self.view
-            low, high = self._full()
             top = height - OVERVIEW_HEIGHT - 4
             inner = width - 16.0
+            start, span, head = self.overview(inner)
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(OVERVIEW_BACKING)
             painter.drawRoundedRect(QRectF(5, top - 3, inner + 6, OVERVIEW_HEIGHT + 6), 5, 5)
             painter.setBrush(OVERVIEW_TRACK)
             painter.drawRoundedRect(QRectF(8, top, inner, OVERVIEW_HEIGHT), 2, 2)
             painter.setBrush(OVERVIEW_VIEW)
-            left = 8 + inner * (first - low) / (high - low)
-            span = max(inner * (last - first) / (high - low), 4.0)
-            painter.drawRoundedRect(QRectF(left, top, span, OVERVIEW_HEIGHT), 2, 2)
+            painter.drawRoundedRect(QRectF(8 + start, top, span, OVERVIEW_HEIGHT), 2, 2)
             painter.setBrush(ACCENT)
-            head = 8 + inner * int(self.timeline.value) / (high - low)
-            painter.drawRect(QRectF(head - 1, top - 1, 2, OVERVIEW_HEIGHT + 2))
+            painter.drawRect(QRectF(8 + head - 1, top - 1, 2, OVERVIEW_HEIGHT + 2))
 
         # playhead: a handle on the ruler and a line over the thumbnails (shadowed for bright frames)
         if -6 <= x_head <= width + 6:
@@ -544,10 +398,7 @@ class FilmStrip(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
         horizontal = abs(delta.x()) > abs(delta.y())
         shift = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
         notches = (delta.x() if horizontal else delta.y()) / 120.0
-        if horizontal or shift:
-            self.pan(-0.15 * notches)
-        elif notches:
-            self.zoom(ZOOM_PER_NOTCH**notches, around=self._frame_of(_event_x(event)))
+        self.wheel(notches, _event_x(event), pan=horizontal or shift)
         if self.hover_frame is not None:
             self.hover_frame = self.frame_at(_event_x(event))
         event.accept()  # the window behind does not scroll
