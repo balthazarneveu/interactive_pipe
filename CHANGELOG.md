@@ -3,6 +3,9 @@
 ## Unreleased
 
 - **Audio helpers, `interactive_pipe.sound`**: pure numpy (no new dependency) functions to use inside filters: `load` (WAV with the standard library, other formats through `ffmpeg` when installed), `resample`, `stft` / `istft`, `spectrogram` + `spectrogram_style` (a heatmap with time / kHz axes and a dB colour bar via `layout.style`), `add_noise` (white, pink, mains hum at a given SNR), `snr_db`, `denoise` (spectral gating, blind or from a noise sample), `time_stretch` and `pitch_shift` (phase vocoder). See [Audio](https://balthazarneveu.github.io/interactive_pipe/guide/audio/#audio-helpers-interactive_pipesound).
+- **Fluid audio while tweaking (Qt)**: `audio.set(signal, rate)` streams the signal from memory in an audio thread of its own (Qt 6) instead of writing a WAV file for a media player. A new version continues at the same sample with a 30 ms cross-fade: dragging a slider is heard live, without restart, gap or click, while the GUI thread runs the pipeline; play / pause / stop ramp the volume. Files and Qt 5 keep the media player (signals through a WAV file as a fallback).
+- **`audio.set(..., keep_position=None, loop=False)`**: signals keep the playback position by default, files start from the beginning; `loop=True` repeats the sound (Qt). Backends implement the new `AudioBindings.load_audio(AudioRequest)` (`accepts_signals=True` to receive numpy signals); a backend registering only `set_audio(path)` works as before.
+- Qt: a sound set by the first pipeline run, before the player exists, now plays (it was dropped).
 - **`demo/audio_processing_demo.py`**: switch between a synthesized singing voice and a music clip, corrupt with noise, denoise, pitch-shift and A/B listen (clean / noisy / processed) in the Qt or Gradio window.
 
 ## 0.10.0 (November 2026)
