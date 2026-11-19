@@ -119,6 +119,7 @@ nav:
       - Data objects: api/data-objects.md
       - Context & layout: api/context.md
       - Drawing on images: api/draw.md
+      - Audio helpers: api/sound.md
       - Command line & skill: api/agent.md
   - FAQ: faq.md
   - Roadmap: roadmap.md

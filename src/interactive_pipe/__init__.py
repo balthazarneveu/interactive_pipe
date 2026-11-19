@@ -49,6 +49,9 @@ from interactive_pipe.headless.animation import export_animation
 # Drawing on images (points, boxes, lines, polygons, text, masks): interactive_pipe.draw
 from interactive_pipe import draw
 
+# Audio helpers (load, STFT, spectrogram, denoise, pitch shift): interactive_pipe.sound
+from interactive_pipe import sound
+
 # Agent skill shipped with the package (`interactive-pipe skill`)
 from interactive_pipe.agent import skill_path
 
@@ -97,6 +100,7 @@ __all__ = [
     "pipeline",
     "export_animation",
     "draw",
+    "sound",
 
     "skill_path",
 ]
