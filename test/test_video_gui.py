@@ -48,7 +48,7 @@ def test_qt_timeline_widget():
 
 def test_qt_timeline_zoom():
     qt_gui = pytest.importorskip("interactive_pipe.graphical.qt_gui")
-    from interactive_pipe.graphical.qt_timeline import MIN_VISIBLE_FRAMES
+    from interactive_pipe.graphical.timeline_view import MIN_VISIBLE_FRAMES
 
     pipeline = HeadlessPipeline.from_function(one_video)
     gui = qt_gui.InteractivePipeQT(pipeline=pipeline, name="video zoom")
