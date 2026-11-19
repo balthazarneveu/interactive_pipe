@@ -66,7 +66,7 @@ from interactive_pipe.graphical.window import (
 from interactive_pipe.headless.control import Control, TimeControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.headless.pointer import pointer_controls
-from interactive_pipe.headless.timeline import timecode
+from interactive_pipe.headless.timeline import TimelineControl
 
 DEFAULT_VIEWPORT_SIZE = (1280, 800)
 GRID_SPACING = 6  # pixels between cells
@@ -76,6 +76,7 @@ SIDE_PANEL_GAP = 8
 SIDE_PANEL_WIDTH = 320  # left/right panel columns
 MENU_BAR_HEIGHT = 22  # primary window menu bar
 STATUS_BAR_HEIGHT = 20  # status line at the bottom of the primary window
+TIMELINE_GAP = 4  # item spacing above the timeline panel of a Video input
 STATUS_COLOR = (150, 150, 150, 255)
 ERROR_COLOR = (230, 80, 80, 255)
 FILE_DIALOG_SIZE = (640, 400)
@@ -275,7 +276,7 @@ class MainWindow(InteractivePipeWindow):
         self._viewport_client: Optional[Tuple[int, int]] = None
         self.detached_windows: List[Any] = []
         self.timers: List[DpgTimer] = []
-        self.timelines: Dict[str, Any] = {}  # name -> TimelineControl shown with play / step buttons
+        self.timeline_panel: Optional[Any] = None  # DpgTimeline of a Video input (dpg_timeline.py)
         self.timer: Optional[DpgTimer] = None
         self.prompt_widgets: List[Any] = []
         self.sized_items: List[Tuple[Any, Callable[[], int]]] = []  # (item, width_fn) re-applied on relayout
@@ -463,7 +464,7 @@ class MainWindow(InteractivePipeWindow):
         avail_w = max(100, client_w - len(side_containers) * (SIDE_PANEL_WIDTH + SIDE_PANEL_GAP) - LAYOUT_MARGIN)
         top_h = self._measured_height(self.top_container)
         menu_h = MENU_BAR_HEIGHT if self.menu_bar is not None else 0
-        fixed_h = menu_h + STATUS_BAR_HEIGHT + top_h + LAYOUT_MARGIN + 2 * GRID_SPACING
+        fixed_h = menu_h + STATUS_BAR_HEIGHT + top_h + LAYOUT_MARGIN + 2 * GRID_SPACING + self._timeline_height()
         bottom_h = self._layout_control_columns(client_w, client_h - fixed_h - self._images_preferred_height(avail_w))
         # the controls get their natural height unless that leaves the images less than
         # MIN_GRID_HEIGHT: then they scroll in their own area
@@ -673,6 +674,8 @@ class MainWindow(InteractivePipeWindow):
         )
 
     def on_mouse_wheel(self, _sender, delta, *_args):
+        if self.timeline_panel is not None and self.timeline_panel.on_wheel(float(delta), _shift_down()):
+            return
         target = self._mouse_target()
         if target is None or not delta:
             return
@@ -1060,6 +1063,8 @@ class MainWindow(InteractivePipeWindow):
         now = time.time()
         for timer in self.timers:
             timer.tick(now)
+        if self.timeline_panel is not None:
+            self.timeline_panel.tick()
         self._fit_grid_to_content()
         if self._columns_settle > 0:
             self._columns_settle -= 1
@@ -1081,12 +1086,29 @@ class MainWindow(InteractivePipeWindow):
         """Show `text` in the status line at the bottom of the window."""
         dpg.set_value(self.status_text, text)
 
+    def _timeline_height(self) -> int:
+        return 0 if self.timeline_panel is None else self.timeline_panel.height + TIMELINE_GAP
+
+    def add_timeline(self, ctrl: TimelineControl) -> None:
+        """Timeline panel of the ``Video`` inputs, full width at the bottom (above the status line)."""
+        from interactive_pipe.graphical.dpg_timeline import DpgTimeline
+
+        if self.timeline_panel is not None and dpg.does_item_exist(self.timeline_panel.panel):
+            dpg.delete_item(self.timeline_panel.panel)
+        if self.timeline_panel is not None and self.timeline_panel.timer in self.timers:
+            self.timers.remove(self.timeline_panel.timer)
+        panel = DpgTimeline(self, ctrl, parent=self.root, before=self.status_text)
+        self.timeline_panel = panel
+        self.timers.append(panel.timer)
+        self.widget_list[ctrl.name] = panel  # reset_sliders -> panel.reset()
+        dpg.configure_item(self.bottom_scroll, height=-(STATUS_BAR_HEIGHT + self._timeline_height()))
+        if self.main_gui is not None:
+            self.main_gui.bind_timeline_keys(panel.play_pause, panel.step)
+        self._needs_layout = True
+
     def update_label(self, idx):
         if idx in self.name_label:
-            ctrl = self.ctrl[idx]
-            # a Video timeline shows its timecode in place of its name
-            text = timecode(ctrl.value / ctrl.fps) if idx in self.timelines else f"{ctrl.name}"
-            dpg.set_value(self.name_label[idx], text)
+            dpg.set_value(self.name_label[idx], f"{self.ctrl[idx].name}")
 
     def update_parameter(self, idx, value):
         """Apply a new value (expressed in the control's own domain) and refresh."""

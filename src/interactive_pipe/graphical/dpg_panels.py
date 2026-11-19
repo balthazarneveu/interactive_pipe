@@ -171,6 +171,9 @@ class DpgPanelBuilder:
         if isinstance(ctrl, TimeControl):
             self._plug_time_control(ctrl)
             return None
+        if isinstance(ctrl, TimelineControl):
+            window.add_timeline(ctrl)  # a panel at the bottom of the window (dpg_timeline.py)
+            return None
         widget_wrapper = self.control_factory.create_control(ctrl, window.update_parameter)
         if widget_wrapper is None:
             return None
@@ -179,72 +182,14 @@ class DpgPanelBuilder:
             for filt, _param in ctrl.targets:
                 filt.cache = False
                 filt.cache_mem = None
-        if isinstance(ctrl, TimelineControl):
-            self._label_hints[container] = max(self._label_hints.get(container, 0), len(ctrl.label()) // 2)
         table = self._controls_table(container, ctrl)
         row = dpg.add_table_row(parent=table)
         label = dpg.add_text(ctrl.name, parent=row)
-        if isinstance(ctrl, TimelineControl):
-            cell = dpg.add_group(parent=row, horizontal=True)
-            self._add_transport(ctrl, cell, widget_wrapper)
-            widget_wrapper.create(cell)
-        else:
-            widget_wrapper.create(row)
+        widget_wrapper.create(row)
         window.widget_list[ctrl.name] = widget_wrapper
         window.name_label[ctrl.name] = label
         window.prompt_widgets.extend(widget_wrapper.widgets)
         return row
-
-    def _add_transport(self, ctrl: TimelineControl, cell: Any, slider: Any) -> None:
-        """Play / pause and step buttons before the frame slider of a ``Video`` timeline;
-        playback ticks from the render loop at the video frame rate."""
-        window = self.window
-        timer = DpgTimer(max(int(round(1000.0 / ctrl.fps)), 1), lambda: None)
-        play_button = dpg.add_button(label="Play", parent=cell, width=48)
-
-        def seek(frame: int) -> None:
-            window.update_parameter(ctrl.name, int(frame))
-            slider.reset()
-
-        def pause() -> None:
-            ctrl.playing = False
-            timer.stop()
-            dpg.configure_item(play_button, label="Play")
-
-        def play_pause() -> None:
-            if ctrl.playing:
-                pause()
-                return
-            if ctrl.next_frame() is None:
-                seek(0)
-            ctrl.playing = True
-            timer.start()
-            dpg.configure_item(play_button, label="Pause")
-
-        def step(offset: int) -> None:
-            pause()
-            target = ctrl.next_frame(offset)
-            if target is not None:
-                seek(target)
-
-        def tick() -> None:
-            target = ctrl.next_frame()
-            if target is None:
-                pause()
-            else:
-                seek(target)
-
-        timer.callback = tick
-        dpg.configure_item(play_button, callback=lambda *_args: play_pause())
-        dpg.add_button(label="<", parent=cell, width=22, callback=lambda *_args: step(-1))
-        dpg.add_button(label=">", parent=cell, width=22, callback=lambda *_args: step(1))
-        window.timers.append(timer)
-        window.timelines[ctrl.name] = ctrl
-        if window.main_gui is not None:
-            window.main_gui.bind_timeline_keys(play_pause, step)
-        if ctrl.playing:
-            ctrl.playing = False
-            play_pause()
 
     def _plug_time_control(self, ctrl: TimeControl) -> None:
         window = self.window

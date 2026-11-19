@@ -105,22 +105,46 @@ def test_qt_user_key_binding_wins():
     assert getattr(gui.key_bindings[" "], "_timeline_key", False) is True
 
 
-def test_dpg_transport():
+def test_dpg_timeline_panel():
     dpg_gui = pytest.importorskip("interactive_pipe.graphical.dpg_gui")
     pipeline = HeadlessPipeline.from_function(one_video)
     gui = dpg_gui.InteractivePipeDPG(pipeline=pipeline, name="video dpg")
     gui.run = lambda: None  # no viewport in tests
-    gui(Video(ramp(10), fps=20))
+    gui(Video(ramp(100), fps=20))
     window = gui.window
-    assert window.timelines["frame"] is pipeline.timeline and "frame" in window.widget_list
+    panel = window.timeline_panel
+    assert panel is not None and window.widget_list["frame"] is panel
+    assert "frame" not in window.name_label  # not a slider row: the panel at the bottom
     gui.on_press("right")
     assert pipeline.timeline.value == 1
     gui.on_press(" ")
-    assert pipeline.timeline.playing
-    timer = window.timers[-1]
-    timer.tick(0.0)
-    timer.tick(1.0)
+    assert pipeline.timeline.playing and panel.play_button.kind == "pause"
+    panel.timer.tick(0.0)
+    panel.timer.tick(1.0)
     assert pipeline.timeline.value == 2
+
+    def click(button):
+        x0, y0, x1, y1 = button.box
+        panel.press((x0 + x1) / 2, (y0 + y1) / 2)
+        panel.release((x0 + x1) / 2, (y0 + y1) / 2)
+
+    click(panel.play_button)
+    assert not pipeline.timeline.playing and panel.play_button.kind == "play"
+    click(panel.buttons[4])  # last frame
+    assert pipeline.timeline.value == 99
+    click(panel.loop_button)
+    assert not pipeline.timeline.loop
+    sx, sy = panel.strip_origin
+    panel.press(sx + 1, sy + 30)  # on the film strip: seeks to the start
+    panel.release(sx + 1, sy + 30)
+    assert pipeline.timeline.value == 0
+    panel.wheel(3.0, panel.strip_width() / 2)
+    assert panel.zoomed
+    panel.hover_frame = 10
+    panel.draw()  # zoomed strip, overview, hover bubble, fit button
+    assert panel.fit_button.visible
+    click(panel.fit_button)
+    assert not panel.zoomed
     gui.close()
 
 
