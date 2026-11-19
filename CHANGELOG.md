@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### New: video inputs and a timeline
+
+- **`Video`**: give a pipeline input as `Video(source)` and the pipeline function, written for one frame, becomes a video tool. The window shows a timeline under the images; filters receive the frame under the playhead. The source can be a video file (OpenCV; `.gif` also with Pillow), a folder of images, a glob pattern or a list of paths, a numpy array `(T, H, W[, C])`, a torch tensor `(T, C, H, W)` / `(T, H, W[, C])` (`to_numpy=False` hands the tensor slices to the filters), or an iterator / generator / `cv2.VideoCapture` read up to `max_frames`. Files are decoded lazily. Options: `fps`, `start` / `stop` / `step`, `window=k` (the `k` frames ending at the current one, for temporal filters). ([guide](https://balthazarneveu.github.io/interactive_pipe/guide/video/))
+- **The timeline is a control named `frame`** (`TimelineControl`): `pipe(Video(...), frame=20)` opens at frame 20, and `snapshot(..., frame=10)`, `sweep(..., frame=[0, 25, 50])` (a contact sheet), `describe()`, tuning files and sessions see it. Qt shows a film strip with a time ruler and playhead, transport buttons, timecode and a loop toggle; Dear PyGui shows play / step buttons next to the frame slider; the other backends show a frame slider. Space plays / pauses, the left / right arrows step one frame. Playback runs at the video frame rate and skips frames when the pipeline is slower.
+- **Several `Video` inputs share the timeline**, matched by time when their frame rates differ.
+- **Filters read the position as `context["timeline"]`**: a `Timeline` with `frame`, `time`, `fps`, `n_frames`, `duration` and `progress`.
+- **`export_animation` renders the video** of a pipeline with a `Video` input and no `TimeControl` (every frame, at the video frame rate); so does the *Export animation* action (<kbd>V</kbd>).
+- Three demos: `video_grading_demo.py` (video file), `video_motion_demo.py` (numpy simulation, `window=3`), `video_compare_demo.py` (torch tensors, two frame rates).
+
 ## 0.9.5 (November 2026)
 
 Common mistakes in pipelines used to build something that ran and was wrong. They now either do what was meant or fail with an error naming the line and the fix.

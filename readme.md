@@ -61,6 +61,7 @@ Calling `pipe(...)` opens a window with sliders for every declared parameter. �
 - **Controls from type hints**: `gain: Annotated[float, (0.0, 3.0)] = 1.0` is a slider, `Literal["dark", "light"]` a dropdown — or declare them in `@interactive(...)`.
 - **Figures and overlays**: return a matplotlib `Figure`, a heatmap with a colorbar, or draw boxes, points and masks with `interactive_pipe.draw`.
 - **Mouse input**: `PointControl` / `RegionControl` — click a point or shift-drag a region on an image.
+- **Video inputs**: `my_pipeline(Video("clip.mp4"))` — the pipeline written for one frame gets a timeline (play / pause, scrub, step); videos from files, image folders, numpy arrays, torch tensors or generators.
 - **Snapshots and sweeps**: `pipe.snapshot("out.png", img, coeff=1.5)` renders what the window shows, `pipe.sweep("sweep.png", img, coeff=[0.5, 1.0, 2.0])` compares values side by side — no display needed (SSH, CI, agents).
 - **Command line**: `interactive-pipe check | snapshot | sweep | describe my_script.py` on an unmodified GUI script; `interactive-pipe doctor` explains why no window shows up.
 - **Coding agents**: `interactive-pipe skill --install` teaches Claude Code (or any agent, `interactive-pipe skill`) to build pipelines and check them by reading snapshots.
@@ -86,7 +87,8 @@ Plus a GPU-rendered [Dear PyGui](https://github.com/hoffstadt/DearPyGui) window 
 - 📈 [Figures, heatmaps & overlays](https://balthazarneveu.github.io/interactive_pipe/guide/figures-and-overlays/) — matplotlib figures, colorbars, `interactive_pipe.draw` for boxes, points and masks
 - 📸 [Snapshots & sweeps](https://balthazarneveu.github.io/interactive_pipe/guide/snapshots/) — render what the GUI shows to a PNG, headless (CI, SSH, coding agents)
 - 🖱️ [Mouse input](https://balthazarneveu.github.io/interactive_pipe/guide/mouse-input/) — clicked points and dragged regions
+- 🎞️ [Video inputs & timeline](https://balthazarneveu.github.io/interactive_pipe/guide/video/) — a timeline for any `Video` input, temporal filters, synced videos
 - 💻 [Command line & coding agents](https://balthazarneveu.github.io/interactive_pipe/guide/command-line/) — `interactive-pipe check / snapshot / sweep / describe / skill / doctor`
-- 🗒️ [Examples](https://balthazarneveu.github.io/interactive_pipe/guide/examples/) — 20 demo scripts, a [scientific gallery](https://balthazarneveu.github.io/interactive_pipe/gallery/), Colab notebooks, a Raspberry Pi jukebox
+- 🗒️ [Examples](https://balthazarneveu.github.io/interactive_pipe/guide/examples/) — 23 demo scripts, a [scientific gallery](https://balthazarneveu.github.io/interactive_pipe/gallery/), Colab notebooks, a Raspberry Pi jukebox
 - 📋 [Changelog](https://github.com/balthazarneveu/interactive_pipe/blob/master/CHANGELOG.md)
 - 🤝 [Contributing](https://github.com/balthazarneveu/interactive_pipe/blob/master/CONTRIBUTING.md)

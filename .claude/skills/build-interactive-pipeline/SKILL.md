@@ -152,6 +152,8 @@ inspect.snapshot("/tmp/inspect.png", img, seed=(0.2, 0.4))  # headless: a plain 
 - `on=` names the displayed output receiving the gesture (default: the first image); an unknown name raises when a GUI pipeline is built (a `gui=None` test pipeline only warns).
 - Headless it is a plain tuple parameter: `pipe(img, seed=(0.2, 0.4))`, `sweep(..., seed=[(0.1, 0.1), (0.6, 0.4)])`, `--set seed=0.2,0.4`.
 
+**Video (a timeline for a sequence of frames)**: keep the pipeline written for **one frame** and call it with `Video(source)`: the window gets a timeline (Qt film strip, play / pause with space, step with the arrows), filters get the current frame; never write a frame-selector filter or a loop. Sources: `"clip.mp4"` (OpenCV), a folder / glob / list of image paths, a numpy array `(T, H, W[, C])`, a torch tensor `(T, C, H, W)` (`to_numpy=False` keeps tensors), a generator (`max_frames=`); options `fps=`, `start=`, `stop=`, `step=`. The timeline is a control named `frame`: `pipe(Video(x), frame=20)`, `pipe.snapshot(path, Video(x), frame=10)`, `pipe.sweep(path, Video(x), frame=[0, 20, 40])`; `context["timeline"]` has `frame`, `time`, `fps`, `n_frames`. Temporal filters: `Video(x, window=3)` gives `(3, H, W[, C])`; pass `pipe(Video(x), Video(x, window=3))` for frame + window. Several videos share one timeline (matched by time).
+
 ## Proxies: context, layout, events, audio
 
 <!-- code: continue -->
