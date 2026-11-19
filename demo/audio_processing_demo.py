@@ -7,7 +7,9 @@
 - **denoise**: spectral gating; ``oracle noise`` gives it the true noise
   spectrum instead of estimating it from the quiet parts of the signal.
 - **semitones**: pitch shift (phase vocoder), the duration is kept.
-- **listen**: A/B between the clean, noisy and processed sounds (Qt and Gradio play them).
+- **listen**: A/B between the clean, noisy and processed sounds, or mute (Qt and Gradio play them).
+  The graph cache re-runs only the filters a slider affects: the zoom slider leaves the sound
+  playing; a slider changing the sound restarts it from the beginning.
 
 Spectrograms show what the ear hears: the noise floor, the hum lines, the harmonics moving with the pitch.
 
@@ -150,9 +152,12 @@ def shift_pitch(signal, semitones=0.0):
     return sound.pitch_shift(signal, semitones)
 
 
-@interactive(listen=Control("processed", ["clean", "noisy", "processed"], name="listen"))
+@interactive(listen=Control("processed", ["clean", "noisy", "processed", "mute"], name="listen"))
 def play(clean, noisy, processed, listen="processed"):
     """Side effect only: send the chosen signal to the speakers."""
+    if listen == "mute":
+        audio.stop()
+        return
     chosen = {"clean": clean, "noisy": noisy, "processed": processed}[listen]
     audio.set(np.clip(chosen, -1, 1), RATE)
     audio.play()
@@ -222,4 +227,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.wav:
         pick_source = make_source_picker(load_sources(args.wav))  # the pipeline below picks this one up
-    interactive_pipeline(gui=args.backend, name="audio processing", audio=True)(audio_pipeline)()
+    interactive_pipeline(gui=args.backend, name="audio processing", audio=True, cache="graph")(audio_pipeline)()
