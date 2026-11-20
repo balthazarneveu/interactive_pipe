@@ -10,13 +10,14 @@ tuning files see a control named ``frame``, the GUIs show a timeline (an int
 slider on the backends without a dedicated widget).
 
 Filters may read the timeline position with ``context["timeline"]`` (a
-``Timeline``: ``frame``, ``time``, ``fps``, ``n_frames``).
+``Timeline``: ``frame``, ``time``, ``fps``, ``n_frames``, and the
+``metadata`` of the frame shown).
 """
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
 
 from interactive_pipe.core.filter import FilterCore
@@ -45,11 +46,19 @@ def timecode(seconds: float, fps: Optional[float] = None) -> str:
 
 @dataclass(frozen=True)
 class Timeline:
-    """Position of the timeline, readable by filters as ``context["timeline"]``."""
+    """Position of the timeline, readable by filters as ``context["timeline"]``.
+
+    ``metadata``: the metadata of the frame shown (first ``Video`` input), as
+    its source gives it (``loader`` / ``FrameSource``; ``"path"`` for files),
+    ``{}`` when there is none. ``inputs_metadata``: the same for every
+    ``Video`` input, by input name.
+    """
 
     frame: int
     n_frames: int
     fps: float
+    metadata: Dict[str, Any] = field(default_factory=dict, compare=False)
+    inputs_metadata: Dict[Any, Dict[str, Any]] = field(default_factory=dict, compare=False)
 
     @property
     def time(self) -> float:
@@ -179,21 +188,35 @@ class VideoFrameFilter(FilterCore):
         self.input_name = input_name
         self.timeline_fps = 25.0
         self.timeline_frames = 1
+        self.first_input: Any = input_name  # whose metadata is Timeline.metadata
         super().__init__(name=name, inputs=[input_name], outputs=[input_name])
 
     def apply(self, video: Any, frame_index: int = 0) -> Any:  # type: ignore[override]
         if not isinstance(video, Video):
             raise TypeError(f"input '{self.input_name}' is not a Video anymore (got {type(video).__name__})")
         frame = int(frame_index)
+        # several videos share the timeline: frames are matched by time
+        if abs(video.fps - self.timeline_fps) > 1e-6:
+            index = video.index_at(frame / self.timeline_fps)
+        else:
+            index = min(frame, len(video) - 1)
+        frames = video[index]
         from interactive_pipe.core.context import _user_context
 
         user_context = _user_context.get()
         if user_context is not None:
-            user_context[CONTEXT_KEY] = Timeline(frame=frame, n_frames=self.timeline_frames, fps=self.timeline_fps)
-        # several videos share the timeline: frames are matched by time
-        if abs(video.fps - self.timeline_fps) > 1e-6:
-            return video[video.index_at(frame / self.timeline_fps)]
-        return video[min(frame, len(video) - 1)]
+            previous = user_context.get(CONTEXT_KEY)
+            # the frame filters of the other inputs ran (or run) at the same position
+            inputs_metadata = dict(previous.inputs_metadata) if isinstance(previous, Timeline) else {}
+            inputs_metadata[self.input_name] = video.metadata(index)
+            user_context[CONTEXT_KEY] = Timeline(
+                frame=frame,
+                n_frames=self.timeline_frames,
+                fps=self.timeline_fps,
+                metadata=inputs_metadata.get(self.first_input, {}),
+                inputs_metadata=inputs_metadata,
+            )
+        return frames
 
 
 def timeline_of(pipeline: Any) -> Optional[TimelineControl]:
@@ -279,6 +302,7 @@ def install_videos(pipeline: "HeadlessPipeline", videos: Dict[Any, Video]) -> Op
             changed = True
         filt.timeline_fps = timeline.fps
         filt.timeline_frames = timeline.n_frames
+        filt.first_input = ordered[0]
     if new_filters:
         pipeline.filters[0:0] = new_filters
     # one widget drives every frame filter (targets rebuilt in input order)

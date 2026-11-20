@@ -11,3 +11,5 @@ Return these from filters to control how outputs are displayed.
 ::: interactive_pipe.Table
 
 ::: interactive_pipe.Video
+
+::: interactive_pipe.FrameSource

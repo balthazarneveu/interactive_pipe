@@ -20,7 +20,7 @@ from interactive_pipe.graphical.display import DisplayError
 from interactive_pipe.data_objects.curves import Curve, SingleCurve
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.table import Table
-from interactive_pipe.data_objects.video import Video
+from interactive_pipe.data_objects.video import FrameSource, Video
 
 # Special controls
 from interactive_pipe.headless.control import (
@@ -77,6 +77,7 @@ __all__ = [
     "Image",
     "Table",
     "Video",
+    "FrameSource",
     "Timeline",
     "TimelineControl",
     "Control",

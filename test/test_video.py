@@ -9,6 +9,7 @@ import numpy as np  # noqa: E402
 import pytest  # noqa: E402
 
 from interactive_pipe import (  # noqa: E402
+    FrameSource,
     Timeline,
     TimelineControl,
     Video,
@@ -137,6 +138,123 @@ def test_image_folder_and_glob(tmp_path):
     assert len(Video(str(tmp_path / "f[01].png"))) == 2
     with pytest.raises(ValueError, match="single image"):
         Video(tmp_path / "f0.png")
+
+
+def save_raw_frames(folder, n_frames=4):
+    """A custom file format: one .npz per frame, holding a mosaic and its exposure."""
+    for k in range(n_frames):
+        np.savez(folder / f"raw_{k:03d}.npz", mosaic=np.full((4, 6), k, np.uint16), exposure=np.float32(k + 1))
+    (folder / ".DS_Store").write_text("")  # hidden files are not frames
+
+
+def load_raw(path):
+    data = np.load(path)
+    return data["mosaic"].astype(np.float32) / 10, {"exposure": float(data["exposure"])}
+
+
+def test_loader_reads_any_file_format_with_metadata(tmp_path):
+    save_raw_frames(tmp_path)
+    for source in (tmp_path, str(tmp_path / "*.npz"), sorted(tmp_path.glob("*.npz"))):
+        video = Video(source, loader=load_raw)
+        assert len(video) == 4 and value(video[2]) == pytest.approx(0.2)
+        assert video.metadata(2) == {"path": str(tmp_path / "raw_002.npz"), "exposure": 3.0}
+    plain = Video(str(tmp_path / "*.npz"), loader=lambda path: np.load(path)["mosaic"])
+    assert plain.metadata(1) == {"path": str(tmp_path / "raw_001.npz")}
+    with pytest.raises(ValueError, match="one frame per file"):
+        Video(tmp_path / "raw_000.npz", loader=load_raw)
+    with pytest.raises(ValueError, match="loader= reads files"):
+        Video(ramp(3), loader=load_raw)
+
+
+class Burst(FrameSource):
+    """A custom source: frame k is k / 10, with its own metadata."""
+
+    fps = 12.0
+
+    def __init__(self, n_frames=6):
+        self.n_frames = n_frames
+        self.reads = []
+
+    def __len__(self):
+        return self.n_frames
+
+    def read(self, index):
+        self.reads.append(index)
+        return np.full((4, 4, 3), index / 10, np.float32)
+
+    def metadata(self, index):
+        return {"iso": 100 * (index + 1)}
+
+
+def test_frame_source_is_read_lazily_with_metadata():
+    source = Burst()
+    video = Video(source, step=2)
+    assert len(video) == 3 and video.fps == 6.0 and source.reads == []
+    assert value(video[1]) == pytest.approx(0.2) and source.reads == [2]
+    assert video.metadata(1) == {"iso": 300} and source.reads == [2]  # kept with the frame
+    assert video.metadata(2) == {"iso": 500} and source.reads == [2, 4]
+    assert "Burst" in repr(video)
+
+
+def test_preview_draws_the_film_strip_thumbnails():
+    ten_bits = (np.arange(4)[:, None, None] * 300 + np.zeros((4, 8, 8))).astype(np.uint16)
+    plain, scaled = Video(ten_bits), Video(ten_bits, preview=lambda frame: frame / 1023.0)
+    assert plain.thumbnail(3, 8).max() < 20  # uint16 read as / 65535: black
+    assert scaled.thumbnail(3, 8).min() > 200 and value(scaled[3]) == 900  # the filters get the frame as is
+    assert Video(scaled).thumbnail(3, 8).min() > 200
+    with pytest.raises(TypeError, match="preview"):
+        Video(ten_bits, preview="gray")
+
+
+def test_lazy_sequences_and_frames_given_with_metadata():
+    class Dataset:  # torch Dataset-like: len + [index], read on access
+        def __init__(self):
+            self.reads = []
+
+        def __len__(self):
+            return 5
+
+        def __getitem__(self, index):
+            self.reads.append(index)
+            return np.full((3, 3), index / 10, np.float32), {"label": f"sample {index}"}
+
+    dataset = Dataset()
+    video = Video(dataset)
+    assert dataset.reads == [] and len(video) == 5
+    assert value(video[3]) == pytest.approx(0.3) and video.metadata(3) == {"label": "sample 3"}
+    frames = [(np.zeros((2, 2)), {"k": k}) for k in range(3)]
+    assert Video(frames).metadata(2) == {"k": 2} and Video(ramp(3)).metadata(1) == {}
+
+
+@interactive()
+def read_metadata(img):
+    timeline = context["timeline"]
+    CALLS["reads"].append(timeline)
+    return img * timeline.metadata.get("exposure", 1.0)
+
+
+def raw_pipeline(raw):
+    out = read_metadata(raw)
+    return out
+
+
+def raw_and_reference(raw, reference):
+    out = read_metadata(raw)
+    return out, reference
+
+
+def test_filters_read_the_metadata_of_the_frame_shown(tmp_path):
+    save_raw_frames(tmp_path)
+    pipe = HeadlessPipeline.from_function(raw_pipeline)
+    out = pipe(Video(tmp_path, loader=load_raw), frame=2)
+    assert value(out) == pytest.approx(0.2 * 3.0)
+    timeline = CALLS["reads"][-1]
+    assert timeline.metadata["exposure"] == 3.0 and timeline == Timeline(frame=2, n_frames=4, fps=25)
+    pipe = HeadlessPipeline.from_function(raw_and_reference)
+    pipe(Video(tmp_path, loader=load_raw), Video(Burst(), fps=25), frame=1)
+    timeline = CALLS["reads"][-1]
+    assert timeline.metadata["exposure"] == 2.0  # the first video's
+    assert timeline.inputs_metadata["reference"] == {"iso": 200}
 
 
 def test_video_file(tmp_path):
