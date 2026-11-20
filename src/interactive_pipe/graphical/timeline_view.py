@@ -35,6 +35,8 @@ class Theme:
     accent_pressed: RGB
     on_accent: RGB  # icon on the play button
     overlay: RGB
+    buffered: RGB  # frames decoded ahead (thin band under the thumbnails)
+    pending: RGB  # a thumbnail still being built
     border: Optional[RGB] = None  # outline of the panel (light theme: it sits on a light window)
 
 
@@ -50,6 +52,8 @@ DARK = Theme(
     accent_pressed=(224, 150, 16),
     on_accent=(28, 29, 32),
     overlay=(255, 255, 255),
+    buffered=(150, 156, 166),
+    pending=(30, 32, 36),
 )
 LIGHT = Theme(
     name="light",
@@ -63,6 +67,8 @@ LIGHT = Theme(
     accent_pressed=(214, 120, 0),
     on_accent=(255, 255, 255),
     overlay=(0, 0, 0),
+    buffered=(120, 126, 136),
+    pending=(204, 208, 214),
     border=(210, 213, 219),
 )
 
@@ -87,6 +93,7 @@ RULER_HEIGHT = 18
 THUMB_HEIGHT = 46
 STRIP_HEIGHT = RULER_HEIGHT + THUMB_HEIGHT
 OVERVIEW_HEIGHT = 4
+BUFFERED_HEIGHT = 2  # band of the frames decoded ahead, along the bottom of the thumbnails
 BUTTON_SIZE = 28
 PLAY_SIZE = 34
 PANEL_RADIUS = 8
@@ -112,6 +119,17 @@ def ruler_label(seconds: float, step: float) -> str:
         return f"{hours}:{minutes:02d}:{secs:02d}" if hours else f"{minutes}:{secs:02d}"
     decimals = 1 if step >= 0.1 else 2
     return f"{seconds:.{decimals}f}s"
+
+
+def _fill_width(thumb: np.ndarray, width: int) -> np.ndarray:
+    """``thumb`` enlarged to cover ``width`` columns, cropped to its height around the centre (no gap)."""
+    height, thumb_width = thumb.shape[:2]
+    if width <= thumb_width:
+        return thumb
+    scale = width / thumb_width
+    rows = ((np.arange(height) + (height * scale - height) / 2) / scale).astype(int).clip(0, height - 1)
+    columns = (np.arange(width) / scale).astype(int).clip(0, thumb_width - 1)
+    return thumb[rows[:, None], columns[None, :]]
 
 
 class StripView:
@@ -250,16 +268,47 @@ class StripView:
         stop = int(math.floor(last / fps / step + 1e-9))
         return [k * step for k in range(start, stop + 1)]
 
+    # ---------------------------------------------------------------- buffered frames
+    def buffered_spans(self) -> List[Tuple[float, float]]:
+        """``(x_start, x_end)`` strip spans of the frames decoded and in memory (runs of consecutive frames)."""
+        spans: List[Tuple[float, float]] = []
+        first, last = self.view
+        run_start = previous = None
+        for frame in self.timeline.buffered():
+            if frame < first - 1 or frame > last + 1:
+                continue
+            if previous is not None and frame == previous + 1:
+                previous = frame
+                continue
+            if run_start is not None and previous is not None:
+                spans.append((self.x_of(run_start - 0.5), self.x_of(previous + 0.5)))
+            run_start = previous = frame
+        if run_start is not None and previous is not None:
+            spans.append((self.x_of(run_start - 0.5), self.x_of(previous + 0.5)))
+        width = float(self.strip_width())
+        return [(max(a, 0.0), min(b, width)) for a, b in spans if b > 0 and a < width]
+
     # ---------------------------------------------------------------- thumbnails
-    def strip_image(self, height: int = THUMB_HEIGHT) -> np.ndarray:
+    def strip_image(self, height: int = THUMB_HEIGHT, wait: bool = False) -> np.ndarray:
         """``(height, strip_width(), 3)`` uint8 film strip of the first video, cached per width and view.
 
         Thumbnails sit on a grid of frames (a power of two apart, chosen from
-        the zoom), so panning and zooming reuse the ones already decoded.
+        the zoom), so panning and zooming reuse the ones already decoded. The
+        missing ones are built in the background (a plain tile meanwhile; the
+        strip is composed again when ``timeline.background_version`` changes);
+        ``wait=True`` builds them first (tests, screenshots).
         """
         width = max(self.strip_width(), 1)
         videos = self.timeline.videos
-        key = (width, height, self.theme.name, self.view, self.timeline.n_frames, tuple(id(video) for video in videos))
+        key = (
+            width,
+            height,
+            self.theme.name,
+            self.view,
+            self.timeline.n_frames,
+            tuple(id(video) for video in videos),
+            videos[0].background_version[1] if videos else 0,
+        )
         if self._strip_cache is not None and self._strip_cache[0] == key:
             return self._strip_cache[1]
         strip = np.zeros((height, width, 3), dtype=np.uint8)
@@ -267,30 +316,55 @@ class StripView:
         if videos:
             video = videos[0]
             try:
-                tile = max(video.thumbnail(0, height).shape[1], 8)
-                first, last = self.view
-                pixels_per_frame = (width - 2.0) / max(last - first, 1e-9)
-                step = 1
-                while step * pixels_per_frame < 0.75 * tile:
-                    step *= 2
-                n_frames = self.timeline.n_frames
-                half = 0.5 if step == 1 else 0.0  # one frame per tile: the tile is centred on its frame
-                for anchor in range(int(first // step) * step, int(last) + 1, step):
-                    if anchor >= n_frames:
-                        break
-                    left = int(round(self.x_of(anchor - half)))
-                    right = min(int(round(self.x_of(anchor + step - half))), width)
-                    thumb = video.thumbnail(video.index_at(anchor / self.timeline.fps), height)
+                anchors = self._thumbnail_anchors(video, width, height, wait)
+                if wait:
+                    for anchor, _, _ in anchors:
+                        video.thumbnail(anchor, height)
+                missing = []
+                for anchor, left, right in anchors:
+                    thumb = video.cached_thumbnail(anchor, height)
+                    if thumb is None:
+                        if not video.thumbnail_failed(anchor, height):
+                            missing.append(anchor)
+                            strip[2:-2, max(left + 1, 0) : max(right - 1, 0)] = self.theme.pending
+                        continue
+                    thumb = _fill_width(thumb, right - left)
                     crop = max(-left, 0)
                     left = max(left, 0)
                     shown = thumb[:, crop : crop + max(min(right - left, thumb.shape[1] - crop), 0)]
                     strip[:, left : left + shown.shape[1]] = shown
                     if 0 < left < width:
-                        strip[:, left - 1 : left + 1] = (
-                            self.theme.track_background
-                        )  # gap between the frames of the film
+                        strip[:, left - 1 : left + 1] = self.theme.track_background  # gap between the frames
+                # nearest the playhead first
+                head = int(self.timeline.value)
+                if video.cached_thumbnail(0, height) is None and not video.thumbnail_failed(0, height):
+                    missing.insert(0, 0)  # the grid of the next composition
+                video.request_thumbnails(sorted(missing, key=lambda anchor: (anchor != 0, abs(anchor - head))), height)
             except Exception:  # noqa: BLE001 - a frame that cannot be previewed leaves a plain track
                 pass
         strip = np.ascontiguousarray(strip)
         self._strip_cache = (key, strip)
         return strip
+
+    def _thumbnail_anchors(self, video, width: int, height: int, wait: bool = False) -> List[Tuple[int, int, int]]:
+        """``(video frame, left x, right x)`` of the thumbnails of the view."""
+        thumb = video.cached_thumbnail(0, height)
+        if thumb is None and wait:
+            thumb = video.thumbnail(0, height)
+        # the first thumbnail's width sets the grid; until it is built, a 4:3 guess
+        tile = max(thumb.shape[1] if thumb is not None else round(height * 4 / 3), 8)
+        first, last = self.view
+        pixels_per_frame = (width - 2.0) / max(last - first, 1e-9)
+        step = 1
+        while step * pixels_per_frame < 0.75 * tile:
+            step *= 2
+        n_frames = self.timeline.n_frames
+        half = 0.5 if step == 1 else 0.0  # one frame per tile: the tile is centred on its frame
+        anchors = []
+        for anchor in range(int(first // step) * step, int(last) + 1, step):
+            if anchor >= n_frames:
+                break
+            left = int(round(self.x_of(anchor - half)))
+            right = min(int(round(self.x_of(anchor + step - half))), width)
+            anchors.append((video.index_at(anchor / self.timeline.fps), left, right))
+        return anchors

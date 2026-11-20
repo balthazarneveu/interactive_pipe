@@ -78,6 +78,13 @@ class Timeline:
         return f"{timecode(self.time)} / {timecode(self.duration)} · frame {self.frame}/{self.n_frames - 1}"
 
 
+def frame_of_video(video: Video, frame: int, timeline_fps: float) -> int:
+    """Frame of ``video`` shown at timeline frame ``frame`` (videos sharing a timeline are matched by time)."""
+    if abs(video.fps - timeline_fps) > 1e-6:
+        return video.index_at(frame / timeline_fps)
+    return min(max(int(frame), 0), len(video) - 1)
+
+
 class TimelineControl(Control):
     """Frame index of the ``Video`` inputs of a pipeline (an int in ``[0, n_frames - 1]``).
 
@@ -167,6 +174,27 @@ class TimelineControl(Control):
             return None
         return target % self.n_frames
 
+    def preload(self, frame: Optional[int] = None) -> None:
+        """Decode the frames after ``frame`` (default: the current one) of every video, in the background.
+
+        Called by the GUI timelines whenever the playhead moves; each video
+        reads ``Video(..., preload=...)`` frames ahead.
+        """
+        index = int(self.value if frame is None else frame)
+        for video in self.videos:
+            video.preload_from(frame_of_video(video, index, self.fps))
+
+    def buffered(self) -> List[int]:
+        """Timeline frames whose first video frame is decoded and in memory (sorted)."""
+        if not self.videos:
+            return []
+        return self.videos[0].buffered()
+
+    @property
+    def background_version(self) -> tuple:
+        """Changes when a video decoded a frame or built a thumbnail (redraw the film strip)."""
+        return tuple(video.background_version for video in self.videos)
+
     def label(self, frame: Optional[int] = None) -> str:
         """``"00:01.20 / 00:12.00 · frame 30/299"``"""
         index = int(self.value if frame is None else frame)
@@ -195,11 +223,7 @@ class VideoFrameFilter(FilterCore):
         if not isinstance(video, Video):
             raise TypeError(f"input '{self.input_name}' is not a Video anymore (got {type(video).__name__})")
         frame = int(frame_index)
-        # several videos share the timeline: frames are matched by time
-        if abs(video.fps - self.timeline_fps) > 1e-6:
-            index = video.index_at(frame / self.timeline_fps)
-        else:
-            index = min(frame, len(video) - 1)
+        index = frame_of_video(video, frame, self.timeline_fps)  # several videos: matched by time
         frames = video[index]
         from interactive_pipe.core.context import _user_context
 

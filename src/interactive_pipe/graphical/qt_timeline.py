@@ -39,6 +39,7 @@ from interactive_pipe.graphical.qt_backend import (
 )
 from interactive_pipe.graphical.qt_image import numpy_to_pixmap
 from interactive_pipe.graphical.timeline_view import (
+    BUFFERED_HEIGHT,
     BUTTON_SIZE,
     OVERVIEW_HEIGHT,
     PANEL_RADIUS,
@@ -61,6 +62,8 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------- look (themes: timeline_view.py)
 HOVER_LINE = QColor(255, 255, 255, 220)  # over the thumbnails, whatever the theme
 SHADOW = QColor(0, 0, 0, 140)
+#: how often the panel checks for thumbnails / frames ready in the background
+BACKGROUND_POLL_MS = 100
 
 
 class QtColors:
@@ -86,6 +89,7 @@ class QtColors:
         self.overview_backing = QColor(*theme.track_background, 215)
         self.overview_track = QColor(*theme.overlay, 40 if light else 45)
         self.overview_view = QColor(*theme.overlay, 150 if light else 190)
+        self.buffered = QColor(*theme.buffered)
 
 
 def _window_theme(widget: Any) -> Theme:
@@ -339,6 +343,11 @@ class FilmStrip(QtWidgetBase, StripView):  # type: ignore[reportGeneralTypeIssue
         painter.fillRect(0, 0, width, height, colors.track_background)
         painter.fillRect(0, 0, width, RULER_HEIGHT, colors.ruler_band)
         painter.drawPixmap(0, RULER_HEIGHT, self._strip_pixmap())
+        # frames decoded ahead: a band along the bottom of the ruler, above the played line
+        for left, right in self.buffered_spans():
+            painter.fillRect(
+                QRectF(left, RULER_HEIGHT - BUFFERED_HEIGHT, right - left, BUFFERED_HEIGHT), colors.buffered
+            )
 
         # ruler: labelled ticks every "nice" number of seconds, minor ticks in between
         painter.setFont(_monospace(7.5))
@@ -450,6 +459,11 @@ class TimelineWidget(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
         self.timeline = timeline
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._tick)
+        # thumbnails and read-ahead come from a background thread: redraw the strip when they change
+        self._background_version: tuple = ()
+        self.background_timer = QTimer(self)
+        self.background_timer.timeout.connect(self._background_changed)
+        self.background_timer.start(BACKGROUND_POLL_MS)
 
         top = QHBoxLayout()
         top.setContentsMargins(0, 0, 0, 0)
@@ -577,6 +591,14 @@ class TimelineWidget(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
         self.fps_label.setText(f"{self.timeline.fps:g} fps")
         self.strip.follow(position.frame)
         self.strip.update()
+        self.timeline.preload(position.frame)  # decode the next frames before playback reaches them
+
+    def _background_changed(self) -> None:
+        version = self.timeline.background_version
+        if version != self._background_version:
+            self._background_version = version
+            if self.strip.isVisible():
+                self.strip.update()
 
     def _view_changed(self) -> None:
         zoomed = self.strip.zoomed

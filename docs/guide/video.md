@@ -52,7 +52,9 @@ slices to your model filter (see `demo/video_compare_demo.py`).
 Other options: `fps=` (default: the file's, else 25), `start=`, `stop=`,
 `step=` (keep `frames[start:stop:step]`), `max_frames=` for streams,
 `timeline=` ([below](#showing-folding-or-hiding-it)), `preview=`
-([below](#custom-formats-and-per-frame-metadata)).
+([below](#custom-formats-and-per-frame-metadata)), `preload=`,
+`thumbnail_loader=` and `cache_frames=`
+([below](#read-ahead-and-thumbnails)).
 
 ## The timeline
 
@@ -274,6 +276,66 @@ watch.headless(clip, frame=30)
 `preview=` gives the film strip thumbnails of frames that are not images to
 look at as they are (a raw mosaic, 10-bit data): a function frame → image.
 The filters still receive the frames unchanged.
+
+## Read-ahead and thumbnails
+
+The Qt and Dear PyGui windows work in the background like an editing
+software, so a slow decoder (RAW files, a large video, a network drive) does
+not freeze the window:
+
+- **Read-ahead.** Whenever the playhead moves, the next `preload` frames
+  (8 by default) are decoded in a background thread, so playback finds
+  them ready. A thin band along the bottom of the ruler, after the playhead,
+  shows the frames in memory. `preload=0` turns it off; the frame cache
+  (`cache_frames=`, 32 by default) grows to hold the frames ahead.
+  `export_animation` reads ahead too.
+- **Thumbnails.** The film strip draws grey tiles and fills them in as the
+  thumbnails are built in the background, nearest the playhead first. They
+  do not take room in the frame cache.
+
+Read-ahead speeds up decoding only: when the filters are the slow part,
+playback still skips frames to keep up. The background thread exists only
+while a window asks for frames, and stops after two idle seconds: headless
+pipelines, snapshots and tests never start one.
+
+### Cheap thumbnails
+
+A thumbnail is made from the decoded frame by default (through `preview=`).
+When your format has something cheaper (the JPEG embedded in a DNG, a
+low-resolution level, a sidecar preview file), hand it over instead and
+the strip never decodes the full frames:
+
+<!-- code: skip needs rawpy and DNG files -->
+```python
+import io
+
+from PIL import Image
+
+
+def dng_preview(path):
+    with rawpy.imread(str(path)) as raw:
+        return np.asarray(Image.open(io.BytesIO(raw.extract_thumb().data)))  # the embedded JPEG
+
+
+develop(Video("shoot/*.dng", loader=read_dng, thumbnail_loader=dng_preview))
+```
+
+A `FrameSource` gets the same with a `thumbnail(index)` method:
+
+<!-- code: continue -->
+```python
+class SimulationWithPreview(Simulation):
+    def thumbnail(self, index):
+        return np.full((8, 8), index / 100, np.float32)  # any size: resized to the strip
+
+
+clip = Video(SimulationWithPreview())
+print(clip.thumbnail(50, height=16).shape)  # (16, 16, 3)
+```
+
+A thumbnail is any image shown as it is (uint8, or floats in `[0, 1]`);
+`preview=` does not apply to it. `read` and `thumbnail` may be called from
+the background thread, never two at a time, so a reader needs no lock.
 
 ## How it works
 
