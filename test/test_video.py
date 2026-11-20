@@ -230,6 +230,23 @@ def test_bad_options():
         Video(ramp(3), start=5)
     with pytest.raises(ValueError, match="fps"):
         Video(ramp(3), fps=0)
+    with pytest.raises(ValueError, match="timeline must be one of"):
+        Video(ramp(3), timeline="folded")
+
+
+def test_timeline_display_comes_from_the_first_video():
+    pipe = HeadlessPipeline.from_function(one_video)
+    pipe(Video(ramp(5), timeline="collapsed"))
+    timeline = pipe.timeline
+    assert timeline.display == "collapsed" and timeline.collapsible and timeline.collapsed
+    timeline.collapsed = False  # unfolded in the window: kept while the display does not change
+    pipe(Video(ramp(5), timeline="collapsed"))
+    assert not timeline.collapsed
+    pipe(Video(ramp(5), timeline="hidden"))
+    assert timeline.display == "hidden" and not timeline.collapsible
+    pipe(Video(ramp(5)))
+    assert timeline.display == "shown"
+    assert Video(ramp(5), timeline="hidden").with_window(2).timeline_display == "hidden"
 
 
 def test_video_is_never_deep_copied():

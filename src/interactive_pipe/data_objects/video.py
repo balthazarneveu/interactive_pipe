@@ -35,6 +35,8 @@ DEFAULT_FPS = 25.0
 DEFAULT_STREAM_FRAMES = 500
 #: decoded frames kept in memory by lazy sources (video files, image files, torch conversions)
 DEFAULT_CACHE_FRAMES = 32
+#: how the Qt / Dear PyGui windows show the timeline (``Video(..., timeline=...)``)
+TIMELINE_DISPLAYS = ("shown", "collapsible", "collapsed", "hidden")
 
 
 def _is_torch_tensor(value: Any) -> bool:
@@ -297,6 +299,11 @@ class Video:
         to_numpy: torch frames are converted to numpy ``(H, W[, C])`` arrays
             (default); False hands the tensor slices themselves to the filters.
         cache_frames: decoded frames kept in memory by lazy sources.
+        timeline: how the Qt / Dear PyGui windows show the timeline:
+            ``"shown"`` (default), ``"collapsible"`` (a button folds it to
+            the transport row), ``"collapsed"`` (collapsible, starts
+            folded) or ``"hidden"`` (no panel: space and the arrows still
+            play and step). The first ``Video`` input decides.
 
     Example:
         ```python
@@ -322,6 +329,7 @@ class Video:
         max_frames: Optional[int] = None,
         to_numpy: bool = True,
         cache_frames: int = DEFAULT_CACHE_FRAMES,
+        timeline: str = "shown",
     ) -> None:
         if isinstance(window, bool) or not isinstance(window, int) or window < 1:
             raise ValueError(f"Video: window must be an int >= 1, got {window!r}")
@@ -331,6 +339,11 @@ class Video:
             raise ValueError(f"Video: fps must be positive, got {fps!r}")
         if max_frames is not None and max_frames < 1:
             raise ValueError(f"Video: max_frames must be >= 1, got {max_frames!r}")
+        if timeline not in TIMELINE_DISPLAYS:
+            raise ValueError(
+                f"Video: timeline must be one of {', '.join(map(repr, TIMELINE_DISPLAYS))}, got {timeline!r}"
+            )
+        self.timeline_display = timeline
         self._reader = _make_reader(source, max_frames, to_numpy)
         self._indexes = range(len(self._reader))[start:stop:step]
         if len(self._indexes) == 0:

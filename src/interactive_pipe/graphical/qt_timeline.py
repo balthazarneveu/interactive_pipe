@@ -128,7 +128,7 @@ def _polyline(points: Sequence[Tuple[float, float]]) -> Any:
 
 
 def paint_icon(painter: Any, kind: str, center: Tuple[float, float], size: float, color: Any) -> None:
-    """Draw transport icon ``kind`` (play, pause, first, previous, next, last, loop, fit) of ``size`` px."""
+    """Draw icon ``kind`` (play, pause, first, previous, next, last, loop, fit, collapse, expand) of ``size`` px."""
     cx, cy = center
     s = size / 2
 
@@ -158,6 +158,9 @@ def paint_icon(painter: Any, kind: str, center: Tuple[float, float], size: float
     if kind in ("previous", "next"):
         sign = -1 if kind == "previous" else 1
         painter.drawPath(_polyline([at(-0.25 * sign, -0.6), at(0.3 * sign, 0.0), at(-0.25 * sign, 0.6)]))
+    elif kind in ("collapse", "expand"):  # chevron down: fold the panel; up: unfold it
+        sign = 1 if kind == "collapse" else -1
+        painter.drawPath(_polyline([at(-0.55, -0.25 * sign), at(0.0, 0.3 * sign), at(0.55, -0.25 * sign)]))
     elif kind == "loop":
         radius = 0.68 * s
         box = QRectF(cx - radius, cy - radius, 2 * radius, 2 * radius)
@@ -485,6 +488,7 @@ class TimelineWidget(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
         self.loop_button = button(
             "loop", "loop playback", self._loop_clicked, checkable=True, checked=bool(timeline.loop)
         )
+        self.collapse_button = button("collapse", "hide the film strip", self.toggle_collapsed)
 
         self.strip = FilmStrip(timeline, self.seek, self, on_view_change=self._view_changed)
         layout = QVBoxLayout()
@@ -493,14 +497,32 @@ class TimelineWidget(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
         layout.addLayout(top)
         layout.addWidget(self.strip)
         self.setLayout(layout)
-        # never squeezed by the images: the panel keeps its height
-        self.setFixedHeight(6 + PLAY_SIZE + 6 + STRIP_HEIGHT + 10)
         self.colors = QtColors(_window_theme(self))
         self._apply_colors()
         self._view_changed()
+        self.apply_display()
         self.reset()
         if timeline.playing:
             self.play()
+
+    # ---------------------------------------------------------------- display (Video(..., timeline=...))
+    def apply_display(self) -> None:
+        """Show, fold or hide the panel after ``timeline.display`` / ``timeline.collapsed``."""
+        timeline = self.timeline
+        self._applied_display = (timeline.display, timeline.collapsed)
+        folded = timeline.collapsible and timeline.collapsed
+        self.collapse_button.setVisible(timeline.collapsible)
+        self.collapse_button.set_kind("expand" if folded else "collapse")
+        self.collapse_button.setToolTip("show the film strip" if folded else "hide the film strip")
+        self.strip.setVisible(not folded)
+        # never squeezed by the images: the panel keeps its height
+        self.setFixedHeight(6 + PLAY_SIZE + (8 if folded else 6 + STRIP_HEIGHT + 10))
+        self.setVisible(timeline.display != "hidden")
+
+    def toggle_collapsed(self) -> None:
+        """Fold the panel to its transport row, or unfold it (collapsible displays)."""
+        self.timeline.collapsed = not self.timeline.collapsed
+        self.apply_display()
 
     def _apply_colors(self) -> None:
         colors = self.colors
@@ -542,6 +564,8 @@ class TimelineWidget(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
     # ---------------------------------------------------------------- state
     def reset(self) -> None:
         """Sync with the control value (reset, tuning import, session restore, key step)."""
+        if (self.timeline.display, self.timeline.collapsed) != self._applied_display:
+            self.apply_display()  # new Video inputs with another timeline=...
         position = self.timeline.position
         self.time_label.setText(
             f"<span style='font-family: monospace; font-size: 15px; font-weight: 600; color: {_hex(self.colors.text)}'>"
