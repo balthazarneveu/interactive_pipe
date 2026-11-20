@@ -3,8 +3,9 @@ Demo: a custom file format and per-frame metadata (a burst of RAW frames).
 
 Cameras write a sequence of RAW files (DNG...) where each frame carries its
 own metadata: exposure time, ISO, white balance. This demo writes such a
-burst in a made-up format (``.craw``: a 10-bit Bayer mosaic and its
-metadata, in a numpy archive) with an auto-exposure that hunts, so the
+burst in a made-up format (``.craw``: a 10-bit Bayer mosaic, its metadata
+and a small developed preview, like the JPEG a camera embeds in its RAW
+files, in a numpy archive) with an auto-exposure that hunts, so the
 brightness flickers from frame to frame.
 
 ``Video(folder, loader=read_craw)`` reads the burst: the loader gets a path
@@ -12,7 +13,11 @@ and returns ``(mosaic, metadata)``. The pipeline function stays written for
 one frame; the filters read the metadata of the frame on screen with
 ``context["timeline"].metadata`` to subtract the black level, compensate the
 exposure (the flicker goes away) and apply the white balance of each shot.
-``preview=`` turns the 10-bit mosaics into the film strip thumbnails.
+``thumbnail_loader=read_craw_preview`` reads only the embedded preview for the
+film strip, so the thumbnails never decode the mosaics (without one,
+``preview=`` turns decoded frames into thumbnails). The window decodes the
+next ``preload`` frames in the background while you watch: a band on the
+ruler shows them.
 
 For real DNG files, the loader is a few lines of ``rawpy``::
 
@@ -24,10 +29,12 @@ Run it::
 
     python demo/video_raw_sequence_demo.py
     python demo/video_raw_sequence_demo.py --timeline collapsible
+    python demo/video_raw_sequence_demo.py --slow --preload 24   # a slow disk / decoder
 """
 
 import argparse
 import tempfile
+import time
 from pathlib import Path
 
 import numpy as np
@@ -42,6 +49,12 @@ WHITE_LEVEL = 1023
 def write_craw(path: Path, mosaic: np.ndarray, **metadata) -> None:
     with open(path, "wb") as file:  # a file object: numpy keeps the .craw suffix
         np.savez(file, mosaic=mosaic, **metadata)
+
+
+def read_craw_preview(path: Path) -> np.ndarray:
+    """``Video`` thumbnail loader: the embedded preview only (an npz archive reads one array)."""
+    with np.load(path) as data:
+        return data["preview"]
 
 
 def read_craw(path: Path):
@@ -82,9 +95,12 @@ def simulate_burst(folder: Path, n_frames: int = 48, size=(240, 320), seed: int 
         mosaic[1::2, 1::2] = signal[1::2, 1::2, 2]  # B
         mosaic += rng.normal(0.0, 0.004 * iso / 100, mosaic.shape)
         digital = np.clip(BLACK_LEVEL + mosaic * (WHITE_LEVEL - BLACK_LEVEL), 0, WHITE_LEVEL).astype(np.uint16)
+        # what the camera shows on its screen: developed, 8 bits, a quarter of the resolution
+        preview = (np.clip(signal[::4, ::4] / illuminant, 0.0, 1.0) ** (1 / 2.2) * 255).astype(np.uint8)
         write_craw(
             folder / f"burst_{k:03d}.craw",
             digital,
+            preview=preview,
             exposure_ms=exposure,
             iso=iso,
             wb_gains=1.0 / illuminant,
@@ -131,13 +147,22 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="RAW burst in a custom format, with per-frame metadata")
     parser.add_argument("-b", "--backend", choices=["qt", "dpg", "gradio", "mpl"], default="qt")
     parser.add_argument("--timeline", choices=["shown", "collapsible", "collapsed", "hidden"], default="shown")
+    parser.add_argument("--preload", type=int, default=8, help="frames decoded ahead of the playhead")
+    parser.add_argument("--slow", action="store_true", help="simulate a slow decoder (80 ms per frame)")
     args = parser.parse_args()
     folder = simulate_burst(Path(tempfile.mkdtemp(prefix="raw_burst_")))
+
+    def loader(path: Path):
+        if args.slow:
+            time.sleep(0.08)
+        return read_craw(path)
+
     burst = Video(
         folder,
         fps=12,
-        loader=read_craw,
-        preview=lambda mosaic: mosaic / WHITE_LEVEL,  # film strip thumbnails: 10-bit data to [0, 1]
+        loader=loader,
+        thumbnail_loader=read_craw_preview,  # the embedded preview: the strip never decodes the mosaics
+        preload=args.preload,
         timeline=args.timeline,
     )
     interactive_pipeline(gui=args.backend, cache=True, name="RAW burst")(develop_raw)(burst)

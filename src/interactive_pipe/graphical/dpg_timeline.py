@@ -24,6 +24,7 @@ import numpy as np
 from interactive_pipe.graphical import timeline_view as view
 from interactive_pipe.graphical.dpg_panels import DpgTimer
 from interactive_pipe.graphical.timeline_view import (
+    BUFFERED_HEIGHT,
     BUTTON_SIZE,
     OVERVIEW_HEIGHT,
     PANEL_RADIUS,
@@ -181,6 +182,7 @@ class DpgTimeline(StripView):
 
     def __init__(self, window: "MainWindow", timeline: TimelineControl, parent: Any, before: Any = 0) -> None:
         self.init_strip_view(timeline)
+        self._background_version: tuple = ()
         self.window = window
         self.width = 800  # panel width, followed every frame
         self.timer = DpgTimer(max(int(round(1000.0 / timeline.fps)), 1), self._tick_playback)
@@ -274,6 +276,7 @@ class DpgTimeline(StripView):
         """Sync with the control value (reset, tuning import, session restore, key step)."""
         self.follow(int(self.timeline.value))
         self.dirty = True
+        self.timeline.preload()  # decode the next frames before playback reaches them
 
     def seek(self, frame: int) -> None:
         frame = int(min(max(frame, 0), self.timeline.n_frames - 1))
@@ -380,6 +383,10 @@ class DpgTimeline(StripView):
             self.apply_display()  # new Video inputs with another timeline=...
         if self.timeline.display == "hidden":
             return
+        version = self.timeline.background_version  # thumbnails / frames ready in the background
+        if version != self._background_version:
+            self._background_version = version
+            self.dirty = True
         width = int(dpg.get_item_rect_size(self.panel)[0]) if self.window.viewport_ready else 0
         if width > 0 and width != self.width:
             self.width = width
@@ -555,6 +562,16 @@ class DpgTimeline(StripView):
             rounding=STRIP_RADIUS + 2,
             parent=dl,
         )
+
+        # frames decoded ahead: a band along the bottom of the ruler, above the played line
+        for left, right in self.buffered_spans():
+            dpg.draw_rectangle(
+                (sx + left, sy + RULER_HEIGHT - BUFFERED_HEIGHT),
+                (sx + right, sy + RULER_HEIGHT),
+                color=_rgba(view.DARK.buffered),
+                fill=_rgba(view.DARK.buffered),
+                parent=dl,
+            )
 
         # ruler
         step = self.tick_step()

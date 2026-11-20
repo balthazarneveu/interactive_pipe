@@ -213,11 +213,15 @@ def export_animation(
     from PIL import Image as PILImage
 
     previous_value = ctrl.value
+    # every frame of the video in turn: read ahead (exporting fewer frames, it would decode skipped ones)
+    read_ahead = is_timeline and abs(fps - ctrl.fps) < 1e-6
     frames: List[np.ndarray] = []
     try:
         for k in range(n_frames):
             seconds = k / fps
             ctrl.value = min(int(round(seconds * ctrl.fps)), ctrl.n_frames - 1) if is_timeline else seconds
+            if read_ahead and isinstance(ctrl, TimelineControl):
+                ctrl.preload()  # the next frames decode while this one is processed
             result = _prepared_result(pipeline, pipeline.run())
             frames.append(_to_rgb_uint8(_select_output(result, output)))
     except BaseException:
