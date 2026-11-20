@@ -67,6 +67,25 @@ one, a thin bar under it shows which part of the video is visible, and the
 view follows the playhead during playback. A `KeyboardControl` or a context
 event already bound to space or the arrows keeps them.
 
+### Showing, folding or hiding it
+
+`Video(..., timeline=...)` chooses how the Qt and Dear PyGui windows show
+the timeline (the first `Video` input decides):
+
+| `timeline=` | |
+|---|---|
+| `"shown"` (default) | the whole panel |
+| `"collapsible"` | a ⌄ button on the right folds the panel to its transport row, giving the room back to the images |
+| `"collapsed"` | collapsible, folded at start |
+| `"hidden"` | no panel: <kbd>Space</kbd> and <kbd>←</kbd> <kbd>→</kbd> still play and step |
+
+<!-- code: continue -->
+```python
+brighten(Video(frames, fps=25, timeline="hidden"))  # keyboard only
+```
+
+The panel takes the window's light or dark look on Qt (Dear PyGui is dark).
+
 The timeline is an ordinary control named **`frame`**: the call can set the
 starting frame, and snapshots, sweeps, tuning files and sessions see it too.
 

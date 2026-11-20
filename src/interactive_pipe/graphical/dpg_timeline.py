@@ -48,6 +48,7 @@ PAD_TOP = 8
 ROW_GAP = 6
 PAD_BOTTOM = 10
 PANEL_HEIGHT = PAD_TOP + PLAY_SIZE + ROW_GAP + STRIP_HEIGHT + PAD_BOTTOM
+FOLDED_HEIGHT = PAD_TOP + PLAY_SIZE + PAD_TOP  # collapsed: the transport row only
 SMALL_FONT_PX = 12
 TIME_FONT_PX = 17
 MONO_ADVANCE = 0.602  # DejaVu Sans Mono advance width, in em
@@ -117,7 +118,7 @@ class _Button:
 
 
 def draw_icon(parent: Any, kind: str, center: Point, size: float, color: Color) -> None:
-    """Transport icon ``kind`` (play, pause, first, previous, next, last, loop, fit) of ``size`` px."""
+    """Icon ``kind`` (play, pause, first, previous, next, last, loop, fit, collapse, expand) of ``size`` px."""
     cx, cy = center
     s = size / 2
 
@@ -146,6 +147,10 @@ def draw_icon(parent: Any, kind: str, center: Point, size: float, color: Color) 
         sign = -1 if kind == "previous" else 1
         points = [at(-0.25 * sign, -0.6), at(0.3 * sign, 0.0), at(-0.25 * sign, 0.6)]
         dpg.draw_polyline(_points(points), color=color, thickness=stroke, parent=parent)
+    elif kind in ("collapse", "expand"):  # chevron down: fold the panel; up: unfold it
+        sign = 1 if kind == "collapse" else -1
+        points = [at(-0.55, -0.25 * sign), at(0.0, 0.3 * sign), at(0.55, -0.25 * sign)]
+        dpg.draw_polyline(_points(points), color=color, thickness=stroke, parent=parent)
     elif kind == "loop":
         radius = 0.68 * s
         arc = [
@@ -173,8 +178,6 @@ def draw_icon(parent: Any, kind: str, center: Point, size: float, color: Color) 
 
 class DpgTimeline(StripView):
     """Timeline panel of a ``TimelineControl`` in the Dear PyGui window (see the module docstring)."""
-
-    height = PANEL_HEIGHT
 
     def __init__(self, window: "MainWindow", timeline: TimelineControl, parent: Any, before: Any = 0) -> None:
         self.init_strip_view(timeline)
@@ -213,7 +216,9 @@ class DpgTimeline(StripView):
         self.fit_button = _Button("fit", BUTTON_SIZE, self.reset_view)
         self.loop_button = _Button("loop", BUTTON_SIZE, self._toggle_loop)
         self.loop_button.checked = bool(timeline.loop)
-        self.buttons += [self.fit_button, self.loop_button]
+        self.collapse_button = _Button("collapse", BUTTON_SIZE, self.toggle_collapsed)
+        self.buttons += [self.fit_button, self.loop_button, self.collapse_button]
+        self._applied_display = (timeline.display, timeline.collapsed)
         self.hover_button: Optional[_Button] = None
         self.pressed_button: Optional[_Button] = None
         self.dragging = False
@@ -222,7 +227,36 @@ class DpgTimeline(StripView):
         if timeline.playing:
             timeline.playing = False
             self.play()
+        self.apply_display()
         self.draw()
+
+    # ---------------------------------------------------------------- display (Video(..., timeline=...))
+    @property
+    def folded(self) -> bool:
+        return self.timeline.collapsible and self.timeline.collapsed
+
+    @property
+    def height(self) -> int:
+        """Panel height: 0 when hidden, the transport row only when folded."""
+        if self.timeline.display == "hidden":
+            return 0
+        return FOLDED_HEIGHT if self.folded else PANEL_HEIGHT
+
+    def apply_display(self) -> None:
+        """Show, fold or hide the panel after ``timeline.display`` / ``timeline.collapsed``."""
+        self._applied_display = (self.timeline.display, self.timeline.collapsed)
+        self.collapse_button.visible = self.timeline.collapsible
+        self.collapse_button.kind = "expand" if self.folded else "collapse"
+        height = self.height
+        dpg.configure_item(self.panel, height=max(height, 1), show=height > 0)
+        dpg.configure_item(self.drawlist, height=max(height, 1))
+        self.dirty = True
+        self.window.layout_timeline()
+
+    def toggle_collapsed(self) -> None:
+        """Fold the panel to its transport row, or unfold it (collapsible displays)."""
+        self.timeline.collapsed = not self.timeline.collapsed
+        self.apply_display()
 
     # ---------------------------------------------------------------- StripView hooks
     def strip_width(self) -> int:
@@ -294,6 +328,8 @@ class DpgTimeline(StripView):
         return float(x - x0), float(y - y0)
 
     def _in_strip(self, x: float, y: float) -> bool:
+        if self.folded:
+            return False
         sx, sy = self.strip_origin
         return sx <= x <= sx + self.strip_width() and sy <= y <= sy + STRIP_HEIGHT
 
@@ -339,6 +375,10 @@ class DpgTimeline(StripView):
     def tick(self) -> None:
         """Every frame: follow the panel width, read the mouse, redraw when something changed."""
         if not dpg.does_item_exist(self.drawlist):
+            return
+        if (self.timeline.display, self.timeline.collapsed) != self._applied_display:
+            self.apply_display()  # new Video inputs with another timeline=...
+        if self.timeline.display == "hidden":
             return
         width = int(dpg.get_item_rect_size(self.panel)[0]) if self.window.viewport_ready else 0
         if width > 0 and width != self.width:
@@ -402,7 +442,8 @@ class DpgTimeline(StripView):
         dl = self.drawlist
         dpg.delete_item(dl, children_only=True)
         self._draw_top_row(dl)
-        self._draw_strip(dl)
+        if not self.folded:
+            self._draw_strip(dl)
 
     def _draw_button(self, dl: Any, button: _Button, x: float, cy: float) -> float:
         size = button.size
@@ -430,7 +471,7 @@ class DpgTimeline(StripView):
         width = self.width
         dpg.draw_rectangle(
             (0, 0),
-            (width, PANEL_HEIGHT),
+            (width, self.height),
             color=_rgba(view.PANEL),
             fill=_rgba(view.PANEL),
             rounding=PANEL_RADIUS,
@@ -461,12 +502,16 @@ class DpgTimeline(StripView):
         self._text((x + 10, cy - SMALL_FONT_PX * 0.62), chip, view.TEXT)
         x += chip_w + 8
         self._text((x, cy - SMALL_FONT_PX * 0.62), f"{self.timeline.fps:g} fps", view.MUTED)
-        # right side: zoom level, whole-video button (zoomed only), loop toggle
+        # right side: zoom level, whole-video button (zoomed only), loop toggle, fold button (collapsible)
         right = width - PAD_X
+        if self.collapse_button.visible:
+            right -= self.collapse_button.size
+            self._draw_button(dl, self.collapse_button, right, cy)
+            right -= 2
         right -= self.loop_button.size
         self._draw_button(dl, self.loop_button, right, cy)
-        self.fit_button.visible = self.zoomed
-        if self.zoomed:
+        self.fit_button.visible = self.zoomed and not self.folded
+        if self.fit_button.visible:
             right -= 2 + self.fit_button.size
             self._draw_button(dl, self.fit_button, right, cy)
             label = f"zoom ×{self.zoom_factor:.1f}"

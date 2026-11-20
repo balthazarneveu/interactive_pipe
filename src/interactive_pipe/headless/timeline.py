@@ -81,6 +81,9 @@ class TimelineControl(Control):
 
     Attributes:
         fps: frame rate of the timeline (the first video's).
+        display: ``"shown"``, ``"collapsible"``, ``"collapsed"`` or ``"hidden"``
+            (``Video(..., timeline=...)`` of the first video).
+        collapsed: the panel is folded to its transport row (collapsible displays).
         loop: playback starts over at the end (else it stops there).
         playing: playback state, shared by the widgets.
         videos: the ``Video`` inputs it drives (film strip thumbnails).
@@ -94,6 +97,7 @@ class TimelineControl(Control):
         loop: bool = True,
         autoplay: bool = False,
         tooltip: Optional[str] = None,
+        display: str = "shown",
     ) -> None:
         if n_frames < 1:
             raise ValueError(f"a timeline needs at least one frame, got {n_frames}")
@@ -109,6 +113,25 @@ class TimelineControl(Control):
         self.autoplay = autoplay
         self.playing = autoplay
         self.videos: List[Video] = []
+        self.display = "shown"
+        self.collapsed = False
+        self.set_display(display)
+
+    @property
+    def collapsible(self) -> bool:
+        return self.display in ("collapsible", "collapsed")
+
+    def set_display(self, display: str) -> None:
+        """``"shown"``, ``"collapsible"``, ``"collapsed"`` (collapsible, folded) or ``"hidden"``."""
+        from interactive_pipe.data_objects.video import TIMELINE_DISPLAYS
+
+        if display not in TIMELINE_DISPLAYS:
+            raise ValueError(
+                f"timeline display must be one of {', '.join(map(repr, TIMELINE_DISPLAYS))}, got {display!r}"
+            )
+        if display != self.display:
+            self.collapsed = display == "collapsed"
+        self.display = display
 
     @property
     def n_frames(self) -> int:
@@ -235,11 +258,14 @@ def install_videos(pipeline: "HeadlessPipeline", videos: Dict[Any, Video]) -> Op
         taken_parameters = {name for filt in pipeline.filters for name in (getattr(filt, "values", None) or {})}
         taken_controls = {ctrl.name for ctrl in pipeline.controls}
         name = TIMELINE_NAME if TIMELINE_NAME not in taken_parameters | taken_controls else FALLBACK_TIMELINE_NAME
-        timeline = TimelineControl(n_frames, fps=master.fps, name=_free_name(name, taken_controls))
+        timeline = TimelineControl(
+            n_frames, fps=master.fps, name=_free_name(name, taken_controls), display=master.timeline_display
+        )
         pipeline.controls.insert(0, timeline)
         changed = True
     else:
         timeline.set_length(n_frames, master.fps)
+        timeline.set_display(master.timeline_display)
     taken_filters = {filt.name for filt in pipeline.filters}
     new_filters = []
     for input_name in ordered:

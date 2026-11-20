@@ -166,6 +166,60 @@ def test_dpg_timeline_panel():
     gui.close()
 
 
+def test_qt_timeline_collapsible_and_hidden():
+    qt_gui = pytest.importorskip("interactive_pipe.graphical.qt_gui")
+    pipeline = HeadlessPipeline.from_function(one_video)
+    gui = qt_gui.InteractivePipeQT(pipeline=pipeline, name="video folds")
+    qt_gui.QTimer.singleShot(0, gui.close)
+    gui(Video(ramp(10), fps=20, timeline="collapsible"))
+    widget = gui.window.timeline_widget
+    full = widget.height()
+    assert not widget.collapse_button.isHidden() and not widget.strip.isHidden()
+    widget.collapse_button.click()
+    assert pipeline.timeline.collapsed and widget.strip.isHidden() and widget.height() < full
+    assert widget.collapse_button.kind == "expand"
+    widget.collapse_button.click()
+    assert widget.height() == full and not widget.strip.isHidden()
+
+    pipeline = HeadlessPipeline.from_function(one_video)
+    gui = qt_gui.InteractivePipeQT(pipeline=pipeline, name="video hidden")
+    qt_gui.QTimer.singleShot(0, gui.close)
+    gui(Video(ramp(10), fps=20, timeline="hidden"))
+    widget = gui.window.timeline_widget
+    assert widget.isHidden()
+    gui.on_press("right")  # the keys still drive the timeline
+    assert pipeline.timeline.value == 1
+    gui.on_press(" ")
+    assert pipeline.timeline.playing
+    widget._tick()
+    assert pipeline.timeline.value == 2
+
+
+def test_dpg_timeline_collapsible_and_hidden():
+    dpg_gui = pytest.importorskip("interactive_pipe.graphical.dpg_gui")
+    pipeline = HeadlessPipeline.from_function(one_video)
+    gui = dpg_gui.InteractivePipeDPG(pipeline=pipeline, name="video dpg folds")
+    gui.run = lambda: None  # no viewport in tests
+    gui(Video(ramp(100), fps=20, timeline="collapsed"))
+    window = gui.window
+    panel = window.timeline_panel
+    assert panel.folded and panel.collapse_button.kind == "expand"
+    folded = window._timeline_height()
+    sx, sy = panel.strip_origin
+    assert not panel._in_strip(sx + 5, sy + 30)  # no strip while folded
+    panel.draw()
+    x0, y0, x1, y1 = panel.collapse_button.box
+    panel.press((x0 + x1) / 2, (y0 + y1) / 2)
+    panel.release((x0 + x1) / 2, (y0 + y1) / 2)
+    assert not panel.folded and window._timeline_height() > folded
+    pipeline.timeline.set_display("hidden")
+    panel.tick()
+    assert panel.height == 0 and window._timeline_height() == 0
+    gui.on_press("right")
+    assert pipeline.timeline.value == 1
+    gui.close()
+
+
 @pytest.mark.parametrize("backend", ["mpl", "gradio"])
 def test_other_backends_show_a_frame_slider(backend):
     from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class

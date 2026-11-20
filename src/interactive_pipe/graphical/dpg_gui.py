@@ -1087,7 +1087,18 @@ class MainWindow(InteractivePipeWindow):
         dpg.set_value(self.status_text, text)
 
     def _timeline_height(self) -> int:
-        return 0 if self.timeline_panel is None else self.timeline_panel.height + TIMELINE_GAP
+        height = 0 if self.timeline_panel is None else self.timeline_panel.height
+        return height + TIMELINE_GAP if height else 0
+
+    def layout_timeline(self) -> None:
+        """Make room for the timeline panel (added, folded, unfolded, hidden)."""
+        if self.timeline_panel is None:
+            return
+        dpg.configure_item(self.bottom_scroll, height=-(STATUS_BAR_HEIGHT + self._timeline_height()))
+        if self.viewport_ready:
+            self.relayout()  # folded / unfolded: the images take the room now, not after the next run
+        else:
+            self._needs_layout = True
 
     def add_timeline(self, ctrl: TimelineControl) -> None:
         """Timeline panel of the ``Video`` inputs, full width at the bottom (above the status line)."""
@@ -1101,10 +1112,9 @@ class MainWindow(InteractivePipeWindow):
         self.timeline_panel = panel
         self.timers.append(panel.timer)
         self.widget_list[ctrl.name] = panel  # reset_sliders -> panel.reset()
-        dpg.configure_item(self.bottom_scroll, height=-(STATUS_BAR_HEIGHT + self._timeline_height()))
+        self.layout_timeline()
         if self.main_gui is not None:
             self.main_gui.bind_timeline_keys(panel.play_pause, panel.step)
-        self._needs_layout = True
 
     def update_label(self, idx):
         if idx in self.name_label:
