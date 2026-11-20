@@ -9,7 +9,8 @@ A backend subclasses it and provides ``strip_width()`` and, optionally,
 """
 
 import math
-from typing import List, Optional, Tuple
+from dataclasses import dataclass
+from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -17,15 +18,70 @@ from interactive_pipe.headless.timeline import TimelineControl
 
 RGB = Tuple[int, int, int]
 
+
 # ---------------------------------------------------------------- look (shared by the backends)
-PANEL: RGB = (28, 29, 32)
-TRACK_BACKGROUND: RGB = (16, 17, 19)
-RULER_BAND: RGB = (38, 40, 44)
-TEXT: RGB = (232, 234, 237)
-MUTED: RGB = (138, 143, 152)
-ACCENT: RGB = (255, 176, 32)  # playhead, play button, loop on
-ACCENT_HOVER: RGB = (255, 196, 84)
-ACCENT_PRESSED: RGB = (224, 150, 16)
+@dataclass(frozen=True)
+class Theme:
+    """Colours of the timeline panel; ``overlay`` tints hover / pressed fills (white on dark, black on light)."""
+
+    name: str
+    panel: RGB
+    track_background: RGB
+    ruler_band: RGB
+    text: RGB
+    muted: RGB
+    accent: RGB  # playhead, play button, loop on
+    accent_hover: RGB
+    accent_pressed: RGB
+    on_accent: RGB  # icon on the play button
+    overlay: RGB
+    border: Optional[RGB] = None  # outline of the panel (light theme: it sits on a light window)
+
+
+DARK = Theme(
+    name="dark",
+    panel=(28, 29, 32),
+    track_background=(16, 17, 19),
+    ruler_band=(38, 40, 44),
+    text=(232, 234, 237),
+    muted=(138, 143, 152),
+    accent=(255, 176, 32),
+    accent_hover=(255, 196, 84),
+    accent_pressed=(224, 150, 16),
+    on_accent=(28, 29, 32),
+    overlay=(255, 255, 255),
+)
+LIGHT = Theme(
+    name="light",
+    panel=(252, 252, 253),
+    track_background=(218, 221, 226),
+    ruler_band=(236, 238, 242),
+    text=(32, 34, 38),
+    muted=(108, 114, 124),
+    accent=(242, 140, 0),
+    accent_hover=(255, 160, 30),
+    accent_pressed=(214, 120, 0),
+    on_accent=(255, 255, 255),
+    overlay=(0, 0, 0),
+    border=(210, 213, 219),
+)
+
+
+def theme_for(background: Sequence[int]) -> Theme:
+    """``LIGHT`` on a light window background (an RGB triple), else ``DARK``."""
+    red, green, blue = (float(c) for c in background[:3])
+    return LIGHT if 0.299 * red + 0.587 * green + 0.114 * blue > 128 else DARK
+
+
+# the dark theme's colours, by name (Dear PyGui draws on its own dark theme)
+PANEL: RGB = DARK.panel
+TRACK_BACKGROUND: RGB = DARK.track_background
+RULER_BAND: RGB = DARK.ruler_band
+TEXT: RGB = DARK.text
+MUTED: RGB = DARK.muted
+ACCENT: RGB = DARK.accent
+ACCENT_HOVER: RGB = DARK.accent_hover
+ACCENT_PRESSED: RGB = DARK.accent_pressed
 
 RULER_HEIGHT = 18
 THUMB_HEIGHT = 46
@@ -69,6 +125,7 @@ class StripView:
 
     def init_strip_view(self, timeline: TimelineControl) -> None:
         self.timeline = timeline
+        self.theme: Theme = DARK
         self.hover_frame: Optional[int] = None
         self._view: Optional[Tuple[float, float]] = None  # (first, last) visible frame; None: the whole video
         self._strip_cache: Optional[tuple] = None  # (width, view, n_frames, ids of videos) -> image
@@ -202,11 +259,11 @@ class StripView:
         """
         width = max(self.strip_width(), 1)
         videos = self.timeline.videos
-        key = (width, height, self.view, self.timeline.n_frames, tuple(id(video) for video in videos))
+        key = (width, height, self.theme.name, self.view, self.timeline.n_frames, tuple(id(video) for video in videos))
         if self._strip_cache is not None and self._strip_cache[0] == key:
             return self._strip_cache[1]
         strip = np.zeros((height, width, 3), dtype=np.uint8)
-        strip[...] = TRACK_BACKGROUND
+        strip[...] = self.theme.track_background
         if videos:
             video = videos[0]
             try:
@@ -229,7 +286,9 @@ class StripView:
                     shown = thumb[:, crop : crop + max(min(right - left, thumb.shape[1] - crop), 0)]
                     strip[:, left : left + shown.shape[1]] = shown
                     if 0 < left < width:
-                        strip[:, left - 1 : left + 1] = TRACK_BACKGROUND  # gap between the frames of the film
+                        strip[:, left - 1 : left + 1] = (
+                            self.theme.track_background
+                        )  # gap between the frames of the film
             except Exception:  # noqa: BLE001 - a frame that cannot be previewed leaves a plain track
                 pass
         strip = np.ascontiguousarray(strip)
