@@ -46,6 +46,24 @@ def test_qt_timeline_widget():
     assert layout.indexOf(widget) == layout.indexOf(gui.window.status_label) - 1  # at the bottom
 
 
+def test_timeline_theme_follows_the_window():
+    from interactive_pipe.graphical.timeline_view import DARK, LIGHT, theme_for
+
+    assert theme_for((239, 239, 239)) is LIGHT and theme_for((45, 45, 48)) is DARK
+    qt_gui = pytest.importorskip("interactive_pipe.graphical.qt_gui")
+    pipeline = HeadlessPipeline.from_function(one_video)
+    gui = qt_gui.InteractivePipeQT(pipeline=pipeline, name="video theme")
+    qt_gui.QTimer.singleShot(0, gui.close)
+    gui(Video(ramp(10), fps=20))
+    widget = gui.window.timeline_widget
+    for theme in (LIGHT, DARK):
+        widget.set_theme(theme)
+        assert widget.strip.theme is theme and widget.play_button.colors.theme is theme
+        widget.strip.strip_image()
+        assert widget.strip._strip_cache[0][2] == theme.name  # thumbnails redrawn on the theme background
+        assert widget.colors.text.red() == theme.text[0] and not widget.grab().isNull()
+
+
 def test_qt_timeline_zoom():
     qt_gui = pytest.importorskip("interactive_pipe.graphical.qt_gui")
     from interactive_pipe.graphical.timeline_view import MIN_VISIBLE_FRAMES

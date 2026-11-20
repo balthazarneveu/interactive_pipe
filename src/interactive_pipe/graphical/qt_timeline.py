@@ -1,4 +1,4 @@
-"""Qt timeline of a ``Video`` input: a dark editor-like panel at the bottom of the window.
+"""Qt timeline of a ``Video`` input: an editor-like panel at the bottom of the window.
 
 Top row: transport (first frame, previous frame, play / pause, next frame,
 last frame), the timecode, the frame number, and on the right the zoom level
@@ -6,6 +6,10 @@ and the loop toggle. Below, over the whole width, the film strip: thumbnails,
 a time ruler, the playhead; click / drag seeks, scroll zooms around the
 cursor, shift + scroll (or a horizontal scroll) pans, double-click shows the
 whole video again. While zoomed the view follows the playhead.
+
+The panel is dark on a dark window and light on a light one
+(``timeline_view.theme_for`` of the window palette, checked again when the
+palette changes).
 
 Shown by ``InteractivePipeQT.add_controls`` when the pipeline gets a
 ``TimelineControl`` (``headless/timeline.py``). Playback ticks at the video
@@ -17,7 +21,6 @@ a player instead of lagging.
 import math
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Sequence, Tuple
 
-from interactive_pipe.graphical import timeline_view as view
 from interactive_pipe.graphical.qt_backend import (
     QColor,
     QFont,
@@ -46,29 +49,48 @@ from interactive_pipe.graphical.timeline_view import (
     STRIP_RADIUS,
     THUMB_HEIGHT,
     StripView,
+    Theme,
     ruler_label,
+    theme_for,
 )
 from interactive_pipe.headless.timeline import TimelineControl, timecode
 
 if TYPE_CHECKING:
     from interactive_pipe.graphical.qt_gui import MainWindow
 
-# ---------------------------------------------------------------- look (shared values: timeline_view.py)
-PANEL = QColor(*view.PANEL)
-TRACK_BACKGROUND = QColor(*view.TRACK_BACKGROUND)
-RULER_BAND = QColor(*view.RULER_BAND)
-TEXT = QColor(*view.TEXT)
-MUTED = QColor(*view.MUTED)
-ACCENT = QColor(*view.ACCENT)
-ACCENT_HOVER = QColor(*view.ACCENT_HOVER)
-ACCENT_PRESSED = QColor(*view.ACCENT_PRESSED)
-HOVER_FILL = QColor(255, 255, 255, 26)
-PRESSED_FILL = QColor(255, 255, 255, 46)
-HOVER_LINE = QColor(255, 255, 255, 220)
+# ---------------------------------------------------------------- look (themes: timeline_view.py)
+HOVER_LINE = QColor(255, 255, 255, 220)  # over the thumbnails, whatever the theme
 SHADOW = QColor(0, 0, 0, 140)
-OVERVIEW_BACKING = QColor(*view.TRACK_BACKGROUND, 215)
-OVERVIEW_TRACK = QColor(255, 255, 255, 45)
-OVERVIEW_VIEW = QColor(255, 255, 255, 190)
+
+
+class QtColors:
+    """The ``QColor`` s of a ``Theme``."""
+
+    def __init__(self, theme: Theme) -> None:
+        self.theme = theme
+        light = theme.overlay != (255, 255, 255)
+        self.panel = QColor(*theme.panel)
+        self.track_background = QColor(*theme.track_background)
+        self.ruler_band = QColor(*theme.ruler_band)
+        self.text = QColor(*theme.text)
+        self.muted = QColor(*theme.muted)
+        self.accent = QColor(*theme.accent)
+        self.accent_hover = QColor(*theme.accent_hover)
+        self.accent_pressed = QColor(*theme.accent_pressed)
+        self.on_accent = QColor(*theme.on_accent)
+        self.border = QColor(*theme.border) if theme.border is not None else None
+        self.hover_fill = QColor(*theme.overlay, 16 if light else 26)
+        self.pressed_fill = QColor(*theme.overlay, 30 if light else 46)
+        self.checked_fill = QColor(*theme.accent, 40 if light else 52)
+        self.minor_tick = QColor(*theme.muted, 110)
+        self.overview_backing = QColor(*theme.track_background, 215)
+        self.overview_track = QColor(*theme.overlay, 40 if light else 45)
+        self.overview_view = QColor(*theme.overlay, 150 if light else 190)
+
+
+def _window_theme(widget: Any) -> Theme:
+    color = widget.palette().window().color()
+    return theme_for((color.red(), color.green(), color.blue()))
 
 
 def _event_x(event: Any) -> float:
@@ -185,6 +207,7 @@ class IconButton(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
         self.checked = checked
         self.hovered = False
         self.pressed = False
+        self.colors = QtColors(theme_for((0, 0, 0)))  # set by the panel
         side = PLAY_SIZE if primary else BUTTON_SIZE
         self.setFixedSize(side, side)
         self.setToolTip(tooltip)
@@ -207,18 +230,21 @@ class IconButton(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             box = QRectF(0.5, 0.5, self.width() - 1.0, self.height() - 1.0)
             painter.setPen(Qt.PenStyle.NoPen)
+            colors = self.colors
             if self.primary:
-                painter.setBrush(ACCENT_PRESSED if self.pressed else ACCENT_HOVER if self.hovered else ACCENT)
+                painter.setBrush(
+                    colors.accent_pressed if self.pressed else colors.accent_hover if self.hovered else colors.accent
+                )
                 painter.drawEllipse(box)
-                icon_color = PANEL
+                icon_color = colors.on_accent
             else:
                 if self.checked:
-                    painter.setBrush(QColor(ACCENT.red(), ACCENT.green(), ACCENT.blue(), 52))
+                    painter.setBrush(colors.checked_fill)
                     painter.drawEllipse(box)
                 if self.pressed or self.hovered:
-                    painter.setBrush(PRESSED_FILL if self.pressed else HOVER_FILL)
+                    painter.setBrush(colors.pressed_fill if self.pressed else colors.hover_fill)
                     painter.drawEllipse(box)
-                icon_color = ACCENT if self.checked else TEXT if self.hovered else MUTED
+                icon_color = colors.accent if self.checked else colors.text if self.hovered else colors.muted
             icon = self.width() * (0.4 if self.primary else 0.46)
             offset = icon * 0.08 if self.kind == "play" else 0.0  # optical centre of the triangle
             paint_icon(painter, self.kind, (self.width() / 2 + offset, self.height() / 2), icon, icon_color)
@@ -259,6 +285,7 @@ class FilmStrip(QtWidgetBase, StripView):  # type: ignore[reportGeneralTypeIssue
     ) -> None:
         super().__init__(parent)
         self.init_strip_view(timeline)
+        self.colors = QtColors(self.theme)
         self.on_seek = on_seek
         self._on_view_change = on_view_change
         self._pixmap_cache: Optional[tuple] = None  # (strip image id) -> pixmap
@@ -271,6 +298,11 @@ class FilmStrip(QtWidgetBase, StripView):  # type: ignore[reportGeneralTypeIssue
 
     def sizeHint(self) -> QSize:
         return QSize(600, STRIP_HEIGHT)
+
+    def set_colors(self, colors: QtColors) -> None:
+        self.colors = colors
+        self.theme = colors.theme  # thumbnails background (strip_image)
+        self.update()
 
     def strip_width(self) -> int:
         return self.width()
@@ -296,23 +328,24 @@ class FilmStrip(QtWidgetBase, StripView):  # type: ignore[reportGeneralTypeIssue
     def _paint(self, painter: Any) -> None:
         width, height = self.width(), self.height()
         fps = self.timeline.fps
+        colors = self.colors
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         clip = QPainterPath()
         clip.addRoundedRect(QRectF(0, 0, width, height), STRIP_RADIUS, STRIP_RADIUS)
         painter.setClipPath(clip)
-        painter.fillRect(0, 0, width, height, TRACK_BACKGROUND)
-        painter.fillRect(0, 0, width, RULER_HEIGHT, RULER_BAND)
+        painter.fillRect(0, 0, width, height, colors.track_background)
+        painter.fillRect(0, 0, width, RULER_HEIGHT, colors.ruler_band)
         painter.drawPixmap(0, RULER_HEIGHT, self._strip_pixmap())
 
         # ruler: labelled ticks every "nice" number of seconds, minor ticks in between
         painter.setFont(_monospace(7.5))
         step = self.tick_step()
         minor = self.minor_step(step)
-        painter.setPen(QPen(QColor(MUTED.red(), MUTED.green(), MUTED.blue(), 110), 1))
+        painter.setPen(QPen(colors.minor_tick, 1))
         for seconds in self.ticks(minor):
             x = int(self.x_of(seconds * fps)) + 0.5
             painter.drawLine(QPointF(x, RULER_HEIGHT - 3), QPointF(x, RULER_HEIGHT))
-        painter.setPen(QPen(MUTED, 1))
+        painter.setPen(QPen(colors.muted, 1))
         for seconds in self.ticks(step):
             x = int(self.x_of(seconds * fps)) + 0.5
             painter.drawLine(QPointF(x, RULER_HEIGHT - 7), QPointF(x, RULER_HEIGHT))
@@ -322,7 +355,7 @@ class FilmStrip(QtWidgetBase, StripView):  # type: ignore[reportGeneralTypeIssue
         x_head = self.x_of(int(self.timeline.value))
         # played part: a thin accent line along the top of the thumbnails
         played = min(max(x_head, 0.0), float(width))
-        painter.fillRect(QRectF(0, RULER_HEIGHT, played, 2), ACCENT)
+        painter.fillRect(QRectF(0, RULER_HEIGHT, played, 2), colors.accent)
 
         # hover: a line and the time under the cursor, in a bubble on the ruler
         if self.hover_frame is not None:
@@ -336,9 +369,9 @@ class FilmStrip(QtWidgetBase, StripView):  # type: ignore[reportGeneralTypeIssue
             left = min(max(x_hover - text_width / 2, 1.0), width - text_width - 1.0)
             bubble = QRectF(left, 1, text_width, RULER_HEIGHT - 3)
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(TEXT)
+            painter.setBrush(colors.text)
             painter.drawRoundedRect(bubble, 4, 4)
-            painter.setPen(QPen(PANEL))
+            painter.setPen(QPen(colors.panel))
             painter.drawText(bubble, Qt.AlignmentFlag.AlignCenter, text)
 
         # overview when zoomed: the whole video, the visible part, the playhead
@@ -347,23 +380,23 @@ class FilmStrip(QtWidgetBase, StripView):  # type: ignore[reportGeneralTypeIssue
             inner = width - 16.0
             start, span, head = self.overview(inner)
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(OVERVIEW_BACKING)
+            painter.setBrush(colors.overview_backing)
             painter.drawRoundedRect(QRectF(5, top - 3, inner + 6, OVERVIEW_HEIGHT + 6), 5, 5)
-            painter.setBrush(OVERVIEW_TRACK)
+            painter.setBrush(colors.overview_track)
             painter.drawRoundedRect(QRectF(8, top, inner, OVERVIEW_HEIGHT), 2, 2)
-            painter.setBrush(OVERVIEW_VIEW)
+            painter.setBrush(colors.overview_view)
             painter.drawRoundedRect(QRectF(8 + start, top, span, OVERVIEW_HEIGHT), 2, 2)
-            painter.setBrush(ACCENT)
+            painter.setBrush(colors.accent)
             painter.drawRect(QRectF(8 + head - 1, top - 1, 2, OVERVIEW_HEIGHT + 2))
 
         # playhead: a handle on the ruler and a line over the thumbnails (shadowed for bright frames)
         if -6 <= x_head <= width + 6:
             painter.setPen(QPen(SHADOW, 4))
             painter.drawLine(QPointF(x_head, RULER_HEIGHT), QPointF(x_head, height))
-            painter.setPen(QPen(ACCENT, 2))
+            painter.setPen(QPen(colors.accent, 2))
             painter.drawLine(QPointF(x_head, RULER_HEIGHT - 2), QPointF(x_head, height))
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(ACCENT)
+            painter.setBrush(colors.accent)
             half = 5.5
             handle = [
                 (x_head - half, 1),
@@ -426,9 +459,8 @@ class TimelineWidget(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
             self.buttons.append(widget)
             return widget
 
-        def label(style: str) -> Any:
+        def label() -> Any:
             widget = QLabel("", self)
-            widget.setStyleSheet(f"QLabel {{ {style} }}")
             top.addWidget(widget, 0, Qt.AlignmentFlag.AlignVCenter)
             return widget
 
@@ -438,20 +470,15 @@ class TimelineWidget(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
         button("next", "next frame [→]", lambda: self.step(1))
         button("last", "last frame", lambda: self.seek(self.timeline.n_frames - 1))
         top.addSpacing(14)
-        self.time_label = label("background: transparent;")
+        self.time_label = label()
         self.time_label.setTextFormat(Qt.TextFormat.RichText)
         top.addSpacing(10)
-        self.frame_label = label(
-            f"background: {_hex(RULER_BAND)}; color: {_hex(TEXT)}; border-radius: 10px;"
-            " padding: 0px 10px; font-family: monospace; font-size: 11px;"
-        )
+        self.frame_label = label()
         self.frame_label.setFixedHeight(22)  # Qt drops a radius larger than half the height
         top.addSpacing(6)
-        self.fps_label = label(f"color: {_hex(MUTED)}; font-size: 11px; background: transparent;")
+        self.fps_label = label()
         top.addStretch(1)
-        self.zoom_label = label(
-            f"color: {_hex(MUTED)}; font-family: monospace; font-size: 11px; background: transparent;"
-        )
+        self.zoom_label = label()
         self.zoom_label.setToolTip("scroll on the film strip to zoom, shift + scroll to pan")
         top.addSpacing(2)
         self.fit_button = button("fit", "show the whole video (double-click on the strip)", self.strip_fit)
@@ -468,18 +495,47 @@ class TimelineWidget(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
         self.setLayout(layout)
         # never squeezed by the images: the panel keeps its height
         self.setFixedHeight(6 + PLAY_SIZE + 6 + STRIP_HEIGHT + 10)
+        self.colors = QtColors(_window_theme(self))
+        self._apply_colors()
         self._view_changed()
         self.reset()
         if timeline.playing:
             self.play()
 
+    def _apply_colors(self) -> None:
+        colors = self.colors
+        self.frame_label.setStyleSheet(
+            f"QLabel {{ background: {_hex(colors.ruler_band)}; color: {_hex(colors.text)}; border-radius: 10px;"
+            " padding: 0px 10px; font-family: monospace; font-size: 11px; }"
+        )
+        muted = f"color: {_hex(colors.muted)}; font-size: 11px; background: transparent;"
+        self.fps_label.setStyleSheet(f"QLabel {{ {muted} }}")
+        self.zoom_label.setStyleSheet(f"QLabel {{ {muted} font-family: monospace; }}")
+        self.time_label.setStyleSheet("QLabel { background: transparent; }")
+        for widget in self.buttons:
+            widget.colors = colors
+            widget.update()
+        self.strip.set_colors(colors)
+
+    def set_theme(self, theme: Theme) -> None:
+        """Repaint the panel with ``theme`` (``timeline_view.DARK`` / ``LIGHT``)."""
+        self.colors = QtColors(theme)
+        self._apply_colors()
+        self.reset()
+        self.update()
+
     def paintEvent(self, event: Any) -> None:  # noqa: N802 - Qt API
+        theme = _window_theme(self)
+        if theme != self.colors.theme:  # the window switched between light and dark
+            self.set_theme(theme)
         painter = QPainter(self)
         try:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(PANEL)
-            painter.drawRoundedRect(QRectF(0, 0, self.width(), self.height()), PANEL_RADIUS, PANEL_RADIUS)
+            box = QRectF(0.5, 0.5, self.width() - 1.0, self.height() - 1.0)
+            border = self.colors.border
+            painter.setPen(QPen(border, 1) if border is not None else Qt.PenStyle.NoPen)
+            painter.setBrush(self.colors.panel)
+            painter.drawRoundedRect(box, PANEL_RADIUS, PANEL_RADIUS)
         finally:
             painter.end()
 
@@ -488,9 +544,9 @@ class TimelineWidget(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
         """Sync with the control value (reset, tuning import, session restore, key step)."""
         position = self.timeline.position
         self.time_label.setText(
-            f"<span style='font-family: monospace; font-size: 15px; font-weight: 600; color: {_hex(TEXT)}'>"
+            f"<span style='font-family: monospace; font-size: 15px; font-weight: 600; color: {_hex(self.colors.text)}'>"
             f"{timecode(position.time)}</span>"
-            f"<span style='font-family: monospace; font-size: 12px; color: {_hex(MUTED)}'>"
+            f"<span style='font-family: monospace; font-size: 12px; color: {_hex(self.colors.muted)}'>"
             f"&nbsp;/&nbsp;{timecode(position.duration)}</span>"
         )
         self.frame_label.setText(f"frame {position.frame} / {position.n_frames - 1}")
