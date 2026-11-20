@@ -40,6 +40,8 @@ still works without a timeline.
 | numpy array `(T, H, W)` / `(T, H, W, C)`, list of arrays | `Video(stack, fps=30)` |
 | torch tensor `(T, C, H, W)` / `(T, H, W, C)`, list of tensors | `Video(tensor)` |
 | iterator / generator of frames, opened `cv2.VideoCapture` | `Video(simulate(), max_frames=200)` |
+| any file format: folder / pattern / paths and a `loader` | `Video("raw/*.dng", loader=read_dng)` |
+| a `FrameSource` subclass, any lazy sequence (`len` + `[i]`) | `Video(RawBurst("capture.bin"))`, `Video(dataset)` |
 
 Files and image folders are decoded lazily (only the frames you visit, the
 last ones kept in a small cache), as `[0, 1]` float RGB like `Image.load_image`.
@@ -48,7 +50,9 @@ Arrays and tensors are handed over as they are. Torch frames become numpy
 slices to your model filter (see `demo/video_compare_demo.py`).
 
 Other options: `fps=` (default: the file's, else 25), `start=`, `stop=`,
-`step=` (keep `frames[start:stop:step]`), `max_frames=` for streams.
+`step=` (keep `frames[start:stop:step]`), `max_frames=` for streams,
+`timeline=` ([below](#showing-folding-or-hiding-it)), `preview=`
+([below](#custom-formats-and-per-frame-metadata)).
 
 ## The timeline
 
@@ -112,8 +116,9 @@ export_animation(brighten.headless, "/tmp/brighten.gif", output=1)  # the second
 
 Filters read the timeline position from the context: `context["timeline"]`
 is a `Timeline` with `frame`, `time` (seconds), `fps`, `n_frames`,
-`duration` and `progress` (0 to 1). Printed, it reads
-`00:01.20 / 00:04.00 · frame 30/99`.
+`duration`, `progress` (0 to 1) and the `metadata` of the frame
+([custom formats](#custom-formats-and-per-frame-metadata)). Printed, it
+reads `00:01.20 / 00:04.00 · frame 30/99`.
 
 ```python
 import numpy as np
@@ -180,6 +185,96 @@ detect(Video(stack), Video(stack, window=3), frame=10)
 `clip.with_window(3)` is the same video (sharing its decoded frames) with a
 window.
 
+## Custom formats and per-frame metadata
+
+### One file per frame: `loader=`
+
+A sequence of files in a format `Video` does not read (DNG, EXR, a lab's own
+raw format...) takes a `loader`: a function called with each path. It
+returns the frame, or `(frame, metadata)` when the file also tells
+something about the shot. Give a glob pattern, a folder (every file in it)
+or a list of paths:
+
+<!-- code: skip needs rawpy and DNG files -->
+```python
+import rawpy
+
+
+def read_dng(path):
+    with rawpy.imread(str(path)) as raw:
+        mosaic = raw.raw_image_visible.astype(np.float32)
+        return mosaic, {"white_balance": raw.camera_whitebalance, "black_level": raw.black_level_per_channel}
+
+
+develop(Video("shoot/*.dng", loader=read_dng, preview=lambda mosaic: mosaic / 16383))
+```
+
+Files are still read lazily, only when the timeline reaches them.
+
+### Anything else: `FrameSource`
+
+For a file holding many frames, a camera SDK or frames computed on demand,
+subclass `FrameSource`: `__len__` and `read(index)`, and optionally
+`metadata(index)`, `fps` and `description`. The `Video` reads the frames
+lazily and caches them. Any object with `len()` and `[index]` (a torch
+`Dataset`...) also works as it is, and its items may be `(frame, metadata)`.
+
+```python
+import numpy as np
+
+from interactive_pipe import FrameSource, Video
+
+
+class Simulation(FrameSource):
+    fps = 30.0
+    description = "heat diffusion"
+
+    def __len__(self):
+        return 100
+
+    def read(self, index):
+        return np.full((32, 32), index / 100, np.float32)
+
+    def metadata(self, index):
+        return {"temperature": 20 + index / 10}
+
+
+clip = Video(Simulation())
+print(clip, clip.metadata(50))  # Video(heat diffusion, 100 frames, 30 fps) {'temperature': 25.0}
+```
+
+### Reading the metadata in a filter
+
+`context["timeline"].metadata` is the metadata of the frame on screen
+(of the first `Video` input; `context["timeline"].inputs_metadata` has every
+input's, by input name). Frames read from files also give their `"path"`.
+`clip.metadata(index)` reads it outside a pipeline.
+
+<!-- code: continue -->
+```python
+from interactive_pipe import context, interactive, interactive_pipeline, layout
+
+
+@interactive()
+def thermometer(frame):
+    temperature = context["timeline"].metadata["temperature"]
+    layout.style("heat", title=f"{temperature:.1f} °C")
+    return frame
+
+
+@interactive_pipeline(gui="qt")
+def watch(frame):
+    heat = thermometer(frame)
+    return heat
+
+
+watch.headless(clip, frame=30)
+```
+
+`preview=` gives the film strip thumbnails of frames that are not images to
+look at as they are (a raw mosaic, 10-bit data): a function frame → image.
+The filters still receive the frames unchanged.
+
 ## How it works
 
 When an input is a `Video`, the pipeline puts a small filter in front of the
@@ -198,3 +293,6 @@ controls knows the timeline.
   `window=3`, with boxes drawn on the moving objects.
 - `demo/video_compare_demo.py`: a restoration model fed with torch tensors
   at 12 fps, compared with a 24 fps reference: wipe, error map, PSNR.
+- `demo/video_raw_sequence_demo.py`: a RAW burst in a custom file format read
+  with `loader=`; the filters use each shot's exposure, ISO and white balance
+  (`context["timeline"].metadata`) to remove the auto-exposure flicker.
