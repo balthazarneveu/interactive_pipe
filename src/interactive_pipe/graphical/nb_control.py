@@ -80,7 +80,7 @@ class IntSliderNotebookControl(BaseControl):
         return IntSlider(  # type: ignore[reportOptionalCall]
             min=self.ctrl.value_range[0],  # type: ignore[reportOptionalSubscript]
             max=self.ctrl.value_range[1],  # type: ignore[reportOptionalSubscript]
-            value=self.ctrl.value_default,
+            value=self.ctrl.value,
             step=self.ctrl.step,
             style=style,
             layout=self.layout,
@@ -108,7 +108,7 @@ class FloatSliderNotebookControl(BaseControl):
                 base=10,
                 min=low,
                 max=high,
-                value=self.ctrl.value_default,
+                value=self.ctrl.value,
                 step=(high - low) / 200,
                 readout_format=".3g",
                 style=style,
@@ -118,7 +118,7 @@ class FloatSliderNotebookControl(BaseControl):
         return FloatSlider(  # type: ignore[reportOptionalCall]
             min=self.ctrl.value_range[0],  # type: ignore[reportOptionalSubscript]
             max=self.ctrl.value_range[1],  # type: ignore[reportOptionalSubscript]
-            value=self.ctrl.value_default,
+            value=self.ctrl.value,
             step=self.ctrl.step,
             readout_format=D3_FORMAT,  # "6", "0.1", "0.005" as on the other backends
             style=style,
@@ -184,7 +184,7 @@ class BoolCheckButtonNotebookControl(BaseControl):
             raise ModuleNotFoundError("ipywidgets is required for notebook controls")
         if Checkbox is None:
             raise ModuleNotFoundError("ipywidgets is required for notebook controls")
-        checks = Checkbox(self.ctrl.value_default, layout=self.layout, tooltip=self.ctrl.tooltip)  # type: ignore[reportOptionalCall]
+        checks = Checkbox(self.ctrl.value, layout=self.layout, tooltip=self.ctrl.tooltip)  # type: ignore[reportOptionalCall]
         return checks
 
 
@@ -203,6 +203,7 @@ class DialogNotebookControl(BaseControl):
         options = self.ctrl.value_range
         dropdown = Dropdown(  # type: ignore[reportOptionalCall]
             options=options,
+            value=self.ctrl.value,
             description=self.name,
             layout=self.layout,
             tooltip=self.ctrl.tooltip,

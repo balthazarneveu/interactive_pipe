@@ -83,7 +83,7 @@ class IntSliderControl(BaseControl):
             raise ModuleNotFoundError("gradio is required for Gradio controls")
         if self.ctrl.value_range is None:
             raise ValueError("value_range must be set for IntSliderControl")
-        value_default = self.ctrl.value_default
+        value_default = self.ctrl.value  # the current value: parameters may have been set before the build
         if not isinstance(value_default, (int, float)):
             raise TypeError(f"Expected int or float for IntSliderControl, got {type(value_default)}")
         self.control_widget = gr.Slider(  # type: ignore[reportOptionalMemberAccess]
@@ -109,7 +109,7 @@ class FloatSliderControl(BaseControl):
             raise ModuleNotFoundError("gradio is required for Gradio controls")
         if self.ctrl.value_range is None:
             raise ValueError("value_range must be set for FloatSliderControl")
-        value_default = self.ctrl.value_default
+        value_default = self.ctrl.value  # the current value: parameters may have been set before the build
         if not isinstance(value_default, (int, float)):
             raise TypeError(f"Expected int or float for FloatSliderControl, got {type(value_default)}")
         if self.ctrl.is_log:
@@ -135,7 +135,7 @@ class FloatSliderControl(BaseControl):
             .replace("${vmax}", repr(float(value_max)))
         )
         self.control_widget = gr.HTML(  # type: ignore[reportOptionalMemberAccess]
-            value=float(self.ctrl.value_default),
+            value=float(self.ctrl.value),
             html_template=template,
             css_template=_RANGE_CSS,
             js_on_load=_LOG_JS,

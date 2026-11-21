@@ -360,7 +360,8 @@ def _make_reader(
         return source
     if isinstance(source, (str, Path)):
         text = str(source)
-        if any(char in text for char in "*?["):
+        # an existing file or folder wins: "clip[1].avi" is a name, not a pattern
+        if any(char in text for char in "*?[") and not Path(text).exists():
             return _ImageFilesReader(_paths_from_pattern(text), f"pattern {text!r}", loader)
         path = Path(source)
         if not path.exists():
@@ -597,7 +598,9 @@ class Video:
         if preview is not None and not callable(preview):
             raise TypeError(f"Video: preview must be a function frame -> image, got {type(preview).__name__}")
         self._preview = preview if preview is not None else (source._preview if isinstance(source, Video) else None)
-        self._indexes = range(len(self._reader))[start:stop:step]
+        # a Video made from a Video keeps its trimming: start / stop / step apply to its frames
+        base_indexes = source._indexes if isinstance(source, Video) else range(len(self._reader))
+        self._indexes = base_indexes[start:stop:step]
         if len(self._indexes) == 0:
             raise ValueError(f"Video: no frame left in {self._reader.description} with start={start}, stop={stop}")
         base_fps = fps if fps is not None else (source.fps if isinstance(source, Video) else self._reader.fps)
@@ -648,7 +651,10 @@ class Video:
                 self._metadata.clear()
             self._metadata[raw_index] = {**self._reader.metadata(raw_index), **metadata}
             if isinstance(frame, np.ndarray):
-                frame.flags.writeable = False  # shared with the cache: filters get read-only frames anyway
+                # shared with the cache: filters get read-only frames anyway. A view, so
+                # that the caller's own arrays (Video([a, b, c])) stay writable
+                frame = frame.view()
+                frame.flags.writeable = False
             self._cache[raw_index] = frame
             while len(self._cache) > self._cache_frames:
                 self._cache.popitem(last=False)

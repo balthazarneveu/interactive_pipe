@@ -126,9 +126,10 @@ class MainWindow(MatplotlibWindow):
         figsize = self.window_size if isinstance(self.window_size, tuple) else None
         # A window of the same name (a module loaded twice, a notebook cell run again) is replaced:
         # matplotlib >= 3.10 raises "Figure ... already exists" instead of reusing it
-        if self.name in plt.get_figlabels():
+        # (an unnamed GUI replaces nothing: "" is the label of every unlabelled figure of the user)
+        if self.name and self.name in plt.get_figlabels():
             plt.close(self.name)
-        self.fig, self.ax = plt.subplots(figsize=figsize, num=self.name)
+        self.fig, self.ax = plt.subplots(figsize=figsize, num=self.name or None)
         plt.axis("off")
         self.init_sliders()
         self.gesture = Gesture()
