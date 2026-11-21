@@ -30,6 +30,7 @@ Conventions shared by every function:
   (``istft(stft(x)) == x`` up to float error).
 """
 
+import os
 import shutil
 import subprocess
 import wave
@@ -125,27 +126,44 @@ def _read_wav(path: Path) -> Tuple[np.ndarray, int]:
     return (data[:, 0] if channels == 1 else data), rate
 
 
+_PROBE_TIMEOUT = 30.0  # seconds
+_DECODE_TIMEOUT = 300.0
+
+
 def _read_with_ffmpeg(path: Path) -> Tuple[np.ndarray, int]:
-    if shutil.which("ffmpeg") is None:
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
         raise RuntimeError(
             f"sound.load: {path.suffix} files need ffmpeg (not found on the PATH); install it or convert to .wav"
         )
+    # absolute: a name starting with "-" is not read as an option, "x:y" not as a protocol
+    source = os.path.abspath(path)
     rate = 44100
     probe = shutil.which("ffprobe")
     if probe is not None:
-        found = subprocess.run(
-            [probe, "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=sample_rate", "-of", "csv=p=0"]
-            + [str(path)],
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
+        try:
+            found = subprocess.run(
+                [probe, "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=sample_rate"]
+                + ["-of", "csv=p=0", "-i", source],
+                capture_output=True,
+                text=True,
+                timeout=_PROBE_TIMEOUT,
+            ).stdout.strip()
+        except subprocess.TimeoutExpired:
+            found = ""
         if found.isdigit():
             rate = int(found)
-    result = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(path), "-vn", "-f", "f32le", "-acodec", "pcm_f32le", "-ar", str(rate)]
-        + ["-ac", "1", "-"],
-        capture_output=True,
-    )
+    try:
+        result = subprocess.run(
+            [ffmpeg, "-nostdin", "-v", "error", "-i", source, "-vn", "-f", "f32le", "-acodec", "pcm_f32le"]
+            + ["-ar", str(rate), "-ac", "1", "-"],
+            capture_output=True,
+            timeout=_DECODE_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(
+            f"sound.load: ffmpeg did not finish decoding {path} within {_DECODE_TIMEOUT:.0f} s"
+        ) from None
     if result.returncode != 0:
         raise RuntimeError(f"sound.load: ffmpeg could not decode {path}: {result.stderr.decode(errors='replace')}")
     return np.frombuffer(result.stdout, "<f4").copy(), rate

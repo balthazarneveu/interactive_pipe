@@ -175,3 +175,44 @@ def test_load_compressed_file_without_ffmpeg(monkeypatch, tmp_path):
     monkeypatch.setattr(sound.shutil, "which", lambda name: None)
     with pytest.raises(RuntimeError, match="ffmpeg"):
         sound.load(path)
+
+
+def test_ffmpeg_calls_are_hardened(monkeypatch, tmp_path):
+    """A file name starting with "-" is never read as an option, the executables
+    found by shutil.which are the ones run, and every call has a timeout."""
+    import subprocess
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "-weird.mp3").write_bytes(b"x")
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        stdout = "8000" if "probe" in command[0] else np.zeros(4, "<f4").tobytes()
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr=b"")
+
+    monkeypatch.setattr(sound.shutil, "which", lambda name: f"/opt/bin/{name}")
+    monkeypatch.setattr(sound.subprocess, "run", fake_run)
+    signal, rate = sound.load("-weird.mp3")
+    assert rate == 8000 and signal.shape == (4,)
+    assert [command[0] for command, _ in calls] == ["/opt/bin/ffprobe", "/opt/bin/ffmpeg"]
+    for command, kwargs in calls:
+        source = command[command.index("-i") + 1]
+        assert source == str(tmp_path / "-weird.mp3")
+        assert not any(argument.startswith("-weird") for argument in command)
+        assert kwargs.get("timeout")
+
+
+def test_ffmpeg_timeout_is_reported(monkeypatch, tmp_path):
+    import subprocess
+
+    path = tmp_path / "endless.mp3"
+    path.write_bytes(b"x")
+
+    def fake_run(command, **kwargs):
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+    monkeypatch.setattr(sound.subprocess, "run", fake_run)
+    monkeypatch.setattr(sound.shutil, "which", lambda name: f"/opt/bin/{name}")
+    with pytest.raises(RuntimeError, match="did not finish"):
+        sound.load(path)
