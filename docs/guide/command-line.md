@@ -116,8 +116,8 @@ interactive_pipe: snapshot of 'key_event_pipeline' written to shots/key_event_pi
   `shots/<pipeline>.png`, then `shots/<pipeline>_2.png` when the same pipeline is
   called again. With `-o out.png`: `out.png`, `out_2.png`, ...; `{name}` in the
   value is replaced by the pipeline name (`-o shots/{name}_v1.png`).
-- Without `-o`, the files go to `<temp dir>/interactive_pipe_snapshots/<script>/`
-  (outside your repository); the paths are printed.
+- Without `-o`, the files go to `<temp dir>/interactive_pipe_snapshots-<user id>/<script>/`
+  (outside your repository, in a folder only you can read); the paths are printed.
 - The script is stopped after `--max-calls` pipeline calls (default 10), so a
   script looping over a dataset ends.
 - Arguments after `--` are the script's own (`sys.argv[1:]`):

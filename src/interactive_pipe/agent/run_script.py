@@ -27,6 +27,7 @@ import logging
 import os
 import runpy
 import signal
+import stat
 import sys
 import tempfile
 import traceback
@@ -153,9 +154,46 @@ def format_script_error(exc: BaseException) -> str:
     return "".join(line if line.endswith("\n") else line + "\n" for line in lines) + message
 
 
+def _user_tag() -> str:
+    if hasattr(os, "getuid"):
+        return str(os.getuid())
+    import getpass
+
+    try:
+        user = getpass.getuser()
+    except Exception:  # no user name in the environment
+        return "user"
+    return "".join(char if char.isalnum() or char in "-_." else "_" for char in user) or "user"
+
+
+def snapshot_root() -> Path:
+    """Per-user folder holding the default snapshots, in the temp dir."""
+    return Path(tempfile.gettempdir()) / f"interactive_pipe_snapshots-{_user_tag()}"
+
+
 def default_output(script: Path) -> Path:
     """Folder used when no output is given: outside the user's repository."""
-    return Path(tempfile.gettempdir()) / "interactive_pipe_snapshots" / script.stem
+    return snapshot_root() / script.stem
+
+
+def ensure_private_folder(folder: Path) -> Path:
+    """Create ``folder`` readable by its owner only, and refuse one that another user
+    created first or that is a symbolic link: in a shared temp dir, it could
+    redirect the snapshots onto a file the current user can write."""
+    folder.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        folder.mkdir(mode=0o700)
+    except FileExistsError:
+        pass
+    info = os.lstat(folder)
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+        raise RuntimeError(f"refusing to write snapshots to {folder}: it is not a plain folder (pass -o)")
+    if hasattr(os, "getuid"):
+        if info.st_uid != os.getuid():
+            raise RuntimeError(f"refusing to write snapshots to {folder}: owned by another user (pass -o)")
+        if info.st_mode & 0o077:
+            os.chmod(folder, 0o700)
+    return folder
 
 
 def _is_folder(output: str) -> bool:
@@ -532,6 +570,7 @@ def run_script(
     if not keep_pngs:
         output = f"{scratch.folder().as_posix()}/"
     elif output is None:
+        ensure_private_folder(snapshot_root())
         output = f"{default_output(script_path).as_posix()}/"
     else:  # absolute now: the script may chdir before calling its pipelines
         trailing = output.endswith(("/", os.sep))

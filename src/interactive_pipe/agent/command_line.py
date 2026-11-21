@@ -96,7 +96,7 @@ def build_parser() -> argparse.ArgumentParser:
                 dest="out",
                 metavar="PATH",
                 help="PNG file, folder (trailing /) or pattern with {name}; default: "
-                "<tmp>/interactive_pipe_snapshots/<script>/",
+                "<tmp>/interactive_pipe_snapshots-<user>/<script>/",
             )
         if name in ("describe", "check"):
             command.add_argument("--json", action="store_true", help="machine-readable output")
