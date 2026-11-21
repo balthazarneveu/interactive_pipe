@@ -5,6 +5,9 @@ on:
     branches: [master]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   pyright:
     runs-on: ubuntu-latest
@@ -14,5 +17,5 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -e ".[full]"
-      - uses: jakebailey/pyright-action@v2
+      - uses: jakebailey/pyright-action@6cabc0f01c4994be48fd45cd9dbacdd6e1ee6e5e  # v2
         continue-on-error: true  # Informational only - won't block builds

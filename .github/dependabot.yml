@@ -1,0 +1,14 @@
+version: 2
+updates:
+  # Keeps the commit-pinned actions current (the comment shows the version)
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: monthly
