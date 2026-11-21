@@ -2,6 +2,7 @@
 
 import json
 import os
+import stat
 import subprocess
 import sys
 import textwrap
@@ -11,7 +12,7 @@ import pytest
 
 from interactive_pipe.agent import AGENTS_MD_BLOCK, SKILL_NAME, skill_path, skill_text
 from interactive_pipe.agent.command_line import main
-from interactive_pipe.agent.run_script import default_output, run_script
+from interactive_pipe.agent.run_script import default_output, ensure_private_folder, run_script, snapshot_root
 from interactive_pipe.cli import SNAPSHOT_ENV_VAR, get_snapshot_hook
 
 SRC = Path(__file__).resolve().parent.parent / "src"
@@ -220,9 +221,35 @@ def test_snapshot_default_output_is_outside_the_project(script, tmp_path, monkey
 
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "tmp"))
     run = run_script(str(script))
-    assert default_output(script) == tmp_path / "tmp" / "interactive_pipe_snapshots" / "demo_script"
+    assert default_output(script).parent.parent == tmp_path / "tmp"
+    assert default_output(script).parent.name.startswith("interactive_pipe_snapshots-")
+    assert default_output(script).name == "demo_script"
     assert run.written[0] == default_output(script) / "first.png"
     assert run.written[0].is_file()
+    if hasattr(os, "getuid"):
+        assert stat.S_IMODE(os.stat(default_output(script).parent).st_mode) == 0o700
+
+
+@pytest.mark.skipif(not hasattr(os, "symlink") or sys.platform == "win32", reason="POSIX links")
+def test_snapshot_default_output_refuses_a_planted_link(script, tmp_path, monkeypatch):
+    import tempfile
+
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "tmp"))
+    (tmp_path / "tmp").mkdir()
+    victim = tmp_path / "victim"
+    victim.mkdir()
+    os.symlink(victim, snapshot_root())  # another user creating the folder first
+    with pytest.raises(RuntimeError, match="not a plain folder"):
+        run_script(str(script))
+    assert list(victim.iterdir()) == []
+
+
+def test_ensure_private_folder_tightens_permissions(tmp_path):
+    folder = tmp_path / "shots"
+    folder.mkdir(mode=0o777)
+    ensure_private_folder(folder)
+    if hasattr(os, "getuid"):
+        assert stat.S_IMODE(os.stat(folder).st_mode) == 0o700
 
 
 def test_snapshot_restores_the_process_state(script, tmp_path, monkeypatch):
