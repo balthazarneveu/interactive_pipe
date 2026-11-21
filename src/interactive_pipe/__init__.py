@@ -21,6 +21,7 @@ from interactive_pipe.data_objects.curves import Curve, SingleCurve
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.table import Table
 from interactive_pipe.data_objects.video import FrameSource, Video
+from interactive_pipe.data_objects.webcam import Webcam
 
 # Special controls
 from interactive_pipe.headless.control import (
@@ -80,6 +81,7 @@ __all__ = [
     "Image",
     "Table",
     "Video",
+    "Webcam",
     "FrameSource",
     "Timeline",
     "TimelineControl",

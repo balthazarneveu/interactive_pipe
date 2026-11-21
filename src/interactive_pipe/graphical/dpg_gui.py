@@ -103,6 +103,7 @@ class InteractivePipeDPG(InteractivePipeGUI):
 
     # click (< 3 px of movement) sets a PointControl, shift-drag draws a RegionControl
     pointer_gestures = True
+    live_clock = True  # a Webcam input refreshes from the render loop timers
 
     def init_app(self, **kwargs):
         self._init_app_kwargs = dict(kwargs)  # run() builds the window again in a new context

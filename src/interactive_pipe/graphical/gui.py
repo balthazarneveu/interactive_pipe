@@ -14,6 +14,7 @@ from interactive_pipe.graphical.pointer_input import help_lines as pointer_help_
 from interactive_pipe.graphical.window import format_timings_table
 from interactive_pipe.headless.control import TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
+from interactive_pipe.headless.live import LiveControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.headless.pointer import check_targets
 from interactive_pipe.headless.timeline import TimelineControl
@@ -49,6 +50,8 @@ class InteractivePipeGUI:
     """
 
     pointer_gestures = False
+    #: the backend ticks TimeControls (a Webcam input then refreshes on its own)
+    live_clock = False
 
     def __init__(
         self,
@@ -82,7 +85,7 @@ class InteractivePipeGUI:
             merged_controls += pipeline.controls
         check_targets(self.pipeline)  # an unknown on= output name fails here, before any window
         # point / region controls: coordinate sliders unless the backend handles the mouse
-        self.controls = controls_for_backend(merged_controls, self.pointer_gestures)
+        self.controls = self._backend_controls(merged_controls)
         # pipeline controls with a widget already (a Video input adds its timeline when called)
         self._shown_pipeline_controls = {id(ctrl) for ctrl in getattr(pipeline, "controls", None) or []}
         if self.pipeline.outputs:
@@ -168,8 +171,19 @@ class InteractivePipeGUI:
         if not new_controls:
             return
         self._shown_pipeline_controls |= {id(ctrl) for ctrl in new_controls}
-        self.controls = list(self.controls) + controls_for_backend(new_controls, self.pointer_gestures)
+        new_controls = self._backend_controls(new_controls)
+        if not new_controls:
+            return  # a Webcam's clock on a backend without timer: nothing to show
+        self.controls = list(self.controls) + new_controls
         self.add_controls(new_controls)
+
+    def _backend_controls(self, controls: List) -> List:
+        """The controls this backend builds widgets for: pointer controls as
+        sliders without mouse gestures; no live clock without a timer (a
+        ``Webcam`` input then gives a new frame at every run)."""
+        if not self.live_clock:
+            controls = [ctrl for ctrl in controls if not isinstance(ctrl, LiveControl)]
+        return controls_for_backend(controls, self.pointer_gestures)
 
     def add_controls(self, new_controls: List) -> None:
         """Make ``new_controls`` (already in ``self.controls``) appear in the window.
@@ -298,6 +312,8 @@ class InteractivePipeGUI:
         doc = None
         self.start_time = time.time()
         self.time_playing = True
+        if isinstance(ctrl, LiveControl):
+            ctrl.ticking = True  # the webcam frames now come from its background reader
 
         def update_func():
             if self.start_time is None:
