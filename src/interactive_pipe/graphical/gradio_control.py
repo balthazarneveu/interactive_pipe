@@ -1,3 +1,4 @@
+import html
 import logging
 
 from interactive_pipe.graphical.control_errors import name_control_errors
@@ -129,7 +130,7 @@ class FloatSliderControl(BaseControl):
         (evenly over decades) whose value and readout are the real value."""
         value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
         template = (
-            _LOG_HTML.replace("${label}", str(self.name))
+            _LOG_HTML.replace("${label}", template_text(self.name))
             .replace("${vmin}", repr(float(value_min)))
             .replace("${vmax}", repr(float(value_max)))
         )
@@ -141,6 +142,14 @@ class FloatSliderControl(BaseControl):
             elem_classes=["ip-range-control"],
         )
         return self.control_widget
+
+
+def template_text(text: object) -> str:
+    """``text`` as inert content of a Gradio ``html_template``: the template is HTML
+    evaluated as a JavaScript template literal, so markup, ``${...}``, backticks
+    and backslashes are all turned into character references."""
+    escaped = html.escape(str(text), quote=True)
+    return escaped.replace("$", "&#36;").replace("`", "&#96;").replace("\\", "&#92;")
 
 
 _LOG_HTML = """
@@ -253,7 +262,7 @@ class RangeSliderControl(BaseControl):
         value_min, value_max = self.ctrl.value_range  # type: ignore[misc]
         lo, hi = range_pair(self.ctrl)
         template = (
-            _RANGE_HTML.replace("${label}", str(self.name))
+            _RANGE_HTML.replace("${label}", template_text(self.name))
             .replace("${vmin}", str(value_min))
             .replace("${vmax}", str(value_max))
             .replace("${step}", str(self.ctrl.step))
