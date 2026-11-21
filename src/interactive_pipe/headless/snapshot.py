@@ -172,9 +172,7 @@ def select_cells(grid: Grid, output: OutputSelector) -> Grid:
         if selector in names:
             chosen.append(cells[names.index(selector)])
         elif isinstance(selector, str):
-            if selector not in names:
-                raise ValueError(f"No output named {selector!r}, available outputs: {names}")
-            chosen.append(cells[names.index(selector)])
+            raise ValueError(f"No output named {selector!r}, available outputs: {names}")
         else:
             if not -len(cells) <= selector < len(cells):
                 raise IndexError(f"output index {selector} out of range: {len(cells)} outputs {names}")
@@ -420,11 +418,11 @@ def _row_neighbours(ax: Any) -> List[Any]:
 
 
 def _redraw_figure_cells(fig: "Figure", dpi: float) -> None:
-    from matplotlib.transforms import Bbox
-
     """Draw each matplotlib figure output again at the pixel size of its
     axes, at the snapshot dpi: its text comes out the size of a Curve's in
     the next cell, whatever its figsize (see ``rasterize_figure``)."""
+    from matplotlib.transforms import Bbox
+
     axes = [ax for ax in _all_axes(fig) if getattr(ax, _FIGURE_CELL, None) is not None]
     if not axes:
         return

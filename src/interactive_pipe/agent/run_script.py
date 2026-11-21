@@ -30,6 +30,7 @@ import signal
 import stat
 import sys
 import tempfile
+import threading
 import traceback
 import warnings
 from dataclasses import dataclass, field
@@ -222,11 +223,12 @@ class _PathChooser:
 
 
 def _forget_script_modules(before: set, folder: Path) -> None:
-    """Drop the modules the script imported from its own folder (its siblings),
-    so another script run in this process imports its own ``helpers.py``."""
+    """Drop the modules the script imported from its own folder (its siblings and
+    the packages next to it), so another script run in this process imports its
+    own ``helpers.py``."""
     for name in set(sys.modules) - before:
         module_file = getattr(sys.modules.get(name), "__file__", None)
-        if module_file and Path(module_file).resolve().parent == folder:
+        if module_file and folder in Path(module_file).resolve().parents:
             del sys.modules[name]
 
 
@@ -436,7 +438,9 @@ def _as_script_results(result: Any) -> Any:
     return list(result) if isinstance(result, tuple) else result
 
 
-def _render_call(pipeline: Any, call: "PipelineCall", path: Path, fixed: Dict[str, Any], options: CallOptions) -> Any:
+def _render_call(
+    pipeline: Any, call: "PipelineCall", path: Path, fixed: Dict[str, Any], options: CallOptions, scratch: Path
+) -> Any:
     """Render one captured call as the mode asks; returns what the script's call returns."""
     from interactive_pipe.agent.parameters import check_step_names, output_selector, typed_axes
     from interactive_pipe.headless.explore import run_snapshot
@@ -446,15 +450,19 @@ def _render_call(pipeline: Any, call: "PipelineCall", path: Path, fixed: Dict[st
         axes = typed_axes(pipeline, options.axes)
         check_step_names(pipeline, options.steps)
         swept = {target for name in [*axes, *options.steps] for target in _targets(pipeline, name)}
-        fixed = {name: value for name, value in fixed.items() if tuple(name.split(".", 1)) not in swept}
+        kept = {name: value for name, value in fixed.items() if tuple(name.split(".", 1)) not in swept}
         try:
-            pipeline.sweep(path, params={**fixed, **axes}, steps=options.steps or None, output=selector)
+            pipeline.sweep(path, params={**kept, **axes}, steps=options.steps or None, output=selector)
         except (TypeError, ValueError) as exc:
             if type(exc).__name__ in ("FilterError", "DisplayError", "PipelineSyntaxError"):
                 raise
             raise CommandLineError(str(exc)) from None
         print(f"interactive_pipe: sweep of {pipeline.name!r} written to {path}")
-        return []
+        # the script goes on with the results of its own call (it may index them),
+        # its values for the swept parameters included
+        with contextlib.redirect_stdout(io.StringIO()):
+            _, result = run_snapshot(pipeline, scratch, params=fixed)
+        return _as_script_results(result)
     with _observe(pipeline, call):
         if options.mode == "snapshot":
             try:
@@ -580,6 +588,10 @@ def run_script(
     scratch_paths = scratch.path
 
     def hook(name: str, pipeline: Any, render: Callable[[Path], Any]) -> Any:
+        if len(run.calls) >= max_calls:
+            # one call too many: a script with exactly max_calls calls runs to its end
+            run.stopped_early = True
+            raise _StopScript()
         local = _local_options(pipeline, options, run.namespace)
         if (options.pipeline is not None and name != options.pipeline) or local is None:
             run.skipped.append(name)
@@ -596,7 +608,7 @@ def run_script(
 
         try:
             fixed = _prepare(pipeline, render, scratch_paths(name), local)
-            call.results = _render_call(pipeline, call, path, fixed, local)
+            call.results = _render_call(pipeline, call, path, fixed, local, scratch_paths(name))
         except (CommandLineError, ParameterError) as exc:
             run.calls.remove(call)  # nothing was rendered
             run.usage_error = str(exc)
@@ -604,24 +616,33 @@ def run_script(
         except Exception as exc:
             call.error = exc  # the script decides: it usually stops with this error
             raise
-        if len(run.calls) >= max_calls:
-            run.stopped_early = True
-            raise _StopScript()
         return call.results
 
+    import matplotlib
+
+    # every restore step is registered before the state it undoes is changed, and
+    # runs whatever the others do: one failing must not leave the hook, the
+    # environment or the scratch folder behind
+    restore = contextlib.ExitStack()
+    restore.callback(scratch.cleanup)
     saved_argv, saved_path = sys.argv, list(sys.path)
-    saved_modules = set(sys.modules)
-    # the Qt backend resets SIGINT / SIGTERM to SIG_DFL when it is selected
-    saved_signals = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
-    saved_interact_gui = _intercept_interact(hook)
+    restore.callback(setattr, sys, "argv", saved_argv)
+    restore.callback(sys.path.__setitem__, slice(None), saved_path)
+    restore.callback(_forget_script_modules, set(sys.modules), script_path.parent)
+    if threading.current_thread() is threading.main_thread():  # signal.signal raises elsewhere
+        # the Qt backend resets SIGINT / SIGTERM to SIG_DFL when it is selected
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            handler = signal.getsignal(sig)
+            if handler is not None:
+                restore.callback(signal.signal, sig, handler)
     saved_env = {name: os.environ.get(name) for name in (SNAPSHOT_ENV_VAR, "INTERACTIVE_PIPE_GUI", "QT_QPA_PLATFORM")}
+    restore.callback(_restore_environment, saved_env)
+    restore.callback(_restore_matplotlib_backend, matplotlib.get_backend())
+    restore.callback(_restore_interact, _intercept_interact(hook))
+    restore.callback(set_snapshot_hook, set_snapshot_hook(hook))
     os.environ[SNAPSHOT_ENV_VAR] = output  # also used by filter.interact()
     os.environ.pop("INTERACTIVE_PIPE_GUI", None)  # "headless" there would bypass the snapshots
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-    previous_hook = set_snapshot_hook(hook)
-    import matplotlib
-
-    saved_mpl_backend = matplotlib.get_backend()
     matplotlib.use("Agg", force=True)  # a plt.show() in the script must not open a window
     sys.argv = [str(script_path), *script_args]
     sys.path.insert(0, str(script_path.parent))
@@ -629,7 +650,7 @@ def run_script(
     quiet = options.mode in ("describe", "check")
     redirect = contextlib.redirect_stdout(sys.stderr) if quiet else contextlib.nullcontext()
     capture = _captured_warnings(run.warnings, script_path) if options.mode == "check" else contextlib.nullcontext()
-    try:
+    with restore:
         with redirect, capture:
             try:
                 _exec_as_main_into(script_path, run)
@@ -647,27 +668,25 @@ def run_script(
                 run.exception = exc
                 run.error = format_script_error(exc)
             if options.mode == "check" and run.usage_error is None:
-                _run_uncalled_pipelines(run, scratch_paths)
-    finally:
-        sys.argv = saved_argv
-        sys.path[:] = saved_path
-        _forget_script_modules(saved_modules, script_path.parent)
-        for sig, handler in saved_signals.items():
-            if handler is not None:
-                signal.signal(sig, handler)
-        _restore_interact(saved_interact_gui)
-        set_snapshot_hook(previous_hook)
-        for name, value in saved_env.items():
-            if value is None:
-                os.environ.pop(name, None)
-            else:
-                os.environ[name] = value
-        try:
-            matplotlib.use(saved_mpl_backend, force=True)
-        except Exception:  # noqa: BLE001 - the original backend may not be importable here
-            pass
-        scratch.cleanup()
+                _run_uncalled_pipelines(run, scratch_paths, options)
     return run
+
+
+def _restore_environment(saved: Dict[str, Optional[str]]) -> None:
+    for name, value in saved.items():
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
+
+
+def _restore_matplotlib_backend(backend: str) -> None:
+    import matplotlib
+
+    try:
+        matplotlib.use(backend, force=True)
+    except Exception:  # noqa: BLE001 - the original backend may not be importable here
+        pass
 
 
 def _exec_as_main_into(script_path: Path, run: ScriptRun) -> None:
@@ -706,7 +725,7 @@ def found_pipelines(namespace: Dict[str, Any]) -> Dict[str, Any]:
     return found
 
 
-def _run_uncalled_pipelines(run: ScriptRun, scratch_paths: Callable[[str], Path]) -> None:
+def _run_uncalled_pipelines(run: ScriptRun, scratch_paths: Callable[[str], Path], options: CallOptions) -> None:
     """``check``: pipelines the script built but did not call through a GUI. Those
     taking no input run once with their defaults; the others are listed."""
     called = {call.name for call in run.calls}
@@ -717,10 +736,18 @@ def _run_uncalled_pipelines(run: ScriptRun, scratch_paths: Callable[[str], Path]
         run.calls.append(call)
         if list(pipeline.inputs_routing or []):
             continue  # needs inputs the script did not give
+        from interactive_pipe.agent.parameters import ParameterError, typed_settings
         from interactive_pipe.headless.explore import run_snapshot
 
+        local = _local_options(pipeline, options, run.namespace)
         try:
+            # --set applies here as well (and an unknown name is rejected)
+            settings = typed_settings(pipeline, local.settings) if local is not None else {}
             with _observe(pipeline, call), contextlib.redirect_stdout(io.StringIO()):
-                run_snapshot(pipeline, scratch_paths(name))
+                run_snapshot(pipeline, scratch_paths(name), params=settings)
+        except ParameterError as exc:
+            run.calls.remove(call)
+            run.usage_error = str(exc)
+            return
         except Exception as exc:  # noqa: BLE001 - reported by check
             call.error = exc
