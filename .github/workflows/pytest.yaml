@@ -5,6 +5,9 @@ on:
     branches: [master]
   pull_request:
 
+permissions:
+  contents: read
+
 # No display on the runners: render headless (snapshots, demos, doc code blocks)
 env:
   MPLBACKEND: Agg

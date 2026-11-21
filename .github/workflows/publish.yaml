@@ -4,6 +4,10 @@ on:
   push:
     tags: ["v*"]
 
+# Every job reads only; the publish job adds the OIDC token it needs
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -42,6 +46,18 @@ jobs:
         run: |
           pip install build
           python -m build
+      - name: Smoke-test the built wheel (the metadata that is published, not the repo's)
+        env:
+          MPLBACKEND: Agg
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python -m venv "$RUNNER_TEMP/wheel-env"
+          "$RUNNER_TEMP/wheel-env/bin/pip" install dist/*.whl
+          cd "$RUNNER_TEMP"
+          wheel-env/bin/interactive-pipe --version
+          wheel-env/bin/interactive-pipe doctor
+          wheel-env/bin/interactive-pipe snapshot "$GITHUB_WORKSPACE/demo/color_demo.py" -o "$RUNNER_TEMP/shots/"
+          ls "$RUNNER_TEMP"/shots/*.png
       - uses: actions/upload-artifact@v4
         with:
           name: dist
@@ -59,4 +75,4 @@ jobs:
           name: dist
           path: dist/
       - name: Publish to PyPI (trusted publishing)
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086  # v1.14.3
