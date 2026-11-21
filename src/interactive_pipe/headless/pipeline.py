@@ -601,11 +601,12 @@ class HeadlessPipeline(PipelineCore):
         if save_entire_buffer:
             output_indexes = None  # you may force specific buffer index you'd like to save
         wanted = None if output_indexes is None else set(_flatten_outputs(output_indexes))
-        result_full = super().run()
-        if result_full is None:
-            return []
         if path is None:
             raise ValueError("path must be provided for saving")
+        # as run(): with the current control values (and pyplot figures released)
+        result_full = self._run_full()
+        if result_full is None:
+            return []
         if not isinstance(path, Path):
             path = Path(path)
         self.export_tuning(path.with_suffix(".yaml"))
