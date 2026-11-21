@@ -87,11 +87,13 @@ def to_rgb(color: Color) -> Tuple[float, float, float]:
         try:
             return tuple(float(c) for c in mpl_to_rgb(color))  # type: ignore[return-value]
         except ValueError:
-            raise ValueError(f"Unknown colour {color!r}: use a name ('red'), a hex string or an (r, g, b) tuple")
+            raise ValueError(
+                f"Unknown colour {color!r}: use a name ('red'), a hex string or an (r, g, b) tuple"
+            ) from None
     try:
         values = [float(c) for c in color]  # type: ignore[union-attr]
     except TypeError:
-        raise TypeError(f"Colour must be a name, a hex string or an (r, g, b) tuple, got {color!r}")
+        raise TypeError(f"Colour must be a name, a hex string or an (r, g, b) tuple, got {color!r}") from None
     if len(values) not in (3, 4):
         raise ValueError(f"Colour tuple must have 3 (or 4) values, got {color!r}")
     values = values[:3]

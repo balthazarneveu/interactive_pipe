@@ -429,7 +429,7 @@ def _redraw_figure_cells(fig: "Figure", dpi: float) -> None:
     if not axes:
         return
     fig.draw_without_rendering()  # runs the (constrained) layout
-    renderer = fig.canvas.get_renderer()
+    renderer = fig.canvas.get_renderer()  # type: ignore[reportAttributeAccessIssue]  # Agg canvas
     for ax in axes:
         figure, style_dpi = getattr(ax, _FIGURE_CELL)
         # the figure has its own ticks and labels: it also takes the room the
