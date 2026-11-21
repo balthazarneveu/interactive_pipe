@@ -10,9 +10,9 @@ authors = [
   { name="Balthazar Neveu", email="balthazarneveu@gmail.com" },
 ]
 dependencies = [
-  "matplotlib>=3.5.3",
+  "matplotlib>=3.6",  # Figure.get_layout_engine (snapshots)
   "numpy>=1.21.6",
-  "Pillow>=9.0.1",
+  "Pillow>=10.3.0",  # earlier releases have published decoder vulnerabilities
   "PyYAML>=5.4.1",
 ]
 
@@ -67,7 +67,8 @@ dpg=[
 ]
 
 gradio=[
-  "gradio",
+  # gr.HTML templates need 6.0; older releases have many security advisories
+  "gradio>=6.0; python_version >= '3.10'",
 ]
 
 opencv=[
@@ -90,7 +91,7 @@ full=[
   "pytest>=6.2.5",
   "ipywidgets>=7.7.1",
   "pandas",
-  "gradio",
+  "gradio>=6.0; python_version >= '3.10'",
   "dearpygui>=1.11",
 ]
 

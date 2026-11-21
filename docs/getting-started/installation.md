@@ -12,7 +12,7 @@ The PyPI package depends on numpy, matplotlib, Pillow, PyYAML and PyQt6: the Qt 
 |---|---|---|
 | `dpg` | dearpygui | The Dear PyGui backend (`gui="dpg"`), GPU-rendered window |
 | `notebook` | ipywidgets | The Jupyter backend (`gui="nb"`), incl. Google Colab |
-| `gradio` | gradio | The web backend (`gui="gradio"`), shareable in a browser |
+| `gradio` | gradio 6+ (Python 3.10+) | The web backend (`gui="gradio"`), shareable in a browser |
 | `qt5` | PyQt5 | Qt backend on systems without Qt6 support |
 | `opencv` | opencv-python-headless | OpenCV as image load/save backend (Pillow is the default) |
 | `pandas` | pandas | `Table` from DataFrames, csv export of tables and curves |
