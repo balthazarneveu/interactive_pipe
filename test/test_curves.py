@@ -60,7 +60,7 @@ def test_curves(tmp_path):
                 label="exp",
                 alpha=0.9,
             ),
-            SingleCurve.from_file(sample_curve_path),
+            SingleCurve.from_file(sample_curve_path, allow_pickle=True),
             {
                 "y": np.log(8.0 * np.abs(absciss_2[:5] / 10.0)),
                 "style": "m-.",
@@ -83,7 +83,7 @@ def test_curves(tmp_path):
     sig.save(path)
     assert path.is_file()
 
-    new_sig = Curve.from_file(path)
+    new_sig = Curve.from_file(path, allow_pickle=True)
     # new_sig.title ="reloaded
     for idx, curve in enumerate(new_sig.curves):
         assert np.isclose(curve.y, sig.curves[idx].y).all()
@@ -207,3 +207,19 @@ def test_qt_curve_cell_uses_the_scale():
         assert ax.get_yscale() == "linear"
     finally:
         gui.close()
+
+
+def test_pkl_files_need_an_explicit_opt_in(tmp_path):
+    """Unpickling runs code: a .pkl curve or table from elsewhere is refused by default."""
+    from interactive_pipe.data_objects.table import Table
+
+    curve_path = tmp_path / "curve.pkl"
+    SingleCurve(np.arange(3), np.arange(3)).save(curve_path)
+    multi_path = tmp_path / "multi.pkl"
+    Curve([SingleCurve(np.arange(3), np.arange(3))]).save(multi_path)
+    table_path = tmp_path / "table.pkl"
+    Table({"A": [1, 2]}).save(table_path)
+    for cls, path in ((SingleCurve, curve_path), (Curve, multi_path), (Table, table_path)):
+        with pytest.raises(ValueError, match="Refusing to unpickle"):
+            cls.from_file(path)
+        cls.from_file(path, allow_pickle=True)

@@ -55,7 +55,7 @@ curve.show(figsize=(8, 4))
 SingleCurve(x, np.sin(x)).show(title="standalone single curve")
 ```
 
-`SingleCurve` also saves/loads to disk: `.save("signal.csv")` (x,y columns) or `.pkl`, and back with `SingleCurve.from_file("signal.csv")` — handy for comparing a live pipeline against recorded reference data.
+`SingleCurve` also saves/loads to disk: `.save("signal.csv")` (x,y columns) or `.pkl`, and back with `SingleCurve.from_file("signal.csv")` (a `.pkl` file needs `allow_pickle=True`: unpickling runs code, so only for files you trust) — handy for comparing a live pipeline against recorded reference data.
 
 ## API
 
