@@ -36,7 +36,7 @@ file.
 
 ```text
 $ interactive-pipe doctor
-interactive_pipe 0.10.0 (.../site-packages/interactive_pipe)
+interactive_pipe 0.10.1 (.../site-packages/interactive_pipe)
 Python 3.12.3 (/usr/bin/python3)
 Platform Linux-6.8.0-x86_64-with-glibc2.39
 
