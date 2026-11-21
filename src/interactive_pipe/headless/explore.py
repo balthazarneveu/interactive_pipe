@@ -305,7 +305,12 @@ def _caption(pipeline: Any, caption: Union[bool, str, None], exclude: Sequence[T
         parameters = PipelineCore.parameters.__get__(pipeline)  # type: ignore[attr-defined]
         excluded = set(exclude)
         shared = []
+        from interactive_pipe.headless.live import LiveControl
+
         for ctrl in _controls(pipeline):
+            if isinstance(ctrl, LiveControl):  # a clock, not a setting: says nothing about the frame
+                excluded |= {(filt.name, param_name) for filt, param_name in ctrl.targets}
+                continue
             # a control shared by several filters is one value: shown once, by the control's name
             if len(ctrl.targets) > 1:
                 targets = {(filt.name, param_name) for filt, param_name in ctrl.targets}

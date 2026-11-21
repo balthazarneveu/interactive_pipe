@@ -177,22 +177,31 @@ class HeadlessPipeline(PipelineCore):
 
     @inputs.setter
     def inputs(self, inputs):
-        """Set the inputs; a ``Video`` input gets a frame filter and the timeline (``headless/timeline.py``)."""
+        """Set the inputs; a ``Video`` input gets a frame filter and the timeline (``headless/timeline.py``),
+        a ``Webcam`` input a frame filter and the live clock (``headless/live.py``)."""
         PipelineCore.inputs.fset(self, inputs)  # type: ignore[attr-defined]
+        from interactive_pipe.data_objects.webcam import Webcam
+        from interactive_pipe.headless.live import install_webcams
         from interactive_pipe.headless.timeline import install_videos
 
         given = getattr(self, "_PipelineCore__inputs", None) or {}  # None: a pipeline without inputs
         install_videos(self, {name: value for name, value in given.items() if _is_video(value)})
+        install_webcams(self, {name: value for name, value in given.items() if isinstance(value, Webcam)})
 
     def adopt_video_inputs(self, input_values: Any = None, inputs: Optional[dict] = None) -> None:
         """Install the timeline of the ``Video`` inputs about to be given, before
         the keyword arguments naming it (``frame=10``) are checked. Nothing
         happens without a ``Video`` among them (the inputs may be reused)."""
+        from interactive_pipe.headless.live import install_webcams, webcams_in
         from interactive_pipe.headless.timeline import install_videos, videos_in
 
-        videos = videos_in(self.inputs_routing, inputs if inputs is not None else list(input_values or []))
+        values = inputs if inputs is not None else list(input_values or [])
+        videos = videos_in(self.inputs_routing, values)
         if videos:
             install_videos(self, videos)
+        webcams = webcams_in(self.inputs_routing, values)  # a Webcam input brings its live clock
+        if webcams:  # removal: the inputs setter (here the inputs may be reused, not given)
+            install_webcams(self, webcams)
 
     @property
     def timeline(self):

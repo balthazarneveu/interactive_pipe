@@ -14,6 +14,7 @@ import numpy as np
 
 from interactive_pipe.headless.control import CircularControl, Control, RangeControl, TextPrompt, TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
+from interactive_pipe.headless.live import LiveControl
 from interactive_pipe.headless.panel import Panel
 from interactive_pipe.headless.pointer import PointerControl, check_targets
 from interactive_pipe.headless.snapshot import format_value
@@ -50,6 +51,8 @@ def control_kind(ctrl: Control) -> str:
         return ctrl.kind
     if isinstance(ctrl, KeyboardControl):
         return "keyboard"
+    if isinstance(ctrl, LiveControl):
+        return "live"
     if isinstance(ctrl, TimeControl):
         return "time"
     if isinstance(ctrl, TimelineControl):
@@ -114,6 +117,8 @@ def describe_control(ctrl: Control) -> Dict[str, Any]:
     elif isinstance(ctrl, TimeControl):
         keys = {"pause_resume": ctrl.pause_resume_key}
         entry["update_interval_ms"] = ctrl.update_interval_ms
+    if isinstance(ctrl, LiveControl):
+        entry["webcams"] = [repr(webcam) for webcam in ctrl.webcams]
     elif isinstance(ctrl, TimelineControl):
         entry["fps"] = ctrl.fps
         entry["n_frames"] = ctrl.n_frames
@@ -207,7 +212,7 @@ def _control_line(entry: Dict[str, Any], width: int) -> str:
     details = [kind, f"= {format_value(entry['value'])}"]
     if "axes" in entry:
         details.append("on " + (repr(entry["on"]) if entry["on"] is not None else "the first image"))
-    if "range" in entry:
+    if "range" in entry and entry["kind"] != "live":
         details.append(f"in [{format_value(entry['range'][0])}, {format_value(entry['range'][1])}]")
     if "choices" in entry:
         details.append("in {" + ", ".join(str(choice) for choice in entry["choices"]) + "}")
