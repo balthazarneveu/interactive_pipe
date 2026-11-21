@@ -110,7 +110,7 @@ class DpgPanelBuilder:
         direct = [] if is_grid else [el for el in panel.elements if isinstance(el, Control)]
         own_controls = panel.controls_among(list(self.window.ctrl.values()))
         direct += own_controls
-        self._label_hints[container] = max((len(c.name) for c in direct), default=0)
+        self._label_hints[container] = max((len(c.name or "") for c in direct), default=0)
         if is_grid:
             for row in panel.elements:
                 if not isinstance(row, list) or not row:

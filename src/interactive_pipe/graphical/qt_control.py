@@ -151,7 +151,7 @@ def _dial_reference(value_min, value_max):
     return 0 if value_min <= 0 <= value_max else value_min
 
 
-def _dial_offset(span, reference):
+def _dial_offset(span: int, reference: int) -> int:
     """Shift between a value's offset from the minimum and its dial position.
 
     QDial puts its minimum at the bottom and increases clockwise, so half a
@@ -161,11 +161,11 @@ def _dial_offset(span, reference):
     return round(span / 2 - reference) % span
 
 
-def _to_dial(offset_from_min, span, reference):
+def _to_dial(offset_from_min: int, span: int, reference: int) -> int:
     return (offset_from_min + _dial_offset(span, reference)) % span if span else 0
 
 
-def _from_dial(position, span, reference):
+def _from_dial(position: int, span: int, reference: int) -> int:
     return (position - _dial_offset(span, reference)) % span if span else 0
 
 
@@ -204,7 +204,7 @@ class IntSliderControl(BaseControl):
         self._dial = isinstance(slider, QDial) if QDial is not None else False
         slider.setRange(valmin, valmax)
         if self._dial:
-            slider.setWrapping(True)
+            slider.setWrapping(True)  # type: ignore[reportAttributeAccessIssue]  # QDial only
         slider.setValue(self._position(valdefault))
         step = self.ctrl.step if self.ctrl.step else 1
         if not isinstance(step, int):
@@ -218,11 +218,11 @@ class IntSliderControl(BaseControl):
         self.control_widget = slider
         return self.control_widget
 
-    def _position(self, value):
+    def _position(self, value: int) -> int:
         """Widget position of a control value (the dial is rotated, see _dial_offset)."""
         if not self._dial:
             return value
-        valmin, valmax = self.ctrl.value_range[0], self.ctrl.value_range[1]  # type: ignore[reportOptionalSubscript]
+        valmin, valmax = int(self.ctrl.value_range[0]), int(self.ctrl.value_range[1])  # type: ignore[reportOptionalSubscript]
         return valmin + _to_dial(value - valmin, valmax - valmin, _dial_reference(valmin, valmax) - valmin)
 
     def _on_value_changed(self, valmin, step, value):
@@ -286,7 +286,7 @@ class FloatSliderControl(BaseControl):
                 slider = slider_class(Qt.Orientation.Horizontal, self)  # type: ignore[reportOptionalMemberAccess]
         self._dial = isinstance(slider, QDial) if QDial is not None else False
         if self._dial:
-            slider.setWrapping(True)
+            slider.setWrapping(True)  # type: ignore[reportAttributeAccessIssue]  # QDial only
         slider.setRange(
             self.convert_value_to_int(self.ctrl.value_range[0]),  # type: ignore[reportOptionalSubscript]
             self.convert_value_to_int(self.ctrl.value_range[1]),  # type: ignore[reportOptionalSubscript]

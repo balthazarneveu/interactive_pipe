@@ -305,7 +305,9 @@ class Table(Data):
             try:
                 import matplotlib.pyplot as plt
             except ImportError:
-                raise RuntimeError("Matplotlib is required for table rendering. Install with: pip install matplotlib")
+                raise RuntimeError(
+                    "Matplotlib is required for table rendering. Install with: pip install matplotlib"
+                ) from None
             _, ax = plt.subplots()
         ax.clear()
         return draw_table(ax, self, title=self.title)
