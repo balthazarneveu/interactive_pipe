@@ -142,14 +142,18 @@ def _install_excepthook():
     Installed lazily on first FilterError creation (idempotent) so that
     merely importing the library never mutates process-wide state.
     """
-    if getattr(sys, "excepthook", None) is _filter_error_excepthook:
+    global _original_excepthook, _excepthook_installed
+    if _excepthook_installed:
+        # once per process: a host hook installed later may chain back to ours,
+        # saving it as "the original" would make the two call each other forever
         return
-    global _original_excepthook
+    _excepthook_installed = True
     _original_excepthook = sys.excepthook
     sys.excepthook = _filter_error_excepthook
 
 
 _original_excepthook = sys.__excepthook__
+_excepthook_installed = False
 
 
 def _filter_error_excepthook(exc_type, exc_value, exc_tb):
@@ -177,8 +181,12 @@ def _readonly_view(value):
         view = value.view()
         view.flags.writeable = False
         return view
-    if isinstance(value, (list, tuple)):
-        return type(value)(_readonly_view(item) for item in value)
+    if value_type is list or value_type is tuple:
+        return value_type(_readonly_view(item) for item in value)
+    if isinstance(value, tuple) and hasattr(value_type, "_make"):
+        # namedtuple: its constructor takes the fields, not an iterable
+        return value_type._make(_readonly_view(item) for item in value)
+    # other list / tuple subclasses: no known way to rebuild them, passed as they are
     return value
 
 
@@ -412,6 +420,12 @@ class PipelineEngine:
                         # this, the next run would serve the result computed with the
                         # previous parameters as if it matched the failing ones
                         prc.cache_mem.force_change = True
+                    for later in filters[idx + 1 :]:
+                        # the filters after this one never ran, while the ones before it
+                        # refreshed their cache: on the next run nothing upstream looks
+                        # dirty, so a kept result would be served although it is stale
+                        if later.cache_mem is not None:
+                            later.cache_mem.force_change = True
                     # Broad on purpose: prc.run executes arbitrary user filter
                     # code; wrap whatever it raises in FilterError and re-raise.
                     # Create a clean, user-friendly error

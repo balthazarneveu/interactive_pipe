@@ -168,13 +168,13 @@ class PipelineCore:
     def run(self) -> dict:
         """Useful for standalone python access without gui or disk write"""
         # Set user context before running pipeline
-        _set_user_context(self._user_context)
+        previous_context = _set_user_context(self._user_context)
         self.framework_state.run_count += 1  # layout.style merges calls within one run
         try:
             return self.engine.run(self.filters, imglst=self.inputs)
         finally:
-            # Clear user context after execution
-            _set_user_context(None)
+            # Back to the caller's context (None, unless this pipeline runs inside a filter)
+            _set_user_context(previous_context)
 
     def update_user_context(self, context: Optional[Dict[str, Any]]) -> None:
         """Merge user-provided context into the pipeline's user context.

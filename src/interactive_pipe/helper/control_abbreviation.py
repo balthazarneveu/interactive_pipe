@@ -134,6 +134,10 @@ def control_from_tuple(short_params: Tuple, param_name: Optional[str] = None) ->
             elif isinstance(special_list[0], (int, float)):
                 if len(special_list) < 2:
                     raise ValueError("please provide [min, max], [min, max, step], [min, max, None, default]")
+                if len(special_list) > 4:
+                    raise ValueError(
+                        f"{special_list}: at most 4 values, [min, max, step, default] (got {len(special_list)})"
+                    )
                 if not isinstance(special_list[1], (int, float)):
                     raise TypeError(
                         f"min={special_list[0]} max={special_list[1]} - max parameter should be numerical too"

@@ -74,7 +74,12 @@ class PureFilter:
     ):
         if default_params is None:
             default_params = {}
-        self.name = name if name else (self.__class__.__name__ if not apply_fn else apply_fn.__name__)
+        self.name = (
+            name
+            if name
+            # functools.partial and callable objects have no __name__
+            else (self.__class__.__name__ if not apply_fn else getattr(apply_fn, "__name__", type(apply_fn).__name__))
+        )
         if apply_fn is not None:
             self.apply = apply_fn
         self._global_params = {}
@@ -138,14 +143,14 @@ class PureFilter:
                 raise ValueError(f"{self.name}: {key} not in {self._kwargs_names.keys()}")
 
         # Set framework state for context-based API (layout, audio, events, etc.)
-        _set_framework_state(self.framework_state)
-        _set_current_filter(self.name)
+        previous_state = _set_framework_state(self.framework_state)
+        previous_filter = _set_current_filter(self.name)
         try:
             return self.apply(*imgs, **self.values)
         finally:
-            # Clear framework state after execution
-            _set_current_filter(None)
-            _set_framework_state(None)
+            # Back to the state of the caller (None, unless this filter runs inside another one)
+            _set_current_filter(previous_filter)
+            _set_framework_state(previous_state)
 
 
 class FilterCore(PureFilter):
@@ -304,6 +309,7 @@ class FilterCore(PureFilter):
         if controls is not None:
             for ctrl_name, ctrl in controls.items():
                 control_dict[ctrl_name] = ctrl.value
-        merged_kwargs = {**kwargs, **control_dict}
+        # explicit keyword arguments win over the control values (as with @interactive)
+        merged_kwargs = {**control_dict, **kwargs}
         out = self.apply(*args, **merged_kwargs)
         return out
