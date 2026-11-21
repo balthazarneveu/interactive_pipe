@@ -107,6 +107,7 @@ nav:
           - Keyboard: guide/keyboard.md
           - Mouse input: guide/mouse-input.md
       - Video inputs & timeline: guide/video.md
+      - Live webcam: guide/webcam.md
       - Snapshots & sweeps: guide/snapshots.md
       - Testing filters & pipelines: guide/testing.md
       - Command line & agents: guide/command-line.md

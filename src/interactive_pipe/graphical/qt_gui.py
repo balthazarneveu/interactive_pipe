@@ -82,6 +82,7 @@ from interactive_pipe.graphical.window import (
 )
 from interactive_pipe.headless.control import Control, TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
+from interactive_pipe.headless.live import LiveControl
 from interactive_pipe.headless.panel import Panel
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.headless.pointer import pointer_controls
@@ -252,6 +253,7 @@ def _format_pixel_value(value) -> str:
 class InteractivePipeQT(InteractivePipeGUI):
     # click (< 3 px of movement) sets a PointControl, shift-drag draws a RegionControl
     pointer_gestures = True
+    live_clock = True  # a Webcam input refreshes on a QTimer
 
     def init_app(self, threaded: bool = False, **kwargs):
         """`threaded=True` runs the pipeline in a worker thread (widgets stay
@@ -366,11 +368,15 @@ class InteractivePipeQT(InteractivePipeGUI):
         self.window.reset_sliders()
 
     def add_controls(self, new_controls):
-        """A ``Video`` input's timeline joins the window built before the inputs were given."""
+        """A ``Video`` input's timeline (a ``Webcam`` input's clock) joins the window
+        built before the inputs were given."""
         others = []
         for ctrl in new_controls:
             if isinstance(ctrl, TimelineControl):
                 self.window.add_timeline(ctrl)
+            elif isinstance(ctrl, LiveControl):
+                self.window.ctrl[ctrl.name] = ctrl
+                self.window._create_control_widget(ctrl, ControlFactory())  # starts its QTimer
             else:
                 others.append(ctrl)
         if others:

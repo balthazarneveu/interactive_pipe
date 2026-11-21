@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **`Webcam`: a live camera feed as a pipeline input.** Call a pipeline written for one image with `Webcam(0)` (a camera index, a device path or stream URL, an opened `cv2.VideoCapture`, or a function returning frames): the Qt and Dear PyGui windows show a new frame `fps` times per second (30 by default) and every slider applies to the live feed; <kbd>Space</kbd> freezes / resumes it, the sliders keep working on the frozen frame. The camera is read in a background thread keeping only the latest frame, so a slow pipeline skips frames instead of lagging. Headless runs, `snapshot` and the other backends read one new frame per run. Options: `width`, `height`, `fps`, `mirror`, `as_float`, `warmup`, `freeze_key`. ([guide](https://balthazarneveu.github.io/interactive_pipe/guide/webcam/))
+- **`demo/webcam_demo.py`**: a cartoon effect (posterize + edge lines) tuned live on the camera; falls back to a generated scene without a camera.
+
 ## 0.10.1 (November 2026)
 
 - **Audio helpers, `interactive_pipe.sound`**: pure numpy (no new dependency) functions to use inside filters: `load` (WAV with the standard library, other formats through `ffmpeg` when installed), `resample`, `stft` / `istft`, `spectrogram` + `spectrogram_style` (a heatmap with time / kHz axes and a dB colour bar via `layout.style`), `add_noise` (white, pink, mains hum at a given SNR), `snr_db`, `denoise` (spectral gating, blind or from a noise sample), `time_stretch` and `pitch_shift` (phase vocoder). See [Audio](https://balthazarneveu.github.io/interactive_pipe/guide/audio/#audio-helpers-interactive_pipesound).
