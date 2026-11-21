@@ -306,6 +306,10 @@ class InteractivePipeQT(InteractivePipeGUI):
     def run(self) -> list:
         if not self.pipeline._PipelineCore__initialized_inputs:  # type: ignore[reportAttributeAccessIssue]
             raise RuntimeError("Did you forget to initialize the pipeline inputs?")
+        if not self.window.isVisible():
+            # the pipeline is called again after its window was closed: without
+            # this the event loop would run with nothing to close it
+            self.window.show()
         self.window.refresh()
         if self.app is not None:
             self.app.exec()
@@ -408,7 +412,8 @@ class InteractivePipeQT(InteractivePipeGUI):
 
         def save_now(path: Path):
             self.pipeline.update_parameters_from_controls()
-            self.pipeline.save(path, data_wrapper_fn=lambda im: Image(im), save_entire_buffer=True)
+            # no wrapper: save() picks the format of each output (curves, tables, ...) itself
+            self.pipeline.save(path, save_entire_buffer=True)
 
         def save(path: Path):
             path = Image.check_path(path, load=False, extensions=extensions)

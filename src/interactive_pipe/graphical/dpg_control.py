@@ -142,6 +142,8 @@ class IntSliderControl(BaseControl):
     def _on_change(self, _sender, app_data, _user_data):
         step = self.ctrl.step if isinstance(self.ctrl.step, int) and self.ctrl.step > 1 else 1
         snapped = int(_snap(int(app_data), self.ctrl.value_range[0], step))  # type: ignore[index]
+        if snapped > self.ctrl.value_range[1]:  # type: ignore[index]
+            snapped -= step  # the range is not a multiple of the step: last value on the grid
         if snapped != app_data:
             dpg.set_value(self.control_widget, snapped)
         dpg.configure_item(self.control_widget, format=printf_format(snapped))  # "6", "0.1", "1e-05"
@@ -440,6 +442,8 @@ class DialControl(KnobControl):
     def _angle_of(self, value) -> float:
         """Clockwise angle from north, in radians."""
         value_min, value_max = self._bounds()
+        if value_max == value_min:
+            return 0.0  # a single value: it points north
         return 2 * math.pi * (float(value) - self._north()) / (value_max - value_min)
 
     def _value_at(self, dx: float, dy: float):

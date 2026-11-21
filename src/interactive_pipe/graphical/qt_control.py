@@ -231,6 +231,8 @@ class IntSliderControl(BaseControl):
             reference = _dial_reference(valmin, valmax) - valmin
             value = valmin + _from_dial(value - valmin, valmax - valmin, reference)
         snapped = valmin + round((value - valmin) / step) * step
+        if snapped > self.ctrl.value_range[1]:  # type: ignore[reportOptionalSubscript]
+            snapped -= step  # the range is not a multiple of the step: last value on the grid
         self.update_func(self.name, snapped)
 
     def reset(self):
@@ -301,7 +303,7 @@ class FloatSliderControl(BaseControl):
             raise TypeError(
                 f"Expected int or float for FloatSliderControl range, got {type(value_min)}, {type(value_max)}"
             )
-        if self.ctrl.step and not self.ctrl.is_log:
+        if self.ctrl.step and not self.ctrl.is_log and value_max > value_min:
             int_step = max(1, round(self.ctrl.step / (value_max - value_min) * 1000))
         else:
             int_step = 10  # log slider: 1 % of the travel per arrow key
@@ -332,7 +334,13 @@ class FloatSliderControl(BaseControl):
         self.update_func(self.name, self.convert_int_to_value(slider_position))
 
     def reset(self):
-        self.control_widget.setValue(self._position(self.ctrl.value))
+        # signals blocked: the widget has 1000 positions, its valueChanged would
+        # write the value back rounded to them (0.12345 -> 0.12)
+        self.control_widget.blockSignals(True)
+        try:
+            self.control_widget.setValue(self._position(self.ctrl.value))
+        finally:
+            self.control_widget.blockSignals(False)
 
 
 class IconButtonsControl(BaseControl):
@@ -532,7 +540,13 @@ class _SpinBoxControl(BaseControl):
             spin_box.setSingleStep(self.ctrl.step)
 
     def reset(self):
-        self.control_widget.setValue(self.ctrl.value)
+        # signals blocked: valueChanged would write the value back rounded to
+        # the decimals of the spin box
+        self.control_widget.blockSignals(True)
+        try:
+            self.control_widget.setValue(self.ctrl.value)
+        finally:
+            self.control_widget.blockSignals(False)
 
 
 class IntSpinBoxControl(_SpinBoxControl):
