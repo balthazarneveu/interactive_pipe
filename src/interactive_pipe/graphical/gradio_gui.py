@@ -1,6 +1,7 @@
 import logging
+import threading
 from copy import copy
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import gradio as gr
 import numpy as np
@@ -148,6 +149,7 @@ class MainWindow(InteractivePipeWindow):
         sliders_per_row_layout=None,
         audio=False,
         audio_sampling_rate: int = 44100,
+        gradio_launch_kwargs: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
         if controls is None:
@@ -160,6 +162,12 @@ class MainWindow(InteractivePipeWindow):
         self.full_screen_flag = False
         self.pipeline = pipeline
         self.share_gradio_app = share_gradio_app
+        # extra gr.Blocks.launch arguments: auth=, server_name=, max_threads=...
+        self.gradio_launch_kwargs = dict(gradio_launch_kwargs or {})
+        # One pipeline and one set of controls serve every browser session:
+        # a request (controls update, run, outputs) holds this lock end to end
+        # so two visitors never run the pipeline at the same time.
+        self.request_lock = threading.RLock()
         self.audio = audio
         self.audio_sampling_rate = audio_sampling_rate
         self.audio_widget = None  # type: ignore[reportAttributeAccessIssue]
@@ -289,8 +297,9 @@ class MainWindow(InteractivePipeWindow):
         """gradio ``select`` callback of the image output in cell (row, col)."""
 
         def on_select(evt: gr.SelectData, *values):
-            self.select_point(row, col, getattr(evt, "index", None))
-            return self.run_fn(*values)
+            with self.request_lock:
+                self.select_point(row, col, getattr(evt, "index", None))
+                return self.run_fn(*values)
 
         return on_select
 
@@ -332,6 +341,10 @@ class MainWindow(InteractivePipeWindow):
 
     def run_all(self, *args) -> tuple:
         """Full widget-values -> pipeline -> gradio-values round trip."""
+        with self.request_lock:
+            return self._run_all(*args)
+
+    def _run_all(self, *args) -> tuple:
         out = self.process_inputs(*args)
         out_tuple = self.process_outputs(out)
         if self.audio:
@@ -417,10 +430,23 @@ class MainWindow(InteractivePipeWindow):
 
         self.io = io
 
-    def launch(self):
+    def launch_options(self) -> Dict[str, Any]:
+        """Arguments of ``gr.Blocks.launch``; warns when a public link has no login."""
         from .icon import icon_path
 
-        self.io.launch(share=self.share_gradio_app, favicon_path=icon_path("png"))
+        options = dict(self.gradio_launch_kwargs)
+        options.setdefault("share", self.share_gradio_app)
+        options.setdefault("favicon_path", icon_path("png"))
+        if options["share"] and not options.get("auth"):
+            logging.warning(
+                "Gradio share link with no authentication: anyone with the link drives this pipeline, "
+                "and every visitor shares the same controls and results (single-user app). "
+                "Pass gradio_launch_kwargs={'auth': (user, password)} to require a login."
+            )
+        return options
+
+    def launch(self):
+        self.io.launch(**self.launch_options())
 
     def init_sliders(self, controls: List[Control]):
         self.ctrl = {}
