@@ -227,11 +227,12 @@ def _is_pipeline(obj: Any) -> bool:
     return not isinstance(obj, FilterCore) and type(getattr(obj, "headless", None)).__name__ == "HeadlessPipeline"
 
 
-def _parse_function_source(func: Callable) -> Tuple[ast.AST, int, List[str]]:
+def _parse_function_source(func: Callable) -> Tuple[ast.AST, int, List[str], int]:
     """Parse the source of ``func`` (possibly defined in an indented scope).
 
     Returns (function AST node, line offset to add to node.lineno to get the
-    absolute line number in the file, source lines).
+    absolute line number in the file, source lines, file line of the first
+    source line).
     """
     name = getattr(func, "__name__", repr(func))
     if _is_pipeline(func):
@@ -273,7 +274,7 @@ def _parse_function_source(func: Callable) -> Tuple[ast.AST, int, List[str]]:
             pipeline_name=name,
             hint="write `def my_pipeline(img): out = my_filter(img); return out`",
         )
-    return main_function, line_offset, source_lines
+    return main_function, line_offset, source_lines, first_lineno
 
 
 def _is_literal(node: ast.expr) -> bool:
@@ -322,8 +323,9 @@ class _PipelineParser:
         # analyze the user's function, in its own module and closure
         func = inspect.unwrap(func)
         self.func = func
-        self.function_node, self.line_offset, self.source_lines = _parse_function_source(func)
-        self.first_lineno = self.line_offset + 1
+        # first_lineno is the file line of source_lines[0]; line_offset maps AST lines to
+        # file lines (one less than first_lineno - 1 when the source had to be nested to parse)
+        self.function_node, self.line_offset, self.source_lines, self.first_lineno = _parse_function_source(func)
         self.pipeline_name = self.function_node.name  # type: ignore[attr-defined]
         try:
             self.filename = inspect.getsourcefile(func) or inspect.getfile(func)

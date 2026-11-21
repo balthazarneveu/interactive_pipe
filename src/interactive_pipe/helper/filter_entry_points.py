@@ -99,11 +99,11 @@ def single_filter_pipeline(
     outputs: Optional[List[Union[int, str]]] = None
     if input_values is not None:
         # dry run with the pipeline's context set, so filters using `context` work
-        _set_user_context(pipeline._user_context)
+        previous_context = _set_user_context(pipeline._user_context)
         try:
             outputs = list(_deduce_outputs(filt, input_values))
         finally:
-            _set_user_context(None)
+            _set_user_context(previous_context)
     filt.outputs = outputs
     pipeline.outputs = outputs
     for param_name, ctrl in controls.items():

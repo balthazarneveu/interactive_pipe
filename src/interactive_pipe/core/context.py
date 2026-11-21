@@ -110,19 +110,30 @@ def direct_call_scope(filter_name: str) -> Iterator[None]:
         _framework_state.reset(state_token)
 
 
-def _set_framework_state(state: Optional[FrameworkState]) -> None:
-    """Internal: Set framework state (called by filter.run)."""
+# The setters return the value they replace: the caller puts it back when it
+# is done (instead of None), so a pipeline or a filter called from inside a
+# running filter gives the outer run its context back.
+
+
+def _set_framework_state(state: Optional[FrameworkState]) -> Optional[FrameworkState]:
+    """Internal: Set framework state (called by filter.run), return the previous one."""
+    previous = _framework_state.get()
     _framework_state.set(state)
+    return previous
 
 
-def _set_user_context(ctx: Optional[Dict[str, Any]]) -> None:
-    """Internal: Set user context (called by pipeline)."""
+def _set_user_context(ctx: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Internal: Set user context (called by pipeline), return the previous one."""
+    previous = _user_context.get()
     _user_context.set(ctx)
+    return previous
 
 
-def _set_current_filter(name: Optional[str]) -> None:
-    """Internal: Set the name of the running filter (called by filter.run)."""
+def _set_current_filter(name: Optional[str]) -> Optional[str]:
+    """Internal: Set the name of the running filter (called by filter.run), return the previous one."""
+    previous = _current_filter.get()
     _current_filter.set(name)
+    return previous
 
 
 # ============================================================================
@@ -705,6 +716,14 @@ class _ContextProxy:
     def __contains__(self, key: str) -> bool:
         """Check if key exists in context."""
         return key in _require_context(f"{key!r} in context")
+
+    def __iter__(self):
+        """Iterate over the context keys."""
+        return iter(_require_context("iter(context)"))
+
+    def __len__(self) -> int:
+        """Number of keys in the context."""
+        return len(_require_context("len(context)"))
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get item from context with default value."""
