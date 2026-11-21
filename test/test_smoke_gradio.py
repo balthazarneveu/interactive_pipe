@@ -261,3 +261,54 @@ def test_rangeless_numeric_controls_get_number_widgets():
     converted = window.run_fn(7, 2.25)
     assert gui.pipeline.parameters["gr_free_filter"] == {"gr_free_int": 7, "gr_free_float": pytest.approx(2.25)}
     assert isinstance(converted, np.ndarray)
+
+
+def test_launch_options_pass_through_and_share_warning(launch_recorder, caplog):
+    """auth= and other launch arguments reach Blocks.launch; a public link without
+    a login is warned about."""
+    import logging
+
+    with caplog.at_level(logging.WARNING):
+        build_and_run(gradio_flat_pipeline, share_gradio_app=True)
+    assert launch_recorder[-1]["share"] is True
+    assert any("no authentication" in record.getMessage() for record in caplog.records)
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        build_and_run(
+            gradio_flat_pipeline,
+            share_gradio_app=True,
+            gradio_launch_kwargs={"auth": ("user", "secret"), "server_name": "127.0.0.1"},
+        )
+    options = dict(launch_recorder[-1])
+    options.pop("favicon_path")
+    assert options == {"share": True, "auth": ("user", "secret"), "server_name": "127.0.0.1"}
+    assert not any("no authentication" in record.getMessage() for record in caplog.records)
+
+
+def test_requests_from_several_sessions_are_serialised():
+    """Every browser session drives one pipeline: two requests never run it at once."""
+    import threading
+    import time
+
+    gui, _ = build_and_run(gradio_flat_pipeline)
+    window = gui.window
+    active, overlaps = [0], []
+    original = window.pipeline.run
+
+    def slow_run(*args, **kwargs):
+        active[0] += 1
+        overlaps.append(active[0])
+        time.sleep(0.05)
+        try:
+            return original(*args, **kwargs)
+        finally:
+            active[0] -= 1
+
+    window.pipeline.run = slow_run
+    threads = [threading.Thread(target=window.run_fn, args=tuple(window.default_values)) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert overlaps and max(overlaps) == 1

@@ -42,6 +42,16 @@ Controls degrade gracefully: for example a [`KeyboardControl`](../guide/keyboard
 
 `gui="dpg"` renders the window with [Dear PyGui](https://github.com/hoffstadt/DearPyGui) (`pip install "interactive-pipe[dpg]"`), an immediate-mode GPU toolkit that stays responsive with large images and fast refresh rates. It supports the same declarative features as Qt — panels at any position, collapsible and detached panels, keyboard shortcuts, `TimeControl` animations, image buttons and knobs for `CircularControl` — with native, zoomable plots for curve outputs and native tables. Images are scaled uniformly to fill the window (resize it to taste, or pass `size=(w, h)` / `"fullscreen"` / `"maximized"`); as on Qt, the mouse wheel zooms around the cursor, left-drag pans, double-click fits back, keys 0 / 1 / + / - switch to fit / 1:1 / zoom, and zoom & pan are synced across cells. Audio playback is not available on this backend.
 
+## Gradio
+
+`gui="gradio"` serves the pipeline as a web page (`pip install "interactive-pipe[gradio]"`, Python 3.10+). It is a **single-user app**: every browser tab drives the same pipeline, controls and results, and requests are served one at a time. `share_gradio_app=True` publishes a public link with no login (a warning is logged); pass extra [`launch`](https://www.gradio.app/docs/gradio/blocks#blocks-launch) arguments with `gradio_launch_kwargs`, for example to require one:
+
+```python
+@interactive_pipeline(gui="gradio", share_gradio_app=True, gradio_launch_kwargs={"auth": ("me", "a long password")})
+```
+
+Anyone who can open the page can set every control, including free-text ones, and sees what the previous visitor loaded: share it only with people you trust.
+
 ## Headless
 
 `gui=None` (or `"headless"`) skips the GUI entirely and returns a `HeadlessPipeline`: the same pipeline code serves interactive tuning and batch processing, and it is what you want in unit tests. See the [Quickstart](quickstart.md#headless-mode-same-code-no-gui).
