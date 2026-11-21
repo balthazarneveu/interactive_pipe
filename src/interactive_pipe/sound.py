@@ -91,7 +91,11 @@ def load(
     if not path.is_file():
         raise FileNotFoundError(f"sound.load: no such file {path}")
     if path.suffix.lower() == ".wav":
-        signal, rate = _read_wav(path)
+        try:
+            signal, rate = _read_wav(path)
+        except wave.Error:
+            # float / extensible WAV: the wave module reads integer PCM only
+            signal, rate = _read_with_ffmpeg(path)
     else:
         signal, rate = _read_with_ffmpeg(path)
     first = int(round(max(start, 0.0) * rate))
@@ -100,7 +104,10 @@ def load(
     if mono:
         signal = to_mono(signal)
     if sample_rate is not None and sample_rate != rate:
-        signal = resample(signal, rate, sample_rate)
+        if signal.ndim == 2:  # mono=False: each channel on its own (resample mixes down)
+            signal = np.stack([resample(signal[:, ch], rate, sample_rate) for ch in range(signal.shape[1])], axis=1)
+        else:
+            signal = resample(signal, rate, sample_rate)
         rate = sample_rate
     return signal.astype(np.float32), int(rate)
 

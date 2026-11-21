@@ -510,6 +510,10 @@ class Curve(Data):
                 linear_index += 1
 
         if ax is not None:
+            # set_data does not touch the axes limits: follow the new data
+            # (axes with explicit limits are not autoscaled, they keep them)
+            ax.relim()
+            ax.autoscale_view()
             if data.get("title", None) is not None:
                 ax.set_title(data["title"])
             if data.get("xlabel", None) is not None:

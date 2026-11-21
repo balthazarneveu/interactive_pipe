@@ -88,14 +88,14 @@ class Data:
             if not path.exists():
                 raise FileNotFoundError(f"Path does not exist: {path}")
             if extensions is not None:
-                if path.suffix not in extensions:
+                if path.suffix.lower() not in extensions:
                     raise ValueError(f"File extension {path.suffix} must be among {extensions}")
             return path
         else:  # saving
             if not path.parent.exists():
                 path.parent.mkdir(exist_ok=True, parents=True)
             if extensions is not None:
-                if path.suffix not in extensions:
+                if path.suffix.lower() not in extensions:
                     path = path.with_suffix(extensions[0])
                     logging.warning(f"path modified to default extension! {path}")
             return path

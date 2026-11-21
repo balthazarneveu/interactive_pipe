@@ -61,7 +61,7 @@ class Image(Data):
         self.path = None
 
     def _set_file_extensions(self):
-        self.file_extensions = [".png", ".jpg", ".tif"]
+        self.file_extensions = [".png", ".jpg", ".tif", ".jpeg", ".tiff", ".bmp"]
 
     def _save(self, path: Path, backend=None):
         if path is None:
@@ -103,12 +103,28 @@ class Image(Data):
             data = np.expand_dims(data, axis=-1)  # add channel dimension
             data = np.repeat(data, 3, axis=-1)  # repeat for RGB
         amplitude = 2**precision - 1
+        if data.dtype == bool:
+            data = data.astype(np.float32)
+        elif np.issubdtype(data.dtype, np.integer):
+            # already integer: full scale is the dtype's maximum (multiplying a
+            # uint8 image by 255 wrapped around silently)
+            data = data.astype(np.float64) / np.iinfo(data.dtype).max
+        else:
+            data = np.nan_to_num(data, nan=0.0, posinf=1.0, neginf=0.0)
         return np.round(data * amplitude).clip(0, amplitude)
 
     @staticmethod
     def normalize_dynamic(img: np.ndarray, precision: int = 8) -> np.ndarray:
         """Scale an integer image (``[0, 2^precision - 1]``) to ``[0, 1]`` floats."""
         return img / (2.0**precision - 1)  # scale image data to [0, 1]
+
+    @staticmethod
+    def _normalize_loaded(img: np.ndarray, precision: int) -> np.ndarray:
+        """``normalize_dynamic`` for a decoded file: a 16-bit file read with the
+        default ``precision=8`` is scaled by its own depth (it came out in [0, 257])."""
+        if img.dtype == np.uint16 and precision == 8:
+            precision = 16
+        return Image.normalize_dynamic(img, precision=precision)
 
     @staticmethod
     def _check_channels(data: np.ndarray) -> int:
@@ -129,7 +145,8 @@ class Image(Data):
         channels = Image._check_channels(out)
         # OpenCV stores channels as BGR(A)
         out = cv2.cvtColor(out, cv2.COLOR_RGB2BGR if channels == 3 else cv2.COLOR_RGBA2BGRA)
-        cv2.imwrite(str(path), out)
+        if not cv2.imwrite(str(path), out):  # returns False instead of raising
+            raise OSError(f"Could not write image to {path}")
 
     @staticmethod
     def save_image_PIL(data, path: Path, precision=8):
@@ -158,14 +175,23 @@ class Image(Data):
             img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
         else:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # type: ignore
-        return Image.normalize_dynamic(img, precision=precision)
+        return Image._normalize_loaded(img, precision)
 
     @staticmethod
     def load_image_PIL(path: Path, precision=8) -> np.ndarray:
         from PIL import Image as PilImage
 
-        img = PilImage.open(path)
-        return Image.normalize_dynamic(np.array(img), precision=precision)
+        with PilImage.open(path) as img:
+            if img.mode in ("1", "L", "P"):
+                # 1-bit, gray and palette files: RGB, as the OpenCV backend returns them
+                # (a palette image otherwise comes out as its indices)
+                img = img.convert("RGBA" if "transparency" in img.info else "RGB")
+            elif img.mode in ("LA", "PA"):
+                img = img.convert("RGBA")
+            data = np.array(img)
+        if data.ndim == 2:  # 16-bit gray
+            data = np.repeat(data[..., None], 3, axis=-1)
+        return Image._normalize_loaded(data, precision)
 
     @staticmethod
     def load_image(path: Path, precision: int = 8, backend: Optional[str] = None) -> np.ndarray:

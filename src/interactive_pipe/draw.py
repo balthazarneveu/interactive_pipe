@@ -291,6 +291,8 @@ def _label_tag(text: str, fill: Tuple[int, int, int, int], size: int, anchor: st
     from interactive_pipe.graphical.display import get_font
 
     font = get_font(size)
+    if "\n" in text:  # multiline text: vertical anchors a (top) / m / d (bottom) only
+        anchor = anchor[0] + {"t": "a", "b": "d", "s": "d"}.get(anchor[1], anchor[1])
     probe = ImageDraw.Draw(PILImage.new("RGBA", (1, 1)))
     left, top, right, bottom = probe.textbbox((0, 0), text, font=font, anchor=anchor)
     pad = max(1, size // 6)
