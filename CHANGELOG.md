@@ -15,6 +15,20 @@ Security fixes from the November 2026 audit:
 - Dependencies: `Pillow>=10.3.0`, `matplotlib>=3.6` (snapshots need it), `gradio>=6.0` (Python 3.10+).
 - CI: read-only `permissions:` everywhere, third-party actions pinned by commit, the release wheel is smoke-tested before upload, Dependabot.
 
+Fixes from a full code audit (November 2026). Each has a regression test in `test/test_audit_*.py`.
+
+- **Cache**: with `cache="graph"`, a run following a filter error could show a result computed before the error (the filters after the failing one are now recomputed).
+- **Context**: a pipeline (or `filter.snapshot`) called inside a filter no longer wipes the context of the outer run; `for key in context` and `len(context)` work.
+- **Filters**: a namedtuple passed from one filter to the next no longer raises; `FilterCore` accepts a `functools.partial`; calling a `FilterCore` with an explicit keyword argument uses it (the control value won); a slider shorthand list with more than 4 values raises instead of ignoring the extra ones.
+- **Errors**: `PipelineSyntaxError` quotes the right source line for a pipeline whose docstring is less indented than its `def`; the `FilterError` exception hook can no longer recurse with a host hook that chains to it.
+- **Command line**: `sweep` gives the script the results of its call (the script crashed when indexing them); `--max-calls N` lets a script with exactly N calls finish; `check --set` applies to pipelines the script only defines and rejects unknown names; packages next to the script are reloaded between runs; `run_script` restores the process state even when one restore step fails, and works off the main thread.
+- **`save()`** uses the current control values.
+- **Windows**: an output that was `None` at first and becomes an image is shown (Qt and Dear PyGui raised). Qt: reset and tuning import keep float values exactly (`0.12345` became `0.12`), calling the pipeline again after closing its window shows the window, *Save images* also saves curves and tables. Zero-range sliders and dials build; int sliders whose range is not a multiple of the step stay in range. Notebook and Gradio widgets start from the current control values.
+- **Images**: saving an integer (`uint8`) image no longer corrupts it; NaN pixels are saved black; a failed OpenCV write raises; `.PNG`, `.jpeg`, `.tiff`, `.bmp` are accepted. With Pillow, gray, 1-bit and palette files load as RGB (as with OpenCV) and 16-bit files load in `[0, 1]` (both backends).
+- **Video**: `Video([a, b, c])` leaves the arrays writable; `Video(video)` keeps the `start` / `stop` / `step` of its source; an existing path containing `[` is read as a file.
+- **Audio**: `sound.load(mono=False, sample_rate=...)` stays multi-channel; float WAV files are read through ffmpeg.
+- **Drawing and plots**: multi-line labels in `draw.boxes`; a `Curve` whose data changes rescales its axes in the matplotlib and notebook windows; an unnamed matplotlib GUI no longer closes the user's own figure.
+
 ## 0.10.1 (November 2026)
 
 - **Audio helpers, `interactive_pipe.sound`**: pure numpy (no new dependency) functions to use inside filters: `load` (WAV with the standard library, other formats through `ffmpeg` when installed), `resample`, `stft` / `istft`, `spectrogram` + `spectrogram_style` (a heatmap with time / kHz axes and a dB colour bar via `layout.style`), `add_noise` (white, pink, mains hum at a given SNR), `snr_db`, `denoise` (spectral gating, blind or from a noise sample), `time_stretch` and `pitch_shift` (phase vocoder). See [Audio](https://balthazarneveu.github.io/interactive_pipe/guide/audio/#audio-helpers-interactive_pipesound).

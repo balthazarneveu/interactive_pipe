@@ -38,7 +38,67 @@ From the November 2026 consolidation review (judgement calls, see
 - **A figure laid out by the user (`fig.tight_layout()` at its `figsize`) is
   not laid out again** when drawn at cell size: labels can be cut. Only a
   figure with default margins gets `tight_layout` at the drawn size.
-- Pre-existing pyright errors (8, `qt_control.py`, `dpg_panels.py`).
+
+From the November 2026 code audit (branch `audit/code-quality`; confirmed by
+a reproducer unless marked *by reading*). The fixed findings are in the
+changelog and `test/test_audit_*.py`; these were left because they need a
+design decision or a larger change:
+
+- **A `FilterCore` instance is rewired in place** (`core/graph.py` call
+  entry, `headless/pipeline.py::from_function`): `a = flt(img); b = flt(a)`
+  with a `FilterCore` object raises `KeyError`, and a `FilterCore` shared by
+  two pipelines breaks the first one. Copy per call site or raise on reuse.
+  (`@interactive` functions are not concerned.)
+- **Cached runs return the cache's own buffers** (`core/engine.py`,
+  `cache.py`): mutating a returned array changes what the next cached call
+  returns. Read-only views or a copy on the way out (cost to measure).
+- **Plain tuple / list defaults become sliders** in an `@interactive`
+  signature (`def blur(img, size=(3, 3))` receives `size=3`): the ultra-short
+  shorthand fires on data defaults. At least reject `min == max`.
+- **`@interact` dry run uses the raw signature defaults** (the tuple, not the
+  control value) to count outputs: a multi-output filter can lose outputs.
+- **`None` inside a returned grid is dropped** (`return [[a, None], [b, a]]`
+  gives a ragged layout): keep it as an empty cell or reject it.
+- **`check` / `describe` print the control's value after the run was
+  restored** (`gain = 1` next to outputs computed with the script's
+  `gain=2.0`, pinned by `test_check_command.py::test_good_script`): decide
+  whether the report shows the declared or the used value.
+- **`--max-calls` does not count skipped calls** (`--pipeline second` on a
+  script looping over `first`), and **sweep labels show the requested value**
+  when the control clamps it (only a warning says so).
+- **`run_script` does not restore `os.chdir` / `os.environ` writes made by
+  the script**.
+- **An output going from an array to `None` keeps its last image** on screen
+  (`graphical/window.py::set_images`); an unsupported output type logs a
+  warning on every refresh.
+- **Qt: a `threaded=True` GUI is no longer threaded on a second `run()`**
+  (`closeEvent` stops the runner); `FloatSpinBoxControl` shows 4 decimals.
+- **DPG (by reading): key, menu and file-dialog callbacks call `refresh()`
+  on Dear PyGui's worker thread** while the render loop may run the pipeline
+  too; Qt serialises runs with `_run_lock`. Route them through
+  `request_refresh()`.
+- **Qt (by reading): `_refit_figure` takes the run lock on the GUI thread**:
+  resizing during a slow threaded run freezes the window until it ends.
+- **`MainWindow.error_cell_positions` (Qt) duplicates the base method**;
+  `reset_parameters` is identical in the Qt and DPG GUIs.
+- **Gradio: the icon-button choice goes back to its default** on any other
+  event (`gradio_layout.py::collect_changing_inputs` passes a constant
+  `gr.State`). `TickBoxControl.reset` calls the removed `component.update`.
+- **`Data.save(path, override=False)` checks `path` but writes
+  `stem + title`**: the titled file is overwritten (`Image`, `Audio`).
+- **`data_objects/audio.py`** (wavio, not installed, *by reading*): `.mp3` /
+  `.mp4` listed but only WAV is read / written, no clipping before the int16
+  cast, `np.int64` rates rejected. `sound.load` covers the same ground.
+- **`sound.load(mono=False)` on a non-WAV file is mono** (ffmpeg is called
+  with `-ac 1`); `resample` to under one sample raises numpy's FFT error.
+- **`Video`: `cv2.VideoCapture` and GIF handles are never released**;
+  `thumbnail` fails on `(T, H, W, 1)` uint8; a 2D `.npy` is accepted.
+- **`draw.points(radius=1e7)`** is not clamped like coordinates (30 s);
+  **`Table`**: ragged rows raise `IndexError`, a headerless table comes back
+  from CSV with `Unnamed: 0` columns.
+- **Curve update keeps a removed label / style / xlim** from the previous
+  plot (only the data and the axes limits follow).
+- **Notebook `refresh`** has no `FilterError` handling (raw traceback).
 
 ## Done in the October 2026 review pass (don't redo)
 
