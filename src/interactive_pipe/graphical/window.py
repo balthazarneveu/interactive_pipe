@@ -155,6 +155,9 @@ class InteractivePipeWindow:
             for col, image_array in enumerate(image_row):
                 if image_array is None:
                     continue
+                if self.image_canvas[row][col] is None:  # type: ignore[index]
+                    # the output was None when the canvas was built: its cell comes now
+                    self.add_image_placeholder(row, col)
                 self.update_image(image_array, row, col)
 
     def error_cell_positions(self, error) -> List[Tuple[int, int]]:
