@@ -503,7 +503,9 @@ class Video:
             an opened ``cv2.VideoCapture``, a ``FrameSource`` or any lazy
             sequence (see the module docstring).
         fps: frame rate (playback speed, timecodes). Default: the file's, else 25.
-        start, stop, step: keep ``frames[start:stop:step]`` only (like a slice).
+        start: first frame kept (``frames[start:stop:step]``, like a slice).
+        stop: frame where the video stops (excluded); None: the end.
+        step: keep one frame every ``step`` (the frame rate is divided by it).
         window: number of frames handed to the filters: 1 (default) gives the
             current frame; ``window=k`` gives the ``k`` frames ending at the
             current one, stacked on a new first axis (``(k, H, W[, C])``; the
