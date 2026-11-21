@@ -27,7 +27,7 @@ def compute_statistics(img) -> Table:
 
 An empty table — `Table({"x": [], "y": []})`, zero detections — shows its header row and "(no rows)" on every backend and in snapshots: no need to replace it with a string when nothing is found. The same goes for `draw.boxes(img, np.zeros((0, 4)), color=[])` and the other `draw` functions: zero marks return the image unchanged.
 
-`precision` controls float formatting. `table.as_dataframe()` converts back to pandas, and tables save to `.csv` / `.pkl` via `.save(path)`.
+`precision` controls float formatting. `table.as_dataframe()` converts back to pandas, and tables save to `.csv` / `.pkl` via `.save(path)`. Loading a `.pkl` table needs `Table.from_file(path, allow_pickle=True)`: unpickling runs code, so only for files you trust.
 
 Full example: [demo/table_demo.py](https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/table_demo.py) (statistics, coordinate grids, DataFrames side by side).
 

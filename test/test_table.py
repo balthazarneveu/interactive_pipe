@@ -156,7 +156,7 @@ def test_table_save_load_pkl(tmp_path):
     t.save(path)
     assert path.is_file()
 
-    t2 = Table.from_file(path)
+    t2 = Table.from_file(path, allow_pickle=True)
     assert t2.columns == t.columns
     assert t2.values == t.values
     assert t2.title == t.title
@@ -341,7 +341,7 @@ def test_table_save_load_csv(tmp_path):
     t.save(path)
     assert path.is_file()
 
-    t2 = Table.from_file(path)
+    t2 = Table.from_file(path, allow_pickle=True)
     assert t2.columns == t.columns
     assert t2.values == t.values
     # Note: title and precision are not preserved in CSV
@@ -354,7 +354,7 @@ def test_table_save_load_csv_with_floats(tmp_path):
     path = tmp_path / "test.csv"
     t.save(path)
 
-    t2 = Table.from_file(path)
+    t2 = Table.from_file(path, allow_pickle=True)
     # CSV loads as floats, so we need to compare approximately
     assert t2.columns == t.columns
     assert len(t2.values) == len(t.values)
@@ -370,7 +370,7 @@ def test_table_save_load_csv_with_strings(tmp_path):
     path = tmp_path / "test.csv"
     t.save(path)
 
-    t2 = Table.from_file(path)
+    t2 = Table.from_file(path, allow_pickle=True)
     assert t2.columns == t.columns
     # String columns may be preserved or converted, check values match
     assert len(t2.values) == len(t.values)

@@ -258,10 +258,10 @@ class Table(Data):
         else:
             raise ValueError(f"Unsupported file extension: {path.suffix}. Supported: .pkl, .csv")
 
-    def _load(self, path: Path, **kwargs) -> Dict[str, Any]:
+    def _load(self, path: Path, allow_pickle: bool = False, **kwargs) -> Dict[str, Any]:
         if path.suffix == ".pkl":
-            # App-controlled round-trip of files written by save_binary
-            data = Data.load_binary(path, allow_pickle=True)
+            # unpickling runs code: the caller opts in for files they trust
+            data = Data.load_binary(path, allow_pickle=allow_pickle)
             return data
         elif path.suffix == ".csv":
             _require_pandas("CSV import")

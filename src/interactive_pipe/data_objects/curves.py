@@ -156,6 +156,7 @@ class SingleCurve(Data):
         linewidth: Optional[int] = None,
         markersize: Optional[int] = None,
         alpha: Optional[float] = None,
+        allow_pickle: bool = False,
     ) -> dict:
         if path.suffix not in [".csv", ".pkl"]:
             raise ValueError(f"Unsupported file extension: {path.suffix}, expected .csv or .pkl")
@@ -175,8 +176,8 @@ class SingleCurve(Data):
                 "alpha": alpha,
             }
         elif path.suffix == ".pkl":
-            # App-controlled round-trip of files written by save_binary
-            data = Data.load_binary(path, allow_pickle=True)
+            # unpickling runs code: the caller opts in for files they trust
+            data = Data.load_binary(path, allow_pickle=allow_pickle)
             if style is not None:
                 data["style"] = style
             if label is not None:
@@ -436,12 +437,12 @@ class Curve(Data):
     def _set_file_extensions(self):
         self.file_extensions = [".png", ".jpg", ".pkl"]
 
-    def _load(self, path: Path) -> dict:
+    def _load(self, path: Path, allow_pickle: bool = False) -> dict:
         if path.suffix != ".pkl":
             raise ValueError(f"Unsupported file extension: {path.suffix}, expected .pkl")
         self.path = path
-        # App-controlled round-trip of files written by save_binary
-        return Data.load_binary(path, allow_pickle=True)
+        # unpickling runs code: the caller opts in for files they trust
+        return Data.load_binary(path, allow_pickle=allow_pickle)
 
     def _save(self, path: Path, backend=None, figsize=None):
         if path is None:
