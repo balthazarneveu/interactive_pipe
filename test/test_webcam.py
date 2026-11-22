@@ -111,6 +111,25 @@ def test_function_returning_none_repeats_the_previous_frame():
     assert cam.read() is first
 
 
+def test_generator_is_a_frame_source_and_keeps_the_last_frame_when_exhausted():
+    def frames():
+        yield np.zeros((2, 2))
+        yield np.ones((2, 2))
+
+    cam = Webcam(frames(), warmup=0)
+    assert cam.is_function
+    assert cam.description == "frames"
+    assert cam.read().max() == 0
+    last = cam.read()
+    assert last.max() == 1
+    assert cam.read() is last  # exhausted: no new frame, the previous one stays
+
+
+def test_plain_iterator_is_a_frame_source():
+    cam = Webcam(iter([np.full((2, 2), 3.0)]), warmup=0)
+    assert cam.read()[0, 0] == 3.0
+
+
 @pytest.mark.parametrize(
     "kwargs, error",
     [

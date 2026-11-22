@@ -10,6 +10,7 @@ Sources:
   (``"/dev/video2"``, ``"rtsp://..."``), opened with OpenCV
 - an opened ``cv2.VideoCapture`` (or anything with ``read() -> (ok, frame_bgr)``)
 - a function returning the next frame (a camera SDK, a simulation, a test)
+- an iterator / generator of frames (once exhausted, the last frame stays)
 
 In a window the camera is read in a background thread that keeps only the
 latest frame, so a slow pipeline never shows an old frame and never blocks on
@@ -24,7 +25,7 @@ import logging
 import threading
 import time
 import weakref
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Iterator, Optional, Union
 
 import numpy as np
 
@@ -45,6 +46,25 @@ def _release_all() -> None:
         webcam.release()
 
 
+def _is_frame_iterator(device: Any) -> bool:
+    """A generator / iterator of frames: has ``__next__``, is neither callable nor a capture."""
+    return (
+        callable(getattr(device, "__next__", None))
+        and not callable(device)
+        and not callable(getattr(device, "read", None))
+    )
+
+
+def _next_frame_function(iterator: Iterator[Any]) -> Callable[[], Any]:
+    """Frame function over an iterator; once it is exhausted there are no new frames (``None``)."""
+
+    def next_frame() -> Any:
+        return next(iterator, None)
+
+    next_frame.__name__ = getattr(iterator, "__name__", None) or type(iterator).__name__
+    return next_frame
+
+
 class Webcam:
     """A live camera feed as a pipeline input.
 
@@ -57,8 +77,9 @@ class Webcam:
     Args:
         device: camera index (``0``), device path or stream URL (OpenCV), an
             opened ``cv2.VideoCapture`` (or any object with
-            ``read() -> (ok, frame_bgr)``), or a function returning a frame
-            (RGB, any dtype; ``None`` when no new frame is ready).
+            ``read() -> (ok, frame_bgr)``), a function returning a frame
+            (RGB, any dtype; ``None`` when no new frame is ready), or an
+            iterator / generator of frames (once exhausted, the last frame stays).
         width, height: resolution asked to the camera (it may pick the closest it has).
         fps: refresh rate of the window (and frame rate asked to the camera).
         mirror: flip left / right, like a video call shows yourself.
@@ -80,7 +101,7 @@ class Webcam:
 
     def __init__(
         self,
-        device: Union[int, str, Callable[[], Any], Any] = 0,
+        device: Union[int, str, Callable[[], Any], Iterator[Any], Any] = 0,
         width: Optional[int] = None,
         height: Optional[int] = None,
         fps: float = DEFAULT_LIVE_FPS,
@@ -89,12 +110,14 @@ class Webcam:
         warmup: int = DEFAULT_WARMUP_FRAMES,
         freeze_key: str = " ",
     ) -> None:
+        if _is_frame_iterator(device):
+            device = _next_frame_function(device)
         if isinstance(device, bool) or not (
             isinstance(device, (int, str)) or callable(device) or callable(getattr(device, "read", None))
         ):
             raise TypeError(
                 "Webcam(device) takes a camera index, a device path / stream URL, an opened cv2.VideoCapture "
-                f"or a function returning frames, got {type(device).__name__}"
+                f"a function returning frames or an iterator of frames, got {type(device).__name__}"
             )
         if fps <= 0:
             raise ValueError(f"fps must be positive, got {fps}")
