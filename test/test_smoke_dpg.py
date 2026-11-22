@@ -457,11 +457,48 @@ def test_output_type_change_between_frames_rebuilds_the_cell():
         cell = window.image_canvas[0][0]
         expected_kind = "curve" if kind == "signal" else kind
         assert cell["kind"] == expected_kind
-        # the cell group holds exactly the title (+ its hover tooltip) and one content item
+        # the cell group holds the centering spacer, the title (+ its hover tooltip) and the
+        # content row: its leading spacer and exactly one content item
         children = cell_children(window, 0, 0)
-        assert children == [cell["title"], cell["title_tooltip"], cell["content"]]
+        assert children == [cell["top_spacer"], cell["title"], cell["title_tooltip"], cell["body"]]
+        assert dpg.get_item_children(cell["body"], 1) == [cell["lead_spacer"], cell["content"]]
         assert (cell["texture"] is not None) == (expected_kind == "image")
     assert dpg.get_value(window.image_canvas[0][0]["content"]) == "hello"
+
+
+@interactive()
+def wide_image(img):
+    layout.style("wide", title="w")
+    return np.zeros((40, 200, 3))
+
+
+@interactive()
+def narrow_image(img):
+    layout.style("narrow", title="a much longer title")
+    return np.zeros((40, 50, 3))
+
+
+def column_pipeline(img):
+    wide = wide_image(img)
+    narrow = narrow_image(img)
+    return [[wide], [narrow]]
+
+
+def test_cells_of_a_column_are_centered_in_it():
+    """A narrow image under a wide one is centered in the column (and so is each title),
+    instead of starting at the column's left edge."""
+    gui = build_gui(column_pipeline)
+    window = gui.window
+    window.refresh()
+    window.relayout()
+    wide, narrow = window.image_canvas[0][0], window.image_canvas[1][0]
+    scale = window.scale_factor
+    slot = int(200 * scale)
+    narrow_w = dpg.get_item_configuration(narrow["content"])["width"]
+    assert dpg.get_item_configuration(wide["lead_spacer"])["width"] == 0
+    assert dpg.get_item_configuration(narrow["lead_spacer"])["width"] == (slot - narrow_w) // 2 > 0
+    title_w = dpg_image._text_width(dpg.get_value(narrow["title"]))
+    assert dpg.get_item_configuration(narrow["title"])["indent"] == int((slot - title_w) // 2)
 
 
 def test_layout_grid_change_rebuilds_rows():
