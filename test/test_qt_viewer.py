@@ -478,16 +478,39 @@ def test_stale_configure_is_not_a_limit_and_the_request_is_retried():
 def test_plot_cells_have_a_legible_minimum_size():
     """A Curve cell must not shrink to the height of a small image sharing its row."""
     from interactive_pipe.graphical.qt_backend import QGridLayout, QWidget
-    from interactive_pipe.graphical.qt_image import MPL_CELL_MINIMUM_SIZE, update_curve_cell
+    from interactive_pipe.graphical.qt_image import MPL_CELL_MINIMUM_SIZE, PlotFrame, update_curve_cell
 
     _ = QApplication.instance() or QApplication([])
     holder = QWidget()
     grid = QGridLayout(holder)
     cell = {"ax_placeholder": None, "image": None}
     update_curve_cell(cell, grid, 0, 0, Curve([[np.arange(3), np.arange(3), "k-"]], title="t", xlabel="x"))
-    canvas = cell["image"]
-    assert (canvas.minimumWidth(), canvas.minimumHeight()) == MPL_CELL_MINIMUM_SIZE
-    assert canvas.figure.get_layout_engine() is not None  # labels are kept inside the cell
+    frame = cell["image"]
+    assert isinstance(frame, PlotFrame)
+    assert (frame.minimumWidth(), frame.minimumHeight()) == MPL_CELL_MINIMUM_SIZE
+    assert frame.figure.get_layout_engine() is not None  # labels are kept inside the cell
+
+
+def test_plot_keeps_a_landscape_aspect_in_its_cell():
+    """A plot next to a tall image is not drawn as a narrow portrait (nor a thin band
+    when alone in a wide window): the canvas is centered in its cell, aspect 4:3 to 2:1."""
+    from interactive_pipe.graphical.qt_backend import QGridLayout, QWidget
+    from interactive_pipe.graphical.qt_image import MPL_CELL_PREFERRED_SIZE, plot_rect, update_curve_cell
+
+    assert plot_rect(400, 800) == (0, 250, 400, 300)  # portrait cell: 4:3, centered vertically
+    assert plot_rect(2000, 500) == (500, 0, 1000, 500)  # wide cell: 2:1, centered horizontally
+    assert plot_rect(900, 600) == (0, 0, 900, 600)  # within the range: the whole cell
+
+    _ = QApplication.instance() or QApplication([])
+    holder = QWidget()
+    grid = QGridLayout(holder)
+    cell = {"ax_placeholder": None, "image": None}
+    update_curve_cell(cell, grid, 0, 0, Curve([[np.arange(3), np.arange(3), "k-"]]))
+    frame = cell["image"]
+    assert (frame.sizeHint().width(), frame.sizeHint().height()) == MPL_CELL_PREFERRED_SIZE
+    frame.resize(400, 800)
+    frame.place_canvas()  # what its resizeEvent does once shown
+    assert frame.canvas.geometry().getRect() == (0, 250, 400, 300)
 
 
 _APPLICATION = []  # the QApplication of the heatmap view tests, kept alive

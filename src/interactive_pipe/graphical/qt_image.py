@@ -17,7 +17,8 @@ from interactive_pipe.graphical.qt_backend import (
     FigureCanvas,
     QImage,
     QPixmap,
-    Qt,
+    QSize,
+    QWidget,
     SingleCurve,
     Table,
 )
@@ -89,32 +90,85 @@ def discard_widget(widget) -> None:
 
 
 MPL_CELL_MINIMUM_SIZE = (360, 270)  # pixels, for Curve and Table cells
+MPL_CELL_PREFERRED_SIZE = (640, 480)  # pixels: the size a plot asks for (matplotlib's default figure)
+# width / height range of a Curve plot: a plot sharing its row with a tall
+# image would otherwise be squeezed into a narrow portrait cell, and a plot
+# alone in a wide window stretched into a thin band.
+PLOT_ASPECT_RANGE = (4.0 / 3.0, 2.0)
+TABLE_ASPECT_RANGE = (0.0, float("inf"))  # a table takes its whole cell
 
 
-def _ensure_mpl_cell(cell: dict, grid_layout, row: int, col: int):
-    """Create the FigureCanvas + axes for a canvas cell once; return the axes."""
+def plot_rect(width: int, height: int, aspect_range=PLOT_ASPECT_RANGE):
+    """(x, y, w, h) of the largest rectangle of `width` x `height` whose
+    width/height lies in `aspect_range`, centered."""
+    low, high = aspect_range
+    if width <= 0 or height <= 0:
+        return 0, 0, max(0, width), max(0, height)
+    plot_w, plot_h = width, height
+    if width / height > high:
+        plot_w = int(round(height * high))
+    elif width / height < low:
+        plot_h = int(round(width / low))
+    return (width - plot_w) // 2, (height - plot_h) // 2, plot_w, plot_h
+
+
+class PlotFrame(QWidget):
+    """Grid cell holding a matplotlib canvas: the frame fills the cell, the
+    canvas takes the largest centered part of it within an aspect range.
+
+    The frame asks for a moderate size (``MPL_CELL_PREFERRED_SIZE``): a bare
+    canvas asks for its figure size (1000 x 1000 here), which grew the first
+    window well beyond what the images needed.
+    """
+
+    def __init__(self, canvas, aspect_range=PLOT_ASPECT_RANGE) -> None:
+        super().__init__()
+        self.canvas = canvas
+        self.aspect_range = aspect_range
+        canvas.setParent(self)
+        canvas.setMinimumSize(1, 1)  # the frame holds the minimum size
+        self.setMinimumSize(*MPL_CELL_MINIMUM_SIZE)
+
+    @property
+    def figure(self):
+        return self.canvas.figure
+
+    def sizeHint(self):  # noqa: N802 - Qt API
+        return QSize(*MPL_CELL_PREFERRED_SIZE)
+
+    def minimumSizeHint(self):  # noqa: N802 - Qt API
+        return QSize(*MPL_CELL_MINIMUM_SIZE)
+
+    def resizeEvent(self, event):  # noqa: N802 - Qt API
+        super().resizeEvent(event)
+        self.place_canvas()
+
+    def place_canvas(self) -> None:
+        self.canvas.setGeometry(*plot_rect(self.width(), self.height(), self.aspect_range))
+
+
+def _ensure_mpl_cell(cell: dict, grid_layout, row: int, col: int, aspect_range=PLOT_ASPECT_RANGE):
+    """Create the PlotFrame + canvas + axes for a canvas cell once; return the axes."""
     if cell["ax_placeholder"] is None:
         # constrained layout keeps the title and the axis labels inside the cell
-        canvas = FigureCanvas(Figure(figsize=(10, 10), layout="constrained"))
+        canvas = FigureCanvas(Figure(figsize=(6.4, 4.8), layout="constrained"))
         # A plot stays legible whatever shares its row: without a minimum size the
         # cell shrinks to the height of a small image, or to nothing when the window
         # only holds plots.
-        canvas.setMinimumSize(*MPL_CELL_MINIMUM_SIZE)
+        frame = PlotFrame(canvas, aspect_range)
         ax_placeholder = canvas.figure.subplots()
         previous_widget = cell.get("image")
-        if previous_widget is not None and previous_widget is not canvas:
+        if previous_widget is not None and previous_widget is not frame:
             detach = getattr(previous_widget, "detach", None)
             if callable(detach):  # an ImageView leaves the shared zoom sync
                 detach()
-            discard_widget(previous_widget)  # the placeholder view is replaced by the canvas
-        cell["image"] = canvas
-        grid_layout.addWidget(
-            canvas,
-            2 * row + 1,
-            col,
-            alignment=Qt.AlignmentFlag.AlignCenter,
-        )
+            discard_widget(previous_widget)  # the placeholder view is replaced by the plot
+        cell["image"] = frame
+        grid_layout.addWidget(frame, 2 * row + 1, col)  # no alignment: the frame fills the cell
         cell["ax_placeholder"] = ax_placeholder
+    elif isinstance(cell.get("image"), PlotFrame) and cell["image"].aspect_range != aspect_range:
+        cell["image"].aspect_range = aspect_range  # a Curve became a Table (or back)
+        cell["image"].place_canvas()
     return cell["ax_placeholder"]
 
 
@@ -131,7 +185,7 @@ def update_curve_cell(cell: dict, grid_layout, row: int, col: int, curve: "Curve
 
 def update_table_cell(cell: dict, grid_layout, row: int, col: int, table: "Table") -> None:
     """Create or update the matplotlib table for a Table output in a cell."""
-    ax = _ensure_mpl_cell(cell, grid_layout, row, col)
+    ax = _ensure_mpl_cell(cell, grid_layout, row, col, TABLE_ASPECT_RANGE)
     table_obj = cell.get("plot_object", None)
     if table_obj is None:
         cell["plot_object"] = table.create_table(ax=ax)  # type: ignore[reportAttributeAccessIssue]
