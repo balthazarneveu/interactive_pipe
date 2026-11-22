@@ -16,6 +16,7 @@ works without a display; the viewport is created in ``run()``.
 
 import logging
 import math
+import sys
 import threading
 import time
 from pathlib import Path
@@ -137,7 +138,8 @@ class InteractivePipeDPG(InteractivePipeGUI):
             self.init_app(**self._init_app_kwargs)
         width, height = self.window.viewport_size
         try:
-            ico = icon_path("ico")
+            # Dear PyGui reads .ico on Windows only; on Linux an .ico is silently ignored (PNG works)
+            ico = icon_path("ico" if sys.platform == "win32" else "png")
             icons = {"small_icon": ico, "large_icon": ico} if ico else {}
             dpg.create_viewport(title=self.name or "interactive_pipe", width=width, height=height, **icons)
             dpg.set_viewport_resize_callback(self.window.on_viewport_resize)
