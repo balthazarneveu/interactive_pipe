@@ -80,7 +80,8 @@ class Webcam:
             ``read() -> (ok, frame_bgr)``), a function returning a frame
             (RGB, any dtype; ``None`` when no new frame is ready), or an
             iterator / generator of frames (once exhausted, the last frame stays).
-        width, height: resolution asked to the camera (it may pick the closest it has).
+        width: frame width asked to the camera (it may pick the closest resolution it has).
+        height: frame height asked to the camera.
         fps: refresh rate of the window (and frame rate asked to the camera).
         mirror: flip left / right, like a video call shows yourself.
         as_float: frames as float32 RGB in ``[0, 1]`` like ``Image.load_image``
