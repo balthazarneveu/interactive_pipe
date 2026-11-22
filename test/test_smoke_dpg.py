@@ -1005,8 +1005,8 @@ def _drawn_rect(cell):
     return x0, y0, x1 - x0, y1 - y0
 
 
-def _zoom_gui():
-    gui = build_gui(basic_pipeline, size=(800, 600))
+def _zoom_gui(**gui_kwargs):
+    gui = build_gui(basic_pipeline, size=(800, 600), **gui_kwargs)
     gui.window.refresh()
     gui.window.on_viewport_resize(None, [800, 600, 800, 560])
     return gui
@@ -1022,7 +1022,7 @@ def test_image_cells_are_drawn_fitted_in_a_drawlist():
 
 
 def test_view_keys_zoom_all_cells_and_fit_back():
-    gui = _zoom_gui()
+    gui = _zoom_gui(actual_size="window")
     window = gui.window
     cells = window.image_cells()
     assert len(cells) == 2
@@ -1034,7 +1034,7 @@ def test_view_keys_zoom_all_cells_and_fit_back():
     gui._on_key_press(None, dpg.mvKey_Subtract, None)
     assert window.view.zoom == pytest.approx(1.0)
     fit_grid_h = dpg.get_item_configuration(window.grid_container)["height"]
-    gui._on_key_press(None, dpg.mvKey_1, None)  # 1:1: cells at native size, whole image shown
+    gui._on_key_press(None, dpg.mvKey_1, None)  # 1:1 (window): cells at native size, whole image shown
     assert window.view.mode == "1:1" and window.scale_factor == 1.0
     for cell in cells:
         assert dpg_image.image_box(cell) == (4, 4)
@@ -1047,6 +1047,32 @@ def test_view_keys_zoom_all_cells_and_fit_back():
     assert window.view.mode == "fit" and window.scale_factor > 1.0
     assert [_drawn_rect(cell) for cell in cells] == fit
     assert dpg.get_item_configuration(window.grid_container)["height"] == fit_grid_h
+
+
+def test_key_1_zooms_to_100_percent_in_place(monkeypatch):
+    """Default actual_size="zoom": the cells and the viewport keep their size, the
+    images show at one image pixel per screen pixel inside them; 0 fits back."""
+    gui = _zoom_gui()
+    window = gui.window
+    viewport = _fake_viewport(monkeypatch, window, (800, 600))
+    cells = window.image_cells()
+    boxes = [dpg_image.image_box(cell) for cell in cells]
+    scale = window.scale_factor
+    gui._on_key_press(None, dpg.mvKey_1, None)
+    assert window.view.mode == "1:1" and viewport["size"] == [800, 600]
+    assert window.scale_factor == pytest.approx(scale)  # still the fitted layout
+    for cell, box in zip(cells, boxes):
+        assert dpg_image.image_box(cell) == box
+        rect = _drawn_rect(cell)
+        assert rect[2:] == pytest.approx((4, 4))  # native size (4 x 4 input), centered
+        assert rect[:2] == pytest.approx(((box[0] - 4) / 2, (box[1] - 4) / 2), abs=1)
+    gui._on_key_press(None, dpg.mvKey_0, None)
+    assert window.view.mode == "fit" and viewport["size"] == [800, 600]
+
+
+def test_actual_size_option_is_validated():
+    with pytest.raises(ValueError, match="actual_size"):
+        build_gui(basic_pipeline, actual_size="native")
 
 
 def test_wheel_zooms_around_the_cursor_drag_pans_double_click_fits(monkeypatch):
@@ -1130,7 +1156,7 @@ def _fake_viewport(monkeypatch, window, size, max_size=(10_000, 10_000)):
 @pytest.mark.parametrize(("side", "grows"), [(8, False), (600, True)])
 def test_actual_size_grows_the_viewport_and_fit_restores_it(monkeypatch, side, grows):
     image = np.zeros((side, side, 3))
-    gui = build_gui(basic_pipeline, size=(400, 300))
+    gui = build_gui(basic_pipeline, size=(400, 300), actual_size="window")
     gui.pipeline.inputs = [image[..., 0]]
     window = gui.window
     window.refresh()
@@ -1148,7 +1174,7 @@ def test_actual_size_grows_the_viewport_and_fit_restores_it(monkeypatch, side, g
 
 
 def test_actual_size_keeps_a_fullscreen_viewport(monkeypatch):
-    gui = build_gui(basic_pipeline, size="fullscreen")
+    gui = build_gui(basic_pipeline, size="fullscreen", actual_size="window")
     gui.pipeline.inputs = [np.zeros((600, 600))]
     window = gui.window
     window.refresh()
@@ -1159,7 +1185,7 @@ def test_actual_size_keeps_a_fullscreen_viewport(monkeypatch):
 
 
 def test_actual_size_shows_whole_images_even_when_the_screen_is_too_small(monkeypatch):
-    gui = build_gui(basic_pipeline, size=(400, 300))
+    gui = build_gui(basic_pipeline, size=(400, 300), actual_size="window")
     gui.pipeline.inputs = [np.zeros((600, 600))]
     window = gui.window
     window.refresh()
@@ -1179,7 +1205,7 @@ def test_empty_panel_containers_are_hidden():
 
 
 def test_controls_scroll_in_their_own_area_when_the_images_need_the_room(monkeypatch):
-    gui = build_gui(basic_pipeline, size=(400, 300))
+    gui = build_gui(basic_pipeline, size=(400, 300), actual_size="window")
     gui.pipeline.inputs = [np.zeros((250, 150))]
     window = gui.window
     window.refresh()
@@ -1331,7 +1357,7 @@ def test_viewport_resizes_asked_from_a_callback_thread_run_on_the_main_thread(mo
     resizes windows from the main thread only (the grown part stayed unpainted)."""
     import threading
 
-    gui = build_gui(basic_pipeline, size=(400, 300))
+    gui = build_gui(basic_pipeline, size=(400, 300), actual_size="window")
     gui.pipeline.inputs = [np.zeros((600, 600))]
     window = gui.window
     window.refresh()

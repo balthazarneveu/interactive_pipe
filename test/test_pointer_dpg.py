@@ -94,11 +94,11 @@ class FakeMouse:
         self.release(pos)
 
 
-def _gui(monkeypatch, pipe_func, inputs):
+def _gui(monkeypatch, pipe_func, inputs, **gui_kwargs):
     pipeline = HeadlessPipeline.from_function(pipe_func, inputs=["img" if pipe_func is dp_pipeline else "heat"])
     for ctrl in pipeline.controls:
         ctrl.update(ctrl.value_default)
-    gui = dpg_gui.InteractivePipeDPG(pipeline=pipeline, name="pointer dpg")
+    gui = dpg_gui.InteractivePipeDPG(pipeline=pipeline, name="pointer dpg", **gui_kwargs)
     gui.pipeline.inputs = inputs
     window = gui.window
     window.refresh()
@@ -251,8 +251,9 @@ def test_heatmap_colorbar_stays_fixed_when_zoomed(monkeypatch):
 
 def test_region_drag_keeps_the_grid_still(monkeypatch):
     """Issue 79: the crop changes size while the region is dragged; the grid must
-    not relayout under the mouse (the image would move, changing the region)."""
-    gui, window, mouse = _gui(monkeypatch, dp_pipeline, [IMAGE])
+    not relayout under the mouse (the image would move, changing the region).
+    1:1 laying the cells out at their native size is where the grid could move."""
+    gui, window, mouse = _gui(monkeypatch, dp_pipeline, [IMAGE], actual_size="window")
     window.set_view_mode("1:1")
     cell, crop = window.image_canvas[0][0], window.image_canvas[0][1]
     box = dpg_image.image_box(cell)

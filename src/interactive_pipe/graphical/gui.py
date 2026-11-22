@@ -19,6 +19,8 @@ from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.headless.pointer import check_targets
 from interactive_pipe.headless.timeline import TimelineControl
 
+ACTUAL_SIZE_MODES = ("zoom", "window")
+
 
 class InteractivePipeGUI:
     """Adds a generic graphical user interface to HeadlessPipeline.
@@ -63,12 +65,18 @@ class InteractivePipeGUI:
         size=None,
         restore_session: bool = False,
         session_path: Optional[Path] = None,
+        actual_size: str = "zoom",
         **kwargs,
     ) -> None:
         if controls is None:
             controls = []
         if pipeline is None:
             raise ValueError("pipeline must be provided")
+        if actual_size not in ACTUAL_SIZE_MODES:
+            raise ValueError(f"actual_size must be one of {ACTUAL_SIZE_MODES}, got {actual_size!r}")
+        # key 1 / View > Actual size (Qt, dpg): "zoom" shows the images at 100% inside
+        # their cells; "window" also resizes the cells and the window to the native size
+        self.actual_size = actual_size
         self.pipeline = pipeline
         self.restore_session = restore_session
         self._session_path = None if session_path is None else Path(session_path)

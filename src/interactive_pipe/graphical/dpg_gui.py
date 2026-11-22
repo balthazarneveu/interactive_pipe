@@ -248,7 +248,7 @@ class InteractivePipeDPG(InteractivePipeGUI):
         self.window.set_view_mode("fit")
 
     def actual_size_view(self):
-        """show the images at their actual size (1:1)"""
+        """show the images at 100% (one image pixel per screen pixel)"""
         self.window.set_view_mode("1:1")
 
     def zoom_in(self):
@@ -299,7 +299,8 @@ class MainWindow(InteractivePipeWindow):
         self.last_error: Optional[FilterError] = None
         self.scale_factor = 1.0
         self._figure_ratio = 1.0  # figure outputs are rasterised in FIGURE_CELL_SIZE times this
-        self.view = ViewState()  # zoom/pan shared by every image cell
+        # zoom/pan shared by every image cell
+        self.view = ViewState(native_cells=getattr(main_gui, "actual_size", "zoom") == "window")
         self._size_before_actual: Optional[Tuple[int, int]] = None  # viewport size restored when leaving 1:1
         self._grow_request: Optional[Tuple[int, int]] = None  # last viewport size asked by a 1:1 growth
         self._grid_slack = list(GRID_SLACK)  # 1:1 grid size beyond its cells (paddings), learnt from overflow
@@ -486,7 +487,7 @@ class MainWindow(InteractivePipeWindow):
         col_widths, row_heights = self.natural_grid_size()
         total_w = sum(col_widths) + GRID_SPACING * max(0, len(col_widths) - 1)
         total_h = sum(row_heights) + GRID_SPACING * max(0, len(row_heights) - 1)
-        if self.view.absolute and total_w > 0 and total_h > 0:
+        if self.view.native_layout and total_w > 0 and total_h > 0:
             # 1:1 family: cells at native size, the grid takes exactly the room they need
             # and the viewport grows to show it whole. When the window manager does not grant
             # that size (screen limit), the images still show whole and the panels below
@@ -512,7 +513,7 @@ class MainWindow(InteractivePipeWindow):
                 dpg.configure_item(item, width=width_fn())
         if total_w <= 0 or total_h <= 0:
             return
-        if self.view.absolute:
+        if self.view.native_layout:
             scale = scale_h = 1.0
         else:
             scale = scale_h = min(avail_w / total_w, (avail_h - LAYOUT_MARGIN) / total_h)
@@ -546,7 +547,7 @@ class MainWindow(InteractivePipeWindow):
             if row_items is not None:
                 row_w = sum(cell_widths) + GRID_SPACING * max(0, len(row) - 1)
                 dpg.configure_item(row_items["spacer"], width=max(0, (avail_w - row_w) // 2))
-        vertical_room = 0 if self.view.absolute else avail_h - int(total_h * scale_h) - LAYOUT_MARGIN
+        vertical_room = 0 if self.view.native_layout else avail_h - int(total_h * scale_h) - LAYOUT_MARGIN
         dpg.configure_item(self.grid_vspacer, height=max(0, vertical_room // 2))
 
     def _figure_cells(self) -> List[Tuple[int, int, Any]]:
@@ -564,7 +565,7 @@ class MainWindow(InteractivePipeWindow):
         """Rasterise the figure outputs again when the layout scale changed: drawn at
         the size they are shown, they stay sharp instead of a stretched 480 x 320 raster
         (the layout keeps their FIGURE_CELL_SIZE, so this does not change the scale)."""
-        ratio = 1.0 if self.view.absolute else min(max(self.scale_factor, MIN_FIGURE_RATIO), MAX_FIGURE_RATIO)
+        ratio = 1.0 if self.view.native_layout else min(max(self.scale_factor, MIN_FIGURE_RATIO), MAX_FIGURE_RATIO)
         if abs(ratio / self._figure_ratio - 1.0) < FIGURE_REFIT_TOLERANCE:
             return
         self._figure_ratio = ratio
@@ -607,18 +608,20 @@ class MainWindow(InteractivePipeWindow):
             place_image(cell, self.view)
 
     def set_view_mode(self, mode: str):
-        """ "fit" (default) or "1:1" (cells at native image size) for every image cell (zoom/pan reset).
+        """ "fit" (default) or "1:1" for every image cell (zoom/pan reset).
 
-        1:1 grows the viewport to fit the native-size images; going back to
-        fit restores the previous viewport size.
+        1:1 shows the images at 100% (one image pixel per screen pixel) inside
+        their cells. With ``actual_size="window"`` the cells also take the native
+        size of their image and the viewport grows to fit them; going back to fit
+        restores the previous viewport size.
         """
-        was_absolute = self.view.absolute
+        was_native = self.view.native_layout
         self.view.set_mode(mode)
         self._grow_request = None
         self._grid_slack = list(GRID_SLACK)
-        if self.view.absolute and not was_absolute:
+        if self.view.native_layout and not was_native:
             self._size_before_actual = self._viewport_outer_size()
-        elif not self.view.absolute and self._size_before_actual is not None:
+        elif not self.view.native_layout and self._size_before_actual is not None:
             previous, self._size_before_actual = self._size_before_actual, None
             self._resize_viewport(*previous)
         self.relayout()  # the cell sizes depend on the mode
@@ -674,7 +677,7 @@ class MainWindow(InteractivePipeWindow):
     def _fit_grid_to_content(self):
         """Called every frame at 1:1: enlarge the grid by what its cells still
         overflow (child window paddings and item spacings the layout misses)."""
-        if not self.view.absolute or not self.viewport_ready:
+        if not self.view.native_layout or not self.viewport_ready:
             return
         if self._frames_to_settle > 0:
             self._frames_to_settle -= 1  # the grid still shows (part of) the previous layout
@@ -896,7 +899,7 @@ class MainWindow(InteractivePipeWindow):
         total_h = sum(row_heights) + GRID_SPACING * max(0, len(row_heights) - 1)
         if total_w <= 0 or total_h <= 0:
             return MIN_GRID_HEIGHT
-        if self.view.absolute:
+        if self.view.native_layout:
             return total_h + LAYOUT_MARGIN + self._grid_slack[1]
         scale = min(1.0, avail_w / total_w, FIT_PREFERRED_HEIGHT / total_h)
         return max(MIN_GRID_HEIGHT, int(total_h * scale) + LAYOUT_MARGIN)

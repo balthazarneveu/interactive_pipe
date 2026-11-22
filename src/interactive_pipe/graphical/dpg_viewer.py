@@ -41,9 +41,13 @@ def _content(size: Content) -> CellContent:
 class ViewState:
     """absolute: False -> zoom multiplies each cell's fit scale; True -> zoom is
     screen pixels per image pixel. center: normalized image coordinates of the
-    point displayed at the middle of each cell."""
+    point displayed at the middle of each cell. native_cells: in the "1:1"
+    family the cells also take the native size of their image (the viewport
+    grows to it, ``actual_size="window"``); otherwise they keep their fitted
+    size and the images show at 100% inside them."""
 
-    def __init__(self) -> None:
+    def __init__(self, native_cells: bool = False) -> None:
+        self.native_cells = native_cells
         self.absolute = False
         self.zoom = 1.0
         self.center: Tuple[float, float] = (0.5, 0.5)
@@ -61,6 +65,11 @@ class ViewState:
         self.absolute = mode == "1:1"
         self.zoom = 1.0
         self.center = (0.5, 0.5)
+
+    @property
+    def native_layout(self) -> bool:
+        """The cells are laid out at the native size of their image (1:1 resizing the viewport)."""
+        return self.absolute and self.native_cells
 
     def reset(self) -> None:
         self.set_mode("fit")
