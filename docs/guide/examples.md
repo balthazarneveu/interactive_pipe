@@ -44,6 +44,7 @@ All in [`demo/`](https://github.com/balthazarneveu/interactive_pipe/tree/master/
 | `time_wave_demo.py` / `time_physics_demo.py` | `TimeControl` animations |
 | `video_grading_demo.py` | Grade a video file with a [timeline](video.md); the timecode in a title |
 | `video_motion_demo.py` | Motion detection on a numpy video, temporal `window=` ([video](video.md#temporal-filters-window)) |
+| `video_blend_demo.py` | Two videos on one timeline, one lane each: cross-fade, dissolve, difference, wipe ([video](video.md#several-videos-one-timeline)) |
 | `video_compare_demo.py` | A torch model checked against a reference: two videos at different frame rates on one timeline |
 | `video_raw_sequence_demo.py` | A RAW burst in a custom file format (`loader=`): per-frame exposure and white balance metadata remove the flicker; embedded previews as thumbnails (`thumbnail_loader=`), read-ahead (`--slow --preload 24`) ([video](video.md#custom-formats-and-per-frame-metadata)) |
 | `webcam_demo.py` | A cartoon effect tuned live on the [webcam](webcam.md) (`--synthetic` without a camera) |
