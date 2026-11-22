@@ -1,5 +1,106 @@
 # Audio
 
+Two ways to work with sound:
+
+- **an audio input with a timeline**: call the pipeline with an `AudioClip`;
+  the filters receive the whole signal, the window shows its waveform on a
+  timeline, <kbd>Space</kbd> plays / pauses it ([below](#audio-inputs-and-a-timeline));
+- **the `audio` proxy**: a filter plays a file or a signal it computed
+  ([further down](#playing-sounds-from-filters-the-audio-proxy)).
+
+## Audio inputs and a timeline
+
+Write the pipeline for the **whole signal** (a numpy array) and give it an
+`AudioClip`: the window gets the timeline of [video inputs](video.md), with
+the waveform in place of the film strip.
+
+```python
+import numpy as np
+
+from interactive_pipe import AudioClip, audio, interactive, interactive_pipeline, sound
+
+RATE = 16000
+
+
+@interactive(semitones=(0.0, [-12.0, 12.0]))
+def shift(signal, semitones=0.0):
+    return sound.pitch_shift(signal, semitones)
+
+
+@interactive_pipeline(gui="qt", cache="graph")
+def tune(signal):
+    shifted = shift(signal)
+    return shifted
+
+
+t = np.arange(3 * RATE) / RATE
+tune(AudioClip(0.4 * np.sin(2 * np.pi * 330 * t).astype(np.float32), RATE))
+```
+
+- `AudioClip("song.wav")` reads a file (WAV, or anything `ffmpeg` decodes:
+  see `sound.load`); `sample_rate=` resamples it, `mono=False` keeps the
+  channels, `start=` / `duration=` cut it. `AudioClip(signal, rate)` takes
+  a numpy signal, mono `(n,)` or `(n, 2)`, float in `[-1, 1]` or `int16`.
+- **What plays**: the first `AudioClip`, as it is. A filter calling
+  `audio.set(signal, rate)` replaces it with what it computed, at the same
+  instant, so the processed sound is heard, live, while a slider moves.
+  `AudioClip(..., play=False)` keeps a clip silent.
+- **The timeline (Qt)**: <kbd>Space</kbd> or ▶ plays / pauses the sound and
+  the playhead follows it; click / drag on the waveform seeks, the arrows
+  step (1/30 s), ⟳ loops. Dear PyGui shows the same panel without sound,
+  the other backends a slider (Gradio plays the sound in its player).
+- **The position**: filters read `context["timeline"]` as with a video
+  (`time`, `duration`, `progress`), and
+  `context["timeline"].inputs_metadata[name]` gives each clip's
+  `sample_rate`, `duration` and `channels`. With `cache="graph"`, moving the
+  playhead re-runs only the filters reading it (a cursor on a spectrogram,
+  a zoom on the waveform), never the processing of the sound. With
+  `cache=True` it re-runs nothing: the position seen by the filters only
+  updates with the other changes.
+- The timeline is the control named `frame` (30 per second without video):
+  `tune.snapshot("/tmp/at_1s.png", clip, frame=30)`.
+
+### Several sounds, or sounds and videos
+
+Give several `AudioClip` inputs to mix them: they share the timeline (one
+waveform lane each), which lasts as long as the longest. Load files at the
+same `sample_rate` to add them sample by sample:
+
+<!-- code: continue -->
+```python
+@interactive(balance=(0.5, [0.0, 1.0]))
+def mix(a, b, balance=0.5):
+    n = max(len(a), len(b))
+    out = (1 - balance) * np.pad(a, (0, n - len(a))) + balance * np.pad(b, (0, n - len(b)))
+    audio.set(out, RATE)  # the mix is what plays
+    return out
+
+
+@interactive_pipeline(gui="qt", cache="graph")
+def blend_sounds(a, b):
+    mixed = mix(a, b)
+    return mixed
+
+
+low = AudioClip(0.4 * np.sin(2 * np.pi * 220 * t).astype(np.float32), RATE)
+high = AudioClip(0.4 * np.sin(2 * np.pi * 440 * t[: 2 * RATE]).astype(np.float32), RATE)
+blend_sounds(low, high)
+```
+
+<!-- code: skip needs two sound files -->
+```python
+blend_sounds(AudioClip("voice.wav", sample_rate=16000), AudioClip("music.mp3", sample_rate=16000))
+```
+
+A `Video` and an `AudioClip` share the timeline too: the timeline runs at
+the video frame rate, the sound plays in sync with the frames.
+
+`demo/audio_mix_demo.py` mixes a melody and a drum loop: balance, delay,
+a spectrogram with the playhead drawn on it, an oscilloscope of the 40 ms
+under the playhead.
+
+## Playing sounds from filters: the `audio` proxy
+
 Audio is not returned from filters — it is driven by the `audio` proxy as a side effect, typically reacting to a control:
 
 ```python
