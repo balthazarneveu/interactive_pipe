@@ -5,6 +5,15 @@
 - **`Webcam`: a live camera feed as a pipeline input.** Call a pipeline written for one image with `Webcam(0)` (a camera index, a device path or stream URL, an opened `cv2.VideoCapture`, or a function returning frames): the Qt and Dear PyGui windows show a new frame `fps` times per second (30 by default) and every slider applies to the live feed; <kbd>Space</kbd> freezes / resumes it, the sliders keep working on the frozen frame. The camera is read in a background thread keeping only the latest frame, so a slow pipeline skips frames instead of lagging. Headless runs, `snapshot` and the other backends read one new frame per run. Options: `width`, `height`, `fps`, `mirror`, `as_float`, `warmup`, `freeze_key`. ([guide](https://balthazarneveu.github.io/interactive_pipe/guide/webcam/))
 - **`demo/webcam_demo.py`**: a cartoon effect (posterize + edge lines) tuned live on the camera; falls back to a generated scene without a camera.
 
+Image viewer and plots (Qt, Dear PyGui):
+
+- **Key `1` zooms the images to 100% in place**: one image pixel per screen pixel inside their cells, the window keeps its size (wheel zoom and drag pan carry on from there). The previous behaviour, cells at the native size of their image and the window grown to fit them, is now opt-in: `interactive_pipeline(..., actual_size="window")`.
+- **The status line shows the zoom of the hovered image** (`100%`, `250%`; per data pixel for a heatmap with a colorbar / axes), next to the pixel readout on Qt, updated as the wheel zooms.
+- Qt: a `Curve` plot keeps an aspect between 4:3 and 2:1, centered in its cell: next to a tall image it was squeezed into a narrow portrait plot (and the image shrunk), alone in a wide window stretched into a band. It asks for 640 x 480 instead of 1000 x 1000, so the first window is no longer far bigger than the images need.
+- Dear PyGui: titles and outputs are centered in their grid slot, so a column of outputs of different widths is centered (they started at the left edge of the column), and shorter cells are centered vertically in their row.
+- Dear PyGui: a matplotlib figure output is rasterised at the size it is shown, with its text the size of the plots' text (it was a 480 x 320 raster stretched by the layout: blurry, oversized text).
+- Dear PyGui: a black (`"k"`) curve is drawn in a light color on the dark plot background, where it was invisible.
+
 Security fixes from the November 2026 audit:
 
 - **Breaking: `.pkl` curves and tables need `allow_pickle=True`** (`SingleCurve.from_file(path, allow_pickle=True)`, same for `Curve` and `Table`): unpickling runs code, and these classes used to opt in on the caller's behalf.
