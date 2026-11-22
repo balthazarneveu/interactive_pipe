@@ -12,8 +12,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Check tag matches pyproject version
@@ -58,7 +58,7 @@ jobs:
           wheel-env/bin/interactive-pipe doctor
           wheel-env/bin/interactive-pipe snapshot "$GITHUB_WORKSPACE/demo/color_demo.py" -o "$RUNNER_TEMP/shots/"
           ls "$RUNNER_TEMP"/shots/*.png
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -70,7 +70,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
