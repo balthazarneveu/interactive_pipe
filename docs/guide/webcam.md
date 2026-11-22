@@ -46,6 +46,7 @@ behind or blocks the window. The thread stops when nobody asks for frames
 | device path, video stream URL | `Webcam("/dev/video2")`, `Webcam("rtsp://192.168.1.10/stream")` |
 | an opened `cv2.VideoCapture` (or anything with `read() -> (ok, frame_bgr)`) | `Webcam(capture)` |
 | a function returning the next frame (RGB) | `Webcam(sdk_camera.grab)`, `Webcam(simulation_step)` |
+| an iterator / generator of frames (RGB) | `Webcam(frames_generator())`, `Webcam(iter(frame_list))` |
 
 Options:
 
@@ -58,7 +59,8 @@ Options:
 - `freeze_key=`: the freeze key (space by default)
 
 A function source returns `None` when it has no new frame: the previous one
-is shown again.
+is shown again. An iterator that is exhausted behaves the same way: the last
+frame stays on screen.
 
 ## Without a window
 
