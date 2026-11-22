@@ -8,6 +8,7 @@ edit_uri: edit/master/docs/
 theme:
   name: material
   logo: images/logo.svg
+  favicon: images/favicon.png
   features:
     - navigation.sections
     - navigation.top
