@@ -76,6 +76,7 @@ from interactive_pipe.graphical.qt_widgets import (  # noqa: F401
     ElidedLabel,
 )
 from interactive_pipe.graphical.value_format import format_value
+from interactive_pipe.graphical.view_geometry import format_zoom
 from interactive_pipe.graphical.window import (
     InteractivePipeWindow,
     display_kind,
@@ -908,13 +909,24 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         self.status_label.setText(text)
 
     def _status_pixel_hover(self, row, col, x, y, value):
-        """Default on_pixel_hover: pixel readout appended to the status line."""
+        """Default on_pixel_hover: zoom level and pixel readout appended to the status line."""
         if value is None:
             self.set_status(self._run_status)
         else:
             separator = " · " if self._run_status else ""
             where = self._pixel_location(row, col, x, y)
-            self.set_status(f"{self._run_status}{separator}{where} = {_format_pixel_value(value)}")
+            zoom = self._zoom_label(row, col)
+            self.set_status(f"{self._run_status}{separator}{zoom}{where} = {_format_pixel_value(value)}")
+
+    def _zoom_label(self, row, col) -> str:
+        """``"200% · "``: zoom of the image of cell (row, col), in screen pixels per data pixel."""
+        try:
+            view = self.image_canvas[row][col]["image"]  # type: ignore[index]
+        except (TypeError, IndexError, KeyError):
+            return ""
+        if not isinstance(view, ImageView) or not view.has_image():
+            return ""
+        return f"{format_zoom(view.data_scale())} · "
 
     def _pixel_location(self, row, col, x, y) -> str:
         """``(x, y)`` data pixel, preceded by its extent coordinates when the

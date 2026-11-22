@@ -24,7 +24,16 @@ fitted to the cell: the strip right after the map, both centered.
 
 from typing import NamedTuple, Optional, Tuple
 
-__all__ = ["CellContent", "CellLayout", "FIT_TOLERANCE", "MIN_ZOOM", "MAX_ZOOM", "cell_layout", "zoom_center"]
+__all__ = [
+    "CellContent",
+    "CellLayout",
+    "FIT_TOLERANCE",
+    "MIN_ZOOM",
+    "MAX_ZOOM",
+    "cell_layout",
+    "format_zoom",
+    "zoom_center",
+]
 
 MIN_ZOOM = 1.0 / 64.0
 MAX_ZOOM = 256.0
@@ -201,6 +210,15 @@ def pan_center(
     _, _, fw, fh = content.data_frame
     moved = (center[0] - dx / (s * max(fw, 1e-9)), center[1] - dy / (s * max(fh, 1e-9)))
     return clamped_center(box, content, zoom, absolute, moved)
+
+
+def format_zoom(scale: float) -> str:
+    """Screen pixels per image pixel as a percentage for the status line:
+    ``"100%"``, ``"250%"``, ``"33%"``; one decimal below 10% (``"6.3%"``)."""
+    percent = 100.0 * scale
+    if percent >= 9.95:
+        return f"{percent:.0f}%"
+    return f"{percent:.1f}%"
 
 
 def content_of(width: int, height: int, geometry: Optional[Tuple] = None) -> CellContent:
