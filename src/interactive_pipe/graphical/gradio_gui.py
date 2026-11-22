@@ -418,7 +418,9 @@ class MainWindow(InteractivePipeWindow):
         self.io = io
 
     def launch(self):
-        self.io.launch(share=self.share_gradio_app)
+        from .icon import icon_path
+
+        self.io.launch(share=self.share_gradio_app, favicon_path=icon_path("png"))
 
     def init_sliders(self, controls: List[Control]):
         self.ctrl = {}
