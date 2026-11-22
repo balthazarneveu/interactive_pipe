@@ -5,7 +5,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest  # noqa: E402
-from test_video import one_video, ramp  # noqa: E402
+from test_video import one_video, ramp, two_videos  # noqa: E402
 
 from interactive_pipe import KeyboardControl, Video, interactive  # noqa: E402
 from interactive_pipe.headless.pipeline import HeadlessPipeline  # noqa: E402
@@ -240,3 +240,59 @@ def test_other_backends_show_a_frame_slider(backend):
 
         open_figures = [plt.figure(number) for number in plt.get_fignums()]
         assert all(figure is not before.fig for figure in open_figures)  # the first figure is closed
+
+
+def test_film_strip_has_one_lane_per_video():
+    from interactive_pipe.graphical.timeline_view import DARK, LANE_GAP, StripView, lanes_height
+
+    class Strip(StripView):
+        def strip_width(self):
+            return 200
+
+    pipeline = HeadlessPipeline.from_function(two_videos)
+    pipeline.inputs = [Video(ramp(20), fps=20), Video(ramp(5), fps=10)]  # b lasts 0.5 s of the 1 s timeline
+    timeline = pipeline.timeline
+    assert [name for name, _ in timeline.tracks] == ["a", "b"]
+    strip = Strip()
+    strip.init_strip_view(timeline)
+    assert strip.n_lanes == 2 and strip.lane_tops(20) == [("a", 0), ("b", 20 + LANE_GAP)]
+    image = strip.strip_image(20, wait=True)
+    assert image.shape == (lanes_height(2, 20), 200, 3) == (40 + LANE_GAP, 200, 3)
+    assert (image[20 : 20 + LANE_GAP] == DARK.panel).all()  # the gap between the lanes
+    lane_b = image[20 + LANE_GAP :]
+    assert not (lane_b[:, 20] == DARK.track_background).all()  # thumbnails while b lasts
+    assert (lane_b[:, 150:] == DARK.track_background).all()  # b has ended: its lane is empty
+    assert not (image[:20, 150:] == DARK.track_background).all()  # a goes on
+
+
+def test_qt_timeline_grows_with_the_videos():
+    qt_gui = pytest.importorskip("interactive_pipe.graphical.qt_gui")
+    from interactive_pipe.graphical.timeline_view import STRIP_HEIGHT, strip_height
+
+    pipeline = HeadlessPipeline.from_function(two_videos)
+    gui = qt_gui.InteractivePipeQT(pipeline=pipeline, name="two videos")
+    qt_gui.QTimer.singleShot(0, gui.close)
+    gui(Video(ramp(10), fps=20), Video(ramp(10), fps=20))
+    widget = gui.window.timeline_widget
+    assert widget.strip.height() == strip_height(2) > STRIP_HEIGHT
+    assert widget.height() > widget.strip.height()
+    widget.strip.resize(300, strip_height(2))
+    assert not widget.strip.grab().isNull()  # paints both lanes and their labels
+
+
+def test_dpg_timeline_grows_with_the_videos():
+    dpg_gui = pytest.importorskip("interactive_pipe.graphical.dpg_gui")
+    from interactive_pipe.graphical.dpg_timeline import PANEL_HEIGHT
+    from interactive_pipe.graphical.timeline_view import STRIP_HEIGHT, lanes_height, strip_height
+
+    pipeline = HeadlessPipeline.from_function(two_videos)
+    gui = dpg_gui.InteractivePipeDPG(pipeline=pipeline, name="two videos dpg")
+    gui.run = lambda: None  # no viewport in tests
+    gui(Video(ramp(10), fps=20), Video(ramp(10), fps=20))
+    panel = gui.window.timeline_panel
+    assert panel.height == PANEL_HEIGHT - STRIP_HEIGHT + strip_height(2)
+    sx, sy = panel.strip_origin
+    assert panel._in_strip(sx + 5, sy + strip_height(2) - 2)  # the second lane seeks too
+    panel.draw()  # both lanes and their labels
+    assert panel._texture_size[1] == lanes_height(2)  # one texture holds both lanes
+    gui.close()

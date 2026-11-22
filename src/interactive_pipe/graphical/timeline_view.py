@@ -10,7 +10,7 @@ A backend subclasses it and provides ``strip_width()`` and, optionally,
 
 import math
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -90,8 +90,9 @@ ACCENT_HOVER: RGB = DARK.accent_hover
 ACCENT_PRESSED: RGB = DARK.accent_pressed
 
 RULER_HEIGHT = 18
-THUMB_HEIGHT = 46
-STRIP_HEIGHT = RULER_HEIGHT + THUMB_HEIGHT
+THUMB_HEIGHT = 46  # one lane of thumbnails
+LANE_GAP = 3  # between the lanes of several inputs
+STRIP_HEIGHT = RULER_HEIGHT + THUMB_HEIGHT  # a single input
 OVERVIEW_HEIGHT = 4
 BUFFERED_HEIGHT = 2  # band of the frames decoded ahead, along the bottom of the thumbnails
 BUTTON_SIZE = 28
@@ -109,6 +110,17 @@ ZOOM_PER_NOTCH = 1.25
 #: fraction of the view a wheel notch pans
 PAN_PER_NOTCH = 0.15
 STRIP_HINT = "click / drag: seek · scroll: zoom · shift + scroll: pan · double-click: whole video"
+
+
+def lanes_height(n_lanes: int, lane_height: int = THUMB_HEIGHT) -> int:
+    """Height of ``n_lanes`` lanes stacked with ``LANE_GAP`` between them (one lane at least)."""
+    n_lanes = max(int(n_lanes), 1)
+    return n_lanes * lane_height + (n_lanes - 1) * LANE_GAP
+
+
+def strip_height(n_lanes: int) -> int:
+    """Ruler and lanes of a film strip showing ``n_lanes`` inputs."""
+    return RULER_HEIGHT + lanes_height(n_lanes)
 
 
 def ruler_label(seconds: float, step: float) -> str:
@@ -288,15 +300,31 @@ class StripView:
         width = float(self.strip_width())
         return [(max(a, 0.0), min(b, width)) for a, b in spans if b > 0 and a < width]
 
+    # ---------------------------------------------------------------- lanes
+    @property
+    def n_lanes(self) -> int:
+        """One lane per input on the timeline (one at least: an empty track)."""
+        return max(len(self.timeline.videos), 1)
+
+    def strip_height(self) -> int:
+        """Height of the ruler and every lane."""
+        return strip_height(self.n_lanes)
+
+    def lane_tops(self, lane_height: int = THUMB_HEIGHT) -> List[Tuple[Any, int]]:
+        """``(input name, top y)`` of each lane, below the ruler (y = 0 is the top of the first lane)."""
+        return [(name, k * (lane_height + LANE_GAP)) for k, (name, _) in enumerate(self.timeline.tracks)]
+
     # ---------------------------------------------------------------- thumbnails
     def strip_image(self, height: int = THUMB_HEIGHT, wait: bool = False) -> np.ndarray:
-        """``(height, strip_width(), 3)`` uint8 film strip of the first video, cached per width and view.
+        """Film strip: one lane of thumbnails per video, ``height`` px each, stacked with ``LANE_GAP``.
 
-        Thumbnails sit on a grid of frames (a power of two apart, chosen from
-        the zoom), so panning and zooming reuse the ones already decoded. The
-        missing ones are built in the background (a plain tile meanwhile; the
-        strip is composed again when ``timeline.background_version`` changes);
-        ``wait=True`` builds them first (tests, screenshots).
+        ``(lanes_height(n_lanes, height), strip_width(), 3)`` uint8, cached per
+        width and view. Thumbnails sit on a grid of frames (a power of two
+        apart, chosen from the zoom), so panning and zooming reuse the ones
+        already decoded. The missing ones are built in the background (a plain
+        tile meanwhile; the strip is composed again when
+        ``timeline.background_version`` changes); ``wait=True`` builds them
+        first (tests, screenshots).
         """
         width = max(self.strip_width(), 1)
         videos = self.timeline.videos
@@ -307,44 +335,53 @@ class StripView:
             self.view,
             self.timeline.n_frames,
             tuple(id(video) for video in videos),
-            videos[0].background_version[1] if videos else 0,
+            tuple(video.background_version[1] for video in videos),
         )
         if self._strip_cache is not None and self._strip_cache[0] == key:
             return self._strip_cache[1]
-        strip = np.zeros((height, width, 3), dtype=np.uint8)
-        strip[...] = self.theme.track_background
-        if videos:
-            video = videos[0]
-            try:
-                anchors = self._thumbnail_anchors(video, width, height, wait)
-                if wait:
-                    for anchor, _, _ in anchors:
-                        video.thumbnail(anchor, height)
-                missing = []
-                for anchor, left, right in anchors:
-                    thumb = video.cached_thumbnail(anchor, height)
-                    if thumb is None:
-                        if not video.thumbnail_failed(anchor, height):
-                            missing.append(anchor)
-                            strip[2:-2, max(left + 1, 0) : max(right - 1, 0)] = self.theme.pending
-                        continue
-                    thumb = _fill_width(thumb, right - left)
-                    crop = max(-left, 0)
-                    left = max(left, 0)
-                    shown = thumb[:, crop : crop + max(min(right - left, thumb.shape[1] - crop), 0)]
-                    strip[:, left : left + shown.shape[1]] = shown
-                    if 0 < left < width:
-                        strip[:, left - 1 : left + 1] = self.theme.track_background  # gap between the frames
-                # nearest the playhead first
-                head = int(self.timeline.value)
-                if video.cached_thumbnail(0, height) is None and not video.thumbnail_failed(0, height):
-                    missing.insert(0, 0)  # the grid of the next composition
-                video.request_thumbnails(sorted(missing, key=lambda anchor: (anchor != 0, abs(anchor - head))), height)
-            except Exception:  # noqa: BLE001 - a frame that cannot be previewed leaves a plain track
-                pass
+        strip = np.zeros((lanes_height(len(videos), height), width, 3), dtype=np.uint8)
+        strip[...] = self.theme.panel  # the gaps between lanes
+        if not videos:
+            strip[...] = self.theme.track_background
+        for k, video in enumerate(videos):
+            top = k * (height + LANE_GAP)
+            strip[top : top + height] = self._video_lane(video, width, height, wait)
         strip = np.ascontiguousarray(strip)
         self._strip_cache = (key, strip)
         return strip
+
+    def _video_lane(self, video, width: int, height: int, wait: bool) -> np.ndarray:
+        """``(height, width, 3)`` thumbnails of ``video`` along the view (pending tiles requested in the background)."""
+        lane = np.zeros((height, width, 3), dtype=np.uint8)
+        lane[...] = self.theme.track_background
+        try:
+            anchors = self._thumbnail_anchors(video, width, height, wait)
+            if wait:
+                for anchor, _, _ in anchors:
+                    video.thumbnail(anchor, height)
+            missing = []
+            for anchor, left, right in anchors:
+                thumb = video.cached_thumbnail(anchor, height)
+                if thumb is None:
+                    if not video.thumbnail_failed(anchor, height):
+                        missing.append(anchor)
+                        lane[2:-2, max(left + 1, 0) : max(right - 1, 0)] = self.theme.pending
+                    continue
+                thumb = _fill_width(thumb, right - left)
+                crop = max(-left, 0)
+                left = max(left, 0)
+                shown = thumb[:, crop : crop + max(min(right - left, thumb.shape[1] - crop), 0)]
+                lane[:, left : left + shown.shape[1]] = shown
+                if 0 < left < width:
+                    lane[:, left - 1 : left + 1] = self.theme.track_background  # gap between the frames
+            # nearest the playhead first (in this video's frames: several videos may differ in frame rate)
+            head = video.index_at(int(self.timeline.value) / self.timeline.fps)
+            if video.cached_thumbnail(0, height) is None and not video.thumbnail_failed(0, height):
+                missing.insert(0, 0)  # the grid of the next composition
+            video.request_thumbnails(sorted(missing, key=lambda anchor: (anchor != 0, abs(anchor - head))), height)
+        except Exception:  # noqa: BLE001 - a frame that cannot be previewed leaves a plain track
+            pass
+        return lane
 
     def _thumbnail_anchors(self, video, width: int, height: int, wait: bool = False) -> List[Tuple[int, int, int]]:
         """``(video frame, left x, right x)`` of the thumbnails of the view."""
@@ -358,13 +395,16 @@ class StripView:
         step = 1
         while step * pixels_per_frame < 0.75 * tile:
             step *= 2
-        n_frames = self.timeline.n_frames
+        fps = self.timeline.fps
+        # a video shorter than the timeline: its lane ends with it
+        n_frames = min(self.timeline.n_frames, int(math.ceil(len(video) / video.fps * fps - 1e-6)))
         half = 0.5 if step == 1 else 0.0  # one frame per tile: the tile is centred on its frame
+        end = min(int(round(self.x_of(n_frames - half))), width)
         anchors = []
         for anchor in range(int(first // step) * step, int(last) + 1, step):
             if anchor >= n_frames:
                 break
             left = int(round(self.x_of(anchor - half)))
-            right = min(int(round(self.x_of(anchor + step - half))), width)
-            anchors.append((video.index_at(anchor / self.timeline.fps), left, right))
+            right = min(int(round(self.x_of(anchor + step - half))), end)
+            anchors.append((video.index_at(anchor / fps), left, right))
         return anchors

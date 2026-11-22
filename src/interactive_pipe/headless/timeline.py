@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
 
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.data_objects.video import Video
@@ -102,7 +102,8 @@ class TimelineControl(Control):
         collapsed: the panel is folded to its transport row (collapsible displays).
         loop: playback starts over at the end (else it stops there).
         playing: playback state, shared by the widgets.
-        videos: the ``Video`` inputs it drives (film strip thumbnails).
+        videos: the ``Video`` inputs it drives, in input order.
+        track_names: the input name of each of ``videos`` (one lane each on the film strip).
     """
 
     def __init__(
@@ -129,9 +130,16 @@ class TimelineControl(Control):
         self.autoplay = autoplay
         self.playing = autoplay
         self.videos: List[Video] = []
+        self.track_names: List[Any] = []
         self.display = "shown"
         self.collapsed = False
         self.set_display(display)
+
+    @property
+    def tracks(self) -> List[Tuple[Any, Video]]:
+        """``(input name, Video)`` of every input on the timeline, in input order: one lane each."""
+        names = self.track_names if len(self.track_names) == len(self.videos) else range(len(self.videos))
+        return list(zip(names, self.videos))
 
     @property
     def collapsible(self) -> bool:
@@ -336,6 +344,7 @@ def install_videos(pipeline: "HeadlessPipeline", videos: Dict[Any, Video]) -> Op
         timeline._add_target(filt, FRAME_PARAMETER)
         filt.values = {FRAME_PARAMETER: timeline.value}
     timeline.videos = [videos[name] for name in ordered]
+    timeline.track_names = list(ordered)
     if changed:
         logging.debug(f"timeline {timeline!r} drives {[filt.name for filt in frame_filter_list]}")
         pipeline.reset_cache()

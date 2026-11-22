@@ -45,7 +45,6 @@ from interactive_pipe.graphical.timeline_view import (
     PANEL_RADIUS,
     PLAY_SIZE,
     RULER_HEIGHT,
-    STRIP_HEIGHT,
     STRIP_HINT,
     STRIP_RADIUS,
     THUMB_HEIGHT,
@@ -62,6 +61,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------- look (themes: timeline_view.py)
 HOVER_LINE = QColor(255, 255, 255, 220)  # over the thumbnails, whatever the theme
 SHADOW = QColor(0, 0, 0, 140)
+LABEL_BACKING = QColor(0, 0, 0, 150)  # input name of a lane, over its thumbnails
 #: how often the panel checks for thumbnails / frames ready in the background
 BACKGROUND_POLL_MS = 100
 
@@ -296,15 +296,18 @@ class FilmStrip(QtWidgetBase, StripView):  # type: ignore[reportGeneralTypeIssue
         self.on_seek = on_seek
         self._on_view_change = on_view_change
         self._pixmap_cache: Optional[tuple] = None  # (strip image id) -> pixmap
-        self.setMinimumHeight(STRIP_HEIGHT)
-        self.setMaximumHeight(STRIP_HEIGHT)
+        self.apply_height()
         self.setMinimumWidth(200)
         self.setMouseTracking(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip(STRIP_HINT)
 
     def sizeHint(self) -> QSize:
-        return QSize(600, STRIP_HEIGHT)
+        return QSize(600, self.strip_height())
+
+    def apply_height(self) -> None:
+        """Ruler and one lane per input: called again when the inputs change."""
+        self.setFixedHeight(self.strip_height())
 
     def set_colors(self, colors: QtColors) -> None:
         self.colors = colors
@@ -343,6 +346,8 @@ class FilmStrip(QtWidgetBase, StripView):  # type: ignore[reportGeneralTypeIssue
         painter.fillRect(0, 0, width, height, colors.track_background)
         painter.fillRect(0, 0, width, RULER_HEIGHT, colors.ruler_band)
         painter.drawPixmap(0, RULER_HEIGHT, self._strip_pixmap())
+        if self.n_lanes > 1:
+            self._paint_lane_labels(painter)
         # frames decoded ahead: a band along the bottom of the ruler, above the played line
         for left, right in self.buffered_spans():
             painter.fillRect(
@@ -418,6 +423,19 @@ class FilmStrip(QtWidgetBase, StripView):  # type: ignore[reportGeneralTypeIssue
                 (x_head - half, RULER_HEIGHT - 8),
             ]
             painter.drawPath(_polygon(handle))
+
+    def _paint_lane_labels(self, painter: Any) -> None:
+        """The input name of each lane, in a small tag at its top left."""
+        painter.setFont(_monospace(7.5))
+        metrics = painter.fontMetrics()
+        for name, top in self.lane_tops(THUMB_HEIGHT):
+            text = str(name)
+            box = QRectF(4, RULER_HEIGHT + top + 4, metrics.horizontalAdvance(text) + 10, metrics.height() + 2)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(LABEL_BACKING)
+            painter.drawRoundedRect(box, 3, 3)
+            painter.setPen(QPen(HOVER_LINE))
+            painter.drawText(box, Qt.AlignmentFlag.AlignCenter, text)
 
     # ---------------------------------------------------------------- mouse
     def mousePressEvent(self, event: Any) -> None:  # noqa: N802 - Qt API
@@ -523,14 +541,15 @@ class TimelineWidget(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
     def apply_display(self) -> None:
         """Show, fold or hide the panel after ``timeline.display`` / ``timeline.collapsed``."""
         timeline = self.timeline
-        self._applied_display = (timeline.display, timeline.collapsed)
+        self._applied_display = (timeline.display, timeline.collapsed, self.strip.n_lanes)
         folded = timeline.collapsible and timeline.collapsed
         self.collapse_button.setVisible(timeline.collapsible)
         self.collapse_button.set_kind("expand" if folded else "collapse")
         self.collapse_button.setToolTip("show the film strip" if folded else "hide the film strip")
         self.strip.setVisible(not folded)
+        self.strip.apply_height()
         # never squeezed by the images: the panel keeps its height
-        self.setFixedHeight(6 + PLAY_SIZE + (8 if folded else 6 + STRIP_HEIGHT + 10))
+        self.setFixedHeight(6 + PLAY_SIZE + (8 if folded else 6 + self.strip.strip_height() + 10))
         self.setVisible(timeline.display != "hidden")
 
     def toggle_collapsed(self) -> None:
@@ -578,8 +597,8 @@ class TimelineWidget(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
     # ---------------------------------------------------------------- state
     def reset(self) -> None:
         """Sync with the control value (reset, tuning import, session restore, key step)."""
-        if (self.timeline.display, self.timeline.collapsed) != self._applied_display:
-            self.apply_display()  # new Video inputs with another timeline=...
+        if (self.timeline.display, self.timeline.collapsed, self.strip.n_lanes) != self._applied_display:
+            self.apply_display()  # new Video inputs: another timeline=..., another number of lanes
         position = self.timeline.position
         self.time_label.setText(
             f"<span style='font-family: monospace; font-size: 15px; font-weight: 600; color: {_hex(self.colors.text)}'>"

@@ -48,7 +48,7 @@ PAD_X = 10
 PAD_TOP = 8
 ROW_GAP = 6
 PAD_BOTTOM = 10
-PANEL_HEIGHT = PAD_TOP + PLAY_SIZE + ROW_GAP + STRIP_HEIGHT + PAD_BOTTOM
+PANEL_HEIGHT = PAD_TOP + PLAY_SIZE + ROW_GAP + STRIP_HEIGHT + PAD_BOTTOM  # one input (one lane)
 FOLDED_HEIGHT = PAD_TOP + PLAY_SIZE + PAD_TOP  # collapsed: the transport row only
 SMALL_FONT_PX = 12
 TIME_FONT_PX = 17
@@ -63,6 +63,7 @@ OVERVIEW_TRACK: Color = (255, 255, 255, 45)
 OVERVIEW_VIEW: Color = (255, 255, 255, 190)
 CHECKED_FILL: Color = (*view.ACCENT, 52)
 MINOR_TICK: Color = (*view.MUTED, 110)
+LABEL_BACKING: Color = (0, 0, 0, 150)  # input name of a lane, over its thumbnails
 
 _FONTS: Dict[str, Any] = {}
 
@@ -205,7 +206,7 @@ class DpgTimeline(StripView):
         if "small" in self.fonts:
             dpg.bind_item_font(self.drawlist, self.fonts["small"])
         self.texture: Optional[Any] = None
-        self._texture_width = 0
+        self._texture_size = (0, 0)
         self._texture_image: Optional[np.ndarray] = None
         self.buttons: List[_Button] = [
             _Button("first", BUTTON_SIZE, lambda: self.seek(0)),
@@ -220,7 +221,7 @@ class DpgTimeline(StripView):
         self.loop_button.checked = bool(timeline.loop)
         self.collapse_button = _Button("collapse", BUTTON_SIZE, self.toggle_collapsed)
         self.buttons += [self.fit_button, self.loop_button, self.collapse_button]
-        self._applied_display = (timeline.display, timeline.collapsed)
+        self._applied_display = (timeline.display, timeline.collapsed, self.n_lanes)
         self.hover_button: Optional[_Button] = None
         self.pressed_button: Optional[_Button] = None
         self.dragging = False
@@ -242,11 +243,11 @@ class DpgTimeline(StripView):
         """Panel height: 0 when hidden, the transport row only when folded."""
         if self.timeline.display == "hidden":
             return 0
-        return FOLDED_HEIGHT if self.folded else PANEL_HEIGHT
+        return FOLDED_HEIGHT if self.folded else PANEL_HEIGHT - STRIP_HEIGHT + self.strip_height()
 
     def apply_display(self) -> None:
         """Show, fold or hide the panel after ``timeline.display`` / ``timeline.collapsed``."""
-        self._applied_display = (self.timeline.display, self.timeline.collapsed)
+        self._applied_display = (self.timeline.display, self.timeline.collapsed, self.n_lanes)
         self.collapse_button.visible = self.timeline.collapsible
         self.collapse_button.kind = "expand" if self.folded else "collapse"
         height = self.height
@@ -334,7 +335,7 @@ class DpgTimeline(StripView):
         if self.folded:
             return False
         sx, sy = self.strip_origin
-        return sx <= x <= sx + self.strip_width() and sy <= y <= sy + STRIP_HEIGHT
+        return sx <= x <= sx + self.strip_width() and sy <= y <= sy + self.strip_height()
 
     def on_wheel(self, delta: float, shift: bool) -> bool:
         """Wheel over the film strip: zoom (pan with shift); False when the mouse is elsewhere."""
@@ -379,8 +380,8 @@ class DpgTimeline(StripView):
         """Every frame: follow the panel width, read the mouse, redraw when something changed."""
         if not dpg.does_item_exist(self.drawlist):
             return
-        if (self.timeline.display, self.timeline.collapsed) != self._applied_display:
-            self.apply_display()  # new Video inputs with another timeline=...
+        if (self.timeline.display, self.timeline.collapsed, self.n_lanes) != self._applied_display:
+            self.apply_display()  # new Video inputs: another timeline=..., another number of lanes
         if self.timeline.display == "hidden":
             return
         version = self.timeline.background_version  # thumbnails / frames ready in the background
@@ -416,22 +417,22 @@ class DpgTimeline(StripView):
     # ---------------------------------------------------------------- drawing
     def _update_texture(self) -> Any:
         image = self.strip_image(THUMB_HEIGHT)
-        width = image.shape[1]
+        height, width = image.shape[:2]
         if self._texture_image is image and self.texture is not None:
             return self.texture
-        rgba = np.ones((THUMB_HEIGHT, width, 4), dtype=np.float32)
+        rgba = np.ones((height, width, 4), dtype=np.float32)
         rgba[..., :3] = image.astype(np.float32) / 255.0
-        if self.texture is None or width != self._texture_width:
+        if self.texture is None or (width, height) != self._texture_size:
             if self.texture is not None and dpg.does_item_exist(self.texture):
                 dpg.delete_item(self.texture)
             self.texture = dpg.add_raw_texture(
                 width,
-                THUMB_HEIGHT,
+                height,
                 cast(Any, rgba.ravel()),
                 format=dpg.mvFormat_Float_rgba,
                 parent=self.window.texture_registry,
             )
-            self._texture_width = width
+            self._texture_size = (width, height)
         else:
             dpg.set_value(self.texture, rgba.ravel())
         self._texture_image = image
@@ -527,7 +528,7 @@ class DpgTimeline(StripView):
     def _draw_strip(self, dl: Any) -> None:
         sx, sy = self.strip_origin
         width = self.strip_width()
-        bottom = sy + STRIP_HEIGHT
+        bottom = sy + self.strip_height()
         fps = self.timeline.fps
         dpg.draw_rectangle(
             (sx, sy),
@@ -562,6 +563,20 @@ class DpgTimeline(StripView):
             rounding=STRIP_RADIUS + 2,
             parent=dl,
         )
+
+        if self.n_lanes > 1:  # the input name of each lane, at its top left
+            for name, top in self.lane_tops(THUMB_HEIGHT):
+                text = str(name)
+                y = sy + RULER_HEIGHT + top + 4
+                dpg.draw_rectangle(
+                    (sx + 4, y),
+                    (sx + 14 + _text_width(text, 11), y + 14),
+                    color=LABEL_BACKING,
+                    fill=LABEL_BACKING,
+                    rounding=3,
+                    parent=dl,
+                )
+                self._text((sx + 9, y + 1), text, view.TEXT, "small", 11)
 
         # frames decoded ahead: a band along the bottom of the ruler, above the played line
         for left, right in self.buffered_spans():
