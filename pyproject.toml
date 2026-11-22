@@ -106,7 +106,7 @@ docs=[
 ]
 
 [tool.setuptools.package-data]
-interactive_pipe = ["py.typed", "agent/*/SKILL.md"]
+interactive_pipe = ["py.typed", "agent/*/SKILL.md", "graphical/assets/icon.*"]
 
 [tool.ruff]
 line-length = 120

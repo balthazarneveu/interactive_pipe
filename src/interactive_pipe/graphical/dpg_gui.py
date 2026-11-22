@@ -55,6 +55,7 @@ from interactive_pipe.graphical.dpg_image import (
 from interactive_pipe.graphical.dpg_panels import DpgPanelBuilder, DpgTimer  # noqa: F401
 from interactive_pipe.graphical.dpg_viewer import ZOOM_STEP, ViewState
 from interactive_pipe.graphical.gui import InteractivePipeGUI
+from interactive_pipe.graphical.icon import icon_path
 from interactive_pipe.graphical.pointer_input import Gesture, PointerTargets, overlay_items, to_fraction
 from interactive_pipe.graphical.view_geometry import CellContent, content_of
 from interactive_pipe.graphical.window import (
@@ -136,7 +137,9 @@ class InteractivePipeDPG(InteractivePipeGUI):
             self.init_app(**self._init_app_kwargs)
         width, height = self.window.viewport_size
         try:
-            dpg.create_viewport(title=self.name or "interactive_pipe", width=width, height=height)
+            ico = icon_path("ico")
+            icons = {"small_icon": ico, "large_icon": ico} if ico else {}
+            dpg.create_viewport(title=self.name or "interactive_pipe", width=width, height=height, **icons)
             dpg.set_viewport_resize_callback(self.window.on_viewport_resize)
             dpg.setup_dearpygui()
             requested = self.window.window_size

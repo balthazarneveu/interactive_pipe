@@ -16,6 +16,7 @@ from interactive_pipe.graphical.actions import Action
 from interactive_pipe.graphical.columns import choose_column_count, split_into_columns
 from interactive_pipe.graphical.display import display_data, figure_of, heatmap_geometry, rasterize_figure
 from interactive_pipe.graphical.gui import InteractivePipeGUI
+from interactive_pipe.graphical.icon import icon_path
 from interactive_pipe.graphical.pointer_input import Gesture, PointerTargets, overlay_items, to_fraction
 from interactive_pipe.graphical.qt_audio import QtAudioPlayer
 
@@ -34,6 +35,7 @@ from interactive_pipe.graphical.qt_backend import (  # noqa: F401
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
+    QIcon,
     QImage,
     QLabel,
     QMediaContent,
@@ -249,6 +251,12 @@ def _format_pixel_value(value) -> str:
     return f"{value:.4g}"
 
 
+def _set_window_icon(app) -> None:
+    path = icon_path("png")
+    if path:
+        app.setWindowIcon(QIcon(path))
+
+
 class InteractivePipeQT(InteractivePipeGUI):
     # click (< 3 px of movement) sets a PointControl, shift-drag draws a RegionControl
     pointer_gestures = True
@@ -264,6 +272,7 @@ class InteractivePipeQT(InteractivePipeGUI):
             self.app = QApplication(sys.argv)
         else:
             self.app = QApplication.instance()
+        _set_window_icon(self.app)
 
         self.window = MainWindow(
             controls=self.controls,
