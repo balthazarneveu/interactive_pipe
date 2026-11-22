@@ -193,8 +193,16 @@ def test_dpg_gives_a_figure_the_size_of_a_plot():
         gui = dpg_gui.InteractivePipeDPG(pipeline=pipe, name="figure box dpg")
         gui.pipeline.inputs = [X]
         gui.window.refresh()
-        width, height = gui.window.image_canvas[0][0]["natural_size"]
+        window = gui.window
+        cell = window.image_canvas[0][0]
+        width, height = window._layout_size(cell)  # what the grid lays out
         assert height == DEFAULT_PLOT_SIZE[1] and abs(width - DEFAULT_PLOT_SIZE[1] * 4 / 3) <= 1
+        # rasterised at the size it is shown (not a stretched 480 x 320 raster), the layout unchanged
+        ratio = window._figure_ratio
+        assert ratio == pytest.approx(window.scale_factor, rel=0.05) and ratio != 1.0
+        raster_w, raster_h = cell["natural_size"]
+        assert abs(raster_h - DEFAULT_PLOT_SIZE[1] * ratio) <= 2
+        assert window._layout_size(cell) == (width, height)
     finally:
         FIGSIZE["value"] = (6.4, 4.8)
         dpg_backend.destroy_context()
