@@ -56,19 +56,14 @@ _signal_warning_emitted = False
 
 
 def signal_to_curve(signal_1d: np.ndarray) -> "Curve":
-    """Wrap a 1D signal as a Curve so it can at least be displayed (warns once per process)."""
+    """Wrap a 1D signal as a Curve so it can at least be displayed (a hint logged once per process)."""
     global _signal_warning_emitted
-    if _signal_warning_emitted:
-        logging.debug("1D signal displayed as a curve (audio playback not supported)")
-    else:
+    if not _signal_warning_emitted:  # once per process: a hint, not an error
         _signal_warning_emitted = True
-        logging.warning(
-            "Audio playback not supported with 1D signal"
-            + "\nuse live audio instead while using Qt!"
-            + "\nuse instead: from interactive_pipe import audio; audio.set(audio_track)"
-            + "\nSee example here: https://github.com/balthazarneveu/interactive_pipe/blob/master/demo/jukebox.py"
+        logging.info(
+            "1D output shown as a curve. To hear a signal, call audio.set(signal, sample_rate) in a filter, "
+            "or give the sound as an AudioClip input (it plays and gets a timeline)"
         )
-        logging.warning("We'll try to display the audio signal as an image instead")
     return Curve(
         cast(
             List[Union[SingleCurve, list, tuple, dict, np.ndarray]],
