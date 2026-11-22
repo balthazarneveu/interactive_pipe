@@ -4,6 +4,8 @@
 
 - **`Webcam`: a live camera feed as a pipeline input.** Call a pipeline written for one image with `Webcam(0)` (a camera index, a device path or stream URL, an opened `cv2.VideoCapture`, or a function returning frames): the Qt and Dear PyGui windows show a new frame `fps` times per second (30 by default) and every slider applies to the live feed; <kbd>Space</kbd> freezes / resumes it, the sliders keep working on the frozen frame. The camera is read in a background thread keeping only the latest frame, so a slow pipeline skips frames instead of lagging. Headless runs, `snapshot` and the other backends read one new frame per run. Options: `width`, `height`, `fps`, `mirror`, `as_float`, `warmup`, `freeze_key`. ([guide](https://balthazarneveu.github.io/interactive_pipe/guide/webcam/))
 - **`demo/webcam_demo.py`**: a cartoon effect (posterize + edge lines) tuned live on the camera; falls back to a generated scene without a camera.
+- **Timeline: one lane per video.** With several `Video` inputs, the Qt and Dear PyGui film strip stacks one lane of thumbnails per input, labelled with its name, under one playhead; a video shorter than the timeline ends its lane there. `TimelineControl.tracks` lists `(input name, Video)`. ([guide](https://balthazarneveu.github.io/interactive_pipe/guide/video/#several-videos-one-timeline))
+- **`demo/video_blend_demo.py`**: two clips of different lengths and frame rates blended four ways (cross-fade, a dissolve following the playhead, difference, wipe).
 
 Image viewer and plots (Qt, Dear PyGui):
 

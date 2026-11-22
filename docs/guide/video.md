@@ -146,9 +146,41 @@ fading(Video(np.ones((50, 32, 32, 3), np.float32), fps=25))
 
 ## Several videos, one timeline
 
-Give several `Video` inputs: they share the timeline. When their frame rates
-differ, each shows the frame matching the current *time*: the timeline runs
-at the first video's frame rate and lasts as long as the longest one.
+Give several `Video` inputs: they share the timeline, and every filter
+receives the frame of each video at the current time. Blending two clips is
+an ordinary filter with two inputs:
+
+```python
+import numpy as np
+
+from interactive_pipe import Video, interactive, interactive_pipeline
+
+
+@interactive(mix=(0.5, [0.0, 1.0]))
+def cross_fade(a, b, mix=0.5):
+    return (1.0 - mix) * a + mix * b
+
+
+@interactive_pipeline(gui="qt")
+def blend(a, b):
+    mixed = cross_fade(a, b)
+    return a, mixed, b
+
+
+rng = np.random.default_rng(0)
+first = Video(rng.uniform(size=(75, 48, 64, 3)).astype(np.float32), fps=25)  # 3 s
+second = Video(np.ones((24, 48, 64, 3), np.float32), fps=12)  # 2 s
+blend(first, second, frame=30)
+```
+
+- The film strip shows **one lane per input**, labelled with the input name,
+  under one playhead.
+- When the frame rates differ, each video shows the frame matching the
+  current *time*: the timeline runs at the first video's frame rate and
+  lasts as long as the longest one.
+- A shorter video holds its last frame after its end; its lane stops there.
+- The frames are handed over as they are: resize them in a filter when the
+  videos differ in size.
 
 <!-- code: skip needs two video files -->
 ```python
@@ -353,6 +385,9 @@ controls knows the timeline.
   white balance) with a histogram. The title shows the timecode.
 - `demo/video_motion_demo.py`: motion detection on a numpy simulation with
   `window=3`, with boxes drawn on the moving objects.
+- `demo/video_blend_demo.py`: two clips of different lengths and frame
+  rates blended four ways (cross-fade, a dissolve following the playhead,
+  difference, wipe), one lane each on the film strip.
 - `demo/video_compare_demo.py`: a restoration model fed with torch tensors
   at 12 fps, compared with a 24 fps reference: wipe, error map, PSNR.
 - `demo/video_raw_sequence_demo.py`: a RAW burst in a custom file format read
