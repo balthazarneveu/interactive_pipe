@@ -11,7 +11,6 @@ from interactive_pipe.data_objects.data import Data
 from interactive_pipe.data_objects.image import Image
 from interactive_pipe.data_objects.parameters import Parameters
 from interactive_pipe.data_objects.table import PANDAS_AVAILABLE, Table
-from interactive_pipe.data_objects.video import is_video as _is_video
 from interactive_pipe.graphical.display import FIGURE_DPI, figure_of, release_pyplot_figure
 from interactive_pipe.headless.control import Control, TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
@@ -177,35 +176,35 @@ class HeadlessPipeline(PipelineCore):
 
     @inputs.setter
     def inputs(self, inputs):
-        """Set the inputs; a ``Video`` input gets a frame filter and the timeline (``headless/timeline.py``),
-        a ``Webcam`` input a frame filter and the live clock (``headless/live.py``)."""
+        """Set the inputs; a ``Video`` or ``AudioClip`` input gets a filter and the timeline
+        (``headless/timeline.py``), a ``Webcam`` input a frame filter and the live clock (``headless/live.py``)."""
         PipelineCore.inputs.fset(self, inputs)  # type: ignore[attr-defined]
         from interactive_pipe.data_objects.webcam import Webcam
         from interactive_pipe.headless.live import install_webcams
-        from interactive_pipe.headless.timeline import install_videos
+        from interactive_pipe.headless.timeline import install_timeline, is_timeline_input
 
         given = getattr(self, "_PipelineCore__inputs", None) or {}  # None: a pipeline without inputs
-        install_videos(self, {name: value for name, value in given.items() if _is_video(value)})
+        install_timeline(self, {name: value for name, value in given.items() if is_timeline_input(value)})
         install_webcams(self, {name: value for name, value in given.items() if isinstance(value, Webcam)})
 
     def adopt_video_inputs(self, input_values: Any = None, inputs: Optional[dict] = None) -> None:
-        """Install the timeline of the ``Video`` inputs about to be given, before
-        the keyword arguments naming it (``frame=10``) are checked. Nothing
-        happens without a ``Video`` among them (the inputs may be reused)."""
+        """Install the timeline of the ``Video`` / ``AudioClip`` inputs about to be given,
+        before the keyword arguments naming it (``frame=10``) are checked. Nothing
+        happens without one among them (the inputs may be reused)."""
         from interactive_pipe.headless.live import install_webcams, webcams_in
-        from interactive_pipe.headless.timeline import install_videos, videos_in
+        from interactive_pipe.headless.timeline import install_timeline, media_in
 
         values = inputs if inputs is not None else list(input_values or [])
-        videos = videos_in(self.inputs_routing, values)
-        if videos:
-            install_videos(self, videos)
+        media = media_in(self.inputs_routing, values)
+        if media:
+            install_timeline(self, media)
         webcams = webcams_in(self.inputs_routing, values)  # a Webcam input brings its live clock
         if webcams:  # removal: the inputs setter (here the inputs may be reused, not given)
             install_webcams(self, webcams)
 
     @property
     def timeline(self):
-        """The ``TimelineControl`` of the ``Video`` inputs (None without video input)."""
+        """The ``TimelineControl`` of the ``Video`` / ``AudioClip`` inputs (None without one)."""
         from interactive_pipe.headless.timeline import timeline_of
 
         return timeline_of(self)

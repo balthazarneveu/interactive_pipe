@@ -37,6 +37,7 @@ class Theme:
     overlay: RGB
     buffered: RGB  # frames decoded ahead (thin band under the thumbnails)
     pending: RGB  # a thumbnail still being built
+    waveform: RGB = (96, 170, 255)  # lane of an AudioClip input
     border: Optional[RGB] = None  # outline of the panel (light theme: it sits on a light window)
 
 
@@ -69,6 +70,7 @@ LIGHT = Theme(
     overlay=(0, 0, 0),
     buffered=(120, 126, 136),
     pending=(204, 208, 214),
+    waveform=(30, 110, 210),
     border=(210, 213, 219),
 )
 
@@ -263,7 +265,8 @@ class StripView:
         """Seconds between labelled ticks: frame multiples when zoomed in, "nice" durations otherwise."""
         fps = self.timeline.fps
         pixels_per_second = self.pixels_per_second()
-        frame_steps = tuple(k / fps for k in (1, 2, 5, 10))
+        # frame multiples for a video; sounds only: round durations (no frame to align on)
+        frame_steps = tuple(k / fps for k in (1, 2, 5, 10)) if self.timeline.has_video else ()
         for step in sorted(set(frame_steps + tuple(t for t in TICK_STEPS if t > 1 / fps))):
             if step * pixels_per_second >= MIN_TICK_PIXELS:
                 return step
@@ -304,7 +307,7 @@ class StripView:
     @property
     def n_lanes(self) -> int:
         """One lane per input on the timeline (one at least: an empty track)."""
-        return max(len(self.timeline.videos), 1)
+        return max(len(self.timeline.tracks), 1)
 
     def strip_height(self) -> int:
         """Height of the ruler and every lane."""
@@ -316,7 +319,7 @@ class StripView:
 
     # ---------------------------------------------------------------- thumbnails
     def strip_image(self, height: int = THUMB_HEIGHT, wait: bool = False) -> np.ndarray:
-        """Film strip: one lane of thumbnails per video, ``height`` px each, stacked with ``LANE_GAP``.
+        """Film strip: one lane per input (thumbnails of a video, waveform of a sound), ``height`` px each.
 
         ``(lanes_height(n_lanes, height), strip_width(), 3)`` uint8, cached per
         width and view. Thumbnails sit on a grid of frames (a power of two
@@ -326,29 +329,50 @@ class StripView:
         ``timeline.background_version`` changes); ``wait=True`` builds them
         first (tests, screenshots).
         """
+        from interactive_pipe.data_objects.audio_clip import AudioClip
+
         width = max(self.strip_width(), 1)
-        videos = self.timeline.videos
+        sources = [source for _, source in self.timeline.tracks]
         key = (
             width,
             height,
             self.theme.name,
             self.view,
             self.timeline.n_frames,
-            tuple(id(video) for video in videos),
-            tuple(video.background_version[1] for video in videos),
+            tuple(id(source) for source in sources),
+            tuple(video.background_version[1] for video in self.timeline.videos),
         )
         if self._strip_cache is not None and self._strip_cache[0] == key:
             return self._strip_cache[1]
-        strip = np.zeros((lanes_height(len(videos), height), width, 3), dtype=np.uint8)
+        strip = np.zeros((lanes_height(len(sources), height), width, 3), dtype=np.uint8)
         strip[...] = self.theme.panel  # the gaps between lanes
-        if not videos:
+        if not sources:
             strip[...] = self.theme.track_background
-        for k, video in enumerate(videos):
+        for k, source in enumerate(sources):
             top = k * (height + LANE_GAP)
-            strip[top : top + height] = self._video_lane(video, width, height, wait)
+            if isinstance(source, AudioClip):
+                strip[top : top + height] = self._audio_lane(source, width, height)
+            else:
+                strip[top : top + height] = self._video_lane(source, width, height, wait)
         strip = np.ascontiguousarray(strip)
         self._strip_cache = (key, strip)
         return strip
+
+    def _audio_lane(self, clip, width: int, height: int) -> np.ndarray:
+        """``(height, width, 3)`` waveform of ``clip``: the peak amplitude of each column, mirrored."""
+        lane = np.zeros((height, width, 3), dtype=np.uint8)
+        lane[...] = self.theme.track_background
+        fps = self.timeline.fps
+        first, last = self.frame_of(0.0), self.frame_of(float(width))
+        peaks = clip.peaks(first / fps, last / fps, width)
+        middle = (height - 1) / 2
+        half = np.maximum(peaks * (middle - 2), 0.5)  # silence: a hairline, while the sound lasts
+        rows = np.abs(np.arange(height)[:, None] - middle)
+        lane[rows <= half[None, :]] = self.theme.waveform
+        end = self.x_of(clip.duration * fps)  # after the end of the sound: an empty lane
+        if end < width:
+            lane[:, max(int(math.ceil(end)), 0) :] = self.theme.track_background
+        return lane
 
     def _video_lane(self, video, width: int, height: int, wait: bool) -> np.ndarray:
         """``(height, width, 3)`` thumbnails of ``video`` along the view (pending tiles requested in the background)."""

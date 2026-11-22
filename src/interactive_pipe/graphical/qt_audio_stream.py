@@ -132,6 +132,15 @@ class QtSignalStream:
     def stop(self) -> None:
         self.mixer.stop()
 
+    def seek(self, seconds: float) -> None:
+        self.mixer.seek(seconds)
+
+    def position(self) -> float:
+        return self.mixer.position_seconds
+
+    def playing(self) -> bool:
+        return self.mixer.playing
+
     def close(self) -> None:
         """Stop the audio thread (called when the application quits)."""
         if self._thread.isRunning():

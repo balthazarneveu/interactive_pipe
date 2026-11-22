@@ -607,12 +607,17 @@ class TimelineWidget(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
             f"&nbsp;/&nbsp;{timecode(position.duration)}</span>"
         )
         self.frame_label.setText(f"frame {position.frame} / {position.n_frames - 1}")
-        self.fps_label.setText(f"{self.timeline.fps:g} fps")
+        self.frame_label.setVisible(self.timeline.has_video)  # sounds only: the timecode says it all
+        if self.timeline.has_video:
+            self.fps_label.setText(f"{self.timeline.fps:g} fps")
+        else:
+            self.fps_label.setText(f"{self.timeline.audio_clips[0].sample_rate / 1000:g} kHz")
         self.strip.follow(position.frame)
         self.strip.update()
         self.timeline.preload(position.frame)  # decode the next frames before playback reaches them
 
     def _background_changed(self) -> None:
+        self._follow_audio_state()
         version = self.timeline.background_version
         if version != self._background_version:
             self._background_version = version
@@ -630,10 +635,48 @@ class TimelineWidget(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
         self.strip.reset_view()
 
     def seek(self, frame: int) -> None:
+        """Move the playhead to ``frame`` (and the sound of ``AudioClip`` inputs with it)."""
+        frame = self._advance(frame)
+        audio = self._audio()
+        if audio is not None:
+            audio.seek(frame / self.timeline.fps)
+            if self.timeline.playing and frame / self.timeline.fps < self._audio_duration():
+                audio.play()  # back inside the sound (loop of a longer video)
+
+    def _advance(self, frame: int) -> int:
+        """Move the playhead without touching the sound (playback follows it)."""
         frame = int(min(max(frame, 0), self.timeline.n_frames - 1))
         if frame != int(self.timeline.value):
             self.main_window.update_parameter(self.timeline.name, frame)
         self.reset()
+        return frame
+
+    # ---------------------------------------------------------------- sound (AudioClip inputs)
+    def _audio(self) -> Any:
+        """The ``audio`` bindings of the pipeline when an ``AudioClip`` is on the timeline, else None."""
+        if not self.timeline.audio_clips:
+            return None
+        pipeline = getattr(self.main_window, "pipeline", None)
+        state = getattr(pipeline, "framework_state", None)
+        return getattr(state, "audio", None)
+
+    def _audio_duration(self) -> float:
+        return max((clip.duration for clip in self.timeline.audio_clips), default=0.0)
+
+    def _audio_clock(self) -> Optional[float]:
+        """Seconds played by the sound when it is playing (the playhead follows it), else None."""
+        audio = self._audio()
+        if audio is None or not audio.playing():
+            return None
+        position = audio.position()
+        return None if position is None else float(position)
+
+    def _follow_audio_state(self) -> None:
+        """A filter started the sound (``audio.play()``): the playhead follows it."""
+        if not self.timeline.playing and self._audio_clock() is not None:
+            self.timeline.playing = True
+            self.timer.start(max(int(round(1000.0 / self.timeline.fps)), 1))
+            self.play_button.set_kind("pause")
 
     def step(self, offset: int) -> None:
         self.pause()
@@ -651,11 +694,19 @@ class TimelineWidget(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
         self.timeline.playing = True
         self.timer.start(max(int(round(1000.0 / self.timeline.fps)), 1))
         self.play_button.set_kind("pause")
+        audio = self._audio()
+        time = int(self.timeline.value) / self.timeline.fps
+        if audio is not None and time < self._audio_duration():
+            audio.seek(time)
+            audio.play()
 
     def pause(self) -> None:
         self.timeline.playing = False
         self.timer.stop()
         self.play_button.set_kind("play")
+        audio = self._audio()
+        if audio is not None:
+            audio.pause()
 
     def play_pause(self) -> None:
         if self.timeline.playing:
@@ -664,8 +715,15 @@ class TimelineWidget(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
             self.play()
 
     def _tick(self) -> None:
+        clock = self._audio_clock()
+        if clock is not None:  # the sound plays: the playhead follows it, never the other way round
+            self._advance(int(clock * self.timeline.fps))
+            return
         target = self.timeline.next_frame()
         if target is None:
             self.pause()
             return
-        self.seek(target)
+        if target < int(self.timeline.value):
+            self.seek(target)  # looped: the sound starts over too
+        else:
+            self._advance(target)  # past the end of a shorter sound: the timer goes on

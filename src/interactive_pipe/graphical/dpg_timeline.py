@@ -497,19 +497,23 @@ class DpgTimeline(StripView):
         total = f"/ {timecode(position.duration)}"
         self._text((x, cy - 13 * 0.55), total, view.MUTED, "muted", 13)
         x += _text_width(total, 13) + 12
-        chip = f"frame {position.frame} / {position.n_frames - 1}"
-        chip_w = _text_width(chip, SMALL_FONT_PX) + 20
-        dpg.draw_rectangle(
-            (x, cy - 11),
-            (x + chip_w, cy + 11),
-            color=_rgba(view.RULER_BAND),
-            fill=_rgba(view.RULER_BAND),
-            rounding=11,
-            parent=dl,
-        )
-        self._text((x + 10, cy - SMALL_FONT_PX * 0.62), chip, view.TEXT)
-        x += chip_w + 8
-        self._text((x, cy - SMALL_FONT_PX * 0.62), f"{self.timeline.fps:g} fps", view.MUTED)
+        if self.timeline.has_video:
+            chip = f"frame {position.frame} / {position.n_frames - 1}"
+            chip_w = _text_width(chip, SMALL_FONT_PX) + 20
+            dpg.draw_rectangle(
+                (x, cy - 11),
+                (x + chip_w, cy + 11),
+                color=_rgba(view.RULER_BAND),
+                fill=_rgba(view.RULER_BAND),
+                rounding=11,
+                parent=dl,
+            )
+            self._text((x + 10, cy - SMALL_FONT_PX * 0.62), chip, view.TEXT)
+            x += chip_w + 8
+            rate = f"{self.timeline.fps:g} fps"
+        else:  # sounds only: no frame number
+            rate = f"{self.timeline.audio_clips[0].sample_rate / 1000:g} kHz"
+        self._text((x, cy - SMALL_FONT_PX * 0.62), rate, view.MUTED)
         # right side: zoom level, whole-video button (zoomed only), loop toggle, fold button (collapsible)
         right = width - PAD_X
         if self.collapse_button.visible:

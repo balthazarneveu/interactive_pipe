@@ -347,6 +347,7 @@ class PipelineEngine:
         previous_calculation = False
         for idx, prc in enumerate(filters):
             tic = time.perf_counter()
+            downstream_skip = None  # a cache_transparent filter: what the next filters inherit
             if graph_mode:
                 # dependency-aware cache: a filter is dirty when its own parameters changed,
                 # one of its producers is dirty, or a context key it reads was updated
@@ -363,7 +364,13 @@ class PipelineEngine:
                 # 0     | X           | False -> no cache, cannot skip so calculate
                 # 1     | 0           | True  -> cache with no change, skip the calculation
                 # 1     | 1           | False -> cache and result changed, cannot skip so calculate
-                skip_calculation &= (prc.cache_mem is not None) and (not prc.cache_mem.has_changed(prc.values))
+                unchanged = (prc.cache_mem is not None) and (not prc.cache_mem.has_changed(prc.values))
+                if getattr(prc, "cache_transparent", False):
+                    # no output: its change does not reach the filters after it (the timeline clock)
+                    downstream_skip = skip_calculation
+                    skip_calculation = skip_calculation and unchanged
+                else:
+                    skip_calculation &= unchanged
 
             if skip_calculation and self.cache:
                 logging.debug(f"-->  Load cached outputs from filter {idx}: {prc.name}")
@@ -458,6 +465,8 @@ class PipelineEngine:
             toc = time.perf_counter()
             report.timings[prc.name] = 0.0 if prc.name in report.cached else toc - tic
             performances.append(f"{prc.name}: {toc - tic:0.4f} seconds")
+            if downstream_skip is not None:
+                skip_calculation = downstream_skip
 
         if run_writes:
             # Backward context edges (feedback across runs): when a filter updates a key
