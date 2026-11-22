@@ -153,6 +153,13 @@ def signal_to_curve(signal_1d: np.ndarray) -> Curve:
     return Curve([SingleCurve(y=signal_1d)], ylabel="Amplitude")
 
 
+def _content_parent(cell: Dict[str, Any]) -> Any:
+    """Container of a cell's content item: the row under the title, whose leading
+    spacer centers the content in its column (the cell group itself in older cells)."""
+    body = cell.get("body")
+    return body if _exists(body) else cell["cell"]
+
+
 def _exists(item) -> bool:
     return item is not None and dpg.does_item_exist(item)
 
@@ -193,7 +200,7 @@ def update_image_cell(cell: Dict[str, Any], image: np.ndarray, texture_registry)
     cell["texture"] = dpg.add_raw_texture(
         width, height, cast(Any, rgba), format=dpg.mvFormat_Float_rgba, parent=texture_registry
     )
-    cell["content"] = dpg.add_drawlist(width=width, height=height, parent=cell["cell"])
+    cell["content"] = dpg.add_drawlist(width=width, height=height, parent=_content_parent(cell))
     cell["drawn_image"] = dpg.draw_image(cell["texture"], (0, 0), (width, height), parent=cell["content"])
     cell["natural_size"] = (width, height)
     return True
@@ -366,7 +373,7 @@ def _ensure_plot(cell: Dict[str, Any], curve: Curve) -> Dict[str, Any]:
         return plot_state
     _delete(cell.get("content"))
     width, height = DEFAULT_PLOT_SIZE
-    plot = dpg.add_plot(parent=cell["cell"], width=width, height=height, no_title=True)
+    plot = dpg.add_plot(parent=_content_parent(cell), width=width, height=height, no_title=True)
     dpg.add_plot_legend(parent=plot)
     x_axis = dpg.add_plot_axis(dpg.mvXAxis, parent=plot)
     y_axis = dpg.add_plot_axis(dpg.mvYAxis, parent=plot)
@@ -459,7 +466,9 @@ def update_table_cell(cell: Dict[str, Any], table: Table) -> bool:
         config = dpg.get_item_configuration(cell["content"])
         display_size = (config.get("width") or width, config.get("height") or height)
     _delete(cell.get("content"))
-    container = dpg.add_child_window(parent=cell["cell"], width=display_size[0], height=display_size[1], border=True)
+    container = dpg.add_child_window(
+        parent=_content_parent(cell), width=display_size[0], height=display_size[1], border=True
+    )
     has_headers = any(column != "" for column in table.columns)
     if table.title:
         dpg.add_text(table.title, parent=container)
@@ -495,7 +504,7 @@ def update_text_cell(cell: Dict[str, Any], text: str) -> bool:
         return False
     _delete(cell.get("content"))
     width, height = DEFAULT_TEXT_SIZE
-    cell["content"] = dpg.add_text(text, parent=cell["cell"], wrap=width)
+    cell["content"] = dpg.add_text(text, parent=_content_parent(cell), wrap=width)
     font = _text_font()
     if font is not None:
         dpg.bind_item_font(cell["content"], font)

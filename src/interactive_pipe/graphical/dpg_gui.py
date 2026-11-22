@@ -72,6 +72,7 @@ from interactive_pipe.headless.timeline import TimelineControl
 
 DEFAULT_VIEWPORT_SIZE = (1280, 800)
 GRID_SPACING = 6  # pixels between cells
+ITEM_SPACING_Y = 4  # ImGui default vertical spacing between the items of a group
 TITLE_HEIGHT = 22  # one text line above each cell
 LAYOUT_MARGIN = 16  # window padding
 SIDE_PANEL_GAP = 8
@@ -514,6 +515,7 @@ class MainWindow(InteractivePipeWindow):
             # a title may use its cell's share of the row, even when the (scaled) image is narrower
             title_share = (avail_w - GRID_SPACING * max(0, len(row) - 1)) // max(1, len(row))
             cell_widths = [int(w * scale) for w in col_widths[: len(row)]]
+            placed = []  # (cell, content width, content height, title width)
             for c, cell in enumerate(row):
                 if cell is None or cell.get("natural_size") is None or cell.get("content") is None:
                     continue
@@ -522,20 +524,37 @@ class MainWindow(InteractivePipeWindow):
                 title_w = set_cell_title(cell)
                 cell_widths[c] = max(cell_widths[c], int(title_w))
                 kind = cell.get("kind")
+                content_w, content_h = max(1, int(width * scale)), max(1, int(height * scale_h))
                 if kind == "text":
                     dpg.configure_item(cell["content"], wrap=max(40, int(width * scale)))
                 else:
-                    dpg.configure_item(
-                        cell["content"], width=max(1, int(width * scale)), height=max(1, int(height * scale_h))
-                    )
+                    dpg.configure_item(cell["content"], width=content_w, height=content_h)
                     if kind == "image":
                         place_image(cell, self.view)
+                placed.append((c, cell, content_w, content_h, title_w))
+            row_h = max((h for _c, _cell, _w, h, _t in placed), default=0)
+            for c, cell, content_w, content_h, title_w in placed:
+                self._center_in_slot(cell, cell_widths[c], content_w, title_w, row_h - content_h)
             row_items = self._rows.get(r)
             if row_items is not None:
                 row_w = sum(cell_widths) + GRID_SPACING * max(0, len(row) - 1)
                 dpg.configure_item(row_items["spacer"], width=max(0, (avail_w - row_w) // 2))
         vertical_room = 0 if self.view.absolute else avail_h - int(total_h * scale_h) - LAYOUT_MARGIN
         dpg.configure_item(self.grid_vspacer, height=max(0, vertical_room // 2))
+
+    @staticmethod
+    def _center_in_slot(cell: Dict[str, Any], slot_w: int, content_w: int, title_w: float, spare_h: int) -> None:
+        """Center a cell's title and content in its grid slot (`slot_w` wide, the
+        widest cell of its column), and vertically in its row (`spare_h`: how much
+        shorter than the row it is). Cells built without the spacers are left as they are."""
+        lead, top = cell.get("lead_spacer"), cell.get("top_spacer")
+        if lead is None or top is None or not dpg.does_item_exist(lead) or not dpg.does_item_exist(top):
+            return
+        dpg.configure_item(lead, width=max(0, (slot_w - content_w) // 2))
+        dpg.configure_item(cell["title"], indent=max(0, int((slot_w - title_w) // 2)))
+        # a shown spacer also adds one item spacing below itself
+        offset = spare_h // 2 - ITEM_SPACING_Y
+        dpg.configure_item(top, height=max(1, offset), show=offset > 0)
 
     # ------------------------------------------------------ zoom & pan (images)
     def image_cells(self) -> List[Dict[str, Any]]:
@@ -1172,11 +1191,19 @@ class MainWindow(InteractivePipeWindow):
 
     def add_image_placeholder(self, row, col):
         cell_group = dpg.add_group(parent=self._row_group(row))
+        # centering in the grid slot (relayout): a spacer above the title (shorter
+        # cells of a row), the title's indent, and a spacer before the content
+        top_spacer = dpg.add_spacer(parent=cell_group, height=0, show=False)
         title = dpg.add_text("", parent=cell_group)
         tooltip = dpg.add_tooltip(parent=title, show=False)  # full title, shown only when it is elided
         tooltip_text = dpg.add_text("", parent=tooltip)
+        body = dpg.add_group(parent=cell_group, horizontal=True, horizontal_spacing=0)
+        lead_spacer = dpg.add_spacer(parent=body, width=0)
         self.image_canvas[row][col] = {  # type: ignore[index]
             "cell": cell_group,
+            "top_spacer": top_spacer,
+            "body": body,
+            "lead_spacer": lead_spacer,
             "title": title,
             "title_tooltip": tooltip,
             "title_tooltip_text": tooltip_text,
