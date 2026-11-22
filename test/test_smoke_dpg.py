@@ -25,6 +25,7 @@ from interactive_pipe.data_objects.image import Image  # noqa: E402
 from interactive_pipe.data_objects.table import Table  # noqa: E402
 from interactive_pipe.graphical import dpg_backend, dpg_control, dpg_image  # noqa: E402
 from interactive_pipe.graphical.dpg_panels import DpgTimer  # noqa: E402
+from interactive_pipe.graphical.view_geometry import format_zoom  # noqa: E402
 from interactive_pipe.headless.control import CircularControl, Control, TextPrompt, TimeControl  # noqa: E402
 from interactive_pipe.headless.keyboard import KeyboardControl  # noqa: E402
 from interactive_pipe.headless.panel import Panel  # noqa: E402
@@ -1068,6 +1069,22 @@ def test_key_1_zooms_to_100_percent_in_place(monkeypatch):
         assert rect[:2] == pytest.approx(((box[0] - 4) / 2, (box[1] - 4) / 2), abs=1)
     gui._on_key_press(None, dpg.mvKey_0, None)
     assert window.view.mode == "fit" and viewport["size"] == [800, 600]
+
+
+def test_hovering_an_image_shows_its_zoom_in_the_status_line(monkeypatch):
+    gui = _zoom_gui()
+    window = gui.window
+    window.refresh()
+    run_status = dpg.get_value(window.status_text)
+    cell = window.image_cells()[0]
+    window._show_hover_zoom(cell)
+    fit = window.view.layout(dpg_image.image_box(cell), dpg_image.cell_content(cell)).scale
+    assert dpg.get_value(window.status_text) == f"{run_status} · {format_zoom(fit)}"
+    gui._on_key_press(None, dpg.mvKey_1, None)
+    window._show_hover_zoom(cell)
+    assert dpg.get_value(window.status_text).endswith(" · 100%")
+    window._show_hover_zoom(None)  # the mouse left the images
+    assert dpg.get_value(window.status_text) == run_status
 
 
 def test_actual_size_option_is_validated():

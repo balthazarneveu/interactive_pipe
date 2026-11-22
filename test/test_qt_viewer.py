@@ -597,3 +597,27 @@ def test_colorbar_cell_at_zoom_one_is_the_fitted_whole_image():
     assert layout.strip[0] == pytest.approx(layout.main[0] + layout.main[2])
     with_bar.detach()
     with_bar.deleteLater()
+
+
+def test_status_line_shows_the_zoom_of_the_hovered_image():
+    """Hovering an image: the status line gives its zoom (100% at 1:1) before the
+    pixel readout; the wheel updates it under the cursor."""
+    window = build_window(pair_pipeline)
+    settle(window, (800, 400))
+    gray, _ = views(window)
+    window.set_view_mode("1:1")
+    x0, y0, _, _ = gray.image_rect()
+    gray.hover_callback(*gray.pixel_at(x0 + 10.5, y0 + 20.5))
+    assert "100% · (10, 20) = " in window.status_label.text()
+    gray.zoom_by(2.0)
+    gray.hover_callback(*gray.pixel_at(*gray.image_rect()[:2]))
+    assert "200% · " in window.status_label.text()
+
+
+def test_format_zoom():
+    from interactive_pipe.graphical.view_geometry import format_zoom
+
+    assert format_zoom(1.0) == "100%"
+    assert format_zoom(2.5) == "250%"
+    assert format_zoom(1 / 3) == "33%"
+    assert format_zoom(0.0625) == "6.2%"

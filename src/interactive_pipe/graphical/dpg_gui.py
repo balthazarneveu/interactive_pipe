@@ -58,7 +58,7 @@ from interactive_pipe.graphical.dpg_viewer import ZOOM_STEP, ViewState
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.icon import icon_path
 from interactive_pipe.graphical.pointer_input import Gesture, PointerTargets, overlay_items, to_fraction
-from interactive_pipe.graphical.view_geometry import CellContent, content_of
+from interactive_pipe.graphical.view_geometry import content_of, format_zoom
 from interactive_pipe.graphical.window import (
     InteractivePipeWindow,
     display_kind,
@@ -299,6 +299,8 @@ class MainWindow(InteractivePipeWindow):
         self.last_error: Optional[FilterError] = None
         self.scale_factor = 1.0
         self._figure_ratio = 1.0  # figure outputs are rasterised in FIGURE_CELL_SIZE times this
+        self._run_status = ""  # status line of the last run; hovering an image appends its zoom
+        self._hover_status_shown = False
         # zoom/pan shared by every image cell
         self.view = ViewState(native_cells=getattr(main_gui, "actual_size", "zoom") == "window")
         self._size_before_actual: Optional[Tuple[int, int]] = None  # viewport size restored when leaving 1:1
@@ -745,6 +747,7 @@ class MainWindow(InteractivePipeWindow):
             return
         cell, local = target
         self.zoom_by(ZOOM_STEP ** float(delta), cell, local)
+        self._show_hover_zoom(cell)
 
     def on_mouse_click(self, *_args):
         target = self._mouse_target()
@@ -757,12 +760,30 @@ class MainWindow(InteractivePipeWindow):
             return
         self._drag = (target[0], (float(x), float(y)))
 
+    def _show_hover_zoom(self, cell: Optional[Dict[str, Any]]) -> None:
+        """Status line while the mouse is over an image cell: the run status and
+        that image's zoom (screen pixels per data pixel); back to the run status
+        when it leaves. An error message in the status line is left alone."""
+        if cell is None:
+            if self._hover_status_shown:
+                self._hover_status_shown = False
+                self.set_status(self._run_status)
+            return
+        if self.last_error is not None or cell.get("natural_size") is None:
+            return
+        scale = self.view.layout(image_box(cell), cell_content(cell)).scale * cell.get("data_upscale", 1)
+        separator = " · " if self._run_status else ""
+        self.set_status(f"{self._run_status}{separator}{format_zoom(scale)}")
+        self._hover_status_shown = True
+
     def on_mouse_move(self, _sender, pos, *_args):
         if self.pointer_gesture.active:
             # same frame as the press (viewport coordinates, compared with get_item_rect_min)
             x, y = dpg.get_mouse_pos(local=False)[:2]
             self.pointer_move((float(x), float(y)))
         if self._drag is None:
+            target = None if self.pointer_gesture.active else self._mouse_target()
+            self._show_hover_zoom(None if target is None else target[0])
             return
         cell, last = self._drag
         if not dpg.is_mouse_button_down(dpg.mvMouseButton_Left) or not dpg.does_item_exist(cell["content"]):
@@ -1272,7 +1293,11 @@ class MainWindow(InteractivePipeWindow):
         figure_natural = None
         if isinstance(content, np.ndarray):
             changed = update_image_cell(cell, content, self.texture_registry)
-            cell["view_content"] = self._view_content(content, row, col)
+            geometry = self._heatmap_geometry(row, col)
+            cell["view_content"] = (
+                None if geometry is None else content_of(content.shape[1], content.shape[0], geometry)
+            )
+            cell["data_upscale"] = 1 if geometry is None else max(1, int(geometry.upscale))
             if figure_of(display_data(self._raw_output(row, col))) is not None:
                 height, width = content.shape[:2]
                 ratio = self._figure_ratio
@@ -1291,17 +1316,14 @@ class MainWindow(InteractivePipeWindow):
         self._needs_layout = self._needs_layout or changed
         set_cell_title(cell, self.get_current_style(row, col).get("title", ""))
 
-    def _view_content(self, shown: np.ndarray, row: int, col: int) -> Optional[CellContent]:
-        """CellContent of a heatmap drawn with a colorbar / axes (its map zooms, its
-        colorbar stays fixed), None for a plain image."""
+    def _heatmap_geometry(self, row: int, col: int) -> Any:
+        """display.HeatmapGeometry of a heatmap drawn with a colorbar / axes in cell
+        (row, col) (its map zooms, its colorbar stays fixed), None for a plain image."""
         try:
             raw = display_data(self._raw_outputs[row][col])
-            geometry = heatmap_geometry(raw, self.get_current_style(row, col))
+            return heatmap_geometry(raw, self.get_current_style(row, col))
         except (AttributeError, IndexError, KeyError, TypeError, RuntimeError):
             return None
-        if geometry is None:
-            return None
-        return content_of(shown.shape[1], shown.shape[0], geometry)
 
     @staticmethod
     def convert_image(out_im):
@@ -1331,7 +1353,9 @@ class MainWindow(InteractivePipeWindow):
                 self._clear_error_cells()
                 self.last_error = None
                 self.refresh_display(out)
-                self.set_status(format_run_status(self.pipeline.last_run_report))
+                self._run_status = format_run_status(self.pipeline.last_run_report)
+                self.set_status(self._run_status)
+                self._hover_status_shown = False
         if self._needs_layout:
             self.relayout()
 

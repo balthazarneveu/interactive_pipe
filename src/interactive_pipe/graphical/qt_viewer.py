@@ -294,6 +294,12 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         """Screen pixels per image pixel currently used to paint (the map, not a colorbar)."""
         return self.view_layout().scale
 
+    def data_scale(self) -> float:
+        """Screen pixels per *data* pixel: ``scale`` times the upscale of a
+        heatmap drawn with a colorbar / axes (its map is an upscaled raster)."""
+        upscale = self.readout[0] if self.readout else 1
+        return self.scale() * max(1, int(upscale))
+
     def min_zoom(self) -> float:
         """Smallest zoom: the image fits the view (or stays at its current base
         scale when that is already smaller, e.g. a small image at 1:1)."""
@@ -483,7 +489,10 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         if delta == 0:
             event.ignore()
             return
-        self.zoom_by(ZOOM_STEP ** (delta / 120.0), self._event_pos(event))
+        pos = self._event_pos(event)
+        self.zoom_by(ZOOM_STEP ** (delta / 120.0), pos)
+        if self.hover_callback is not None:  # the readout (zoom, pixel under the cursor) follows
+            self.hover_callback(*self.pixel_at(*pos))
         event.accept()
 
     def mousePressEvent(self, event) -> None:  # noqa: N802 - Qt API
