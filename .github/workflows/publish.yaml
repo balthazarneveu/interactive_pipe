@@ -76,3 +76,20 @@ jobs:
           path: dist/
       - name: Publish to PyPI (trusted publishing)
         uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086  # v1.14.3
+
+  release:
+    # A GitHub release (the "Latest" badge) with the changelog section of the tag
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v v="$VERSION" '/^## /{p = index($0, "## " v " ") == 1; next} p' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "See CHANGELOG.md" > notes.md
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag
