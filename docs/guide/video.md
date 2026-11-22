@@ -181,6 +181,8 @@ blend(first, second, frame=30)
 - A shorter video holds its last frame after its end; its lane stops there.
 - The frames are handed over as they are: resize them in a filter when the
   videos differ in size.
+- An `AudioClip` input joins the same timeline with a waveform lane, and
+  plays in sync with the frames ([audio inputs](audio.md#audio-inputs-and-a-timeline)).
 
 <!-- code: skip needs two video files -->
 ```python
