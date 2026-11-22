@@ -15,3 +15,5 @@ Return these from filters to control how outputs are displayed.
 ::: interactive_pipe.FrameSource
 
 ::: interactive_pipe.Webcam
+
+::: interactive_pipe.AudioClip

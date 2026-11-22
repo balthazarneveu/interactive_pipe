@@ -292,17 +292,7 @@ class InteractivePipeQT(InteractivePipeGUI):
 
         self.player = None
         if self.audio:
-            # The player is created a little later (avoids PipeWire sync blocking at start-up):
-            # until then the sound the first runs ask for is recorded, and replayed once it exists.
-            self._pending_audio = None
-            self._pending_playback = None
-            audio = self.pipeline.framework_state.audio
-            audio.accepts_signals = qt_audio_stream.QAudioSink is not None
-            audio.load_audio = self._record_audio_request
-            audio.play = partial(self._record_playback, "play")
-            audio.pause = partial(self._record_playback, "pause")
-            audio.stop = partial(self._record_playback, "stop")
-            QTimer.singleShot(100, self.audio_player)
+            self._bind_pending_audio()
 
     def run(self) -> list:
         if not self.pipeline._PipelineCore__initialized_inputs:  # type: ignore[reportAttributeAccessIssue]
@@ -464,6 +454,34 @@ class InteractivePipeQT(InteractivePipeGUI):
 
     # ---------------------------- AUDIO FEATURE ----------------------------------------
 
+    def _bind_pending_audio(self):
+        """The player is created a little later (avoids PipeWire sync blocking at start-up):
+        until then the sound the first runs ask for is recorded, and replayed once it exists."""
+        self._pending_audio = None
+        self._pending_playback = None
+        self._pending_seek = None
+        audio = self.pipeline.framework_state.audio
+        audio.accepts_signals = qt_audio_stream.QAudioSink is not None
+        audio.load_audio = self._record_audio_request
+        audio.play = partial(self._record_playback, "play")
+        audio.pause = partial(self._record_playback, "pause")
+        audio.stop = partial(self._record_playback, "stop")
+        audio.seek = self._record_seek
+        QTimer.singleShot(100, self.audio_player)
+
+    def enable_audio(self):
+        """An ``AudioClip`` input was given: open the player (as with ``audio=True``)."""
+        if self.audio:
+            return
+        if getattr(getattr(self, "window", None), "_runner", None) is not None:  # threaded=True
+            logging.warning("threaded=True does not support audio: the AudioClip input plays no sound")
+            return
+        self.audio = True
+        self._bind_pending_audio()
+
+    def _record_seek(self, seconds):
+        self._pending_seek = seconds
+
     def _record_audio_request(self, request):
         self._pending_audio = request
 
@@ -481,11 +499,16 @@ class InteractivePipeQT(InteractivePipeGUI):
         audio.stop = self.player.stop
         if self.app is not None:
             self.app.aboutToQuit.connect(self.close_audio)
+        audio.seek = self.player.seek
+        audio.position = self.player.position
+        audio.playing = self.player.playing
         if self._pending_audio is not None:
             self.player.load(self._pending_audio)
+            if self._pending_seek is not None:
+                self.player.seek(self._pending_seek)
             if self._pending_playback is not None:
                 getattr(self.player, self._pending_playback)()
-        self._pending_audio = self._pending_playback = None
+        self._pending_audio = self._pending_playback = self._pending_seek = None
 
     def close_audio(self):
         """Stop the sound and its thread (window closed, application quitting)."""

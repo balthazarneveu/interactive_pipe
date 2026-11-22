@@ -49,6 +49,10 @@ class AudioBindings:
     play: Callable[[], None] = _noop
     pause: Callable[[], None] = _noop
     stop: Callable[[], None] = _noop
+    # the timeline of an AudioClip input drives and follows the player through these
+    seek: Callable[[float], None] = _noop
+    position: Callable[[], Optional[float]] = _noop  # seconds; None: no player (yet)
+    playing: Callable[[], Optional[bool]] = _noop
 
 
 @dataclass

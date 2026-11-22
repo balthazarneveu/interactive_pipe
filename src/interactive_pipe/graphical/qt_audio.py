@@ -109,6 +109,21 @@ class _FilePlayer:
         self._play_when_loaded = False
         self.media_player.stop()
 
+    def seek(self, seconds: float):
+        position = max(int(round(seconds * 1000)), 0)
+        if self._pending_position is not None:
+            self._pending_position = position  # sought once loaded
+        else:
+            self.media_player.setPosition(position)
+
+    def position(self) -> float:
+        return self.media_player.position() / 1000.0
+
+    def playing(self) -> bool:
+        state = getattr(self.media_player, "playbackState", None) or getattr(self.media_player, "state")  # Qt6 / Qt5
+        enum = getattr(QMediaPlayer, "PlaybackState", QMediaPlayer)
+        return state() == getattr(enum, "PlayingState") or self._play_when_loaded
+
 
 class _WavFallback:
     """Signals written to a temporary WAV for the media player (no streaming available)."""
@@ -197,6 +212,17 @@ class QtAudioPlayer:
 
     def stop(self):
         self.active.stop()
+
+    def seek(self, seconds: float):
+        """Move the playhead of the sound playing (a timeline seek)."""
+        self.active.seek(seconds)
+
+    def position(self) -> float:
+        """Seconds since the start of the sound playing (the timeline follows it)."""
+        return self.active.position()
+
+    def playing(self) -> bool:
+        return self.active.playing()
 
     def close(self):
         """Release the audio thread (application exit)."""

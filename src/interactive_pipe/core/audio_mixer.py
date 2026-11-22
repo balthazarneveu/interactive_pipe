@@ -139,6 +139,25 @@ class SignalMixer:
                 self._voices.append(_Voice(frames, position, gain=0.0, target=1.0))
             self._loop = bool(loop)
 
+    def seek(self, seconds: float) -> None:
+        """Move the playhead to ``seconds`` (cross-faded while audible, like a new version of the sound)."""
+        with self._lock:
+            current = self._current
+            if current is None:
+                return
+            position = min(max(int(round(seconds * self.rate)), 0), len(current.frames))
+            if self._gain == 0 and self._target == 0:
+                current.position = position
+                self._voices = [current]
+                self._rewind_when_silent = False
+                return
+            for voice in self._voices:
+                voice.target = 0.0
+            self._voices = [voice for voice in self._voices if voice.gain > 0]
+            if len(self._voices) >= self.MAX_VOICES:
+                self._voices.remove(min(self._voices, key=lambda voice: voice.gain))
+            self._voices.append(_Voice(current.frames, position, gain=0.0, target=1.0))
+
     def play(self) -> None:
         with self._lock:
             current = self._current

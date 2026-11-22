@@ -167,9 +167,17 @@ class InteractivePipeGUI:
             self.pipeline.inputs = inputs  # type: ignore
         else:
             self.pipeline.inputs = list(args)
-        self._add_new_controls()  # a Video input brings its timeline
+        timeline = self.pipeline.timeline
+        if timeline is not None and timeline.audio_clips and not self.audio:
+            self.enable_audio()  # an AudioClip input plays without audio=True
+        self._add_new_controls()  # a Video / AudioClip input brings its timeline
         results = self.run()
         return results
+
+    def enable_audio(self) -> None:
+        """Turn audio playback on (an ``AudioClip`` input was given). Backends with a player override it."""
+        self.audio = True
+        logging.info(f"{type(self).__name__}: no audio playback on this backend; the timeline still works")
 
     def _add_new_controls(self) -> None:
         """Show the controls the pipeline gained since the window was built:

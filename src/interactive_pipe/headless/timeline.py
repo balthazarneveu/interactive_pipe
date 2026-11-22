@@ -1,4 +1,4 @@
-"""Video inputs: the timeline control and the frame filters a pipeline installs for them.
+"""Video and audio inputs: the timeline control and the filters a pipeline installs for them.
 
 A pipeline input given as a ``Video`` is not handed to the filters: the
 pipeline puts a small *frame filter* in front of them (``video_<input>``,
@@ -9,6 +9,13 @@ filter when the frame changes, ``snapshot`` / ``sweep`` / ``describe`` /
 tuning files see a control named ``frame``, the GUIs show a timeline (an int
 slider on the backends without a dedicated widget).
 
+An input given as an ``AudioClip`` gets an *audio filter* (``audio_<input>``)
+writing the whole signal in place of the clip: it does not depend on the
+playhead, so moving it never recomputes the audio filters. The clip shares
+the timeline (one waveform lane, next to the video lanes); without any
+``Video`` a *clock filter* (``timeline``, ``cache_transparent``) writes the
+position in the context.
+
 Filters may read the timeline position with ``context["timeline"]`` (a
 ``Timeline``: ``frame``, ``time``, ``fps``, ``n_frames``, and the
 ``metadata`` of the frame shown).
@@ -17,10 +24,12 @@ Filters may read the timeline position with ``context["timeline"]`` (a
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
 
 from interactive_pipe.core.filter import FilterCore
+from interactive_pipe.data_objects.audio_clip import AudioClip
 from interactive_pipe.data_objects.video import Video
 from interactive_pipe.headless.control import Control
 
@@ -33,6 +42,10 @@ FALLBACK_TIMELINE_NAME = "timeline"
 #: context key holding the ``Timeline`` position, written by the frame filters
 CONTEXT_KEY = "timeline"
 FRAME_FILTER_PREFIX = "video_"
+AUDIO_FILTER_PREFIX = "audio_"
+CLOCK_FILTER_NAME = "timeline"
+#: ticks per second of a timeline without video (playhead resolution of a sound)
+AUDIO_TIMELINE_FPS = 30.0
 
 
 def timecode(seconds: float, fps: Optional[float] = None) -> str:
@@ -51,7 +64,8 @@ class Timeline:
     ``metadata``: the metadata of the frame shown (first ``Video`` input), as
     its source gives it (``loader`` / ``FrameSource``; ``"path"`` for files),
     ``{}`` when there is none. ``inputs_metadata``: the same for every
-    ``Video`` input, by input name.
+    input on the timeline, by input name; an ``AudioClip`` input gives
+    ``sample_rate``, ``duration``, ``channels`` (and ``path``).
     """
 
     frame: int
@@ -59,6 +73,7 @@ class Timeline:
     fps: float
     metadata: Dict[str, Any] = field(default_factory=dict, compare=False)
     inputs_metadata: Dict[Any, Dict[str, Any]] = field(default_factory=dict, compare=False)
+    has_video: bool = field(default=True, compare=False)  # False: sounds only, no frame number shown
 
     @property
     def time(self) -> float:
@@ -75,7 +90,8 @@ class Timeline:
         return self.frame / max(self.n_frames - 1, 1)
 
     def __str__(self) -> str:
-        return f"{timecode(self.time)} / {timecode(self.duration)} · frame {self.frame}/{self.n_frames - 1}"
+        text = f"{timecode(self.time)} / {timecode(self.duration)}"
+        return f"{text} · frame {self.frame}/{self.n_frames - 1}" if self.has_video else text
 
 
 def frame_of_video(video: Video, frame: int, timeline_fps: float) -> int:
@@ -103,7 +119,8 @@ class TimelineControl(Control):
         loop: playback starts over at the end (else it stops there).
         playing: playback state, shared by the widgets.
         videos: the ``Video`` inputs it drives, in input order.
-        track_names: the input name of each of ``videos`` (one lane each on the film strip).
+        audio_clips: the ``AudioClip`` inputs on the timeline, in input order.
+        track_names: the input name of each lane of the film strip.
     """
 
     def __init__(
@@ -130,16 +147,25 @@ class TimelineControl(Control):
         self.autoplay = autoplay
         self.playing = autoplay
         self.videos: List[Video] = []
+        self.audio_clips: List[AudioClip] = []
         self.track_names: List[Any] = []
+        self._tracks: Optional[List[Tuple[Any, Any]]] = None
         self.display = "shown"
         self.collapsed = False
         self.set_display(display)
 
     @property
-    def tracks(self) -> List[Tuple[Any, Video]]:
-        """``(input name, Video)`` of every input on the timeline, in input order: one lane each."""
+    def tracks(self) -> List[Tuple[Any, Any]]:
+        """``(input name, Video or AudioClip)`` of every input on the timeline, in input order: one lane each."""
+        if self._tracks is not None:
+            return list(self._tracks)
         names = self.track_names if len(self.track_names) == len(self.videos) else range(len(self.videos))
         return list(zip(names, self.videos))
+
+    @property
+    def has_video(self) -> bool:
+        """False when the timeline holds sounds only (no frame number shown)."""
+        return bool(self.videos) or not self.audio_clips
 
     @property
     def collapsible(self) -> bool:
@@ -163,7 +189,7 @@ class TimelineControl(Control):
 
     @property
     def position(self) -> Timeline:
-        return Timeline(frame=int(self.value), n_frames=self.n_frames, fps=self.fps)
+        return Timeline(frame=int(self.value), n_frames=self.n_frames, fps=self.fps, has_video=self.has_video)
 
     def set_length(self, n_frames: int, fps: float) -> None:
         """Resize the timeline (new videos given to the pipeline); the frame is kept when it still exists."""
@@ -206,7 +232,7 @@ class TimelineControl(Control):
     def label(self, frame: Optional[int] = None) -> str:
         """``"00:01.20 / 00:12.00 · frame 30/299"``"""
         index = int(self.value if frame is None else frame)
-        return str(Timeline(frame=index, n_frames=self.n_frames, fps=self.fps))
+        return str(Timeline(frame=index, n_frames=self.n_frames, fps=self.fps, has_video=self.has_video))
 
     def __repr__(self) -> str:
         return f"TimelineControl({self.name!r}, {self.n_frames} frames at {self.fps:g} fps)"
@@ -217,14 +243,50 @@ class TimelineControl(Control):
 FRAME_PARAMETER = "frame_index"
 
 
-class VideoFrameFilter(FilterCore):
+class _PositionWriter:
+    """Writes ``context["timeline"]`` (shared by the frame filters and the clock filter)."""
+
+    timeline_fps: float
+    timeline_frames: int
+    has_video: bool
+    first_input: Any
+    static_metadata: Dict[Any, Dict[str, Any]]
+
+    def _init_position(self, first_input: Any) -> None:
+        self.timeline_fps = 25.0
+        self.timeline_frames = 1
+        self.has_video = True
+        self.first_input = first_input  # whose metadata is Timeline.metadata
+        self.static_metadata = {}  # AudioClip inputs: sample rate, duration...
+
+    def _write_position(self, frame: int, own: Optional[Tuple[Any, Dict[str, Any]]] = None) -> None:
+        from interactive_pipe.core.context import _user_context
+
+        user_context = _user_context.get()
+        if user_context is None:
+            return
+        previous = user_context.get(CONTEXT_KEY)
+        # the frame filters of the other inputs ran (or run) at the same position
+        inputs_metadata = dict(previous.inputs_metadata) if isinstance(previous, Timeline) else {}
+        inputs_metadata.update(self.static_metadata)
+        if own is not None:
+            inputs_metadata[own[0]] = own[1]
+        user_context[CONTEXT_KEY] = Timeline(
+            frame=frame,
+            n_frames=self.timeline_frames,
+            fps=self.timeline_fps,
+            metadata=inputs_metadata.get(self.first_input, {}),
+            inputs_metadata=inputs_metadata,
+            has_video=self.has_video,
+        )
+
+
+class VideoFrameFilter(_PositionWriter, FilterCore):
     """Reads frame ``frame_index`` of the ``Video`` buffer ``input_name`` and replaces the buffer with it."""
 
     def __init__(self, input_name: Any, name: str) -> None:
         self.input_name = input_name
-        self.timeline_fps = 25.0
-        self.timeline_frames = 1
-        self.first_input: Any = input_name  # whose metadata is Timeline.metadata
+        self._init_position(input_name)
         super().__init__(name=name, inputs=[input_name], outputs=[input_name])
 
     def apply(self, video: Any, frame_index: int = 0) -> Any:  # type: ignore[override]
@@ -233,41 +295,78 @@ class VideoFrameFilter(FilterCore):
         frame = int(frame_index)
         index = frame_of_video(video, frame, self.timeline_fps)  # several videos: matched by time
         frames = video[index]
-        from interactive_pipe.core.context import _user_context
-
-        user_context = _user_context.get()
-        if user_context is not None:
-            previous = user_context.get(CONTEXT_KEY)
-            # the frame filters of the other inputs ran (or run) at the same position
-            inputs_metadata = dict(previous.inputs_metadata) if isinstance(previous, Timeline) else {}
-            inputs_metadata[self.input_name] = video.metadata(index)
-            user_context[CONTEXT_KEY] = Timeline(
-                frame=frame,
-                n_frames=self.timeline_frames,
-                fps=self.timeline_fps,
-                metadata=inputs_metadata.get(self.first_input, {}),
-                inputs_metadata=inputs_metadata,
-            )
+        self._write_position(frame, (self.input_name, video.metadata(index)))
         return frames
 
 
+class TimelineClockFilter(_PositionWriter, FilterCore):
+    """Writes the position of a timeline without video in ``context["timeline"]`` (no input, no output).
+
+    ``cache_transparent``: with ``cache=True`` a new position does not make
+    the engine recompute the filters after it (only this one runs); with
+    ``cache="graph"`` the filters reading ``context["timeline"]`` recompute.
+    """
+
+    cache_transparent = True
+
+    def __init__(self, name: str = CLOCK_FILTER_NAME) -> None:
+        self._init_position(None)
+        super().__init__(name=name, inputs=[], outputs=[])
+
+    def apply(self, frame_index: int = 0) -> None:  # type: ignore[override]
+        self._write_position(int(frame_index))
+
+
+class AudioClipFilter(FilterCore):
+    """Replaces the ``AudioClip`` buffer ``input_name`` with its signal (independent of the playhead).
+
+    ``plays``: hand the signal to the ``audio`` player (``audio.set``,
+    keeping the position); a filter calling ``audio.set`` after it replaces
+    the sound, in the same run.
+    """
+
+    def __init__(self, input_name: Any, name: str) -> None:
+        self.input_name = input_name
+        self.plays = False
+        super().__init__(name=name, inputs=[input_name], outputs=[input_name])
+
+    def apply(self, clip: Any) -> Any:  # type: ignore[override]
+        if not isinstance(clip, AudioClip):
+            raise TypeError(f"input '{self.input_name}' is not an AudioClip anymore (got {type(clip).__name__})")
+        if self.plays and clip.play:
+            from interactive_pipe.core.context import audio
+
+            audio.set(clip.signal, clip.sample_rate, keep_position=True)
+        return clip.signal
+
+
 def timeline_of(pipeline: Any) -> Optional[TimelineControl]:
-    """The pipeline's timeline (None when no input is a ``Video``)."""
+    """The pipeline's timeline (None when no input is a ``Video`` or an ``AudioClip``)."""
     for ctrl in getattr(pipeline, "controls", None) or []:
         if isinstance(ctrl, TimelineControl):
             return ctrl
     return None
 
 
-def videos_in(inputs_routing: Sequence[Any], values: Any) -> Dict[Any, Video]:
-    """``{input name: Video}`` among pipeline inputs given positionally (list) or by name (dict)."""
+def is_timeline_input(value: Any) -> bool:
+    """A ``Video`` or an ``AudioClip``: an input bringing the timeline."""
+    return isinstance(value, (Video, AudioClip))
+
+
+def media_in(inputs_routing: Sequence[Any], values: Any) -> Dict[Any, Any]:
+    """``{input name: Video or AudioClip}`` among pipeline inputs given positionally (list) or by name (dict)."""
     if values is None:
         return {}
     if isinstance(values, dict):
-        return {name: value for name, value in values.items() if isinstance(value, Video)}
+        return {name: value for name, value in values.items() if is_timeline_input(value)}
     if not isinstance(values, (list, tuple)):
         values = [values]
-    return {name: value for name, value in zip(inputs_routing or [], values) if isinstance(value, Video)}
+    return {name: value for name, value in zip(inputs_routing or [], values) if is_timeline_input(value)}
+
+
+def videos_in(inputs_routing: Sequence[Any], values: Any) -> Dict[Any, Video]:
+    """``{input name: Video}`` among pipeline inputs given positionally (list) or by name (dict)."""
+    return {name: value for name, value in media_in(inputs_routing, values).items() if isinstance(value, Video)}
 
 
 def _free_name(wanted: str, taken: set) -> str:
@@ -278,25 +377,39 @@ def _free_name(wanted: str, taken: set) -> str:
     return name
 
 
-def install_videos(pipeline: "HeadlessPipeline", videos: Dict[Any, Video]) -> Optional[TimelineControl]:
-    """Put a frame filter in front of the pipeline for every ``Video`` input, all driven by one timeline.
+def _duration(media: Any) -> float:
+    return media.duration if isinstance(media, AudioClip) else len(media) / media.fps
 
-    Idempotent; called whenever inputs are given. Inputs that are no longer a
-    ``Video`` lose their frame filter. Returns the timeline (None without video).
+
+def install_timeline(pipeline: "HeadlessPipeline", media: Dict[Any, Any]) -> Optional[TimelineControl]:
+    """Put a filter in front of the pipeline for every ``Video`` / ``AudioClip`` input, all on one timeline.
+
+    Idempotent; called whenever inputs are given. Inputs that are no longer
+    a ``Video`` / ``AudioClip`` lose their filter. Returns the timeline (None
+    without such an input). The timeline runs at the first video's frame
+    rate (``AUDIO_TIMELINE_FPS`` with sounds only) and lasts as long as the
+    longest input.
     """
     if getattr(pipeline, "controls", None) is None:
         pipeline.controls = []
-    frame_filters = {filt.input_name: filt for filt in pipeline.filters if isinstance(filt, VideoFrameFilter)}
+    ours = (VideoFrameFilter, AudioClipFilter, TimelineClockFilter)
+    installed = [filt for filt in pipeline.filters if isinstance(filt, ours)]
     timeline = timeline_of(pipeline)
-    if not videos and not frame_filters:
+    if not media and not installed:
         return None
     changed = False
-    for input_name, filt in list(frame_filters.items()):
-        if input_name not in videos:
+    videos = {name: value for name, value in media.items() if isinstance(value, Video)}
+    clips = {name: value for name, value in media.items() if isinstance(value, AudioClip)}
+    for filt in installed:
+        keep = (
+            (isinstance(filt, VideoFrameFilter) and filt.input_name in videos)
+            or (isinstance(filt, AudioClipFilter) and filt.input_name in clips)
+            or (isinstance(filt, TimelineClockFilter) and clips and not videos)
+        )
+        if not keep:
             pipeline.filters.remove(filt)
-            del frame_filters[input_name]
             changed = True
-    if not videos:
+    if not media:
         if timeline is not None:
             pipeline.controls.remove(timeline)
         user_context = getattr(pipeline, "_user_context", None)
@@ -305,47 +418,96 @@ def install_videos(pipeline: "HeadlessPipeline", videos: Dict[Any, Video]) -> Op
         pipeline.reset_cache()
         return None
     routing = list(pipeline.inputs_routing or [])
-    ordered = sorted(videos, key=lambda name: routing.index(name) if name in routing else len(routing))
-    master = videos[ordered[0]]
-    # timeline long enough for every video at the master frame rate
-    n_frames = max(len(master), *(int(round(len(video) / video.fps * master.fps)) for video in videos.values()))
+    ordered = sorted(media, key=lambda name: routing.index(name) if name in routing else len(routing))
+    first = media[ordered[0]]
+    ordered_videos = [name for name in ordered if name in videos]
+    fps = videos[ordered_videos[0]].fps if ordered_videos else AUDIO_TIMELINE_FPS
+    # long enough for every input at the timeline frame rate
+    n_frames = max(1, *(int(math.ceil(_duration(value) * fps - 1e-6)) for value in media.values()))
+    if ordered_videos:
+        master = videos[ordered_videos[0]]
+        n_frames = max(n_frames, len(master))
+    display = first.timeline_display
     if timeline is None:
         taken_parameters = {name for filt in pipeline.filters for name in (getattr(filt, "values", None) or {})}
         taken_controls = {ctrl.name for ctrl in pipeline.controls}
         name = TIMELINE_NAME if TIMELINE_NAME not in taken_parameters | taken_controls else FALLBACK_TIMELINE_NAME
-        timeline = TimelineControl(
-            n_frames, fps=master.fps, name=_free_name(name, taken_controls), display=master.timeline_display
-        )
+        timeline = TimelineControl(n_frames, fps=fps, name=_free_name(name, taken_controls), display=display)
         pipeline.controls.insert(0, timeline)
         changed = True
     else:
-        timeline.set_length(n_frames, master.fps)
-        timeline.set_display(master.timeline_display)
+        timeline.set_length(n_frames, fps)
+        timeline.set_display(display)
+    timeline.videos = [videos[name] for name in ordered_videos]
+    timeline.audio_clips = [clips[name] for name in ordered if name in clips]
+    timeline.track_names = list(ordered)
+    timeline._tracks = [(name, media[name]) for name in ordered]
+    if not videos:
+        timeline.tooltip = "timeline: space plays / pauses, ← → step"
+
     taken_filters = {filt.name for filt in pipeline.filters}
-    new_filters = []
-    for input_name in ordered:
-        filt = frame_filters.get(input_name)
-        if filt is None:
-            filt = VideoFrameFilter(input_name, _free_name(f"{FRAME_FILTER_PREFIX}{input_name}", taken_filters))
-            taken_filters.add(filt.name)
-            filt.global_params = pipeline.global_params
-            filt.framework_state = pipeline.framework_state
-            new_filters.append(filt)
+    existing = {
+        (type(filt), getattr(filt, "input_name", None)): filt for filt in pipeline.filters if isinstance(filt, ours)
+    }
+    front: List[Any] = []
+    if clips and not videos:  # sounds only: a clock writes the position
+        clock = existing.get((TimelineClockFilter, None))
+        if clock is None:
+            clock = TimelineClockFilter(_free_name(CLOCK_FILTER_NAME, taken_filters))
             changed = True
-        filt.timeline_fps = timeline.fps
-        filt.timeline_frames = timeline.n_frames
-        filt.first_input = ordered[0]
-    if new_filters:
-        pipeline.filters[0:0] = new_filters
-    # one widget drives every frame filter (targets rebuilt in input order)
-    frame_filter_list = [filt for filt in pipeline.filters if isinstance(filt, VideoFrameFilter)]
+        front.append(clock)
+    first_clip = next((name for name in ordered if name in clips and clips[name].play), None)
+    for input_name in ordered:
+        filt: Any
+        if input_name in videos:
+            filt = existing.get((VideoFrameFilter, input_name))
+            if filt is None:
+                filt = VideoFrameFilter(input_name, _free_name(f"{FRAME_FILTER_PREFIX}{input_name}", taken_filters))
+                changed = True
+        else:
+            filt = existing.get((AudioClipFilter, input_name))
+            if filt is None:
+                filt = AudioClipFilter(input_name, _free_name(f"{AUDIO_FILTER_PREFIX}{input_name}", taken_filters))
+                changed = True
+            filt.plays = input_name == first_clip  # the first clip plays unless a filter sets another sound
+        taken_filters.add(filt.name)
+        front.append(filt)
+    static_metadata = {name: clips[name].metadata() for name in ordered if name in clips}
+    for filt in front:
+        filt.global_params = pipeline.global_params
+        filt.framework_state = pipeline.framework_state
+        if isinstance(filt, _PositionWriter):
+            filt.timeline_fps = timeline.fps
+            filt.timeline_frames = timeline.n_frames
+            filt.has_video = timeline.has_video
+            filt.first_input = ordered[0]
+            filt.static_metadata = static_metadata
+    # our filters first, in input order (the clock before them)
+    others = [filt for filt in pipeline.filters if not isinstance(filt, ours)]
+    if [id(f) for f in pipeline.filters[: len(front)]] != [id(f) for f in front]:
+        changed = True
+    pipeline.filters[:] = front + others
+    # one widget drives every filter following the playhead (targets rebuilt in input order)
+    driven: List[Any] = [filt for filt in front if isinstance(filt, _PositionWriter)]
     timeline.filter_to_connect = None
-    for filt in frame_filter_list:
+    timeline.__dict__.pop("_extra_targets", None)  # rebuilt below, not appended to the previous ones
+    for filt in driven:
         timeline._add_target(filt, FRAME_PARAMETER)
         filt.values = {FRAME_PARAMETER: timeline.value}
-    timeline.videos = [videos[name] for name in ordered]
-    timeline.track_names = list(ordered)
     if changed:
-        logging.debug(f"timeline {timeline!r} drives {[filt.name for filt in frame_filter_list]}")
+        logging.debug(f"timeline {timeline!r} drives {[filt.name for filt in driven]}")
         pipeline.reset_cache()
+        engine = getattr(pipeline, "engine", None)
+        if clips and engine is not None and not engine.cache:
+            logging.warning(
+                f"pipeline '{pipeline.name}': AudioClip input with cache=False, so every filter runs again "
+                'each time the playhead moves (30 times a second while playing). Pass cache="graph": '
+                "the audio filters then run when their sliders move, the filters reading "
+                'context["timeline"] when the playhead moves.'
+            )
     return timeline
+
+
+def install_videos(pipeline: "HeadlessPipeline", videos: Dict[Any, Any]) -> Optional[TimelineControl]:
+    """Former name of ``install_timeline`` (``Video`` and ``AudioClip`` inputs)."""
+    return install_timeline(pipeline, videos)
