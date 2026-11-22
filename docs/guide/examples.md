@@ -46,6 +46,8 @@ All in [`demo/`](https://github.com/balthazarneveu/interactive_pipe/tree/master/
 | `video_motion_demo.py` | Motion detection on a numpy video, temporal `window=` ([video](video.md#temporal-filters-window)) |
 | `audio_mix_demo.py` | Two `AudioClip` inputs on a [timeline](audio.md#audio-inputs-and-a-timeline): mix them, hear the mix, a spectrogram cursor and an oscilloscope following the playhead |
 | `video_blend_demo.py` | Two videos on one timeline, one lane each: cross-fade, dissolve, difference, wipe ([video](video.md#several-videos-one-timeline)) |
+| `video_sound_mix_demo.py` | A `Video` plus a dedicated drum loop (`AudioClip`) on one timeline: balance the video's soundtrack against the drums, the picture pulses with the drums at the playhead |
+| `webcam_video_mix_demo.py` | A video and your live `Webcam` mixed in one pipeline; the video brings the timeline and its sound, the camera refreshes live |
 | `video_compare_demo.py` | A torch model checked against a reference: two videos at different frame rates on one timeline |
 | `video_raw_sequence_demo.py` | A RAW burst in a custom file format (`loader=`): per-frame exposure and white balance metadata remove the flicker; embedded previews as thumbnails (`thumbnail_loader=`), read-ahead (`--slow --preload 24`) ([video](video.md#custom-formats-and-per-frame-metadata)) |
 | `webcam_demo.py` | A cartoon effect tuned live on the [webcam](webcam.md) (`--synthetic` without a camera) |
