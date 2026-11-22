@@ -431,11 +431,16 @@ class MainWindow(InteractivePipeWindow):
         self.io = io
 
     def launch_options(self) -> Dict[str, Any]:
-        """Arguments of ``gr.Blocks.launch``; warns when a public link has no login."""
+        """Arguments of ``gr.Blocks.launch``; sharing only when asked in the launch kwargs."""
         from .icon import icon_path
 
         options = dict(self.gradio_launch_kwargs)
-        options.setdefault("share", self.share_gradio_app)
+        if self.share_gradio_app:
+            logging.warning(
+                "share_gradio_app=True is ignored: public share links are disabled. "
+                "To publish one anyway, pass gradio_launch_kwargs={'share': True, 'auth': (user, password)}."
+            )
+        options.setdefault("share", False)
         options.setdefault("favicon_path", icon_path("png"))
         if options["share"] and not options.get("auth"):
             logging.warning(
