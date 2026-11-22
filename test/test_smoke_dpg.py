@@ -1359,3 +1359,10 @@ def test_curve_scales_set_the_native_axis_scale():
     assert dpg.get_item_configuration(plot["x_axis"])["scale"] == dpg.mvPlotScale_SymLog
     dpg_image.update_curve_cell(cell, Curve([SingleCurve(y=data)]))
     assert dpg.get_item_configuration(plot["y_axis"])["scale"] == dpg.mvPlotScale_Linear
+
+
+def test_black_curves_stay_visible_on_the_dark_plot_background():
+    """ "k" is the foreground on matplotlib's white axes: on Dear PyGui's dark plots it
+    must be a light color, not a (near-)black line nobody sees."""
+    color, has_line, _ = dpg_image._parse_style("k-")
+    assert has_line and min(color[:3]) > 128

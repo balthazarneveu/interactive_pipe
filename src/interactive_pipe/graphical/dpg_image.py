@@ -58,7 +58,9 @@ _FMT_COLORS = {
     "c": (42, 161, 152, 255),
     "m": (211, 54, 130, 255),
     "y": (181, 137, 0, 255),
-    "k": (40, 40, 40, 255),
+    # Dear PyGui plots are drawn on a dark background: "k" (black, the foreground
+    # color on matplotlib's white axes) is the light foreground here, else invisible
+    "k": (220, 220, 220, 255),
     "w": (240, 240, 240, 255),
 }
 TITLE_CHAR_WIDTH = 7  # fallback pixel width of one character (default font) before the first frame
