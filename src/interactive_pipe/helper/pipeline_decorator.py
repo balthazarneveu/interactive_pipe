@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import functools
 import logging
 import os
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Dict, Literal, Optional, Union, cast, overload
 
 from interactive_pipe.cli import (
     get_snapshot_hook,
@@ -14,6 +16,7 @@ from interactive_pipe.core.backend import Backend
 from interactive_pipe.core.context import REMOVED_CONTEXT_ALIASES
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
+from interactive_pipe.helper.decorated_types import GuiPipelineApp
 
 #: HeadlessPipeline methods also reachable from a GUI-decorated pipeline function
 SEE_THE_RESULT_METHODS = ("snapshot", "sweep", "describe", "summary")
@@ -153,16 +156,42 @@ def _windowless_gui_class() -> type:
     return WindowlessGUI
 
 
+@overload
+def interactive_pipeline(
+    gui: Literal["headless", Backend.HEADLESS] | None,
+    safe_input_buffer_deepcopy: Optional[bool] = None,
+    cache: Union[bool, str] = False,
+    readonly_inputs: bool = True,
+    context: Optional[Dict[str, Any]] = None,
+    markdown_description: Optional[str] = None,
+    name: Optional[str] = None,
+    **kwargs_gui: Any,
+) -> Callable[[Callable[..., Any]], HeadlessPipeline]: ...
+
+
+@overload
+def interactive_pipeline(
+    gui: Union[str, Backend] = "auto",
+    safe_input_buffer_deepcopy: Optional[bool] = None,
+    cache: Union[bool, str] = False,
+    readonly_inputs: bool = True,
+    context: Optional[Dict[str, Any]] = None,
+    markdown_description: Optional[str] = None,
+    name: Optional[str] = None,
+    **kwargs_gui: Any,
+) -> Callable[[Callable[..., Any]], GuiPipelineApp]: ...
+
+
 def interactive_pipeline(
     gui: Union[str, Backend, None] = "auto",
     safe_input_buffer_deepcopy: Optional[bool] = None,
     cache: Union[bool, str] = False,
     readonly_inputs: bool = True,
-    context: Optional[dict] = None,
+    context: Optional[Dict[str, Any]] = None,
     markdown_description: Optional[str] = None,
     name: Optional[str] = None,
     **kwargs_gui: Any,
-) -> Callable[[Callable[..., Any]], Union[HeadlessPipeline, Callable[..., Any]]]:
+) -> Callable[[Callable[..., Any]], Union[HeadlessPipeline, GuiPipelineApp]]:
     """Decorator turning a pipeline function into an interactive GUI application.
 
     The decorated function chains filters (typically declared with
@@ -262,7 +291,7 @@ def interactive_pipeline(
                 "pass context={...} instead."
             )
 
-    def wrapper(pipeline_function: Callable[..., Any]) -> Union[HeadlessPipeline, Callable[..., Any]]:
+    def wrapper(pipeline_function: Callable[..., Any]) -> Union[HeadlessPipeline, GuiPipelineApp]:
         def build() -> HeadlessPipeline:
             return HeadlessPipeline.from_function(
                 pipeline_function,
@@ -282,7 +311,7 @@ def interactive_pipeline(
         check_targets(headless_pipeline)  # with a window, an unknown on= output fails at decoration
         if snapshot_requested():
             # INTERACTIVE_PIPE_SNAPSHOT: render a PNG instead of opening a window
-            return _snapshot_launcher(
+            launcher = _snapshot_launcher(
                 pipeline_function,
                 headless_pipeline,
                 _gui_for_snapshot(
@@ -290,6 +319,7 @@ def interactive_pipeline(
                 ),
                 build(),
             )
+            return cast(GuiPipelineApp, launcher)
         else:
             gui_options = dict(kwargs_gui)
             if gui_options.get("size") is None:
@@ -317,6 +347,6 @@ def interactive_pipeline(
         for method_name in SEE_THE_RESULT_METHODS:
             setattr(inner, method_name, getattr(headless_pipeline, method_name))
 
-        return inner
+        return cast(GuiPipelineApp, inner)
 
     return wrapper

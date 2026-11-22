@@ -1,17 +1,23 @@
+from __future__ import annotations
+
 import difflib
 import functools
 import inspect
 import logging
 import sys
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union, cast, overload
 
 from interactive_pipe.core.context import direct_call_scope
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.headless.control import Control, MappedChoiceControl
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
+from interactive_pipe.helper.decorated_types import InteractiveFilter, P
 from interactive_pipe.helper.filter_entry_points import attach_filter_entry_points
 from interactive_pipe.helper.keyword_args_analyzer import analyze_filter_controls
+
+R = TypeVar("R")
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 class EnhancedFilterCore(FilterCore):
@@ -66,6 +72,11 @@ class EnhancedFilterCore(FilterCore):
         del gui_pipeline
 
 
+@overload
+def interact(func: F, /) -> F: ...
+
+
+@overload
 def interact(
     *decorator_args: Any,
     gui: str = "auto",
@@ -74,7 +85,18 @@ def interact(
     size: Union[str, Tuple[int, int], None] = None,
     inplace: bool = False,
     **decorator_controls: Any,
-):
+) -> Callable[[F], F]: ...
+
+
+def interact(
+    *decorator_args: Any,
+    gui: str = "auto",
+    disable: bool = False,
+    output_routing: Optional[List[str]] = None,
+    size: Union[str, Tuple[int, int], None] = None,
+    inplace: bool = False,
+    **decorator_controls: Any,
+) -> Any:
     """Launch a GUI from a single decorated function (one-shot decorator).
 
     Unlike ``@interactive``, decorating a function with ``@interact``
@@ -105,7 +127,7 @@ def interact(
     """
     omitted_parentheses_flag = False
 
-    def wrapper(func):
+    def wrapper(func: F) -> F:
         if disable:
             return func
         # this will run the GUI automatically
@@ -228,7 +250,19 @@ def _annotated_filter_wrapper(func: Callable, controls: Dict[str, Control], use_
     return inner
 
 
-def interactive(inplace: Union[bool, Callable] = False, **decorator_controls: Any):
+@overload
+def interactive(inplace: Callable[P, R]) -> InteractiveFilter[P, R]: ...
+
+
+@overload
+def interactive(
+    inplace: bool = False, **decorator_controls: Any
+) -> Callable[[Callable[P, R]], InteractiveFilter[P, R]]: ...
+
+
+def interactive(
+    inplace: Union[bool, Callable[..., Any]] = False, **decorator_controls: Any
+) -> Union[InteractiveFilter[..., Any], Callable[[Callable[..., Any]], InteractiveFilter[..., Any]]]:
     """Declare controls bound to a filter's keyword arguments.
 
     The decorated function keeps working as a plain function, but when used
@@ -269,7 +303,7 @@ def interactive(inplace: Union[bool, Callable] = False, **decorator_controls: An
         ```
     """
 
-    def wrapper(func, localns=None):
+    def wrapper(func: Callable[..., Any], localns: Optional[dict] = None) -> InteractiveFilter[..., Any]:
         if localns is None:
             localns = _caller_namespace(1)
         controls = analyze_filter_controls(func, decorator_controls, localns=localns)
@@ -279,7 +313,7 @@ def interactive(inplace: Union[bool, Callable] = False, **decorator_controls: An
         setattr(inner, "__interactive_pipe_inplace__", inplace)
         # inner.snapshot / .sweep / .describe / .summary / .interact (GitHub issue #21)
         attach_filter_entry_points(inner)
-        return inner
+        return cast("InteractiveFilter[..., Any]", inner)
 
     if callable(inplace) and not isinstance(inplace, bool):
         # bare @interactive (no parentheses): the decorated function comes in as `inplace`

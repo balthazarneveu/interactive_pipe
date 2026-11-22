@@ -14,6 +14,7 @@ dependencies = [
   "numpy>=1.21.6",
   "Pillow>=10.3.0",  # earlier releases have published decoder vulnerabilities
   "PyYAML>=5.4.1",
+  "typing_extensions>=4.0; python_version < '3.10'",  # ParamSpec (typed decorators)
 ]
 
 description = "Library to create flexible interactive image processing pipelines and automatically add a graphical user interface without knowing anything about GUI coding!"
@@ -98,6 +99,7 @@ full=[
 dev=[
   "ruff>=0.9.0",
   "pyright>=1.1.390",
+  "mypy>=1.10",
 ]
 
 docs=[
