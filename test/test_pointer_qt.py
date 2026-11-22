@@ -253,7 +253,8 @@ def test_region_drag_at_1_1_keeps_the_grid_still():
     dragged; the grid must not relayout under the mouse (the image would move,
     changing the region again, and everything flickers)."""
     pipeline = HeadlessPipeline.from_function(qz_pipeline, inputs=["img"])
-    gui = qt_gui.InteractivePipeQT(pipeline=pipeline, name="pointer qt")
+    # 1:1 laying the cells out at their native size: the case where the grid could move
+    gui = qt_gui.InteractivePipeQT(pipeline=pipeline, name="pointer qt", actual_size="window")
     gui.pipeline.inputs = [np.random.default_rng(4).random((256, 256, 3))]
     window = gui.window
     window.refresh()

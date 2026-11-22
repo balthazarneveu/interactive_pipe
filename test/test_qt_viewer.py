@@ -72,9 +72,9 @@ def mixed_pipeline(img):
     return [[gray, curve], [tab, txt]]
 
 
-def build_window(pipeline_function, image=RAMP, size=(300, 200)):
+def build_window(pipeline_function, image=RAMP, size=(300, 200), **gui_kwargs):
     pipeline = HeadlessPipeline.from_function(pipeline_function, inputs=["img"])
-    gui = qt_gui.InteractivePipeQT(pipeline=pipeline, name="viewer", size=size)
+    gui = qt_gui.InteractivePipeQT(pipeline=pipeline, name="viewer", size=size, **gui_kwargs)
     gui.pipeline.inputs = [image.copy()]
     window = gui.window
     window.refresh()
@@ -322,8 +322,24 @@ def test_zoom_uses_a_view_showing_an_image():
     assert calls == ["out"]
 
 
-def test_actual_size_grows_the_window_and_fit_restores_it():
+def test_actual_size_zooms_in_place_by_default():
+    """Key 1: the images show at 100% inside their cells, the window keeps its size."""
     window = build_window(pair_pipeline)
+    settle(window, (400, 300))
+    before = (window.width(), window.height())
+    hints = [(view.sizeHint().width(), view.sizeHint().height()) for view in views(window)]
+    window.set_view_mode("1:1")
+    settle(window)
+    assert (window.width(), window.height()) == before
+    for view, hint in zip(views(window), hints):
+        assert view.scale() == pytest.approx(1.0)
+        assert (view.sizeHint().width(), view.sizeHint().height()) == hint
+    window.set_view_mode("fit")
+    assert (window.width(), window.height()) == before
+
+
+def test_actual_size_window_grows_the_window_and_fit_restores_it():
+    window = build_window(pair_pipeline, actual_size="window")
     settle(window, (400, 300))
     before = (window.width(), window.height())
     window.set_view_mode("1:1")
@@ -382,7 +398,7 @@ def test_actual_size_keeps_the_window_on_screen_and_scrolls_the_controls():
     """1:1 with more controls than the screen holds: the image shows whole at
     its native size, the window fits the screen and the controls scroll."""
     image = RAMP[:200, :300].copy()
-    window = build_window(sliders_pipeline, image=image)
+    window = build_window(sliders_pipeline, image=image, actual_size="window")
     controls = window.bottom_scroll
     screen = window.screen().availableGeometry()
     assert controls.widget().sizeHint().height() + 200 > screen.height()  # the test needs it
@@ -402,7 +418,7 @@ def test_actual_size_keeps_the_window_on_screen_and_scrolls_the_controls():
 def test_window_manager_shrinking_a_resize_caps_later_ones():
     """Wayland reports the panels as available screen: the size the compositor
     granted instead of a requested one becomes the limit for later fits."""
-    window = build_window(pair_pipeline)
+    window = build_window(pair_pipeline, actual_size="window")
     settle(window, (600, 600))
     window._resize_request = (700, 700, qt_gui.time.monotonic(), (600, 600), False)
     window.resize(700, 700)  # Qt's echo of the request: not an answer yet

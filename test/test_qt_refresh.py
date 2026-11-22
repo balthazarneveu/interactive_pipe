@@ -188,7 +188,7 @@ def test_view_menu_entries_call_the_window(monkeypatch):
     gui = build_gui(spy_pipeline)
     view_labels = [action.label for action in gui.actions_by_menu()["View"]]
     assert view_labels[0] == "Toggle full screen"
-    assert view_labels[1:] == ["Fit to window", "Actual size 1:1", "Zoom in", "Zoom out"]
+    assert view_labels[1:] == ["Fit to window", "Actual size (100%)", "Zoom in", "Zoom out"]
     calls = []
     monkeypatch.setattr(gui.window, "set_view_mode", lambda mode: calls.append(("mode", mode)))
     monkeypatch.setattr(gui.window, "reset_view", lambda: calls.append("reset"))

@@ -18,7 +18,7 @@ Built-in shortcuts while using the GUI (Qt, Dear PyGui and matplotlib backends):
 Qt and Dear PyGui image viewer (see [Image viewer](layout.md#image-viewer-qt-dear-pygui)):
 
 - ++0++ fit the images to their cells
-- ++1++ actual size (1:1)
+- ++1++ actual size: the images at 100% in their cells (`actual_size="window"`: the window grows to their native size)
 - ++plus++ / ++minus++ zoom in / out on every image cell
 
 ++e++, ++o++ and ++w++ ask for the file path with a native file dialog on Qt and Dear PyGui (cancel does nothing); matplotlib asks in the terminal (empty input cancels). ++e++ suggests `<name>_tuning.yaml`.
@@ -28,7 +28,7 @@ Qt and Dear PyGui image viewer (see [Image viewer](layout.md#image-viewer-qt-dea
 Qt and Dear PyGui expose every action above in a menu bar, with the shortcut shown next to each entry:
 
 - **File**: save images (++w++), export tuning (++e++), import tuning (++o++), quit (++q++)
-- **View**: toggle fullscreen (++f11++), fit to window (++0++), actual size 1:1 (++1++), zoom in (++plus++), zoom out (++minus++)
+- **View**: toggle fullscreen (++f11++), fit to window (++0++), actual size 100% (++1++), zoom in (++plus++), zoom out (++minus++)
 - **Pipeline**: reset parameters (++r++), print parameters (++i++), show graph (++g++), profile last run (++t++)
 - **Help**: keyboard shortcuts (++f1++)
 

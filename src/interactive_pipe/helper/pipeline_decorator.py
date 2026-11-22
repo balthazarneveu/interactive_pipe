@@ -211,7 +211,9 @@ def interactive_pipeline(
             or ``restore_session=True`` to remember the slider values
             between launches (saved on exit to
             ``~/.interactive_pipe/sessions/<name>.yaml`` unless
-            ``session_path`` is given).
+            ``session_path`` is given), or ``actual_size="window"`` (Qt, dpg)
+            so that key 1 also resizes the cells and the window to the native
+            size of the images (by default it zooms them to 100% in place).
 
     Environment overrides (read when the decorator is applied):
         ``INTERACTIVE_PIPE_GUI`` (auto/qt/dpg/mpl/nb/gradio/headless/none)

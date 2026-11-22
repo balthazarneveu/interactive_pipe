@@ -113,11 +113,15 @@ class ViewSync:
 
     absolute: False -> zoom multiplies each view's fit scale; True -> zoom is
     screen pixels per image pixel. center: normalized image coordinates of the
-    point displayed at the middle of each view.
+    point displayed at the middle of each view. native_cells: in the "1:1"
+    family the views also ask for the native size of their image (the window
+    grows to it, ``actual_size="window"``); otherwise they keep their size and
+    the images show at 100% inside them.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, native_cells: bool = False) -> None:
         self.views: List["ImageView"] = []
+        self.native_cells = native_cells
         self.absolute = False
         self.zoom = 1.0
         self.center: Tuple[float, float] = (0.5, 0.5)
@@ -158,6 +162,11 @@ class ViewSync:
     def changed(self) -> None:
         for view in self.views:
             view.update()
+
+    @property
+    def native_size_hints(self) -> bool:
+        """The views ask for the native size of their image (1:1 resizing the window)."""
+        return self.absolute and self.native_cells
 
     @property
     def gesture_active(self) -> bool:
@@ -329,7 +338,7 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         if not self.has_image():
             return super().sizeHint()
         w, h = self.image_size()
-        if self.sync.absolute:
+        if self.sync.native_size_hints:
             return QSize(w, h)  # 1:1: room for the whole image at native size
         ratio = min(1.0, MAX_HINT.width() / w, MAX_HINT.height() / h)
         return QSize(max(1, int(w * ratio)), max(1, int(h * ratio)))
@@ -340,7 +349,7 @@ class ImageView(QLabel):  # type: ignore[reportGeneralTypeIssues]
         if not self.has_image():
             return super().minimumSizeHint()
         w, h = self.image_size()
-        if self.sync.absolute:
+        if self.sync.native_size_hints:
             return QSize(w, h)  # 1:1: the whole image, the controls below scroll instead
         ratio = min(1.0, MIN_HINT.width() / w, MIN_HINT.height() / h)
         return QSize(max(1, int(w * ratio)), max(1, int(h * ratio)))

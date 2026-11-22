@@ -433,7 +433,7 @@ class InteractivePipeQT(InteractivePipeGUI):
         self.window.reset_view()
 
     def actual_size_view(self):
-        """show the images at their actual size (1:1)"""
+        """show the images at 100% (one image pixel per screen pixel)"""
         self.window.set_view_mode("1:1")
 
     def zoom_in(self):
@@ -891,7 +891,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
     def _view_sync(self) -> ViewSync:
         sync = getattr(self, "_image_view_sync", None)
         if sync is None:
-            sync = ViewSync()
+            sync = ViewSync(native_cells=getattr(self.main_gui, "actual_size", "zoom") == "window")
             self._image_view_sync = sync
         return sync
 
@@ -957,18 +957,20 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
     def set_view_mode(self, mode: str):
         """ "fit" (default) or "1:1" for every image cell (zoom/pan reset).
 
-        1:1 grows the window (up to the screen size) so the images show whole at
-        their native size, the controls below get the room left and scroll; the
-        window outgrows the screen only when the images alone do not fit.
-        Going back to fit restores the previous size.
+        1:1 shows the images at 100% (one image pixel per screen pixel) inside
+        their cells. With ``actual_size="window"`` it also grows the window (up to
+        the screen size) so the images show whole at their native size, the
+        controls below get the room left and scroll; the window outgrows the
+        screen only when the images alone do not fit. Going back to fit
+        restores the previous size.
         """
         sync = self._view_sync()
-        was_absolute = sync.absolute
+        was_native = sync.native_size_hints
         sync.set_mode(mode)
-        if sync.absolute and not was_absolute:
+        if sync.native_size_hints and not was_native:
             self._size_before_actual = (self.width(), self.height())
             self._fit_window_to_images()
-        elif not sync.absolute:
+        elif not sync.native_size_hints:
             previous = getattr(self, "_size_before_actual", None)
             self._size_before_actual = None
             if previous is not None and not (self.full_screen_flag or self.isMaximized() or self.isFullScreen()):
