@@ -18,6 +18,7 @@ and saves what the window would show.
 
 import argparse
 import time
+from typing import Callable
 
 import numpy as np
 
@@ -76,8 +77,12 @@ def cartoon(frame):
     return [frame, edge_map, drawing]
 
 
-def synthetic_scene(width: int = 480, height: int = 360):
-    """A function returning a new frame of a moving scene at each call (no camera needed)."""
+def synthetic_scene(width: int = 480, height: int = 360) -> Callable[[], np.ndarray]:
+    """Build a camera stand-in (no camera needed).
+
+    Returns a function that gives a new frame of a moving scene at each call,
+    the kind of source `Webcam` accepts.
+    """
     start = time.monotonic()
     y, x = np.mgrid[0:height, 0:width].astype(np.float32)
 
