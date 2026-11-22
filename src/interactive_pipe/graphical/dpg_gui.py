@@ -29,7 +29,7 @@ from interactive_pipe.data_objects.curves import Curve
 from interactive_pipe.data_objects.table import Table
 from interactive_pipe.graphical.actions import Action
 from interactive_pipe.graphical.columns import choose_column_count, columns_height, split_into_columns
-from interactive_pipe.graphical.display import display_data, heatmap_geometry
+from interactive_pipe.graphical.display import display_data, figure_of, heatmap_geometry
 from interactive_pipe.graphical.dpg_backend import (  # noqa: F401
     INSTALL_HINT,
     context_alive,
@@ -72,6 +72,8 @@ from interactive_pipe.headless.timeline import TimelineControl
 
 DEFAULT_VIEWPORT_SIZE = (1280, 800)
 GRID_SPACING = 6  # pixels between cells
+MIN_FIGURE_RATIO, MAX_FIGURE_RATIO = 0.25, 4.0  # figure outputs: raster box scale range
+FIGURE_REFIT_TOLERANCE = 0.05  # a figure is rasterised again when the layout scale changes more
 ITEM_SPACING_Y = 4  # ImGui default vertical spacing between the items of a group
 TITLE_HEIGHT = 22  # one text line above each cell
 LAYOUT_MARGIN = 16  # window padding
@@ -296,6 +298,7 @@ class MainWindow(InteractivePipeWindow):
         self._refresh_pending = False  # set by update_parameter, flushed once per frame
         self.last_error: Optional[FilterError] = None
         self.scale_factor = 1.0
+        self._figure_ratio = 1.0  # figure outputs are rasterised in FIGURE_CELL_SIZE times this
         self.view = ViewState()  # zoom/pan shared by every image cell
         self._size_before_actual: Optional[Tuple[int, int]] = None  # viewport size restored when leaving 1:1
         self._grow_request: Optional[Tuple[int, int]] = None  # last viewport size asked by a 1:1 growth
@@ -409,7 +412,10 @@ class MainWindow(InteractivePipeWindow):
         """Size a cell is laid out at: its native size, or the one it had when a
         pointer gesture started (``frozen_size``, see ``_freeze_layout``)."""
         frozen = cell.get("frozen_size")
-        return frozen if frozen is not None else cell["natural_size"]
+        if frozen is not None:
+            return frozen
+        # a figure output is laid out at FIGURE_CELL_SIZE whatever the size it is rasterised at
+        return cell.get("figure_natural") or cell["natural_size"]
 
     def _freeze_layout(self, frozen: bool) -> None:
         """While a point / region gesture runs, the grid keeps the cell sizes it had
@@ -511,6 +517,7 @@ class MainWindow(InteractivePipeWindow):
         else:
             scale = scale_h = min(avail_w / total_w, (avail_h - LAYOUT_MARGIN) / total_h)
         self.scale_factor = min(scale, scale_h)
+        self._refit_figures()
         for r, row in enumerate(self.image_canvas):
             # a title may use its cell's share of the row, even when the (scaled) image is narrower
             title_share = (avail_w - GRID_SPACING * max(0, len(row) - 1)) // max(1, len(row))
@@ -541,6 +548,35 @@ class MainWindow(InteractivePipeWindow):
                 dpg.configure_item(row_items["spacer"], width=max(0, (avail_w - row_w) // 2))
         vertical_room = 0 if self.view.absolute else avail_h - int(total_h * scale_h) - LAYOUT_MARGIN
         dpg.configure_item(self.grid_vspacer, height=max(0, vertical_room // 2))
+
+    def _figure_cells(self) -> List[Tuple[int, int, Any]]:
+        """(row, col, raw output) of the cells showing a matplotlib figure output."""
+        found = []
+        for r, row in enumerate(self.image_canvas or []):
+            for c, cell in enumerate(row):
+                if cell is not None and cell.get("figure_natural") is not None:
+                    raw = self._raw_output(r, c)
+                    if figure_of(display_data(raw)) is not None:
+                        found.append((r, c, raw))
+        return found
+
+    def _refit_figures(self) -> None:
+        """Rasterise the figure outputs again when the layout scale changed: drawn at
+        the size they are shown, they stay sharp instead of a stretched 480 x 320 raster
+        (the layout keeps their FIGURE_CELL_SIZE, so this does not change the scale)."""
+        ratio = 1.0 if self.view.absolute else min(max(self.scale_factor, MIN_FIGURE_RATIO), MAX_FIGURE_RATIO)
+        if abs(ratio / self._figure_ratio - 1.0) < FIGURE_REFIT_TOLERANCE:
+            return
+        self._figure_ratio = ratio
+        for r, c, raw in self._figure_cells():
+            self.update_image(self.convert_image(self._styled(raw, r, c)), r, c)
+
+    def _raw_output(self, row: int, col: int) -> Any:
+        try:
+            cells = self._raw_outputs[row]
+            return cells[col] if isinstance(cells, (list, tuple)) else (cells if col == 0 else None)
+        except (AttributeError, IndexError, TypeError):
+            return None
 
     @staticmethod
     def _center_in_slot(cell: Dict[str, Any], slot_w: int, content_w: int, title_w: float, spare_h: int) -> None:
@@ -1230,9 +1266,14 @@ class MainWindow(InteractivePipeWindow):
         kind = display_kind(content)
         if cell.get("kind") not in (None, kind):
             clear_cell_content(cell)
+        figure_natural = None
         if isinstance(content, np.ndarray):
             changed = update_image_cell(cell, content, self.texture_registry)
             cell["view_content"] = self._view_content(content, row, col)
+            if figure_of(display_data(self._raw_output(row, col))) is not None:
+                height, width = content.shape[:2]
+                ratio = self._figure_ratio
+                figure_natural = (max(1, round(width / ratio)), max(1, round(height / ratio)))
         elif isinstance(content, Curve):
             changed = update_curve_cell(cell, content)
         elif isinstance(content, Table):
@@ -1243,6 +1284,7 @@ class MainWindow(InteractivePipeWindow):
             logging.warning(f"Unsupported output type for display: {type(content)}")
             changed = False
         cell["kind"] = kind
+        cell["figure_natural"] = figure_natural
         self._needs_layout = self._needs_layout or changed
         set_cell_title(cell, self.get_current_style(row, col).get("title", ""))
 
@@ -1265,8 +1307,10 @@ class MainWindow(InteractivePipeWindow):
         return out_im
 
     def figure_box(self, row, col):
-        # a figure output gets the natural size of a curve cell: the layout scales both alike
-        return FIGURE_CELL_SIZE
+        """A figure output is laid out at the natural size of a curve cell (the layout
+        scales both alike) but rasterised at the size it is shown, its text the size
+        of the plots' text (see _refit_figures)."""
+        return (FIGURE_CELL_SIZE[0] * self._figure_ratio, FIGURE_CELL_SIZE[1] * self._figure_ratio)
 
     def refresh(self):
         """Run the pipeline now and display the results.
