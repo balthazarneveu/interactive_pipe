@@ -270,6 +270,12 @@ def test_launch_options_pass_through_and_share_warning(launch_recorder, caplog):
 
     with caplog.at_level(logging.WARNING):
         build_and_run(gradio_flat_pipeline, share_gradio_app=True)
+    assert launch_recorder[-1]["share"] is False
+    assert any("share_gradio_app=True is ignored" in record.getMessage() for record in caplog.records)
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        build_and_run(gradio_flat_pipeline, gradio_launch_kwargs={"share": True})
     assert launch_recorder[-1]["share"] is True
     assert any("no authentication" in record.getMessage() for record in caplog.records)
 
@@ -277,8 +283,7 @@ def test_launch_options_pass_through_and_share_warning(launch_recorder, caplog):
     with caplog.at_level(logging.WARNING):
         build_and_run(
             gradio_flat_pipeline,
-            share_gradio_app=True,
-            gradio_launch_kwargs={"auth": ("user", "secret"), "server_name": "127.0.0.1"},
+            gradio_launch_kwargs={"share": True, "auth": ("user", "secret"), "server_name": "127.0.0.1"},
         )
     options = dict(launch_recorder[-1])
     options.pop("favicon_path")

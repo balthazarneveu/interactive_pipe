@@ -6,7 +6,7 @@ Security fixes from the November 2026 audit:
 
 - **Breaking: `.pkl` curves and tables need `allow_pickle=True`** (`SingleCurve.from_file(path, allow_pickle=True)`, same for `Curve` and `Table`): unpickling runs code, and these classes used to opt in on the caller's behalf.
 - `interactive-pipe snapshot` without `-o` writes to a per-user folder, `<tmp>/interactive_pipe_snapshots-<uid>/`, readable by its owner only; a folder planted by another user (or a symbolic link) is refused.
-- Gradio: requests from several browser sessions are served one at a time; `gradio_launch_kwargs=` reaches `launch` (e.g. `auth=`); a warning is logged when `share_gradio_app=True` publishes a link without a login. The app stays single-user (shared controls).
+- Gradio: requests from several browser sessions are served one at a time; `gradio_launch_kwargs=` reaches `launch` (e.g. `auth=`); `share_gradio_app=True` no longer publishes a public link (ignored with a warning); a link needs an explicit `gradio_launch_kwargs={"share": True}`, and one without a login logs a warning. The app stays single-user (shared controls).
 - Gradio: control names are escaped in the log-slider and range-slider templates.
 - `sound.load`: `ffprobe` / `ffmpeg` get an absolute path after `-i`, run from the location `shutil.which` found, with timeouts.
 - Dependencies: `Pillow>=10.3.0`, `matplotlib>=3.6` (snapshots need it), `gradio>=6.0` (Python 3.10+).

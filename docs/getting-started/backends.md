@@ -7,7 +7,7 @@ Select the backend with the `gui=` argument of `@interactive_pipeline` (or `@int
 @interactive_pipeline(gui="dpg")     # Dear PyGui window (GPU rendered)
 @interactive_pipeline(gui="mpl")     # matplotlib figure
 @interactive_pipeline(gui="nb")      # Jupyter notebook widgets (works on Colab)
-@interactive_pipeline(gui="gradio")  # web app (add share_gradio_app=True to share it)
+@interactive_pipeline(gui="gradio")  # web app (local only, no public share link)
 @interactive_pipeline(gui="auto")    # best available backend
 @interactive_pipeline(gui=None)      # headless: returns a HeadlessPipeline
 ```
@@ -44,10 +44,10 @@ Controls degrade gracefully: for example a [`KeyboardControl`](../guide/keyboard
 
 ## Gradio
 
-`gui="gradio"` serves the pipeline as a web page (`pip install "interactive-pipe[gradio]"`, Python 3.10+). It is a **single-user app**: every browser tab drives the same pipeline, controls and results, and requests are served one at a time. `share_gradio_app=True` publishes a public link with no login (a warning is logged); pass extra [`launch`](https://www.gradio.app/docs/gradio/blocks#blocks-launch) arguments with `gradio_launch_kwargs`, for example to require one:
+`gui="gradio"` serves the pipeline as a web page (`pip install "interactive-pipe[gradio]"`, Python 3.10+). It is a **single-user app**: every browser tab drives the same pipeline, controls and results, and requests are served one at a time. Public share links are disabled: `share_gradio_app=True` is ignored (a warning is logged). Pass extra [`launch`](https://www.gradio.app/docs/gradio/blocks#blocks-launch) arguments with `gradio_launch_kwargs`. A public link has to be requested explicitly, ideally with a login:
 
 ```python
-@interactive_pipeline(gui="gradio", share_gradio_app=True, gradio_launch_kwargs={"auth": ("me", "a long password")})
+@interactive_pipeline(gui="gradio", gradio_launch_kwargs={"share": True, "auth": ("me", "a long password")})
 ```
 
 Anyone who can open the page can set every control, including free-text ones, and sees what the previous visitor loaded: share it only with people you trust.
