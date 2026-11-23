@@ -8,7 +8,10 @@ here (see the RMS table). The constant-acceleration model handles the turn with 
 same q and r sliders drive both filters: one slider each, on a log scale.
 """
 
+from typing import Any, List, Tuple
+
 import numpy as np
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from interactive_pipe import Control, Curve, Table, interactive, interactive_pipeline
@@ -18,7 +21,7 @@ Q = Control(1.0, [1e-2, 1e5], scale="log", name="process noise q")
 R = Control(1.0, [1e-2, 1e2], scale="log", name="measurement noise r")
 
 
-def make_track(sigma=1.0, seed=2):
+def make_track(sigma: float = 1.0, seed: int = 2) -> Tuple[np.ndarray, np.ndarray]:
     """True positions (N, 2) and noisy measurements: straight, a sharp turn at t = 4 s, straight."""
     t = np.arange(N) * DT
     heading = np.where(t < 4, 0.0, np.minimum(t - 4, 0.5) * np.pi)  # 90 degrees in 0.5 s
@@ -27,7 +30,7 @@ def make_track(sigma=1.0, seed=2):
     return truth, truth + sigma * np.random.default_rng(seed).standard_normal(truth.shape)
 
 
-def kalman(measurements, q, r, order):
+def kalman(measurements: np.ndarray, q: float, r: float, order: int) -> Tuple[np.ndarray, np.ndarray]:
     """Per-axis polynomial model of `order` (1 = velocity, 2 = acceleration). Returns estimates, NIS."""
     n = order + 1
     F = np.array(
@@ -50,17 +53,19 @@ def kalman(measurements, q, r, order):
 
 
 @interactive(q=Q, r=R)
-def constant_velocity(measurements, q=1.0, r=1.0):
+def constant_velocity(measurements: np.ndarray, q: float = 1.0, r: float = 1.0) -> Tuple[np.ndarray, np.ndarray]:
     return kalman(measurements, q, r, order=1)
 
 
 @interactive(q=Q, r=R)
-def constant_acceleration(measurements, q=1.0, r=1.0):
+def constant_acceleration(measurements: np.ndarray, q: float = 1.0, r: float = 1.0) -> Tuple[np.ndarray, np.ndarray]:
     return kalman(measurements, q, r, order=2)
 
 
 @interactive
-def compare(truth, measurements, cv, cv_nis, ca, ca_nis):
+def compare(
+    truth: np.ndarray, measurements: np.ndarray, cv: np.ndarray, cv_nis: np.ndarray, ca: np.ndarray, ca_nis: np.ndarray
+) -> Tuple[Axes, Curve, Table]:
     ax = Figure(figsize=(5, 4)).subplots()
     ax.plot(*measurements.T, "k.", markersize=2, label="measurements")
     ax.plot(*truth.T, "k-", linewidth=1, label="truth")
@@ -84,7 +89,7 @@ def compare(truth, measurements, cv, cv_nis, ca, ca_nis):
 
 
 @interactive_pipeline(gui="auto")
-def g2_kalman_tracking(truth, measurements):
+def g2_kalman_tracking(truth: np.ndarray, measurements: np.ndarray) -> List[List[Any]]:
     cv, cv_nis = constant_velocity(measurements)
     ca, ca_nis = constant_acceleration(measurements)
     trajectory, innovation, errors = compare(truth, measurements, cv, cv_nis, ca, ca_nis)

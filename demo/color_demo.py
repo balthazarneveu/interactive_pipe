@@ -1,7 +1,7 @@
 """Dropdown & text-prompt demo: pick a color from a menu and set a custom image title"""
 
 import argparse
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 
@@ -20,7 +20,7 @@ COLOR_OPTIONS = list(COLOR_DICT.keys())
 DEFAULT_COLOR = "red"
 
 
-def generate_colored_image(color: str = DEFAULT_COLOR, custom_title: Optional[str] = None):
+def generate_colored_image(color: str = DEFAULT_COLOR, custom_title: Optional[str] = None) -> np.ndarray:
     """Generate a solid colored image based on the selected color"""
     rgb = COLOR_DICT[color]
 
@@ -37,13 +37,13 @@ def generate_colored_image(color: str = DEFAULT_COLOR, custom_title: Optional[st
     return img
 
 
-def apply_brightness(img: np.ndarray, brightness: int = 50):
+def apply_brightness(img: np.ndarray, brightness: int = 50) -> np.ndarray:
     """Apply brightness to the image"""
     img = img * (brightness / 100.0)
     return img
 
 
-def sample_pipeline():
+def sample_pipeline() -> List[np.ndarray]:
     """Main pipeline function"""
     colored_image = generate_colored_image()
     colored_image = apply_brightness(colored_image)

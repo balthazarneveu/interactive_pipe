@@ -20,6 +20,7 @@ Without torch installed, the "model" runs on numpy arrays (same pipeline).
 
 import argparse
 from pathlib import Path
+from typing import Any, List
 
 import numpy as np
 
@@ -31,6 +32,9 @@ try:
     import torch
 except ImportError:  # the demo runs on numpy arrays instead
     torch = None
+
+#: a video frame or clip: a torch tensor (C, H, W) / (T, C, H, W), or a numpy array without torch
+Frames = Any
 
 
 def reference_clip(n_frames: int = 48, size: int = 160) -> np.ndarray:
@@ -49,7 +53,7 @@ def reference_clip(n_frames: int = 48, size: int = 160) -> np.ndarray:
     return np.stack(frames)
 
 
-def noisy_capture(clean: np.ndarray, sigma: float = 0.12, seed: int = 0):
+def noisy_capture(clean: np.ndarray, sigma: float = 0.12, seed: int = 0) -> Frames:
     """Every other frame with Gaussian noise: a ``(T/2, C, H, W)`` torch tensor (numpy without torch)."""
     rng = np.random.default_rng(seed)
     frames = clean[::2] + sigma * rng.standard_normal(clean[::2].shape).astype(np.float32)
@@ -59,7 +63,7 @@ def noisy_capture(clean: np.ndarray, sigma: float = 0.12, seed: int = 0):
     return torch.from_numpy(np.ascontiguousarray(frames.transpose(0, 3, 1, 2)))  # (T, C, H, W)
 
 
-def to_hwc(frame) -> np.ndarray:
+def to_hwc(frame: Frames) -> np.ndarray:
     """A ``(C, H, W)`` tensor or an ``(H, W, C)`` array as an ``(H, W, C)`` numpy image."""
     if torch is not None and isinstance(frame, torch.Tensor):
         return frame.detach().cpu().numpy().transpose(1, 2, 0)
@@ -67,7 +71,7 @@ def to_hwc(frame) -> np.ndarray:
 
 
 @interactive(sigma=(1.2, [0.0, 4.0], "model strength"))
-def denoise(noisy, sigma=1.2):
+def denoise(noisy: Frames, sigma: float = 1.2) -> np.ndarray:
     """The "model": a Gaussian blur (a torch conv2d on tensors). Replace it with your network."""
     if sigma <= 0:
         return to_hwc(noisy)
@@ -85,14 +89,14 @@ def denoise(noisy, sigma=1.2):
 
 
 @interactive()
-def show_input(noisy):
+def show_input(noisy: Frames) -> np.ndarray:
     """The model input as an image (a tensor is not displayable as such)."""
     layout.style("noisy_view", title="model input (12 fps, noisy)")
     return to_hwc(noisy)
 
 
 @interactive(split=(0.5, [0.0, 1.0], "wipe"))
-def wipe(clean, restored, split=0.5):
+def wipe(clean: np.ndarray, restored: np.ndarray, split: float = 0.5) -> np.ndarray:
     """Reference on the left of the wipe line, model output on the right."""
     column = int(split * clean.shape[1])
     out = np.array(restored)
@@ -103,7 +107,7 @@ def wipe(clean, restored, split=0.5):
 
 
 @interactive()
-def error_map(clean, restored):
+def error_map(clean: np.ndarray, restored: np.ndarray) -> np.ndarray:
     """Per-pixel absolute error, its PSNR in the title."""
     error = np.abs(restored - clean).mean(axis=-1)
     mse = float(np.mean((restored - clean) ** 2))
@@ -112,7 +116,7 @@ def error_map(clean, restored):
     return error
 
 
-def compare(clean, noisy):
+def compare(clean: np.ndarray, noisy: Frames) -> List[List[np.ndarray]]:
     restored = denoise(noisy)
     noisy_view = show_input(noisy)
     comparison = wipe(clean, restored)

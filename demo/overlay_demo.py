@@ -65,7 +65,7 @@ def describe_regions(labels: np.ndarray) -> Tuple[np.ndarray, np.ndarray, List[s
 
 
 @interactive(threshold=(0.45, [0.05, 0.95]), min_area=(20, [1, 200]))
-def detect(img: np.ndarray, threshold: float = 0.45, min_area: int = 20):
+def detect(img: np.ndarray, threshold: float = 0.45, min_area: int = 20) -> np.ndarray:
     """Threshold the brightness, keep regions of at least `min_area` pixels."""
     labels = connected_regions(img.mean(axis=-1) > threshold)
     areas = np.bincount(labels.ravel())
@@ -77,7 +77,7 @@ def detect(img: np.ndarray, threshold: float = 0.45, min_area: int = 20):
 
 
 @interactive()
-def draw_detections(img: np.ndarray, labels: np.ndarray):
+def draw_detections(img: np.ndarray, labels: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     boxes, centroids, texts = describe_regions(labels)
     count = len(boxes)
     colors = [draw.DEFAULT_COLORS[k % len(draw.DEFAULT_COLORS)] for k in range(count)]
@@ -90,7 +90,7 @@ def draw_detections(img: np.ndarray, labels: np.ndarray):
     return out, regions
 
 
-def overlay_pipeline():
+def overlay_pipeline() -> List[np.ndarray]:
     img = synthetic_blobs()
     labels = detect(img)
     detections, regions = draw_detections(img, labels)

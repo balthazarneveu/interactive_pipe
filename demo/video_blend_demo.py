@@ -17,6 +17,7 @@ as the timeline plays (``context["timeline"].progress``).
 
 import argparse
 from pathlib import Path
+from typing import List
 
 import numpy as np
 
@@ -56,7 +57,7 @@ def zoom_clip(n_frames: int = 24) -> np.ndarray:
     mode=(["cross-fade", "dissolve", "difference", "wipe"], "blend"),
     mix=(0.5, [0.0, 1.0]),
 )
-def blend(a, b, mode="cross-fade", mix=0.5):
+def blend(a: np.ndarray, b: np.ndarray, mode: str = "cross-fade", mix: float = 0.5) -> np.ndarray:
     """Combine the two frames; ``mix`` weighs ``b`` (or places the wipe line)."""
     if mode == "dissolve":
         mix = context["timeline"].progress  # from a to b over the whole timeline
@@ -73,7 +74,7 @@ def blend(a, b, mode="cross-fade", mix=0.5):
     return out
 
 
-def blend_videos(elephant, rabbit):
+def blend_videos(elephant: np.ndarray, rabbit: np.ndarray) -> List[np.ndarray]:
     blended = blend(elephant, rabbit)
     return [elephant, blended, rabbit]
 

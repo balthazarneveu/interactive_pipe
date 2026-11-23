@@ -14,7 +14,7 @@ record the microphone.
 
 import argparse
 from pathlib import Path
-from typing import List, Union
+from typing import List, Optional, Union
 
 import numpy as np
 
@@ -33,7 +33,7 @@ def demo_clip(n_frames: int = 75) -> np.ndarray:
 
 
 @interactive(mix=(0.5, [0.0, 1.0]), mode=(["cross-fade", "picture-in-picture", "difference"], "mode"))
-def mix(video, cam, mix=0.5, mode="cross-fade"):
+def mix(video: np.ndarray, cam: np.ndarray, mix: float = 0.5, mode: str = "cross-fade") -> np.ndarray:
     """Combine the video frame and the camera frame (resized to the video's size)."""
     import cv2
 
@@ -48,11 +48,11 @@ def mix(video, cam, mix=0.5, mode="cross-fade"):
     return (1.0 - mix) * video + mix * cam
 
 
-def webcam_video_mix(video, cam):
+def webcam_video_mix(video: np.ndarray, cam: np.ndarray) -> List[np.ndarray]:
     return [video, cam, mix(video, cam)]
 
 
-def main(argv=None):
+def main(argv: Optional[List[str]] = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--video", help="video file (default: a built-in clip, silent)")
     parser.add_argument("--device", default="0", help="camera index, device path or stream URL")

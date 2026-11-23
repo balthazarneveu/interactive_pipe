@@ -6,7 +6,7 @@ noise; raise the minimal area to remove the specks. Precision / recall (in the t
 table lists every detection with its area and peak intensity.
 """
 
-from typing import Annotated
+from typing import Annotated, Any, Dict, List, Tuple
 
 import numpy as np
 
@@ -17,13 +17,13 @@ CENTERS = RNG.uniform(16, 240, size=(14, 2))  # ground-truth blob centres (x, y)
 AMPLITUDES = RNG.uniform(0.15, 0.8, size=14)
 
 
-def make_image(n=256):
+def make_image(n: int = 256) -> np.ndarray:
     y, x = np.mgrid[0:n, 0:n]
     img = sum(a * np.exp(-((x - cx) ** 2 + (y - cy) ** 2) / 80) for (cx, cy), a in zip(CENTERS, AMPLITUDES))
     return np.clip(0.1 + img + 0.06 * RNG.standard_normal((n, n)), 0, 1)
 
 
-def label(mask):
+def label(mask: np.ndarray) -> List[Tuple[np.ndarray, ...]]:
     """4-connected components (numpy + a Python flood fill, no scipy): list of (ys, xs) per component."""
     seen, comps = np.zeros_like(mask), []
     for start in zip(*np.nonzero(mask)):
@@ -44,17 +44,19 @@ def label(mask):
 
 @interactive
 def detect(
-    img,
+    img: np.ndarray,
     threshold: Annotated[float, (0.0, 1.0), "Threshold"] = 0.25,
     min_area: Annotated[int, (1, 100), "Min area (px)"] = 20,
-):
+) -> Dict[str, Any]:
     comps = [c for c in label(img > threshold) if len(c[0]) >= min_area]
     boxes = np.array([(xs.min(), ys.min(), xs.max(), ys.max()) for ys, xs in comps]).reshape(-1, 4)
     return dict(box=boxes, area=[len(ys) for ys, _ in comps], peak=[img[c].max() for c in comps])
 
 
 @interactive
-def score(img, det, max_dist: Annotated[float, (1.0, 15.0), "Match radius (px)"] = 6.0):
+def score(
+    img: np.ndarray, det: Dict[str, Any], max_dist: Annotated[float, (1.0, 15.0), "Match radius (px)"] = 6.0
+) -> Tuple[Image, Table]:
     centers = (det["box"][:, :2] + det["box"][:, 2:]) / 2
     dist = np.linalg.norm(centers[:, None] - CENTERS[None], axis=-1)  # detections x ground truth
     tp = dist.min(axis=1, initial=np.inf) < max_dist
@@ -69,7 +71,7 @@ def score(img, det, max_dist: Annotated[float, (1.0, 15.0), "Match radius (px)"]
 
 
 @interactive_pipeline(gui="auto")
-def blob_detection(img):
+def blob_detection(img: np.ndarray) -> Tuple[np.ndarray, Image, Table]:
     detections = detect(img)
     overlay, table = score(img, detections)
     return img, overlay, table

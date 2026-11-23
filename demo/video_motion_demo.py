@@ -14,13 +14,16 @@ once with a window. Both follow the single timeline of the window.
 """
 
 import argparse
+from typing import List, Tuple
 
 import numpy as np
 
 from interactive_pipe import Video, draw, interactive, interactive_pipeline, layout
 
 
-def bouncing_balls(n_frames: int = 120, size=(180, 240), n_balls: int = 4, seed: int = 0) -> np.ndarray:
+def bouncing_balls(
+    n_frames: int = 120, size: Tuple[int, int] = (180, 240), n_balls: int = 4, seed: int = 0
+) -> np.ndarray:
     """``(T, H, W, 3)`` float32 frames: colored balls bouncing on a noisy gray background."""
     rng = np.random.default_rng(seed)
     height, width = size
@@ -44,7 +47,7 @@ def bouncing_balls(n_frames: int = 120, size=(180, 240), n_balls: int = 4, seed:
 
 
 @interactive(threshold=(0.15, [0.01, 0.5]), median=(True, "temporal median"))
-def motion_mask(frames, threshold=0.15, median=True):
+def motion_mask(frames: np.ndarray, threshold: float = 0.15, median: bool = True) -> np.ndarray:
     """Pixels that changed over the window: |last - first| (or - the temporal median)."""
     reference = np.median(frames, axis=0) if median else frames[0]
     change = np.abs(frames[-1] - reference).max(axis=-1)
@@ -53,7 +56,7 @@ def motion_mask(frames, threshold=0.15, median=True):
 
 
 @interactive(merge=(6, [0, 20], "merge (px)"), min_area=(60, [1, 1000]))
-def detect(frame, mask, merge=6, min_area=60):
+def detect(frame: np.ndarray, mask: np.ndarray, merge: int = 6, min_area: int = 60) -> np.ndarray:
     """Boxes around the moving blobs: the mask is dilated by ``merge`` pixels (the
     leading and trailing edges of an object join), then split in connected components."""
     import cv2
@@ -68,7 +71,7 @@ def detect(frame, mask, merge=6, min_area=60):
     return draw.boxes(frame, boxes, color=(1.0, 0.2, 0.2), width=2)
 
 
-def motion(frame, frames):
+def motion(frame: np.ndarray, frames: np.ndarray) -> List[np.ndarray]:
     mask = motion_mask(frames)
     detections = detect(frame, mask)
     return [frame, mask, detections]

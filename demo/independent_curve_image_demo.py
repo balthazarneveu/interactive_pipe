@@ -9,6 +9,7 @@ This demo demonstrates:
 """
 
 import argparse
+from typing import List, Union
 
 import numpy as np
 
@@ -105,7 +106,7 @@ def generate_image(
     return img
 
 
-def curve_image_pipeline():
+def curve_image_pipeline() -> List[Union[Curve, np.ndarray]]:
     """Main pipeline function showcasing curve and image side by side"""
     curve = generate_curve()
     image = generate_image()

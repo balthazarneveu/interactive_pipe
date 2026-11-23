@@ -7,7 +7,7 @@ beam is steered off broadside. A Hann taper lowers the side lobes (-13 dB to -31
 a wider main lobe.
 """
 
-from typing import Annotated, cast
+from typing import Annotated, Tuple, cast
 
 import numpy as np
 from matplotlib.figure import Figure
@@ -23,7 +23,7 @@ STEERING = Control(20.0, [-60.0, 60.0], name="steering (deg)")
 TAPER = Control("uniform", ["uniform", "hann"], name="taper")
 
 
-def array_factor_db(n, spacing, steering, taper, angles=ANGLES):
+def array_factor_db(n: int, spacing: float, steering: float, taper: str, angles: np.ndarray = ANGLES) -> np.ndarray:
     weights = np.hanning(n + 2)[1:-1] if taper == "hann" else np.ones(n)
     phase = 2 * np.pi * spacing * (np.sin(np.radians(angles))[..., None] - np.sin(np.radians(steering)))
     response = np.abs(np.exp(1j * phase * np.arange(n)) @ weights) / weights.sum()
@@ -32,11 +32,11 @@ def array_factor_db(n, spacing, steering, taper, angles=ANGLES):
 
 @interactive(elements=ELEMENTS, steering=STEERING, taper=TAPER)
 def pattern(
-    elements=8,
+    elements: int = 8,
     spacing: Annotated[float, (0.1, 2.0), "spacing (wavelengths)"] = 0.5,
-    steering=20.0,
-    taper="uniform",
-):
+    steering: float = 20.0,
+    taper: str = "uniform",
+) -> PolarAxes:
     gain = array_factor_db(elements, spacing, steering, taper)
     lo = hi = int(np.argmin(np.abs(ANGLES - steering)))  # main lobe: walk down to the nulls around the peak
     while lo > 0 and gain[lo - 1] < gain[lo]:
@@ -57,7 +57,7 @@ def pattern(
 
 
 @interactive(elements=ELEMENTS, steering=STEERING, taper=TAPER)
-def spacing_map(elements=8, steering=20.0, taper="uniform"):
+def spacing_map(elements: int = 8, steering: float = 20.0, taper: str = "uniform") -> np.ndarray:
     rows = [array_factor_db(elements, d, steering, taper, angles=np.arange(-90, 91)) for d in SPACINGS]
     layout.style("spacing_vs_angle", title="array factor vs spacing", colormap="magma", vmin=-40, vmax=0)
     # rows run from 0.1 (top) to 2 wavelengths (bottom): extent = (left, right, bottom, top)
@@ -67,7 +67,7 @@ def spacing_map(elements=8, steering=20.0, taper="uniform"):
 
 
 @interactive_pipeline(gui="auto")
-def g2_beamforming():
+def g2_beamforming() -> Tuple[PolarAxes, np.ndarray]:
     polar = pattern()
     spacing_vs_angle = spacing_map()
     return polar, spacing_vs_angle

@@ -19,12 +19,14 @@ Spectrograms show what the ear hears: the noise floor, the hum lines, the harmon
 
 import argparse
 from pathlib import Path
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
 from interactive_pipe import (
     Control,
     Curve,
+    InteractiveFilter,
     SingleCurve,
     audio,
     context,
@@ -48,7 +50,7 @@ VOWELS = {
 }
 
 
-def synth_voice(duration=DURATION, rate=RATE):
+def synth_voice(duration: float = DURATION, rate: int = RATE) -> np.ndarray:
     """A singing voice by additive synthesis: a glottal source (harmonics of f0) shaped by vowel formants.
 
     One note per vowel, with vibrato, a short silence between notes (useful to estimate the noise).
@@ -80,7 +82,7 @@ def synth_voice(duration=DURATION, rate=RATE):
     return sound.normalize((signal + breath) * envelope, 0.8)
 
 
-def synth_music(duration=DURATION, rate=RATE):
+def synth_music(duration: float = DURATION, rate: int = RATE) -> np.ndarray:
     """Fallback music clip: a plucked arpeggio (A minor - F - C - G)."""
     n = int(duration * rate)
     t = np.arange(n) / rate
@@ -97,7 +99,7 @@ def synth_music(duration=DURATION, rate=RATE):
     return sound.normalize(signal, 0.8)
 
 
-def load_sources(wav_files=None):
+def load_sources(wav_files: Optional[Sequence[str]] = None) -> Dict[str, np.ndarray]:
     """The two signals the ``source`` dropdown switches between, resampled to RATE."""
     if wav_files:
         return {
@@ -110,12 +112,12 @@ def load_sources(wav_files=None):
     return {"voice": synth_voice(), "music": music}
 
 
-def make_source_picker(sources):
+def make_source_picker(sources: Dict[str, np.ndarray]) -> "InteractiveFilter[..., np.ndarray]":
     """The first filter: a dropdown switching between the signals of ``sources``."""
     names = list(sources.keys())
 
     @interactive(source=Control(names[0], names, name="source"))
-    def pick_source(source=names[0]):
+    def pick_source(source: str = names[0]) -> np.ndarray:
         return sources[source]
 
     return pick_source
@@ -128,7 +130,7 @@ pick_source = make_source_picker(load_sources())
     noise=Control("white", ["white", "pink", "hum", "none"], name="noise", group="Noise"),
     snr=Control(5.0, [-5.0, 30.0], step=1.0, name="SNR [dB]", group="Noise"),
 )
-def corrupt(clean, noise="white", snr=5.0):
+def corrupt(clean: np.ndarray, noise: str = "white", snr: float = 5.0) -> np.ndarray:
     if noise == "none":
         context["noise"] = None
         return clean.copy()
@@ -142,18 +144,20 @@ def corrupt(clean, noise="white", snr=5.0):
     max_attenuation=Control(30.0, [0.0, 60.0], step=1.0, name="max attenuation [dB]", group="Denoise"),
     oracle=Control(False, name="oracle noise", group="Denoise"),
 )
-def remove_noise(noisy, strength=1.5, max_attenuation=30.0, oracle=False):
+def remove_noise(
+    noisy: np.ndarray, strength: float = 1.5, max_attenuation: float = 30.0, oracle: bool = False
+) -> np.ndarray:
     noise = context.get("noise") if oracle else None
     return sound.denoise(noisy, strength=strength, max_attenuation_db=max_attenuation, noise=noise)
 
 
 @interactive(semitones=Control(0.0, [-12.0, 12.0], step=1.0, name="semitones", group="Pitch"))
-def shift_pitch(signal, semitones=0.0):
+def shift_pitch(signal: np.ndarray, semitones: float = 0.0) -> np.ndarray:
     return sound.pitch_shift(signal, semitones)
 
 
 @interactive(listen=Control("processed", ["clean", "noisy", "processed", "mute"], name="listen"))
-def play(clean, noisy, processed, listen="processed"):
+def play(clean: np.ndarray, noisy: np.ndarray, processed: np.ndarray, listen: str = "processed") -> None:
     """Side effect only: send the chosen signal to the speakers."""
     if listen == "mute":
         audio.stop()
@@ -166,7 +170,9 @@ def play(clean, noisy, processed, listen="processed"):
 
 
 @interactive()
-def analyse(clean, noisy, denoised, processed):
+def analyse(
+    clean: np.ndarray, noisy: np.ndarray, denoised: np.ndarray, processed: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
     """Spectrograms of the input and the output, SNR readouts in the titles."""
     snr_in, snr_out = sound.snr_db(clean, noisy), sound.snr_db(clean, denoised)
     layout.style("noisy_spectrogram", **sound.spectrogram_style(noisy, RATE, title=f"input  SNR {snr_in:.1f} dB"))
@@ -178,7 +184,7 @@ def analyse(clean, noisy, denoised, processed):
 
 
 @interactive(zoom_at=Control(0.5, [0.0, DURATION - 0.05], name="zoom at [s]", group="Waveform"))
-def waveform(clean, processed, zoom_at=0.5):
+def waveform(clean: np.ndarray, processed: np.ndarray, zoom_at: float = 0.5) -> Curve:
     """40 ms of the clean and processed waveforms: the period changes with the pitch."""
     first = int(zoom_at * RATE)
     window = slice(first, first + int(0.04 * RATE))
@@ -196,7 +202,7 @@ def waveform(clean, processed, zoom_at=0.5):
 
 
 @interactive()
-def average_spectrum(clean, noisy, processed):
+def average_spectrum(clean: np.ndarray, noisy: np.ndarray, processed: np.ndarray) -> Curve:
     """Mean level per frequency: the noise floor, what the denoiser removes, where the harmonics go."""
     curves = []
     for signal, style, label in [(noisy, "c-", "noisy"), (clean, "k-", "clean"), (processed, "r-", "processed")]:
@@ -206,7 +212,7 @@ def average_spectrum(clean, noisy, processed):
     return Curve(curves, xlabel="frequency [kHz]", ylabel="dB", ylim=(-80, 0), grid=True, title="average spectrum")
 
 
-def audio_pipeline():
+def audio_pipeline() -> List[List[Union[np.ndarray, Curve]]]:
     clean = pick_source()
     noisy = corrupt(clean)
     denoised = remove_noise(noisy)

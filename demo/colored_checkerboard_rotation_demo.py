@@ -9,6 +9,7 @@ This demo demonstrates:
 """
 
 import argparse
+from typing import List, Tuple, Union
 
 import cv2
 import numpy as np
@@ -24,7 +25,7 @@ from interactive_pipe import (
 )
 
 
-def create_checkerboard(checker_size: int = 64, board_size: int = 512):
+def create_checkerboard(checker_size: int = 64, board_size: int = 512) -> np.ndarray:
     """Create a colored checkerboard image."""
     img = np.zeros((board_size, board_size, 3), dtype=np.float32)
 
@@ -55,7 +56,7 @@ def apply_affine_transform(
     rotation: float = 0.0,
     translate_x: float = 0.0,
     translate_y: float = 0.0,
-):
+) -> Tuple[np.ndarray, np.ndarray]:
     """Apply affine transformation (rotation + translation) to image.
 
     Returns:
@@ -102,7 +103,7 @@ def apply_affine_transform(
     return transformed, affine_matrix
 
 
-def format_affine_matrix(img: np.ndarray, matrix: np.ndarray):
+def format_affine_matrix(img: np.ndarray, matrix: np.ndarray) -> Tuple[np.ndarray, Table]:
     """Format the affine matrix as a headerless table."""
     # Create headerless table from 2x3 matrix
     affine_table = Table(matrix, title="Affine Matrix (2x3)", precision=4)
@@ -116,7 +117,7 @@ def apply_color_rotation(
     hue: float = 0.0,
     saturation: float = 1.0,
     value: float = 1.0,
-):
+) -> Tuple[np.ndarray, Table]:
     """Apply color rotation matrix to image and return both transformed image and matrix table.
 
     This applies a 3x3 RGB rotation matrix for HSV hue rotation.
@@ -181,7 +182,7 @@ def apply_color_rotation(
     return transformed_img, color_table
 
 
-def affine_color_pipeline():
+def affine_color_pipeline() -> List[List[Union[np.ndarray, Table]]]:
     """Main pipeline function."""
     # Create checkerboard
     checkerboard = create_checkerboard()
@@ -199,7 +200,7 @@ def affine_color_pipeline():
     return [[colorized_img, affine_table, color_table]]
 
 
-def add_interactivity():
+def add_interactivity() -> None:
     """Set up panels and controls for the demo."""
     # Create panels for grouping controls
     checkerboard_panel = Panel("Checkerboard", collapsible=True, collapsed=True)
@@ -278,7 +279,7 @@ def add_interactivity():
     )(apply_color_rotation)
 
 
-def launch(backend="qt"):
+def launch(backend: str = "qt") -> None:
     """Launch the demo with the specified backend."""
     add_interactivity()
     interactive_pipeline(gui=backend, cache=False, name="Affine & Color Demo")(affine_color_pipeline)()

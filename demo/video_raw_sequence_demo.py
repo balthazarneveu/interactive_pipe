@@ -36,6 +36,7 @@ import argparse
 import tempfile
 import time
 from pathlib import Path
+from typing import Any, Dict, Tuple
 
 import numpy as np
 
@@ -46,7 +47,7 @@ WHITE_LEVEL = 1023
 
 
 # ---------------------------------------------------------------- the custom format
-def write_craw(path: Path, mosaic: np.ndarray, **metadata) -> None:
+def write_craw(path: Path, mosaic: np.ndarray, **metadata: Any) -> None:
     with open(path, "wb") as file:  # a file object: numpy keeps the .craw suffix
         np.savez(file, mosaic=mosaic, **metadata)
 
@@ -57,7 +58,7 @@ def read_craw_preview(path: Path) -> np.ndarray:
         return data["preview"]
 
 
-def read_craw(path: Path):
+def read_craw(path: Path) -> Tuple[np.ndarray, Dict[str, Any]]:
     """``Video`` loader: path -> (Bayer mosaic as float32, metadata dict)."""
     with np.load(path) as data:
         metadata = {
@@ -70,7 +71,7 @@ def read_craw(path: Path):
         return data["mosaic"].astype(np.float32), metadata
 
 
-def simulate_burst(folder: Path, n_frames: int = 48, size=(240, 320), seed: int = 0) -> Path:
+def simulate_burst(folder: Path, n_frames: int = 48, size: Tuple[int, int] = (240, 320), seed: int = 0) -> Path:
     """RGGB mosaics of a moving scene, shot with a hunting auto-exposure and a drifting white balance."""
     rng = np.random.default_rng(seed)
     height, width = size
@@ -112,7 +113,7 @@ def simulate_burst(folder: Path, n_frames: int = 48, size=(240, 320), seed: int 
 
 # ---------------------------------------------------------------- the pipeline (one frame)
 @interactive(compensate=(True, "exposure compensation"))
-def normalize(mosaic, compensate=True):
+def normalize(mosaic: np.ndarray, compensate: bool = True) -> np.ndarray:
     """Black level to 0, white level to 1; scaled to a 10 ms ISO 200 exposure when compensating."""
     meta = context["timeline"].metadata
     raw = (mosaic - meta["black_level"]) / (meta["white_level"] - meta["black_level"])
@@ -123,20 +124,20 @@ def normalize(mosaic, compensate=True):
 
 
 @interactive()
-def demosaic(raw):
+def demosaic(raw: np.ndarray) -> np.ndarray:
     """RGGB to half-resolution RGB (each 2x2 block becomes a pixel)."""
     green = (raw[0::2, 1::2] + raw[1::2, 0::2]) / 2
     return np.stack([raw[0::2, 0::2], green, raw[1::2, 1::2]], axis=-1)
 
 
 @interactive(white_balance=("as shot", ["as shot", "none"]), brightness=(1.0, [0.2, 3.0]))
-def develop(rgb, white_balance="as shot", brightness=1.0):
+def develop(rgb: np.ndarray, white_balance: str = "as shot", brightness: float = 1.0) -> np.ndarray:
     gains = np.array(context["timeline"].metadata["wb_gains"]) if white_balance == "as shot" else np.ones(3)
     linear = np.clip(rgb * gains * brightness, 0.0, 1.0)
     return linear ** (1 / 2.2)  # display gamma
 
 
-def develop_raw(mosaic):
+def develop_raw(mosaic: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     raw = normalize(mosaic)
     rgb = demosaic(raw)
     developed = develop(rgb)
@@ -152,7 +153,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     folder = simulate_burst(Path(tempfile.mkdtemp(prefix="raw_burst_")))
 
-    def loader(path: Path):
+    def loader(path: Path) -> Tuple[np.ndarray, Dict[str, Any]]:
         if args.slow:
             time.sleep(0.08)
         return read_craw(path)

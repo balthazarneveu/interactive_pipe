@@ -7,6 +7,8 @@ rate-distortion curve marks the current point. "zero high frequencies" keeps onl
 frequencies of each block: the stripes, a high frequency, disappear.
 """
 
+from typing import Any, List, Tuple
+
 import numpy as np
 
 from interactive_pipe import Control, Curve, Table, interactive, interactive_pipeline, layout
@@ -20,7 +22,7 @@ ZERO_HIGH = Control(False, name="zero high frequencies")
 JPEG_LUMA = 1 + (np.add.outer(np.arange(B), np.arange(B)) * 6 + 10)  # simplified: grows with frequency
 
 
-def make_image(size=128):
+def make_image(size: int = 128) -> np.ndarray:
     y, x = np.mgrid[:size, :size] / size
     img = 0.2 + 0.6 * x  # smooth gradient
     img[(x - 0.7) ** 2 + (y - 0.3) ** 2 < 0.04] = 0.9  # sharp-edged disc
@@ -29,7 +31,7 @@ def make_image(size=128):
     return img
 
 
-def code(img, quality, zero_high):
+def code(img: np.ndarray, quality: int, zero_high: bool) -> Tuple[np.ndarray, np.ndarray]:
     """Quantised DCT coefficients per block, shape (H/8, W/8, 8, 8), and the reconstruction."""
     scale = 5000 / quality if quality < 50 else 200 - 2 * quality
     step = np.maximum(JPEG_LUMA * scale / 100, 1) / 255
@@ -41,14 +43,14 @@ def code(img, quality, zero_high):
     return coefs, np.clip(recon, 0, 1)
 
 
-def rate_psnr(img, coefs, recon):
+def rate_psnr(img: np.ndarray, coefs: np.ndarray, recon: np.ndarray) -> Tuple[float, float]:
     _, counts = np.unique(coefs, return_counts=True)
     p = counts / counts.sum()
     return float(-(p * np.log2(p)).sum()), float(10 * np.log10(1 / np.mean((recon - img) ** 2)))
 
 
 @interactive(quality=QUALITY, zero_high=ZERO_HIGH)
-def compress(img, quality=50, zero_high=False):
+def compress(img: np.ndarray, quality: int = 50, zero_high: bool = False) -> Tuple[np.ndarray, np.ndarray]:
     coefs, recon = code(img, quality, zero_high)
     rate, psnr = rate_psnr(img, coefs, recon)
     layout.style("reconstruction", title=f"quality {quality}: {rate:.2f} bpp, PSNR {psnr:.1f} dB")
@@ -57,7 +59,7 @@ def compress(img, quality=50, zero_high=False):
 
 
 @interactive(quality=QUALITY, zero_high=ZERO_HIGH)
-def rate_distortion(img, quality=50, zero_high=False):
+def rate_distortion(img: np.ndarray, quality: int = 50, zero_high: bool = False) -> Tuple[Curve, Table]:
     qualities = [5, 10, 20, 30, 50, 70, 85, 95]
     points = np.array([rate_psnr(img, *code(img, q, zero_high)) for q in qualities])
     current = rate_psnr(img, *code(img, quality, zero_high))
@@ -74,7 +76,7 @@ def rate_distortion(img, quality=50, zero_high=False):
 
 
 @interactive_pipeline(gui="auto")
-def g2_dct_compression(img):
+def g2_dct_compression(img: np.ndarray) -> List[List[Any]]:
     reconstruction, error = compress(img)
     rd, rd_table = rate_distortion(img)
     return [[img, reconstruction, error], [rd, rd_table]]

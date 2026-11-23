@@ -8,7 +8,7 @@ A search range below 14 px clips the square. Click on the left view: the matchin
 pixel against every candidate disparity is plotted; a sharp single minimum = a reliable match.
 """
 
-from typing import Annotated
+from typing import Annotated, Any, List, Tuple
 
 import numpy as np
 
@@ -17,7 +17,7 @@ from interactive_pipe import Curve, PointControl, draw, interactive, interactive
 H, W = 120, 160
 
 
-def make_views(seed=0):
+def make_views(seed: int = 0) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Left / right views and the ground-truth disparity of the left view (pixels)."""
     rng = np.random.default_rng(seed)
     texture = rng.random((H, W + 32))
@@ -32,7 +32,7 @@ def make_views(seed=0):
     return np.clip(left + noise[0], 0, 1), np.clip(right + noise[1], 0, 1), disparity
 
 
-def box_sum(img, radius):
+def box_sum(img: np.ndarray, radius: int) -> np.ndarray:
     """Sum over a (2r+1)^2 window, edges replicated (integral image)."""
     padded = np.pad(img, radius, mode="edge")
     integral = np.pad(padded.cumsum(0).cumsum(1), ((1, 0), (1, 0)))
@@ -42,11 +42,11 @@ def box_sum(img, radius):
 
 @interactive
 def block_match(
-    left,
-    right,
+    left: np.ndarray,
+    right: np.ndarray,
     window: Annotated[int, (1, 9), "window radius"] = 5,
     max_disparity: Annotated[int, (4, 24), "search range (px)"] = 20,
-):
+) -> Tuple[np.ndarray, np.ndarray]:
     costs = np.stack([box_sum((left - np.roll(right, d, axis=1)) ** 2, window) for d in range(max_disparity + 1)])
     for name in ("truth", "disparity"):  # truth is an input: styled by name from any filter
         layout.style(name, colormap="viridis", vmin=0, vmax=24, colorbar=True, unit="px")
@@ -54,7 +54,7 @@ def block_match(
 
 
 @interactive
-def disparity_error(disparity, truth):
+def disparity_error(disparity: np.ndarray, truth: np.ndarray) -> np.ndarray:
     error = disparity - truth
     bad = np.mean(np.abs(error) > 1)
     title = f"error: {100 * bad:.1f}% pixels off by > 1 px"
@@ -63,7 +63,9 @@ def disparity_error(disparity, truth):
 
 
 @interactive(probe=PointControl((0.3, 0.5), on="marked"))
-def cost_curve(left, costs, probe=(0.3, 0.5)):
+def cost_curve(
+    left: np.ndarray, costs: np.ndarray, probe: Tuple[float, float] = (0.3, 0.5)
+) -> Tuple[np.ndarray, Curve]:
     col, row = to_pixels(probe, left)
     curve = costs[:, row, col]
     best = int(curve.argmin())
@@ -73,7 +75,7 @@ def cost_curve(left, costs, probe=(0.3, 0.5)):
 
 
 @interactive_pipeline(gui="auto")
-def g2_stereo_matching(left, right, truth):
+def g2_stereo_matching(left: np.ndarray, right: np.ndarray, truth: np.ndarray) -> List[List[Any]]:
     disparity, costs = block_match(left, right)
     error = disparity_error(disparity, truth)
     marked, cost = cost_curve(left, costs)

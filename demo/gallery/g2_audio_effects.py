@@ -6,7 +6,7 @@ them again. The delay repeats the attack every "delay" ms (vertical stripes in t
 decaying with the feedback). In the Qt window the result is played after every change.
 """
 
-from typing import Annotated
+from typing import Annotated, Any, List, Tuple
 
 import numpy as np
 
@@ -15,7 +15,7 @@ from interactive_pipe import Curve, audio, interactive, interactive_pipeline, la
 RATE = 16000
 
 
-def make_chord(seconds=1.5):
+def make_chord(seconds: float = 1.5) -> np.ndarray:
     t = np.arange(int(seconds * RATE)) / RATE
     notes = (220.0, 277.18, 329.63)  # A3, C#4, E4
     chord = sum(np.sin(2 * np.pi * f * t) + 0.3 * np.sin(4 * np.pi * f * t) for f in notes)
@@ -23,7 +23,7 @@ def make_chord(seconds=1.5):
 
 
 @interactive
-def low_pass(signal, cutoff: Annotated[float, (100.0, 8000.0), "cutoff (Hz)"] = 3000.0):
+def low_pass(signal: np.ndarray, cutoff: Annotated[float, (100.0, 8000.0), "cutoff (Hz)"] = 3000.0) -> np.ndarray:
     alpha = 1 - np.exp(-2 * np.pi * cutoff / RATE)  # one-pole filter, twice for 12 dB / octave
     out = signal.copy()
     for _ in range(2):
@@ -35,17 +35,17 @@ def low_pass(signal, cutoff: Annotated[float, (100.0, 8000.0), "cutoff (Hz)"] = 
 
 
 @interactive
-def distortion(signal, drive: Annotated[float, (1.0, 30.0), "drive"] = 3.0):
+def distortion(signal: np.ndarray, drive: Annotated[float, (1.0, 30.0), "drive"] = 3.0) -> np.ndarray:
     return np.tanh(drive * signal) / np.tanh(drive)
 
 
 @interactive
 def delay(
-    signal,
+    signal: np.ndarray,
     delay_ms: Annotated[float, (20.0, 400.0), "delay (ms)"] = 250.0,
     feedback: Annotated[float, (0.0, 0.9), "feedback"] = 0.4,
     mix: Annotated[float, (0.0, 1.0), "mix"] = 0.5,
-):
+) -> np.ndarray:
     d = int(delay_ms * RATE / 1000)
     dry = np.pad(signal, (0, 3 * d))
     wet = np.zeros_like(dry)
@@ -59,7 +59,7 @@ def delay(
 
 
 @interactive
-def analyse(signal):
+def analyse(signal: np.ndarray) -> Tuple[Curve, np.ndarray, Curve]:
     t = np.arange(len(signal)) / RATE * 1000
     window = slice(int(0.1 * RATE), int(0.13 * RATE))
     waveform = Curve([[t[window], signal[window], "b-", "output"]], xlabel="time (ms)", ylim=(-1.05, 1.05))
@@ -77,7 +77,7 @@ def analyse(signal):
 
 
 @interactive_pipeline(gui="auto")
-def g2_audio_effects(chord):
+def g2_audio_effects(chord: np.ndarray) -> List[List[Any]]:
     driven = distortion(chord)
     toned = low_pass(driven)
     output = delay(toned)

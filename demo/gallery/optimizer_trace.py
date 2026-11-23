@@ -6,7 +6,7 @@ axis. Raise the learning rate until the trajectory diverges (the loss curve shoo
 how many steps each method needs to reach the minimum at (1, 1).
 """
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Tuple
 
 import numpy as np
 from matplotlib.figure import Figure
@@ -16,11 +16,11 @@ from interactive_pipe import Curve, interactive, interactive_pipeline
 X, Y = np.meshgrid(np.linspace(-2, 2, 200), np.linspace(-1, 3, 200))
 
 
-def loss(p):
+def loss(p: np.ndarray) -> np.ndarray:
     return (1 - p[..., 0]) ** 2 + 10 * (p[..., 1] - p[..., 0] ** 2) ** 2
 
 
-def grad(p):
+def grad(p: np.ndarray) -> np.ndarray:
     x, y = p
     return np.array([-2 * (1 - x) - 40 * x * (y - x**2), 20 * (y - x**2)])
 
@@ -31,7 +31,7 @@ def optimize(
     lr: Annotated[float, (1e-4, 0.3, "log"), "learning rate"] = 0.01,
     momentum: Annotated[float, (0.0, 0.99), "Momentum / beta1"] = 0.9,
     steps: Annotated[int, (1, 500), "Steps"] = 150,
-):
+) -> np.ndarray:
     p, v, s = np.array([-1.5, 2.5]), np.zeros(2), np.zeros(2)
     path = [p]
     for k in range(1, steps + 1):
@@ -52,7 +52,7 @@ def optimize(
 
 
 @interactive()
-def contour(path):
+def contour(path: np.ndarray) -> Figure:
     fig = Figure()
     ax = fig.subplots()
     ax.contour(X, Y, np.log10(loss(np.stack([X, Y], axis=-1)) + 1e-3), levels=20, cmap="viridis")
@@ -63,12 +63,12 @@ def contour(path):
 
 
 @interactive()
-def loss_curve(path):
+def loss_curve(path: np.ndarray) -> Curve:
     return Curve([[np.arange(len(path)), np.log10(loss(path) + 1e-12), "b-", "log10 loss"]], xlabel="step", grid=True)
 
 
 @interactive_pipeline(gui="auto")
-def optimizer_trace():
+def optimizer_trace() -> Tuple[Figure, Curve]:
     path = optimize()
     trajectory = contour(path)
     losses = loss_curve(path)

@@ -7,7 +7,7 @@ start each picture from an empty context, so `snapshot(t=4)` is reproducible. A 
 2000 steps (the title shows the step reached), so the GUI stays responsive when the clock jumps.
 """
 
-from typing import Annotated
+from typing import Annotated, Any, Dict, Optional, Tuple
 
 import numpy as np
 
@@ -16,27 +16,27 @@ from interactive_pipe import TimeControl, context, interactive, interactive_pipe
 N = 128
 
 
-def seed():
+def seed() -> Tuple[np.ndarray, np.ndarray]:
     u, v = np.ones((N, N)), np.zeros((N, N))
     u[N // 2 - 8 : N // 2 + 8, N // 2 - 8 : N // 2 + 8], v[N // 2 - 8 : N // 2 + 8, N // 2 - 8 : N // 2 + 8] = 0.5, 0.25
     v += 0.02 * np.random.default_rng(0).random((N, N))
     return u, v
 
 
-def laplacian(a):
+def laplacian(a: np.ndarray) -> np.ndarray:
     return np.roll(a, 1, 0) + np.roll(a, -1, 0) + np.roll(a, 1, 1) + np.roll(a, -1, 1) - 4 * a
 
 
 @interactive(t=TimeControl(update_interval_ms=50))
 def simulate(
-    t=0.0,
+    t: float = 0.0,
     feed: Annotated[float, (0.01, 0.08), "feed"] = 0.037,
     kill: Annotated[float, (0.04, 0.07), "kill"] = 0.06,
     speed: Annotated[int, (100, 2000), "steps / second"] = 500,
-):
+) -> np.ndarray:
     """Advance the state kept in the context up to the clock."""
     target = int(t * speed)
-    state = context.get("sim")
+    state: Optional[Dict[str, Any]] = context.get("sim")
     if state is None or state["step"] > target:  # first run, or the clock went back
         state = dict(step=0, uv=seed())
     u, v = state["uv"]
@@ -51,7 +51,7 @@ def simulate(
 
 
 @interactive_pipeline(gui="auto")
-def reaction_diffusion():
+def reaction_diffusion() -> np.ndarray:
     v = simulate()
     return v
 

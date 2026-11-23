@@ -9,38 +9,26 @@ import numpy as np
 
 from interactive_pipe import Image, Panel, interactive, interactive_pipeline, layout
 
-TORCH_AVAILABLE = True
 try:
     import torch
+
+    TORCH_AVAILABLE = True
 except ImportError:
-
-    class DummyTorch:
-        def no_grad(self):
-            pass
-
-        def Tensor(self, *args, **kwargs):
-            return None
-
-    torch = DummyTorch()
     TORCH_AVAILABLE = False
 
 # Utilities functions - not anything to do with interactive pipe
 # --------------------------------------------------------------------------------------------
 
 
-def np_to_tensor(img: np.ndarray) -> torch.Tensor:
-    if not TORCH_AVAILABLE:
-        return img
+def np_to_tensor(img: np.ndarray) -> "torch.Tensor":
     return torch.tensor(img).permute(2, 0, 1).float()
 
 
-def tensor_to_np(tensor: torch.Tensor) -> np.ndarray:
-    if not TORCH_AVAILABLE:
-        return tensor
+def tensor_to_np(tensor: "torch.Tensor") -> np.ndarray:
     return tensor.permute(1, 2, 0).contiguous().cpu().numpy()
 
 
-def get_paths(img_folder: Path = Path(__file__).parent / "images"):
+def get_paths(img_folder: Path = Path(__file__).parent / "images") -> List[Path]:
     img_list = sorted(list(img_folder.glob("*.png")))
     return img_list
 
@@ -56,7 +44,7 @@ def img_selector(img_list: List[Path], index: int = 0) -> np.ndarray:
     return img
 
 
-def blur_image(img: np.ndarray, half_blur_size=1, gpu=False) -> np.ndarray:
+def blur_image(img: np.ndarray, half_blur_size: int = 1, gpu: bool = False) -> np.ndarray:
     blur_size = half_blur_size * 2 + 1
     if TORCH_AVAILABLE:
         with torch.no_grad():
@@ -81,7 +69,7 @@ def threshold(img: np.ndarray, threshold: float = 0.5) -> np.ndarray:
 
 # Interactive Pipeline = Plug all legos together
 # --------------------------------------------------------------------------------------------
-def image_pipeline(img_list: List[Path]):
+def image_pipeline(img_list: List[Path]) -> List[np.ndarray]:
     image = img_selector(img_list)
     processed_image = blur_image(image)
     thresholded_image = threshold(processed_image)
@@ -98,7 +86,7 @@ def image_pipeline(img_list: List[Path]):
 # --------------------------------------------------------------------------------------------
 
 
-def main_demo(img_list: List[Path], backend: str = "qt", panel_position: str = "bottom"):
+def main_demo(img_list: List[Path], backend: str = "qt", panel_position: str = "bottom") -> None:
     blur_panel = Panel("Blurring", position=panel_position)
 
     # Decorate image selector - similar to @interactive

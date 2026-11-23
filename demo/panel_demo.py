@@ -12,6 +12,7 @@ This demo demonstrates:
 
 import argparse
 from pathlib import Path
+from typing import List, Optional
 
 import numpy as np
 
@@ -36,7 +37,7 @@ def horizontal_box_blur(img: np.ndarray, radius: int) -> np.ndarray:
     return (cumulative[:, end] - cumulative[:, start]) / count
 
 
-def get_image_path():
+def get_image_path() -> Optional[Path]:
     """Get a sample image path"""
     img_folder = Path(__file__).parent / "images"
     img_list = sorted(list(img_folder.glob("*.png")))
@@ -69,7 +70,7 @@ main_panel = Panel("Processing Controls").add_elements(
 
 
 @interactive()
-def load_image(img_path: Path) -> np.ndarray:
+def load_image(img_path: Optional[Path]) -> np.ndarray:
     """Load the input image"""
     if img_path is None or not img_path.exists():
         # Create a simple gradient test image
@@ -210,7 +211,7 @@ def adjust_simple(
 # ============================================================================
 
 
-def panel_demo_pipeline(img_path: Path):
+def panel_demo_pipeline(img_path: Optional[Path]) -> List[np.ndarray]:
     """Main pipeline demonstrating nested panels and grid layouts"""
     original = load_image(img_path)
     processed = process_image(original)

@@ -15,7 +15,7 @@ This demo demonstrates:
 
 import argparse
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 from PIL import Image as PILImage
@@ -35,7 +35,7 @@ from interactive_pipe import (
 )
 
 
-def get_image_paths(img_folder: Path = Path(__file__).parent / "images"):
+def get_image_paths(img_folder: Path = Path(__file__).parent / "images") -> List[Path]:
     """Get list of image paths"""
     img_list = sorted(list(img_folder.glob("*.png")))
     return img_list
@@ -69,7 +69,7 @@ def select_image(
     return img
 
 
-def set_layout_outputs():
+def set_layout_outputs() -> None:
     """Set pipeline.outputs based on layout_mode string in context.
 
     This function modifies pipeline.outputs to control the image layout arrangement.
@@ -109,7 +109,7 @@ def set_layout_outputs():
     levels=RangeControl((0.0, 1.0), [0.0, 1.0], name="input levels"),  # Two-handle (lo, hi) slider
 )
 def adjust_brightness_contrast(
-    img: np.ndarray, brightness: float = 0.0, contrast: float = 0.0, levels=(0.0, 1.0)
+    img: np.ndarray, brightness: float = 0.0, contrast: float = 0.0, levels: Tuple[float, float] = (0.0, 1.0)
 ) -> np.ndarray:
     """Adjust input levels, brightness and contrast"""
     # Input levels: stretch [lo, hi] to [0, 1] (the filter receives a (lo, hi) tuple)
@@ -300,7 +300,7 @@ def add_noise(
 # ============================================================================
 
 
-def widgets_showcase_pipeline(img_list: List[Path]):
+def widgets_showcase_pipeline(img_list: List[Path]) -> List[np.ndarray]:
     """Main pipeline showcasing all widgets and multi-image layouts
 
     Pipeline functions must contain ONLY function calls - no control flow (if/else/for).
