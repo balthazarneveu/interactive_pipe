@@ -1,7 +1,7 @@
 import copy
 import difflib
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
 from interactive_pipe.core.context import REMOVED_CONTEXT_ALIASES, _set_user_context
 from interactive_pipe.core.context_tracking import GRAPH_CACHE_MODES, ContextTracker
@@ -28,20 +28,20 @@ class PipelineCore:
     def __init__(
         self,
         filters: List[FilterCore],
-        name="pipeline",
+        name: str = "pipeline",
         cache: Union[bool, str] = False,
-        inputs: Optional[list] = None,
-        parameters: Optional[dict] = None,
-        context: Optional[dict] = None,
-        outputs: Optional[list] = None,
+        inputs: Optional[Sequence[Any]] = None,
+        parameters: Optional[Mapping[str, Dict[str, Any]]] = None,
+        context: Optional[Dict[str, Any]] = None,
+        outputs: Optional[List[Any]] = None,
         safe_input_buffer_deepcopy: Optional[bool] = None,
         readonly_inputs: bool = True,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         if not all(isinstance(f, FilterCore) for f in filters):
             raise ValueError(f"All elements in 'filters' must be instances of 'Filter'. {[type(f) for f in filters]}")
-        self.filters = filters
-        self.engine = PipelineEngine(
+        self.filters: List[FilterCore] = filters
+        self.engine: PipelineEngine = PipelineEngine(
             cache, safe_input_buffer_deepcopy=safe_input_buffer_deepcopy, readonly_inputs=readonly_inputs
         )
 
@@ -62,7 +62,7 @@ class PipelineCore:
         # property setter links every filter to the shared dict and, in graph cache
         # mode, wraps it in a ContextTracker (class filters access it as self.global_params)
         self.global_params = context
-        self.framework_state = FrameworkState()
+        self.framework_state: FrameworkState = FrameworkState()
         self.framework_state.pipeline = self
         for filt in self.filters:
             # link each filter to the shared framework state
@@ -81,6 +81,7 @@ class PipelineCore:
             self.engine.context_tracker = self._user_context
 
         self.reset_cache()
+        self.inputs_routing: Sequence[Any]
         if inputs is None:
             logging.warning("Setting a pipeline without input -  use inputs=[] to get rid of this warning")
             self.inputs_routing = []
@@ -97,21 +98,24 @@ class PipelineCore:
             outputs = self.filters[-1].outputs
             logging.warning(f"Using last filter outputs {self.filters[-1]} {outputs}")
 
-        self.outputs = outputs  # output indexes (routing); the display layout (layout.grid, GUIs change it)
+        self.outputs: Optional[List[Any]] = (
+            outputs  # output indexes (routing); the display layout (layout.grid, GUIs change it)
+        )
         # what the pipeline function returns: the shape of a headless call's result, whatever the layout
-        self.returned_outputs = copy.deepcopy(outputs)
+        self.returned_outputs: Optional[List[Any]] = copy.deepcopy(outputs)
         # You need to set the values to their default_value for each filter
         if parameters is None:
             parameters = {}
         self.parameters = parameters
-        self.results = None
-        self.name = name
+        self.results: Any = None
+        self.name: str = name
 
-    def reset_cache(self):
+    def reset_cache(self) -> None:
+        """Forget the cached results of every filter (the next run recomputes everything)."""
         for filt in self.filters:
             filt.reset_cache()
 
-    def invalidate_event_readers(self, event_names) -> None:
+    def invalidate_event_readers(self, event_names: Iterable[str]) -> None:
         """Force the recomputation of the filters reading the given key-bound events.
 
         Readers are recorded at runtime by the `events` proxy. Filters downstream
@@ -135,11 +139,12 @@ class PipelineCore:
         return self.engine.cache in GRAPH_CACHE_MODES
 
     @property
-    def global_params(self):
+    def global_params(self) -> Dict[str, Any]:
+        """The dict shared by every filter (``self.global_params`` of class-based filters)."""
         return self._global_params_storage
 
     @global_params.setter
-    def global_params(self, new_global_params: dict):
+    def global_params(self, new_global_params: Dict[str, Any]) -> None:
         """Replace the shared dict and relink every filter to it.
 
         Class-based filters access this dict as ``self.global_params`` inside their
@@ -165,7 +170,7 @@ class PipelineCore:
         """Per-filter timings of the last run (None before the first run)."""
         return self.engine.last_run_report
 
-    def run(self) -> dict:
+    def run(self) -> Dict[Any, Any]:
         """Useful for standalone python access without gui or disk write"""
         # Set user context before running pipeline
         previous_context = _set_user_context(self._user_context)
@@ -189,11 +194,11 @@ class PipelineCore:
         self._user_context.update(context)
         self._context_seed.update(context)
 
-    def save_run_state(self) -> tuple:
+    def save_run_state(self) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """Context contents, event values and cache state, for ``restore_run_state``."""
         return dict(self._user_context), dict(self.framework_state.events)
 
-    def restore_run_state(self, saved: tuple) -> None:
+    def restore_run_state(self, saved: Tuple[Mapping[str, Any], Mapping[str, Any]]) -> None:
         """Put back what ``save_run_state`` returned (contents replaced in place)."""
         context, events = saved
         self._user_context.clear()
@@ -222,7 +227,7 @@ class PipelineCore:
             filt.framework_state = self.framework_state
 
     @property
-    def parameters(self):
+    def parameters(self) -> Dict[str, Dict[str, Any]]:
         """Current parameters of every filter, as {filter_name: {param: value}}.
 
         The returned mapping is a shallow copy: mutating it does not alter the
@@ -231,7 +236,7 @@ class PipelineCore:
         return {filt.name: dict(filt.values) for filt in self.filters}
 
     @parameters.setter
-    def parameters(self, new_parameters: Dict[str, Any]):
+    def parameters(self, new_parameters: Mapping[str, Dict[str, Any]]) -> None:
         """Force tuning parameters
 
         ```
@@ -276,7 +281,8 @@ class PipelineCore:
             self.filters[available_filters_names.index(filter_name)].values = filter_parameters
 
     @property
-    def inputs(self):
+    def inputs(self) -> Optional[Dict[Any, Any]]:
+        """The inputs of the next run, as {input name: value} (None for a pipeline without input)."""
         if not self.__initialized_inputs:
             raise RuntimeError("Cannot access uninitialized inputs!")
         return self.__inputs
@@ -291,7 +297,7 @@ class PipelineCore:
         return f"pipeline '{name}' expects {len(routing)} {plural} ({', '.join(str(item) for item in routing)})"
 
     @inputs.setter
-    def inputs(self, inputs: list):
+    def inputs(self, inputs: Any) -> None:
         had_no_inputs = self.__initialized_inputs and self.__inputs is None
         if inputs is not None:
             if isinstance(inputs, dict):

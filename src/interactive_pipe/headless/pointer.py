@@ -42,7 +42,7 @@ _TOLERANCE = 1e-6
 class PointerControl(Control):
     """Base class of ``PointControl`` and ``RegionControl`` (a tuple of fractions in [0, 1])."""
 
-    kind = "pointer"
+    kind: str = "pointer"
     axes: Tuple[str, ...] = ()
     _ready = False
 
@@ -67,9 +67,9 @@ class PointerControl(Control):
             group=group,
             tooltip=tooltip,
         )
-        self.on = on
+        self.on: Optional[str] = on
         self._type = tuple  # unknown widget factories skip it instead of drawing a float slider
-        self.step = None
+        self.step: Optional[Union[int, float]] = None
         self.value_default = default
         self._ready = True
         self.value = None  # reset to the tuple default
@@ -119,7 +119,8 @@ class PointerControl(Control):
     def _ordered(value: tuple) -> tuple:
         return value
 
-    def check_value(self, value):
+    def check_value(self, value: Any) -> Any:
+        """Validate a new value: the right number of numbers in [0, 1] (a region is reordered)."""
         if not self._ready:
             return super().check_value(value)  # scalar bootstrap of Control.__init__
         return self._sanitize(value, label=f"value of control '{self.name}'")
@@ -173,8 +174,8 @@ class PointControl(PointerControl):
         ```
     """
 
-    kind = "point"
-    axes = ("x", "y")
+    kind: str = "point"
+    axes: Tuple[str, ...] = ("x", "y")
 
 
 class RegionControl(PointerControl):
@@ -202,8 +203,8 @@ class RegionControl(PointerControl):
         ```
     """
 
-    kind = "region"
-    axes = ("x0", "y0", "x1", "y1")
+    kind: str = "region"
+    axes: Tuple[str, ...] = ("x0", "y0", "x1", "y1")
 
     @staticmethod
     def _ordered(value: tuple) -> tuple:
@@ -219,8 +220,8 @@ class PointerAxisControl(Control):
     """
 
     def __init__(self, parent: PointerControl, index: int) -> None:
-        self.parent = parent
-        self.index = index
+        self.parent: PointerControl = parent
+        self.index: int = index
         self._bound = False  # Control.__init__ assigns value: do not write the parent then
         super().__init__(
             value_default=float(parent.value_default[index]),
@@ -229,24 +230,24 @@ class PointerAxisControl(Control):
             step=0.001,
             tooltip=parent.tooltip,
         )
-        self.panel = parent.panel  # placed by controls_for_backend, not registered here
+        self.panel: Optional[Panel] = parent.panel  # placed by controls_for_backend, not registered here
         self._bound = True
 
     @property
-    def value_default(self):
+    def value_default(self) -> float:  # type: ignore[override]
         return float(self.parent.value_default[self.index])
 
     @value_default.setter
-    def value_default(self, _value) -> None:
+    def value_default(self, _value: Any) -> None:
         pass  # always the parent's default
 
     @property
-    def value(self):
+    def value(self) -> float:
         coordinates: Any = self.parent.value
         return float(coordinates[self.index])
 
     @value.setter
-    def value(self, value=None) -> None:
+    def value(self, value: Any = None) -> None:
         if not self._bound:
             return
         checked = self.value_default if value is None else self.check_value(value)
@@ -259,7 +260,8 @@ class PointerAxisControl(Control):
                 coordinates[second if self.index < 2 else first] = checked
         self.parent.value = tuple(coordinates)
 
-    def update(self, new_value):
+    def update(self, new_value: Any) -> None:
+        """Set this coordinate and push the parent value to its filter(s)."""
         self.value = new_value
         if self.parent.update_param_func is not None:
             self.parent.update_param_func(self.parent.value)

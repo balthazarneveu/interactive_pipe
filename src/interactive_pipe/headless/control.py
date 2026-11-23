@@ -4,7 +4,7 @@ import logging
 import math
 from copy import copy, deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Sequence, SupportsFloat, Tuple, Union
 
 import numpy as np
 
@@ -86,8 +86,8 @@ class Control:
         ```
     """
 
-    counter = 0
-    _registry = {}  # controls of callables that cannot hold attributes (see register)
+    counter: int = 0
+    _registry: Dict[str, Dict[str, "Control"]] = {}  # controls of callables that cannot hold attributes (see register)
     # set on some instances only (read with __dict__.get): the declared control a
     # pipeline clone comes from, the key sharing one widget, the parameter an
     # auto-named control was named after
@@ -95,13 +95,13 @@ class Control:
     _share_key: Any
     _named_after_parameter: str
     # Process-wide by design: same-named string groups share one Panel across filters
-    _panel_cache = {}
+    _panel_cache: Dict[str, "Panel"] = {}
 
     #: attribute of the (unwrapped) filter function holding its registered controls
     CONTROLS_ATTRIBUTE = "__interactive_pipe_controls__"
 
     @staticmethod
-    def registry_key(func: Callable) -> str:
+    def registry_key(func: Callable[..., Any]) -> str:
         """Readable ``module.qualname`` of a filter function (used in messages and
         as the fallback key for callables that cannot hold attributes)."""
         qualname = getattr(func, "__qualname__", None)
@@ -111,7 +111,7 @@ class Control:
         return f"{func.__module__}.{qualname}"
 
     @staticmethod
-    def _declaration_owner(func: Callable) -> Any:
+    def _declaration_owner(func: Callable[..., Any]) -> Any:
         """The function object that owns the controls: the innermost function
         behind ``functools.wraps`` wrappers (the decorated function and its
         wrapper share one set of controls)."""
@@ -123,7 +123,7 @@ class Control:
             return func
 
     @classmethod
-    def register(cls, func, param_name, control_instance):
+    def register(cls, func: Callable[..., Any], param_name: str, control_instance: "Control") -> None:
         """Register `control_instance` for `param_name` of `func`.
 
         Controls live on the function object itself, so two functions with the
@@ -142,17 +142,20 @@ class Control:
         controls[param_name] = control_instance
 
     @classmethod
-    def get_controls(cls, func):
+    def get_controls(cls, func: Callable[..., Any]) -> Dict[str, "Control"]:
+        """Controls registered for `func`, keyed by parameter name (empty dict if none)."""
         if not isinstance(func, Callable):
             raise TypeError(f"get_controls expects the function object, got {type(func)}")
         owner = cls._declaration_owner(func)
-        controls = owner.__dict__.get(cls.CONTROLS_ATTRIBUTE) if hasattr(owner, "__dict__") else None
+        controls: Optional[Dict[str, Control]] = (
+            owner.__dict__.get(cls.CONTROLS_ATTRIBUTE) if hasattr(owner, "__dict__") else None
+        )
         if controls is not None:
             return controls
         return cls._registry.get(cls.registry_key(func), {})
 
     @classmethod
-    def clear_controls(cls, func) -> None:
+    def clear_controls(cls, func: Callable[..., Any]) -> None:
         """Forget the controls registered for `func` (re-decoration starts clean)."""
         owner = cls._declaration_owner(func)
         if hasattr(owner, "__dict__"):
@@ -162,27 +165,28 @@ class Control:
     def __init__(
         self,
         value_default: Union[int, float, bool, str],
-        value_range: Optional[List[Union[int, float, str]]] = None,
+        value_range: Optional[Sequence[Union[int, float, str]]] = None,
         name: Optional[str] = None,
         step: Optional[Union[int, float]] = None,
         filter_to_connect: Optional[FilterCore] = None,
         parameter_name_to_connect: Optional[str] = None,
-        icons: Optional[List] = None,
+        icons: Optional[Sequence[Union[str, Path]]] = None,
         group: Optional[Union[str, "Panel"]] = None,
         tooltip: Optional[str] = None,
         scale: str = "linear",
     ) -> None:
-        self.value_default = value_default
-        self._type = None
+        self.value_default: Any = value_default
+        self._type: Optional[type] = None
         self._auto_named = False
-        self.step = step
-        self.tooltip = tooltip
+        self.step: Optional[Union[int, float]] = step
+        self.tooltip: Optional[str] = tooltip
         if scale not in SCALES:
             raise ValueError(f"{_control_label(name)}scale must be 'linear' or 'log', got {scale!r}")
-        self.scale = scale
+        self.scale: str = scale
 
         # Convert string to Panel for backward compatibility
         # Use cached Panel if same string name was used before
+        self.panel: Optional[Panel]
         if isinstance(group, str):
             from interactive_pipe.headless.panel import Panel
 
@@ -267,17 +271,18 @@ class Control:
                 f"{_control_label(name)}scale='log' needs a float slider: Control(1e-2, [1e-4, 1e-1], scale='log') "
                 "(use float bounds or default)"
             )
-        self.value_range = value_range
+        self.value_range: Optional[Sequence[Union[int, float, str]]] = value_range
 
         # init current value
         self.value = value_default
-        self.icons = icons
+        self.icons: Optional[Sequence[Union[str, Path]]] = icons
         if self.icons is not None:
             for icon in self.icons:
                 if isinstance(icon, str):
                     icon = Path(icon)
                 if not icon.exists():
                     raise FileNotFoundError(f"Icon file not found: {icon}")
+        self.name: str
         if name is None:
             self._auto_named = True
             self.name = f"parameter {Control.counter}"
@@ -286,6 +291,7 @@ class Control:
         if not isinstance(self.name, str):
             raise TypeError(f"name must be a string, got {type(self.name)}")
         Control.counter += 1
+        self.update_param_func: Optional[Callable[[Any], Any]]
         if filter_to_connect is not None:
             if parameter_name_to_connect is None:
                 raise ValueError("parameter_name_to_connect is required when filter_to_connect is provided")
@@ -293,8 +299,8 @@ class Control:
         else:
             self.update_param_func = None
 
-        self.parameter_name_to_connect = parameter_name_to_connect
-        self.filter_to_connect = filter_to_connect
+        self.parameter_name_to_connect: Optional[str] = parameter_name_to_connect
+        self.filter_to_connect: Optional[FilterCore] = filter_to_connect
 
         # Register with panel if provided
         if self.panel is not None:
@@ -316,7 +322,7 @@ class Control:
     def is_log(self) -> bool:
         return self.__dict__.get("scale", "linear") == "log"
 
-    def to_position(self, value) -> float:
+    def to_position(self, value: SupportsFloat) -> float:
         """Slider position in [0, 1] of a value (log scale: evenly over decades)."""
         low, high = float(self.value_range[0]), float(self.value_range[1])  # type: ignore[index,arg-type]
         if high == low:
@@ -326,7 +332,7 @@ class Control:
             return (math.log10(value) - math.log10(low)) / (math.log10(high) - math.log10(low))
         return (value - low) / (high - low)
 
-    def from_position(self, position: float):
+    def from_position(self, position: SupportsFloat) -> float:
         """Value at a slider position in [0, 1]: snapped to the step (linear scale) or
         rounded to 3 significant digits (log scale), within the range."""
         low, high = float(self.value_range[0]), float(self.value_range[1])  # type: ignore[index,arg-type]
@@ -362,7 +368,9 @@ class Control:
                 f"Use a step <= {span}"
             )
 
-    def check_value(self, value):
+    def check_value(self, value: Any) -> Any:
+        """Validate a new value: numpy scalars unwrapped, ints and floats converted to
+        the control type, numbers clamped into ``value_range``, choices checked."""
         if isinstance(value, np.generic):
             value = value.item()  # numpy scalars (np.float32(2.0), np.int64(3), np.str_...) are plain values
         if isinstance(value, bool) and self._type in (int, float):
@@ -428,14 +436,16 @@ class Control:
             raise NotImplementedError
 
     @property
-    def value(self):
+    def value(self) -> Any:
+        """Current value (validated by ``check_value``; ``None`` resets to the default)."""
         return self._value
 
     @value.setter
-    def value(self, value=None):
+    def value(self, value: Any = None) -> None:
         self._value = deepcopy(self.check_value(value) if value is not None else self.value_default)
 
-    def reset(self):
+    def reset(self) -> None:
+        """Set the value back to ``value_default``."""
         self.value = None
 
     #: True while a caller that reports the clamping itself sets the value
@@ -450,7 +460,8 @@ class Control:
         finally:
             del self._clamp_reported_by_caller
 
-    def update(self, new_value):
+    def update(self, new_value: Any) -> None:
+        """Set the value and push it to the connected filter(s)."""
         # Plug button
         self.value = new_value
         if self.update_param_func is not None:
@@ -555,10 +566,11 @@ class Control:
         clone.reset()
         return clone
 
-    def connect_parameter(self, update_param_func: Callable):
+    def connect_parameter(self, update_param_func: Callable[[Any], Any]) -> None:
+        """Call ``update_param_func(value)`` on each ``update``."""
         self.update_param_func = update_param_func
 
-    def connect_filter(self, filt: FilterCore, parameter_name):
+    def connect_filter(self, filt: FilterCore, parameter_name: str) -> None:
         """Drive ``parameter_name`` of ``filt`` (replaces any previous target)."""
         self.update_param_func = self._update_targets
         self.parameter_name_to_connect = parameter_name
@@ -584,7 +596,7 @@ class MappedChoiceControl(Control):
 
     def __init__(
         self,
-        choices: dict,
+        choices: Mapping[str, Any],
         value_default: Any = None,
         name: Optional[str] = None,
         group: Optional[Union[str, "Panel"]] = None,
@@ -596,7 +608,7 @@ class MappedChoiceControl(Control):
         label = next(iter(self._choice_values)) if value_default is None else self.to_label(value_default)
         super().__init__(label, list(self._choice_values), name=name, group=group, tooltip=tooltip)
 
-    def to_label(self, value):
+    def to_label(self, value: Any) -> Any:
         """Label of a choice given as its value (or already as its label)."""
         for label, choice in self._choice_values.items():
             if choice is value:
@@ -608,13 +620,14 @@ class MappedChoiceControl(Control):
                 return label
         return value  # not a choice: the base validation names the choices
 
-    def to_value(self, value):
+    def to_value(self, value: Any) -> Any:
         """Value handed to the filter for a label (anything else is passed through)."""
         if type(value) is str and value in self._choice_values:
             return self._choice_values[value]
         return value
 
-    def check_value(self, value):
+    def check_value(self, value: Any) -> Any:
+        """Validate a choice given as its label or as its value."""
         return super().check_value(self.to_label(value))
 
     def _checked_default(self, value):
@@ -632,7 +645,7 @@ class CircularControl(Control):
     def __init__(
         self,
         value_default: Union[int, float],
-        value_range: Optional[List[Union[int, float]]] = None,
+        value_range: Optional[Sequence[Union[int, float]]] = None,
         modulo: bool = True,
         name: Optional[str] = None,
         step: Optional[Union[int, float]] = None,
@@ -643,7 +656,7 @@ class CircularControl(Control):
     ) -> None:
         super().__init__(
             value_default=value_default,
-            value_range=value_range,  # type: ignore
+            value_range=value_range,
             name=name,
             step=step,
             filter_to_connect=filter_to_connect,
@@ -652,7 +665,7 @@ class CircularControl(Control):
             group=group,
             tooltip=tooltip,
         )
-        self.modulo = modulo
+        self.modulo: bool = modulo
 
     def __repr__(self) -> str:
         return super().__repr__() + f"| modulo:{self.modulo}"
@@ -705,8 +718,8 @@ class RangeControl(Control):
 
     def __init__(
         self,
-        value_default: Union[Tuple[Union[int, float], Union[int, float]], List[Union[int, float]]],
-        value_range: List[Union[int, float]],
+        value_default: Sequence[Union[int, float]],
+        value_range: Sequence[Union[int, float]],
         step: Optional[Union[int, float]] = None,
         name: Optional[str] = None,
         tooltip: Optional[str] = None,
@@ -737,7 +750,7 @@ class RangeControl(Control):
             group=group,
             tooltip=tooltip,
         )
-        self.value_default = (elem_type(default[0]), elem_type(default[1]))
+        self.value_default: Any = (elem_type(default[0]), elem_type(default[1]))
         self._range_ready = True
         self.value = None  # reset to the (lo, hi) default
         if filter_to_connect is not None:
@@ -767,7 +780,7 @@ class RangeControl(Control):
             ) from None
         return int(round(number)) if self._type is int else number
 
-    def check_value(self, value):
+    def check_value(self, value: Any) -> Any:
         """Sanitize a new ``(lo, hi)``: sort the bounds and clamp them into ``value_range``.
 
         Accepts a tuple, a list (json/yaml tuning files), any 2-element
@@ -891,8 +904,8 @@ class TimeControl(Control):
             group=group,
             tooltip=tooltip,
         )
-        self.update_interval_ms = update_interval_ms
-        self.pause_resume_key = pause_resume_key
+        self.update_interval_ms: int = update_interval_ms
+        self.pause_resume_key: str = pause_resume_key
 
     def _warn_clamped(self, value, clamped) -> None:
         # running past the end of the range is expected (the timer keeps ticking): stay quiet

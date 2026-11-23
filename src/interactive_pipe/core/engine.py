@@ -5,7 +5,8 @@ import time
 import traceback
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Union
+from types import TracebackType
+from typing import IO, Dict, List, Optional, Set, Union
 
 from interactive_pipe.core.context_tracking import GRAPH_CACHE_MODES, ContextTracker
 from interactive_pipe.core.filter import FilterCore
@@ -22,12 +23,18 @@ class FilterError(Exception):
     framework traceback, making it easier to identify issues in user code.
     """
 
-    def __init__(self, filter_name: str, original_error: Exception, tb=None, hint: Optional[str] = None):
+    def __init__(
+        self,
+        filter_name: str,
+        original_error: Exception,
+        tb: Optional[TracebackType] = None,
+        hint: Optional[str] = None,
+    ) -> None:
         _install_excepthook()
-        self.filter_name = filter_name
-        self.original_error = original_error
-        self.tb = tb
-        self.hint = hint
+        self.filter_name: str = filter_name
+        self.original_error: Exception = original_error
+        self.tb: Optional[TracebackType] = tb
+        self.hint: Optional[str] = hint
         self._user_frames = self._extract_user_frames()
         super().__init__(self._format_message())
 
@@ -74,7 +81,7 @@ class FilterError(Exception):
         lines.append("")
         return "\n".join(lines)
 
-    def print_compact(self, file=None):
+    def print_compact(self, file: Optional[IO[str]] = None) -> None:
         """Print a compact version of the error to stderr or specified file."""
         if file is None:
             file = sys.stderr

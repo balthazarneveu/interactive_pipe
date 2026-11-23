@@ -35,7 +35,7 @@ import shutil
 import subprocess
 import wave
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
@@ -285,7 +285,7 @@ def spectrogram_style(
     floor_db: float = -80.0,
     colormap: str = "magma",
     title: Optional[str] = None,
-) -> dict:
+) -> Dict[str, Any]:
     """Keyword arguments for ``layout.style(name, **...)`` matching :func:`spectrogram`.
 
     Time axis in seconds, frequency axis in kHz, a dB colour bar.

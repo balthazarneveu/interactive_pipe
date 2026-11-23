@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, Optional, Sequence, Union
 
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.headless.control import Control
@@ -65,7 +65,7 @@ class KeyboardControl(Control):
     def __init__(
         self,
         value_default: Union[int, float, bool, str],
-        value_range: Optional[List[Union[int, float, str]]] = None,
+        value_range: Optional[Sequence[Union[int, float, str]]] = None,
         keydown: Optional[str] = None,
         keyup: Optional[str] = None,
         modulo: bool = False,
@@ -85,11 +85,12 @@ class KeyboardControl(Control):
             icons=None,
             group=group,
         )
-        self.keyup = keyup
-        self.keydown = keydown
-        self.modulo = modulo
+        self.keyup: Optional[str] = keyup
+        self.keydown: Optional[str] = keydown
+        self.modulo: bool = modulo
 
-    def on_key(self, down=True):
+    def on_key(self, down: bool = True) -> None:
+        """Apply one key press: decrease (``down``) or increase the value, toggle a bool."""
         if self._type is bool:
             new_val = not self.value
             self.value = new_val
@@ -119,10 +120,12 @@ class KeyboardControl(Control):
             new_val = self.value_range[int(new_val)]  # type: ignore
         self.value = new_val
 
-    def on_key_down(self):
+    def on_key_down(self) -> None:
+        """Handle a press of ``keydown``."""
         self.on_key(down=True)
 
-    def on_key_up(self):
+    def on_key_up(self) -> None:
+        """Handle a press of ``keyup`` (no-op for a toggle-only binding)."""
         if self.keyup is not None:
             self.on_key(down=False)
 
@@ -134,7 +137,8 @@ class KeyboardControl(Control):
         )
 
     @staticmethod
-    def sanity_check_key(key):
+    def sanity_check_key(key: object) -> str:
+        """Lower-cased ``key`` once checked: a single character or one of ``SPECIAL_KEYS_LIST``."""
         if not isinstance(key, str):
             raise TypeError(f"key must be a string, got {type(key)}")
         key = key.lower()
