@@ -67,9 +67,10 @@ typed as `(*args, **kwargs) -> Any`.
 # pyright my_pipeline.py
 ```
 
-mypy trips on the PyQt6 stub files (a syntax its parser rejects). PyQt is an
-implementation detail of the Qt backend, never imported by user code, so skip
-it:
+When PyQt6 is installed, mypy stops on its stub files (a syntax its parser
+rejects). This is not specific to interactive_pipe: Pillow's `PIL.ImageQt`
+imports PyQt6, so a file containing only `import PIL.Image` fails the same way.
+Skip the PyQt stubs:
 
 ```ini
 # mypy.ini
