@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **`-b nb` from a terminal offers to open the app in Jupyter.** The notebook backend started outside Jupyter asks to write `my_script.ipynb` next to the script (it runs the script with the same arguments, and the same interactive_pipe) and to start JupyterLab / Notebook from the same Python environment; without Jupyter installed, it prints how to install it and open the notebook. ([backends](https://balthazarneveu.github.io/interactive_pipe/getting-started/backends/))
 - Notebook backend: the figure is shown once, inside the widget. It was also left open in pyplot, so the inline backend showed a stale copy under the sliders at the end of the cell, and a redraw after that added an empty figure (the slider moves made it flicker).
 
 ## 0.10.2 (November 2026)

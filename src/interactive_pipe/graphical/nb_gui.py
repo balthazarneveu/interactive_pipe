@@ -7,6 +7,7 @@ from ipywidgets import interact
 from interactive_pipe.graphical.gui import InteractivePipeGUI
 from interactive_pipe.graphical.mpl_window import MatplotlibWindow
 from interactive_pipe.graphical.nb_control import ControlFactory
+from interactive_pipe.graphical.nb_launcher import offer_notebook
 from interactive_pipe.headless.control import Control
 
 
@@ -21,6 +22,9 @@ class InteractivePipeJupyter(InteractivePipeGUI):
         )
 
     def run(self) -> None:
+        # From a terminal (`python script.py -b nb`) there is no notebook to draw in:
+        # offer to write one and open it in Jupyter (exits when accepted)
+        offer_notebook()
         if not self.pipeline._PipelineCore__initialized_inputs:  # type: ignore[reportAttributeAccessIssue]
             raise RuntimeError("Did you forget to initialize the pipeline inputs?")
         interact(self.window._interact_fn, **self.window.sliders_dict)
