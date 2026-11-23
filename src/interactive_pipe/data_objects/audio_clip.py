@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
@@ -48,7 +48,7 @@ class AudioClip:
 
     def __init__(
         self,
-        source: Union[str, os.PathLike, np.ndarray],
+        source: Union[str, os.PathLike[str], np.ndarray],
         sample_rate: Optional[int] = None,
         *,
         mono: bool = True,
@@ -69,8 +69,8 @@ class AudioClip:
 
             if sample_rate is not None and (not isinstance(sample_rate, (int, np.integer)) or sample_rate <= 0):
                 raise ValueError(f"AudioClip: sample_rate must be a positive integer (Hz), got {sample_rate!r}")
-            signal, rate = sound.load(source, sample_rate=sample_rate, mono=mono, start=start, duration=duration)
             self.path: Optional[Path] = Path(source)
+            signal, rate = sound.load(self.path, sample_rate=sample_rate, mono=mono, start=start, duration=duration)
             default_description = self.path.name
         elif isinstance(source, np.ndarray):
             if sample_rate is None:
@@ -97,9 +97,9 @@ class AudioClip:
             raise ValueError(f"AudioClip: {default_description} holds no sample")
         self.signal: np.ndarray = signal
         self.sample_rate: int = int(rate)
-        self.timeline_display = timeline
-        self.play = bool(play)
-        self.description = description if description is not None else default_description
+        self.timeline_display: str = timeline
+        self.play: bool = bool(play)
+        self.description: str = description if description is not None else default_description
         self._peaks: Optional[Tuple[np.ndarray, np.ndarray]] = None
 
     def __len__(self) -> int:
@@ -114,9 +114,9 @@ class AudioClip:
     def channels(self) -> int:
         return 1 if self.signal.ndim == 1 else int(self.signal.shape[1])
 
-    def metadata(self) -> dict:
+    def metadata(self) -> Dict[str, Any]:
         """What ``context["timeline"].inputs_metadata[name]`` holds for this input."""
-        meta: dict = {"sample_rate": self.sample_rate, "duration": self.duration, "channels": self.channels}
+        meta: Dict[str, Any] = {"sample_rate": self.sample_rate, "duration": self.duration, "channels": self.channels}
         if self.path is not None:
             meta["path"] = str(self.path)
         return meta

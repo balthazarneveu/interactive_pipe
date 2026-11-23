@@ -1,13 +1,13 @@
 import importlib.util
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 
-from interactive_pipe.data_objects.data import Data
+from interactive_pipe.data_objects.data import Data, PathInput
 
-image_backends = []
+image_backends: List[str] = []
 
 IMAGE_BACKEND_PILLOW = "pillow"
 IMAGE_BACKEND_OPENCV = "opencv"
@@ -27,7 +27,7 @@ if len(image_backends) == 0:
     logging.info("No image backend available. Install opencv-python or Pillow to save/load images")
 
 
-def _resolve_image_backend(backend):
+def _resolve_image_backend(backend: Optional[str]) -> str:
     """Pick a default backend when none is given and check availability."""
     if len(image_backends) == 0:
         raise RuntimeError("No image backend available. Please install either opencv-python or Pillow")
@@ -57,13 +57,13 @@ class Image(Data):
 
     def __init__(self, data: np.ndarray, title: str = "") -> None:
         super().__init__(data)
-        self.title = title
-        self.path = None
+        self.title: str = title
+        self.path: Optional[Path] = None
 
-    def _set_file_extensions(self):
+    def _set_file_extensions(self) -> None:
         self.file_extensions = [".png", ".jpg", ".tif", ".jpeg", ".tiff", ".bmp"]
 
-    def _save(self, path: Path, backend=None):
+    def _save(self, path: Path, backend: Optional[str] = None) -> None:
         if path is None:
             raise ValueError("Save requires a path")
         if self.title is not None:
@@ -72,7 +72,7 @@ class Image(Data):
             self.path = path
         self.save_image(self.data, self.path, backend=backend)
 
-    def _load(self, path: Path, backend=None, title=None) -> np.ndarray:
+    def _load(self, path: Path, backend: Optional[str] = None, title: Optional[str] = None) -> np.ndarray:
         if title is not None:
             self.title = title
         self.path = path
@@ -135,7 +135,7 @@ class Image(Data):
         return channels
 
     @staticmethod
-    def save_image_cv2(data, path: Path, precision=8):
+    def save_image_cv2(data: np.ndarray, path: Path, precision: int = 8) -> None:
         if not isinstance(path, Path):
             raise TypeError(f"path must be a Path object, got {type(path)}")
         import cv2
@@ -149,7 +149,7 @@ class Image(Data):
             raise OSError(f"Could not write image to {path}")
 
     @staticmethod
-    def save_image_PIL(data, path: Path, precision=8):
+    def save_image_PIL(data: np.ndarray, path: Path, precision: int = 8) -> None:
         if precision != 8:
             raise ValueError(f"PIL backend requires precision=8, got {precision}")
         if not isinstance(path, Path):
@@ -163,7 +163,7 @@ class Image(Data):
         out.save(str(path))
 
     @staticmethod
-    def load_image_cv2(path: Path, precision=8) -> np.ndarray:
+    def load_image_cv2(path: PathInput, precision: int = 8) -> np.ndarray:
         import cv2
 
         img = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
@@ -178,7 +178,7 @@ class Image(Data):
         return Image._normalize_loaded(img, precision)
 
     @staticmethod
-    def load_image_PIL(path: Path, precision=8) -> np.ndarray:
+    def load_image_PIL(path: PathInput, precision: int = 8) -> np.ndarray:
         from PIL import Image as PilImage
 
         with PilImage.open(path) as img:
@@ -194,7 +194,7 @@ class Image(Data):
         return Image._normalize_loaded(data, precision)
 
     @staticmethod
-    def load_image(path: Path, precision: int = 8, backend: Optional[str] = None) -> np.ndarray:
+    def load_image(path: PathInput, precision: int = 8, backend: Optional[str] = None) -> np.ndarray:
         """Load an image file as a ``[0, 1]`` float RGB array.
 
         Args:

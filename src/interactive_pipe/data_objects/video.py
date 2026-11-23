@@ -39,7 +39,7 @@ import time
 import weakref
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -581,7 +581,7 @@ class Video:
             )
         if isinstance(preload, bool) or not isinstance(preload, int) or preload < 0:
             raise ValueError(f"Video: preload must be an int >= 0, got {preload!r}")
-        self.timeline_display = timeline
+        self.timeline_display: str = timeline
         self._reader = _make_reader(source, max_frames, to_numpy, loader)
         if thumbnail_loader is not None:
             if not callable(thumbnail_loader):
@@ -606,9 +606,9 @@ class Video:
         base_fps = fps if fps is not None else (source.fps if isinstance(source, Video) else self._reader.fps)
         if fps is None and step > 1 and base_fps is not None:
             base_fps = base_fps / step  # same duration
-        self.fps = float(base_fps) if base_fps else DEFAULT_FPS
-        self.window = window
-        self.preload = preload
+        self.fps: float = float(base_fps) if base_fps else DEFAULT_FPS
+        self.window: int = window
+        self.preload: int = preload
         same_reader = isinstance(source, Video) and source._reader is self._reader
         # the reader is used by one thread at a time: the pipeline run, the background worker, the GUI
         self._lock: Any = source._lock if same_reader else threading.RLock()
@@ -700,7 +700,7 @@ class Video:
             return torch.stack(frames)
         return np.stack(frames)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Any]:
         for index in range(len(self)):
             yield self[index]
 
@@ -829,7 +829,7 @@ class Video:
         return self._worker
 
     # ------------------------------------------------------------------ pipeline buffers
-    def __deepcopy__(self, memo: dict) -> "Video":
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "Video":
         # a read-only source: pipeline input buffers are deep-copied before runs, never this one
         return self
 

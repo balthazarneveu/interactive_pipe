@@ -1,11 +1,19 @@
 import logging
 import pickle
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, List, Optional, Sequence, Type, TypeVar, Union
+
+#: a file path given by the user: a string or a ``pathlib.Path``
+PathInput = Union[str, Path]
+
+_DataT = TypeVar("_DataT", bound="Data")
 
 
 class Data:
-    def __init__(self, data, **kwargs) -> None:
+    #: last file this object was saved to / loaded from (set by subclasses)
+    path: Optional[Path]
+
+    def __init__(self, data: Any, **kwargs: Any) -> None:
         self._set_file_extensions()
         self.data: Any = None
         if isinstance(data, Path):
@@ -15,7 +23,7 @@ class Data:
             self.data = data
 
     @classmethod
-    def from_file(cls, path=None, **kwargs):
+    def from_file(cls: Type[_DataT], path: Optional[PathInput] = None, **kwargs: Any) -> _DataT:
         if isinstance(path, str):
             path = Path(path)
         if path is not None and not isinstance(path, Path):
@@ -26,11 +34,12 @@ class Data:
         return data_class
 
     @property
-    def file_extensions(self):
-        return self._file_extensions
+    def file_extensions(self) -> List[str]:
+        # None only for a bare Data (no format declared): every concrete payload declares its formats
+        return self._file_extensions  # type: ignore[return-value]
 
     @file_extensions.setter
-    def file_extensions(self, new_file_extensions):
+    def file_extensions(self, new_file_extensions: Union[str, List[str], None]) -> None:
         if isinstance(new_file_extensions, str):
             self._file_extensions = [new_file_extensions]
         else:
@@ -44,19 +53,19 @@ class Data:
                 if not el.startswith("."):
                     raise ValueError(f"file extension must start with '.', got {el}")
 
-    def _set_file_extensions(self):
+    def _set_file_extensions(self) -> None:
         """Override in subclasses to declare supported file extensions"""
         self.file_extensions = None
 
-    def _save(self, path: Path, **kwargs):
+    def _save(self, path: Path, **kwargs: Any) -> None:
         """Override in subclasses"""
         pass
 
-    def _load(self, path: Path, **kwargs) -> Any:
+    def _load(self, path: Path, **kwargs: Any) -> Any:
         """Override in subclasses"""
         pass
 
-    def save(self, path: Optional[Path] = None, override=True, **kwargs):
+    def save(self, path: Optional[PathInput] = None, override: bool = True, **kwargs: Any) -> None:
         if path is not None and not override:
             path = self.safe_path_with_suffix(path)
         path = self.check_path(
@@ -65,17 +74,19 @@ class Data:
         )
         self._save(path, **kwargs)
 
-    def load(self, path: Optional[Path] = None, **kwargs):
+    def load(self, path: Optional[PathInput] = None, **kwargs: Any) -> Any:
         path = self.check_path(path, load=True, extensions=self.file_extensions)
         self.data = self._load(path, **kwargs)
         return self.data
 
     @staticmethod
-    def prompt_file(message="Please enter a file path: ") -> str:
+    def prompt_file(message: str = "Please enter a file path: ") -> str:
         return input(message)
 
     @staticmethod
-    def check_path(path: Optional[Path] = None, load: bool = False, extensions=None) -> Path:
+    def check_path(
+        path: Optional[PathInput] = None, load: bool = False, extensions: Optional[Sequence[str]] = None
+    ) -> Path:
         if path is None:
             # No interactive fallback here: a headless pipeline must never
             # block on stdin. GUI callers prompt explicitly via prompt_file().
@@ -101,7 +112,7 @@ class Data:
             return path
 
     @staticmethod
-    def safe_path_with_suffix(path: Path) -> Path:
+    def safe_path_with_suffix(path: PathInput) -> Path:
         # Protect against overwriting an existing file
         if path is None:
             raise ValueError("path cannot be None")
@@ -115,18 +126,18 @@ class Data:
         return path
 
     @staticmethod
-    def append_with_stem(path, extra):
+    def append_with_stem(path: Path, extra: str) -> Path:
         return path.parent / (path.stem + extra + path.suffix)
 
     @staticmethod
-    def save_binary(data, path: Path):
+    def save_binary(data: Any, path: Path) -> None:
         if path.suffix != ".pkl":
             raise ValueError(f"save_binary requires .pkl extension, got {path.suffix}")
         with open(path, "wb") as handle:
             pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     @staticmethod
-    def load_binary(path: Path, *, allow_pickle: bool = False):
+    def load_binary(path: PathInput, *, allow_pickle: bool = False) -> Any:
         """Load pickled data from disk.
 
         Warning: pickle can execute arbitrary code during deserialization.

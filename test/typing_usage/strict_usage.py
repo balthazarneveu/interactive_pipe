@@ -11,7 +11,18 @@ from numpy.typing import NDArray
 from typing_extensions import Annotated, assert_type
 
 import interactive_pipe as ip
-from interactive_pipe import Control, Curve, HeadlessPipeline, Table, context, interactive, interactive_pipeline, layout
+from interactive_pipe import (
+    Control,
+    Curve,
+    HeadlessPipeline,
+    Image,
+    SingleCurve,
+    Table,
+    context,
+    interactive,
+    interactive_pipeline,
+    layout,
+)
 
 Array = NDArray[np.float64]
 
@@ -44,12 +55,13 @@ def split(img: Array) -> Tuple[Array, Array]:
 
 @interactive()
 def profile(img: Array) -> Curve:
-    return Curve([(np.arange(4), img[0, :4], "row")], title="profile")
+    rows = [SingleCurve(x=np.arange(4), y=img[k, :4], label=f"row {k}") for k in range(2)]
+    return Curve(rows, title="profile", ylim=[0.0, 1.0])
 
 
 @interactive()
 def stats(img: Array) -> Table:
-    return Table({"mean": [float(img.mean())], "max": [float(img.max())]})
+    return Table({"mean": [float(img.mean())], "column means": img.mean(axis=0)})
 
 
 @interactive_pipeline(gui="qt")
@@ -81,3 +93,5 @@ def checks() -> None:
     app.snapshot("app.png", img, gain=2.0)
     app.sweep("sweep.png", img, gain=[0.5, 1.0, 2.0])
     amplify.snapshot("amplify.png", img)
+    loaded = Image.load_image("image.png")
+    print(loaded.shape)
