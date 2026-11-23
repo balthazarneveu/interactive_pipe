@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **`-b nb` from a terminal offers to open the app in Jupyter.** The notebook backend started outside Jupyter asks to write `my_script.ipynb` next to the script (it runs the script with the same arguments, and the same interactive_pipe) and to start JupyterLab / Notebook from the same Python environment; without Jupyter installed, it prints how to install it and open the notebook. ([backends](https://balthazarneveu.github.io/interactive_pipe/getting-started/backends/))
+- Notebook backend: the figure is shown once, inside the widget. It was also left open in pyplot, so the inline backend showed a stale copy under the sliders at the end of the cell, and a redraw after that added an empty figure (the slider moves made it flicker).
+
 ## 0.10.2 (November 2026)
 
 - **`Webcam`: a live camera feed as a pipeline input.** Call a pipeline written for one image with `Webcam(0)` (a camera index, a device path or stream URL, an opened `cv2.VideoCapture`, or a function returning frames): the Qt and Dear PyGui windows show a new frame `fps` times per second (30 by default) and every slider applies to the live feed; <kbd>Space</kbd> freezes / resumes it, the sliders keep working on the frozen frame. The camera is read in a background thread keeping only the latest frame, so a slow pipeline skips frames instead of lagging. Headless runs, `snapshot` and the other backends read one new frame per run. Options: `width`, `height`, `fps`, `mirror`, `as_float`, `warmup`, `freeze_key`. ([guide](https://balthazarneveu.github.io/interactive_pipe/guide/webcam/))

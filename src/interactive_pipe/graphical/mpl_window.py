@@ -150,8 +150,10 @@ class MatplotlibWindow(InteractivePipeWindow):
             else:
                 self.last_error = None
                 self.refresh_display(out)
-        if self.need_redraw:
-            plt.draw()
+        if self.need_redraw and self.fig is not None:
+            # this window's figure, not pyplot's current one: plt.draw() creates an empty figure
+            # when none is open (the notebook backend closes its figure in pyplot)
+            self.fig.canvas.draw_idle()
         self.need_redraw = False
 
     # ------------------------------------------------------------------
