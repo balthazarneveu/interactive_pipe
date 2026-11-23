@@ -20,7 +20,8 @@ AMPLITUDES = RNG.uniform(0.15, 0.8, size=14)
 def make_image(n: int = 256) -> np.ndarray:
     y, x = np.mgrid[0:n, 0:n]
     img = sum(a * np.exp(-((x - cx) ** 2 + (y - cy) ** 2) / 80) for (cx, cy), a in zip(CENTERS, AMPLITUDES))
-    return np.clip(0.1 + img + 0.06 * RNG.standard_normal((n, n)), 0, 1)
+    noisy: np.ndarray = np.clip(0.1 + img + 0.06 * RNG.standard_normal((n, n)), 0, 1)
+    return noisy
 
 
 def label(mask: np.ndarray) -> List[Tuple[np.ndarray, ...]]:

@@ -24,7 +24,7 @@ JPEG_LUMA = 1 + (np.add.outer(np.arange(B), np.arange(B)) * 6 + 10)  # simplifie
 
 def make_image(size: int = 128) -> np.ndarray:
     y, x = np.mgrid[:size, :size] / size
-    img = 0.2 + 0.6 * x  # smooth gradient
+    img: np.ndarray = 0.2 + 0.6 * x  # smooth gradient
     img[(x - 0.7) ** 2 + (y - 0.3) ** 2 < 0.04] = 0.9  # sharp-edged disc
     img[y > 0.6] = 0.5 + 0.3 * np.sin(2 * np.pi * 40 * x[y > 0.6])  # fine stripes
     img[(y > 0.1) & (y < 0.45) & (x > 0.1) & (x < 0.4)] = 0.15  # dark patch

@@ -50,7 +50,7 @@ def bouncing_balls(
 def motion_mask(frames: np.ndarray, threshold: float = 0.15, median: bool = True) -> np.ndarray:
     """Pixels that changed over the window: |last - first| (or - the temporal median)."""
     reference = np.median(frames, axis=0) if median else frames[0]
-    change = np.abs(frames[-1] - reference).max(axis=-1)
+    change: np.ndarray = np.abs(frames[-1] - reference).max(axis=-1)
     layout.style("mask", title=f"motion (window of {len(frames)} frames)")
     return (change > threshold).astype(np.float32)
 

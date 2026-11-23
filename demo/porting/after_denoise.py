@@ -15,7 +15,7 @@ def shifted_stack(img: np.ndarray, radius: int) -> np.ndarray:
 
 def psnr(ref: np.ndarray, img: np.ndarray) -> float:
     mse = np.mean((ref - img) ** 2)
-    return 10 * np.log10(1.0 / mse)
+    return float(10 * np.log10(1.0 / mse))
 
 
 @interactive(noise_sigma=(0.08, [0.0, 0.3]), seed=(0, [0, 10]))
@@ -47,7 +47,7 @@ def denoise(clean: np.ndarray) -> Tuple[Image, Image, Image]:
 
 def synthetic_image() -> np.ndarray:
     yy, xx = np.mgrid[0:128, 0:128] / 128.0
-    clean = 0.5 + 0.4 * np.sin(8 * xx) * np.cos(6 * yy)
+    clean: np.ndarray = 0.5 + 0.4 * np.sin(8 * xx) * np.cos(6 * yy)
     clean[40:80, 40:80] = 0.9
     return clean
 

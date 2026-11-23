@@ -22,7 +22,8 @@ def make_scene(h: int = 192, w: int = 256) -> np.ndarray:
     img = hue * (0.6 + 0.4 * zone[..., None])
     img[h // 2 :, : w // 3] = [0.8, 0.3, 0.2]
     img[h // 2 :, w // 3 : 2 * w // 3] = [0.5, 0.5, 0.5]
-    return np.clip(img, 0, 1)
+    scene: np.ndarray = np.clip(img, 0, 1)
+    return scene
 
 
 def conv3(img: np.ndarray, k: np.ndarray) -> np.ndarray:
@@ -59,7 +60,8 @@ def white_balance(
     red: Annotated[float, (0.5, 3.0), "Red gain"] = 1.8,
     blue: Annotated[float, (0.5, 3.0), "Blue gain"] = 1.4,
 ) -> np.ndarray:
-    return np.clip(rgb * np.array([red, 1.0, blue]), 0, 1)
+    balanced: np.ndarray = np.clip(rgb * np.array([red, 1.0, blue]), 0, 1)
+    return balanced
 
 
 @interactive

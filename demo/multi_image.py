@@ -25,7 +25,8 @@ def np_to_tensor(img: np.ndarray) -> "torch.Tensor":
 
 
 def tensor_to_np(tensor: "torch.Tensor") -> np.ndarray:
-    return tensor.permute(1, 2, 0).contiguous().cpu().numpy()
+    img: np.ndarray = tensor.permute(1, 2, 0).contiguous().cpu().numpy()
+    return img
 
 
 def get_paths(img_folder: Path = Path(__file__).parent / "images") -> List[Path]:

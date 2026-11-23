@@ -62,7 +62,8 @@ def grade(frame: np.ndarray, exposure: float = 0.0, saturation: float = 1.0, tem
     balance = np.array([1.0 + 0.2 * temperature, 1.0, 1.0 - 0.2 * temperature], dtype=np.float32)
     timeline = context["timeline"]  # written by the pipeline for Video inputs
     layout.style("graded", title=f"graded · {timeline}")
-    return np.clip(img * balance, 0.0, 1.0)
+    graded: np.ndarray = np.clip(img * balance, 0.0, 1.0)
+    return graded
 
 
 @interactive(bins=(64, [8, 256]))

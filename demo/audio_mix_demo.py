@@ -55,7 +55,7 @@ def drums(duration: float = 4.0) -> np.ndarray:
     """A kick on every beat and a hi-hat in between (120 bpm), shorter than the melody."""
     t = np.arange(int(duration * RATE)) / RATE
     beat = t % 0.5
-    kick = np.sin(2 * np.pi * 55 * beat * (1 + 2 * np.exp(-beat * 30))) * np.exp(-beat * 12)
+    kick: np.ndarray = np.sin(2 * np.pi * 55 * beat * (1 + 2 * np.exp(-beat * 30))) * np.exp(-beat * 12)
     off = (t + 0.25) % 0.5
     hat = np.random.default_rng(0).standard_normal(len(t)) * np.exp(-off * 60) * 0.3
     return (0.7 * kick + hat).astype(np.float32)

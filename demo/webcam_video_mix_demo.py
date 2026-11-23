@@ -39,7 +39,8 @@ def mix(video: np.ndarray, cam: np.ndarray, mix: float = 0.5, mode: str = "cross
 
     cam = cv2.resize(cam, (video.shape[1], video.shape[0]), interpolation=cv2.INTER_AREA)
     if mode == "difference":
-        return np.clip(2.0 * np.abs(video - cam), 0.0, 1.0)
+        difference: np.ndarray = np.clip(2.0 * np.abs(video - cam), 0.0, 1.0)
+        return difference
     if mode == "picture-in-picture":
         out = np.array(video)
         h, w = int(mix * video.shape[0]), int(mix * video.shape[1])

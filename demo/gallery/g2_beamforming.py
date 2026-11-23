@@ -27,7 +27,8 @@ def array_factor_db(n: int, spacing: float, steering: float, taper: str, angles:
     weights = np.hanning(n + 2)[1:-1] if taper == "hann" else np.ones(n)
     phase = 2 * np.pi * spacing * (np.sin(np.radians(angles))[..., None] - np.sin(np.radians(steering)))
     response = np.abs(np.exp(1j * phase * np.arange(n)) @ weights) / weights.sum()
-    return 20 * np.log10(np.maximum(response, 1e-5))
+    gain_db: np.ndarray = 20 * np.log10(np.maximum(response, 1e-5))
+    return gain_db
 
 
 @interactive(elements=ELEMENTS, steering=STEERING, taper=TAPER)

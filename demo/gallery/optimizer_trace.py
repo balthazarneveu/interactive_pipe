@@ -17,7 +17,8 @@ X, Y = np.meshgrid(np.linspace(-2, 2, 200), np.linspace(-1, 3, 200))
 
 
 def loss(p: np.ndarray) -> np.ndarray:
-    return (1 - p[..., 0]) ** 2 + 10 * (p[..., 1] - p[..., 0] ** 2) ** 2
+    value: np.ndarray = (1 - p[..., 0]) ** 2 + 10 * (p[..., 1] - p[..., 0] ** 2) ** 2
+    return value
 
 
 def grad(p: np.ndarray) -> np.ndarray:

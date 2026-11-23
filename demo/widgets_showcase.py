@@ -150,7 +150,8 @@ def _box_blur_axis(img: np.ndarray, radius: int, axis: int) -> np.ndarray:
     count_shape = [1] * img.ndim
     count_shape[axis] = n
     counts = (hi - lo).reshape(count_shape)
-    return (window_sum / counts).astype(img.dtype)
+    blurred: np.ndarray = window_sum / counts
+    return blurred.astype(img.dtype)
 
 
 @interactive(

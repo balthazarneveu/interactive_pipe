@@ -87,6 +87,13 @@ follow_imports_for_stubs = True
   type-checks.
 - `context["key"]` and `Control.value` are `Any`: annotate the variable you
   read them into (`gain: float = context["gain"]`).
-- The `demo/` scripts are fully annotated (pyright clean, `mypy --strict`
-  clean apart from numpy functions returning `Any`): they are examples of
-  typed pipelines.
+- `mypy --strict` reports `Returning Any` ([no-any-return]) where numpy's
+  stubs give up on a bare `np.ndarray` (dtype unknown): `np.clip(img, 0, 1)`,
+  `a - b` between two such arrays, unpacking `y, x = np.mgrid[...]`, as well
+  as cv2 / torch results and `np.load(...)["key"]`. Annotate the variable
+  that holds the value (`out: np.ndarray = np.clip(img, 0, 1)`), and declare
+  a variable you reassign (`result: np.ndarray = img.copy()`): an inferred
+  type is replaced by `Any` on the first reassignment, a declared one is
+  kept.
+- The `demo/` scripts are fully annotated (pyright and `mypy --strict`
+  clean): they are examples of typed pipelines.

@@ -24,7 +24,8 @@ def seed() -> Tuple[np.ndarray, np.ndarray]:
 
 
 def laplacian(a: np.ndarray) -> np.ndarray:
-    return np.roll(a, 1, 0) + np.roll(a, -1, 0) + np.roll(a, 1, 1) + np.roll(a, -1, 1) - 4 * a
+    lap: np.ndarray = np.roll(a, 1, 0) + np.roll(a, -1, 0) + np.roll(a, 1, 1) + np.roll(a, -1, 1) - 4 * a
+    return lap
 
 
 @interactive(t=TimeControl(update_interval_ms=50))
@@ -39,6 +40,8 @@ def simulate(
     state: Optional[Dict[str, Any]] = context.get("sim")
     if state is None or state["step"] > target:  # first run, or the clock went back
         state = dict(step=0, uv=seed())
+    u: np.ndarray
+    v: np.ndarray
     u, v = state["uv"]
     for _ in range(min(target - state["step"], 2000)):
         uvv = u * v * v

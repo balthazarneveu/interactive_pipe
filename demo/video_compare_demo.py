@@ -66,7 +66,7 @@ def noisy_capture(clean: np.ndarray, sigma: float = 0.12, seed: int = 0) -> Fram
 def to_hwc(frame: Frames) -> np.ndarray:
     """A ``(C, H, W)`` tensor or an ``(H, W, C)`` array as an ``(H, W, C)`` numpy image."""
     if torch is not None and isinstance(frame, torch.Tensor):
-        return frame.detach().cpu().numpy().transpose(1, 2, 0)
+        frame = frame.detach().cpu().numpy().transpose(1, 2, 0)
     return np.asarray(frame)
 
 
@@ -85,7 +85,8 @@ def denoise(noisy: Frames, sigma: float = 1.2) -> np.ndarray:
             return to_hwc(torch.nn.functional.conv2d(batch, kernel, groups=3)[0])
     import cv2
 
-    return cv2.sepFilter2D(np.asarray(noisy), -1, taps, taps, borderType=cv2.BORDER_REFLECT)
+    blurred: np.ndarray = cv2.sepFilter2D(np.asarray(noisy), -1, taps, taps, borderType=cv2.BORDER_REFLECT)
+    return blurred
 
 
 @interactive()
@@ -109,7 +110,7 @@ def wipe(clean: np.ndarray, restored: np.ndarray, split: float = 0.5) -> np.ndar
 @interactive()
 def error_map(clean: np.ndarray, restored: np.ndarray) -> np.ndarray:
     """Per-pixel absolute error, its PSNR in the title."""
-    error = np.abs(restored - clean).mean(axis=-1)
+    error: np.ndarray = np.abs(restored - clean).mean(axis=-1)
     mse = float(np.mean((restored - clean) ** 2))
     psnr = 10 * np.log10(1.0 / max(mse, 1e-10))
     layout.style("error", title=f"|error| · PSNR {psnr:.1f} dB", colormap="magma", vmin=0.0, vmax=0.25, colorbar=True)

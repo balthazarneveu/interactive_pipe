@@ -6,6 +6,7 @@ them again. The delay repeats the attack every "delay" ms (vertical stripes in t
 decaying with the feedback). In the Qt window the result is played after every change.
 """
 
+import math
 from typing import Annotated, Any, List, Tuple
 
 import numpy as np
@@ -36,7 +37,7 @@ def low_pass(signal: np.ndarray, cutoff: Annotated[float, (100.0, 8000.0), "cuto
 
 @interactive
 def distortion(signal: np.ndarray, drive: Annotated[float, (1.0, 30.0), "drive"] = 3.0) -> np.ndarray:
-    return np.tanh(drive * signal) / np.tanh(drive)
+    return np.tanh(drive * signal) / math.tanh(drive)
 
 
 @interactive

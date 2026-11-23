@@ -32,12 +32,14 @@ def undistort(d: np.ndarray, k: Tuple[float, float]) -> np.ndarray:
 
 
 def to_pixels(n: np.ndarray) -> np.ndarray:
-    return n * W / 2 + np.array([W / 2, H / 2])
+    pixels: np.ndarray = n * W / 2 + np.array([W / 2, H / 2])
+    return pixels
 
 
 def pixel_grid() -> np.ndarray:
     y, x = np.mgrid[0:H, 0:W]
-    return (np.stack([x, y], -1) - np.array([W / 2, H / 2])) / (W / 2)
+    grid: np.ndarray = (np.stack([x, y], -1) - np.array([W / 2, H / 2])) / (W / 2)
+    return grid
 
 
 def board(u: np.ndarray) -> np.ndarray:
@@ -51,7 +53,8 @@ def board(u: np.ndarray) -> np.ndarray:
 def true_corners() -> np.ndarray:
     bx, by = np.meshgrid(np.arange(-3, 4) / 5, np.arange(-2, 3) / 5)
     p = np.stack([bx, by, np.ones_like(bx)], -1).reshape(-1, 3) @ HOMOGRAPHY.T
-    return p[:, :2] / p[:, 2:]
+    corners: np.ndarray = p[:, :2] / p[:, 2:]
+    return corners
 
 
 @interactive()

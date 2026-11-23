@@ -26,7 +26,7 @@ def apply_knobs(
     hue: float = 0.0,
 ) -> np.ndarray:
     """Apply various image adjustments: black/white point, gamma, contrast, brightness, saturation, and hue."""
-    result = img.copy()
+    result: np.ndarray = img.copy()
 
     # Apply black and white point (contrast stretching)
     # Map values from [black_point, white_point] to [0, 1]
@@ -90,7 +90,7 @@ def apply_knobs(
 def create_colorful_chart(size: Tuple[int, int] = (512, 512)) -> np.ndarray:
     """Create a pretty colored synthetic chart with gradients and patterns."""
     h, w = size
-    img = np.zeros((h, w, 3), dtype=np.float32)
+    img: np.ndarray = np.zeros((h, w, 3), dtype=np.float32)
 
     # Create coordinate grids
     y, x = np.ogrid[:h, :w]
@@ -139,7 +139,7 @@ def add_text(img: np.ndarray, text: str = "nothing") -> np.ndarray:
     if text == "nothing" or not text:
         return img
 
-    result = img.copy()
+    result: np.ndarray = img.copy()
     h, w = img.shape[:2]
 
     # Convert to uint8 for cv2

@@ -20,7 +20,8 @@ def make_image(n: int = 256) -> np.ndarray:
     blobs = np.exp(-((x - 0.3) ** 2 + (y - 0.4) ** 2) / 0.02) + 0.6 * np.exp(-((x - 0.7) ** 2 + (y - 0.7) ** 2) / 0.01)
     stripes = 0.15 * np.sin(2 * np.pi * (40 * x + 25 * y))
     noise = 0.05 * np.random.default_rng(0).standard_normal((n, n))
-    return np.clip(0.2 + 0.6 * blobs + stripes + noise, 0, 1)
+    img: np.ndarray = np.clip(0.2 + 0.6 * blobs + stripes + noise, 0, 1)
+    return img
 
 
 def radius(shape: Tuple[int, ...]) -> np.ndarray:
@@ -53,7 +54,8 @@ def band_pass(
 @interactive()
 def inverse(f: np.ndarray) -> np.ndarray:
     out = np.real(np.fft.ifft2(np.fft.ifftshift(f)))
-    return (out - out.min()) / (np.ptp(out) + 1e-12)
+    normalized: np.ndarray = (out - out.min()) / (np.ptp(out) + 1e-12)
+    return normalized
 
 
 @interactive(band=BAND)

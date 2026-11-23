@@ -58,7 +58,7 @@ def edges(frame: np.ndarray, threshold: float = 0.12) -> np.ndarray:
     """Gradient magnitude of the luminance, thresholded to black lines."""
     luma = _box_blur(frame.mean(axis=-1), 1)
     gy, gx = np.gradient(luma)
-    magnitude = np.hypot(gx, gy) * 4.0
+    magnitude: np.ndarray = np.hypot(gx, gy) * 4.0
     layout.style("edge_map", title=f"edges > {threshold:.2f}")
     return (magnitude > threshold).astype(np.float32)
 
@@ -92,7 +92,9 @@ def synthetic_scene(width: int = 480, height: int = 360) -> Callable[[], np.ndar
         cy = height * (0.5 + 0.3 * np.sin(1.3 * t))
         disc = ((x - cx) ** 2 + (y - cy) ** 2 < (height / 5) ** 2).astype(np.float32)
         background = np.stack([x / width, y / height, 0.5 + 0.5 * np.sin(x / 40 + t) * np.cos(y / 40)], axis=-1)
-        frame = background * (1 - disc[..., None]) + disc[..., None] * np.array([1.0, 0.85, 0.2], np.float32)
+        frame: np.ndarray = background * (1 - disc[..., None]) + disc[..., None] * np.array(
+            [1.0, 0.85, 0.2], np.float32
+        )
         return frame.astype(np.float32)
 
     return next_frame

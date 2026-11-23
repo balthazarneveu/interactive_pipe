@@ -44,7 +44,7 @@ def edges(img: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 def synthetic_image() -> np.ndarray:
     yy, xx = np.mgrid[0:96, 0:96]
-    img = ((xx - 48) ** 2 + (yy - 48) ** 2 < 30**2).astype(float)
+    img: np.ndarray = ((xx - 48) ** 2 + (yy - 48) ** 2 < 30**2).astype(float)
     img[10:30, 60:90] = 0.6
     return img + 0.05 * np.random.default_rng(2).normal(size=img.shape)
 

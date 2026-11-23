@@ -31,7 +31,8 @@ def photo(name: str) -> np.ndarray:
     import cv2
 
     image = Image.load_image(IMAGES / f"{name}.png").astype(np.float32)
-    return cv2.resize(image, (2 * SIZE, 2 * SIZE), interpolation=cv2.INTER_AREA)
+    resized: np.ndarray = cv2.resize(image, (2 * SIZE, 2 * SIZE), interpolation=cv2.INTER_AREA)
+    return resized
 
 
 def pan_clip(n_frames: int = 75) -> np.ndarray:
@@ -62,7 +63,7 @@ def blend(a: np.ndarray, b: np.ndarray, mode: str = "cross-fade", mix: float = 0
     if mode == "dissolve":
         mix = context["timeline"].progress  # from a to b over the whole timeline
     if mode == "difference":
-        out = np.clip(2.0 * np.abs(a - b), 0.0, 1.0)
+        out: np.ndarray = np.clip(2.0 * np.abs(a - b), 0.0, 1.0)
     elif mode == "wipe":
         column = int(mix * a.shape[1])
         out = np.array(b)

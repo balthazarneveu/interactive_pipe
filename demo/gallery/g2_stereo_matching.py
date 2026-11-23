@@ -37,7 +37,8 @@ def box_sum(img: np.ndarray, radius: int) -> np.ndarray:
     padded = np.pad(img, radius, mode="edge")
     integral = np.pad(padded.cumsum(0).cumsum(1), ((1, 0), (1, 0)))
     k = 2 * radius + 1
-    return integral[k:, k:] - integral[:-k, k:] - integral[k:, :-k] + integral[:-k, :-k]
+    sums: np.ndarray = integral[k:, k:] - integral[:-k, k:] - integral[k:, :-k] + integral[:-k, :-k]
+    return sums
 
 
 @interactive
@@ -55,7 +56,7 @@ def block_match(
 
 @interactive
 def disparity_error(disparity: np.ndarray, truth: np.ndarray) -> np.ndarray:
-    error = disparity - truth
+    error: np.ndarray = disparity - truth
     bad = np.mean(np.abs(error) > 1)
     title = f"error: {100 * bad:.1f}% pixels off by > 1 px"
     layout.style("error", title=title, colormap="RdBu_r", vmin=-8, vmax=8, colorbar="disparity error (px)")

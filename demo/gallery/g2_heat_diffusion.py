@@ -25,7 +25,7 @@ def initial_plate() -> np.ndarray:
 
 def step_once(u: np.ndarray, r: float, edges: str) -> np.ndarray:
     padded = np.pad(u, 1, mode="edge" if edges == "insulated" else "constant")
-    laplacian = padded[:-2, 1:-1] + padded[2:, 1:-1] + padded[1:-1, :-2] + padded[1:-1, 2:] - 4 * u
+    laplacian: np.ndarray = padded[:-2, 1:-1] + padded[2:, 1:-1] + padded[1:-1, :-2] + padded[1:-1, 2:] - 4 * u
     return u + r * laplacian
 
 
@@ -38,6 +38,7 @@ def simulate(
 ) -> np.ndarray:
     key = (r, edges, plate.tobytes())
     cached = context.get("heat")  # (key, step, field) of the last run, if it was the same simulation
+    u: np.ndarray
     if cached is not None and cached[0] == key and cached[1] <= step:
         done, u = cached[1], cached[2]
     else:

@@ -58,7 +58,8 @@ def segment(
             centers = np.array([img[labels == k].mean() if np.any(labels == k) else centers[k] for k in range(3)])
         thresholds = tuple((centers[:-1] + centers[1:]) / 2)
     context["thresholds"] = thresholds  # for the histogram
-    return np.digitize(img, thresholds)
+    segmented: np.ndarray = np.digitize(img, thresholds)
+    return segmented
 
 
 @interactive

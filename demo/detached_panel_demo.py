@@ -30,7 +30,8 @@ def horizontal_box_blur(img: np.ndarray, radius: int) -> np.ndarray:
     start = np.clip(x - radius, 0, width)
     end = np.clip(x + radius + 1, 0, width)
     count = (end - start).reshape((1, -1) + (1,) * (img.ndim - 2))
-    return (cumulative[:, end] - cumulative[:, start]) / count
+    blurred: np.ndarray = (cumulative[:, end] - cumulative[:, start]) / count
+    return blurred
 
 
 def get_image_path() -> Optional[Path]:

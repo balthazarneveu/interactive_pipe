@@ -55,7 +55,8 @@ def write_craw(path: Path, mosaic: np.ndarray, **metadata: Any) -> None:
 def read_craw_preview(path: Path) -> np.ndarray:
     """``Video`` thumbnail loader: the embedded preview only (an npz archive reads one array)."""
     with np.load(path) as data:
-        return data["preview"]
+        preview: np.ndarray = data["preview"]
+    return preview
 
 
 def read_craw(path: Path) -> Tuple[np.ndarray, Dict[str, Any]]:
@@ -116,7 +117,7 @@ def simulate_burst(folder: Path, n_frames: int = 48, size: Tuple[int, int] = (24
 def normalize(mosaic: np.ndarray, compensate: bool = True) -> np.ndarray:
     """Black level to 0, white level to 1; scaled to a 10 ms ISO 200 exposure when compensating."""
     meta = context["timeline"].metadata
-    raw = (mosaic - meta["black_level"]) / (meta["white_level"] - meta["black_level"])
+    raw: np.ndarray = (mosaic - meta["black_level"]) / (meta["white_level"] - meta["black_level"])
     if compensate:
         raw = raw / ((meta["exposure_ms"] / 10.0) * (meta["iso"] / 200.0))
     layout.style("raw", title=f"ISO {meta['iso']} · {meta['exposure_ms']:.1f} ms · {Path(meta['path']).name}")
@@ -133,7 +134,7 @@ def demosaic(raw: np.ndarray) -> np.ndarray:
 @interactive(white_balance=("as shot", ["as shot", "none"]), brightness=(1.0, [0.2, 3.0]))
 def develop(rgb: np.ndarray, white_balance: str = "as shot", brightness: float = 1.0) -> np.ndarray:
     gains = np.array(context["timeline"].metadata["wb_gains"]) if white_balance == "as shot" else np.ones(3)
-    linear = np.clip(rgb * gains * brightness, 0.0, 1.0)
+    linear: np.ndarray = np.clip(rgb * gains * brightness, 0.0, 1.0)
     return linear ** (1 / 2.2)  # display gamma
 
 
