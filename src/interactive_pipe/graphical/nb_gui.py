@@ -61,7 +61,10 @@ class MainWindow(MatplotlibWindow):
     def create_figure(self):
         if self.fig is None:
             self.fig, self.ax = plt.subplots(figsize=self.window_size)
-            plt.axis("off")
+            self.ax.axis("off")
+            # Shown only by _interact_fn, inside the widget: a figure left open in pyplot is
+            # also shown by the inline backend at the end of the cell (a stale copy under the sliders)
+            plt.close(self.fig)
 
     def init_sliders(self, controls: List[Control], dry_run=False):
         self.ctrl = {}
