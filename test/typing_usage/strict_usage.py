@@ -95,3 +95,8 @@ def checks() -> None:
     amplify.snapshot("amplify.png", img)
     loaded = Image.load_image("image.png")
     print(loaded.shape)
+
+
+def launch(backend: Any) -> None:
+    """A backend from argparse is Any: the decorated pipeline stays typed."""
+    interactive_pipeline(gui=backend)(default_gui)(np.zeros((4, 4)))

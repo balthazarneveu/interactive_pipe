@@ -47,7 +47,7 @@ from interactive_pipe.helper.pipeline_decorator import interactive_pipeline
 
 # Static types of the decorated objects / pipeline (for annotations, mypy / pyright)
 from interactive_pipe.headless.pipeline import HeadlessPipeline
-from interactive_pipe.helper.decorated_types import GuiPipelineApp, InteractiveFilter, PipelineApp
+from interactive_pipe.helper.decorated_types import GuiPipelineApp, InteractiveFilter, PipelineApp, PipelineDecorator
 
 # Animation export (TimeControl pipelines -> GIF / PNG frames)
 from interactive_pipe.headless.animation import export_animation
@@ -108,6 +108,7 @@ __all__ = [
     "InteractiveFilter",
     "PipelineApp",
     "GuiPipelineApp",
+    "PipelineDecorator",
     "block",
     "pipeline",
     "export_animation",

@@ -16,7 +16,7 @@ from interactive_pipe.core.backend import Backend
 from interactive_pipe.core.context import REMOVED_CONTEXT_ALIASES
 from interactive_pipe.headless.pipeline import HeadlessPipeline
 from interactive_pipe.helper.choose_backend import get_interactive_pipeline_class
-from interactive_pipe.helper.decorated_types import GuiPipelineApp
+from interactive_pipe.helper.decorated_types import GuiPipelineApp, PipelineDecorator
 
 #: HeadlessPipeline methods also reachable from a GUI-decorated pipeline function
 SEE_THE_RESULT_METHODS = ("snapshot", "sweep", "describe", "summary")
@@ -166,7 +166,7 @@ def interactive_pipeline(
     markdown_description: Optional[str] = None,
     name: Optional[str] = None,
     **kwargs_gui: Any,
-) -> Callable[[Callable[..., Any]], HeadlessPipeline]: ...
+) -> PipelineDecorator[HeadlessPipeline]: ...
 
 
 @overload
@@ -179,7 +179,7 @@ def interactive_pipeline(
     markdown_description: Optional[str] = None,
     name: Optional[str] = None,
     **kwargs_gui: Any,
-) -> Callable[[Callable[..., Any]], GuiPipelineApp]: ...
+) -> PipelineDecorator[GuiPipelineApp]: ...
 
 
 def interactive_pipeline(
@@ -191,7 +191,7 @@ def interactive_pipeline(
     markdown_description: Optional[str] = None,
     name: Optional[str] = None,
     **kwargs_gui: Any,
-) -> Callable[[Callable[..., Any]], Union[HeadlessPipeline, GuiPipelineApp]]:
+) -> PipelineDecorator[Union[HeadlessPipeline, GuiPipelineApp]]:
     """Decorator turning a pipeline function into an interactive GUI application.
 
     The decorated function chains filters (typically declared with

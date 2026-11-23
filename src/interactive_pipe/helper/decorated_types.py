@@ -16,7 +16,7 @@ They only exist for typing: nothing checks them at runtime.
 
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, TypeVar, Union
 
 import numpy as np
 
@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 P = ParamSpec("P")
 R_co = TypeVar("R_co", covariant=True)
+T_co = TypeVar("T_co", covariant=True)
 
 #: what ``snapshot`` / ``sweep`` return: the written path, or the picture when path is None
 SnapshotResult = Union[Path, np.ndarray]
@@ -91,3 +92,13 @@ class GuiPipelineApp(PipelineApp, Protocol):
 
     @property
     def pipeline(self) -> "InteractivePipeGUI": ...
+
+
+class PipelineDecorator(Protocol[T_co]):
+    """What ``interactive_pipeline(...)`` returns: applied to a pipeline function,
+    it gives a ``HeadlessPipeline`` or a ``GuiPipelineApp``.
+
+    A protocol rather than a plain ``Callable`` so that a ``gui`` typed ``Any``
+    (e.g. from argparse) still gives a typed call under ``mypy --strict``."""
+
+    def __call__(self, pipeline_function: Callable[..., Any], /) -> T_co: ...
