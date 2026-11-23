@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Static typing: pipelines type-check under `mypy --strict` and pyright strict.** `@interactive` keeps the filter's signature and return type (`amplify(img, gain=2.0)` is checked against `amplify`, `a, b = split(img)` knows both types), bare `@interactive` included; `@interactive_pipeline(gui=None)` is typed as a `HeadlessPipeline`, other `gui` values as a `GuiPipelineApp` (`.headless`, `.snapshot`, `.pipeline`...). Before, the decorators were untyped: every filter became `Any` under mypy, and pyright reported "Expected 2 positional arguments" at calls of a bare-`@interactive` filter. ([guide](https://balthazarneveu.github.io/interactive_pipe/guide/type-checking/))
+- New exports for annotations: `HeadlessPipeline`, `InteractiveFilter`, `PipelineApp`, `GuiPipelineApp`, `PipelineDecorator`.
+- Public API annotated (controls, panels, `Curve`, `Table`, `Image`, `AudioClip`, `Video`, `Webcam`, `HeadlessPipeline`, `FilterError`), and inputs widened to what the runtime accepts: paths as `str` or `Path` (`Image.load_image("photo.png")`), any sequence for curves, `xlim` / `ylim`, control ranges, icons and pipeline inputs, numpy columns in `Table`.
+- Demos: every demo is annotated; the jukebox / button demos use a typed record instead of a dict mixing paths, strings and `None`.
+- Dependency: `typing_extensions` on Python 3.9 (for `ParamSpec`). `mypy` joins the `[dev]` extra.
+
 ## 0.10.2 (November 2026)
 
 - **`Webcam`: a live camera feed as a pipeline input.** Call a pipeline written for one image with `Webcam(0)` (a camera index, a device path or stream URL, an opened `cv2.VideoCapture`, or a function returning frames): the Qt and Dear PyGui windows show a new frame `fps` times per second (30 by default) and every slider applies to the live feed; <kbd>Space</kbd> freezes / resumes it, the sliders keep working on the frozen frame. The camera is read in a background thread keeping only the latest frame, so a slow pipeline skips frames instead of lagging. Headless runs, `snapshot` and the other backends read one new frame per run. Options: `width`, `height`, `fps`, `mirror`, `as_float`, `warmup`, `freeze_key`. ([guide](https://balthazarneveu.github.io/interactive_pipe/guide/webcam/))

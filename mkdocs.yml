@@ -111,6 +111,7 @@ nav:
       - Live webcam: guide/webcam.md
       - Snapshots & sweeps: guide/snapshots.md
       - Testing filters & pipelines: guide/testing.md
+      - Type checking: guide/type-checking.md
       - Command line & agents: guide/command-line.md
       - Tips & tricks: guide/tips.md
       - Examples gallery: guide/examples.md

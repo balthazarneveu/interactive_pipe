@@ -49,6 +49,8 @@ pyright). `@interactive` keeps the filter's signature and return type
 
 ::: interactive_pipe.GuiPipelineApp
 
+::: interactive_pipe.PipelineDecorator
+
 ::: interactive_pipe.export_animation
 
 ## Errors
