@@ -2,8 +2,10 @@
 
 import argparse
 from pathlib import Path
+from typing import Dict, List, NamedTuple, Optional
 
 import cv2
+import numpy as np
 
 from interactive_pipe import (
     Control,
@@ -19,41 +21,37 @@ root = Path(__file__).parent
 img_folder = root / "images"
 audio_folder = root / "audio"
 TRACK = "track"
-IMAGE = ICON = "image"
-CAPTION = "caption"
 
-TRACK_DICT = {
-    "elephant": {
-        TRACK: audio_folder / "elephant.mp4",
-        CAPTION: "ELEPHANT",
-    },
-    "snail": {
-        TRACK: audio_folder / "snail.mp4",
-        CAPTION: "SNAIL",
-    },
-    "rabbit": {
-        TRACK: audio_folder / "rabbit.mp4",
-        CAPTION: "RABBIT",
-    },
-    "pause": {TRACK: None, CAPTION: "...zzzz"},
+
+class Track(NamedTuple):
+    caption: str
+    sound: Optional[Path]  # None: silence
+    image: Path
+
+
+TRACKS: Dict[str, Track] = {
+    name: Track(caption, sound, img_folder / f"{name}.png")
+    for name, caption, sound in [
+        ("elephant", "ELEPHANT", audio_folder / "elephant.mp4"),
+        ("snail", "SNAIL", audio_folder / "snail.mp4"),
+        ("rabbit", "RABBIT", audio_folder / "rabbit.mp4"),
+        ("pause", "...zzzz", None),
+    ]
 }
-
-for item_name in TRACK_DICT.keys():
-    TRACK_DICT[item_name][IMAGE] = img_folder / (item_name + ".png")
-ICONS = [it[ICON] for key, it in TRACK_DICT.items()]
+ICONS: List[Path] = [track.image for track in TRACKS.values()]
 
 
-@interactive(song=Control("elephant", list(TRACK_DICT.keys()), icons=ICONS))
-def song_choice(song="elephant"):
+@interactive(song=Control("elephant", list(TRACKS), icons=ICONS))
+def song_choice(song: str = "elephant") -> None:
     # Can use dict-style or attribute-style access
     context[TRACK] = song
 
 
-def play_song():
+def play_song() -> None:
     song = context.get(TRACK, None)
     first_exec = context.get("first_exec", True)
     if not first_exec:
-        audio_track = TRACK_DICT[song][TRACK]
+        audio_track = TRACKS[song].sound
         if audio_track is None:
             audio.stop()
         else:
@@ -64,20 +62,19 @@ def play_song():
         context.first_exec = False
 
 
-def image_choice():
-    song = context.get(TRACK, list(TRACK_DICT.keys())[0])
-    img = Image.load_image(TRACK_DICT[song][IMAGE])
+def image_choice() -> np.ndarray:
+    song = context.get(TRACK, "elephant")
+    img = Image.load_image(TRACKS[song].image)
     max_height = 300
     h, w, _c = img.shape
     if h > max_height:
         img = cv2.resize(img, (w * max_height // h, max_height))
         h, w, _c = img.shape
-    caption = TRACK_DICT[song][CAPTION]
-    layout.style("img_out", title=caption)
+    layout.style("img_out", title=TRACKS[song].caption)
     return img
 
 
-def sample_pipeline():
+def sample_pipeline() -> List[np.ndarray]:
     song_choice()
     play_song()
     img_out = image_choice()

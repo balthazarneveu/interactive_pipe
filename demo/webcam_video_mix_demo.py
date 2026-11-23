@@ -14,6 +14,7 @@ record the microphone.
 
 import argparse
 from pathlib import Path
+from typing import List, Union
 
 import numpy as np
 
@@ -58,7 +59,7 @@ def main(argv=None):
     parser.add_argument("--synthetic", action="store_true", help="a generated scene instead of a camera")
     args = parser.parse_args(argv)
 
-    inputs = [Video(args.video if args.video else demo_clip(), fps=25)]
+    inputs: List[Union[Video, Webcam, AudioClip]] = [Video(args.video if args.video else demo_clip(), fps=25)]
     cam = None
     if not args.synthetic:
         device = int(args.device) if args.device.isdigit() else args.device

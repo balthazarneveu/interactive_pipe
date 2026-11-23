@@ -201,10 +201,10 @@ def apply_transform(img: np.ndarray, rotation: float = 0.0, scale: float = 1.0) 
     pil = PILImage.fromarray((np.clip(img, 0.0, 1.0) * 255).astype(np.uint8))
     # Zoom: resize then center crop (scale>1) or pad with mid-gray (scale<1)
     new_w, new_h = max(1, int(w * scale)), max(1, int(h * scale))
-    pil = pil.resize((new_w, new_h), PILImage.BILINEAR)
+    pil = pil.resize((new_w, new_h), PILImage.Resampling.BILINEAR)
     canvas = PILImage.new("RGB", (w, h), (128, 128, 128))
     canvas.paste(pil, ((w - new_w) // 2, (h - new_h) // 2))
-    canvas = canvas.rotate(rotation, resample=PILImage.BILINEAR, fillcolor=(128, 128, 128))
+    canvas = canvas.rotate(rotation, resample=PILImage.Resampling.BILINEAR, fillcolor=(128, 128, 128))
     transformed = np.asarray(canvas).astype(np.float32) / 255.0
 
     title = f"Rotation: {rotation:.0f}°, Scale: {scale:.2f}"

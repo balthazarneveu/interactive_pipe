@@ -8,7 +8,7 @@ the overlay: the histogram of the region and the two thresholds are drawn; a reg
 boundary shows two modes, the thresholds belong in the valley between them. K-means finds the valley without being told.
 """
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Dict, List, Literal
 
 import numpy as np
 from matplotlib.figure import Figure
@@ -65,7 +65,7 @@ def evaluate(img, labels, truth):
         overlay = draw.mask(overlay, labels == k, color=color)
     iou = [np.sum((labels == k) & (truth == k)) / np.sum((labels == k) | (truth == k)) for k in range(3)]
     layout.style("overlay", title=f"mean IoU {np.mean(iou):.2f}")
-    confusion = {"truth \\ predicted": ["background", "disc", "ring"]}
+    confusion: Dict[str, List[Any]] = {"truth \\ predicted": ["background", "disc", "ring"]}
     for k, name in enumerate(["background", "disc", "ring"]):
         confusion[name] = [int(np.sum((truth == t) & (labels == k))) for t in range(3)]
     return overlay, Table(confusion, title="confusion (pixels)")

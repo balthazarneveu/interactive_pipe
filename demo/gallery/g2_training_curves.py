@@ -56,7 +56,7 @@ def inspect_runs(
     lines = [SingleCurve(x=STEPS, y=ema(m[metric], smoothing), label=name) for name, m in selected.items()]
     curves = Curve(lines, xlabel="step", ylabel=metric, grid=True, yscale="log" if log_scale else None)
     final = {name: float(ema(m[metric], smoothing)[-1]) for name, m in selected.items()}
-    best = (min if lower_is_better else max)(final, key=final.get) if final else None
+    best = (min if lower_is_better else max)(final, key=lambda name: final[name]) if final else None
     layout.style("curves", title=f"best: {best} ({final[best]:.3f})" if best else "no run above the threshold")
     rows = [
         {"run": name, f"final {metric}": f"{value:.3f}", "best": "*" if name == best else ""}

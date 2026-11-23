@@ -7,10 +7,11 @@ beam is steered off broadside. A Hann taper lowers the side lobes (-13 dB to -31
 a wider main lobe.
 """
 
-from typing import Annotated
+from typing import Annotated, cast
 
 import numpy as np
 from matplotlib.figure import Figure
+from matplotlib.projections.polar import PolarAxes
 
 from interactive_pipe import Control, interactive, interactive_pipeline, layout
 
@@ -45,7 +46,7 @@ def pattern(
     side = max(gain[:lo].max(initial=-100), gain[hi + 1 :].max(initial=-100))
     width = np.ptp(ANGLES[lo:hi][gain[lo:hi] > -3])
     layout.style("polar", title=f"-3 dB width {width:.1f} deg, highest side lobe {side:.1f} dB")
-    ax = Figure(figsize=(4, 3)).add_subplot(projection="polar")
+    ax = cast(PolarAxes, Figure(figsize=(4, 3)).add_subplot(projection="polar"))
     ax.plot(np.radians(ANGLES), np.maximum(gain, -40) + 40, "b-")
     ax.set_thetalim(-np.pi / 2, np.pi / 2)
     ax.set_theta_zero_location("N")
