@@ -458,10 +458,15 @@ def test_output_type_change_between_frames_rebuilds_the_cell():
         cell = window.image_canvas[0][0]
         expected_kind = "curve" if kind == "signal" else kind
         assert cell["kind"] == expected_kind
-        # the cell group holds the centering spacer, the title (+ its hover tooltip) and the
-        # content row: its leading spacer and exactly one content item
+        # the cell group holds the centering spacer, the title line (the title + its hover
+        # tooltip, padded to the slot) and the content row: its leading spacer and exactly one content item
         children = cell_children(window, 0, 0)
-        assert children == [cell["top_spacer"], cell["title"], cell["title_tooltip"], cell["body"]]
+        assert children == [cell["top_spacer"], cell["title_row"], cell["body"]]
+        assert dpg.get_item_children(cell["title_row"], 1) == [
+            cell["title"],
+            cell["title_tooltip"],
+            cell["title_trail"],
+        ]
         assert dpg.get_item_children(cell["body"], 1) == [cell["lead_spacer"], cell["content"]]
         assert (cell["texture"] is not None) == (expected_kind == "image")
     assert dpg.get_value(window.image_canvas[0][0]["content"]) == "hello"
@@ -499,7 +504,43 @@ def test_cells_of_a_column_are_centered_in_it():
     assert dpg.get_item_configuration(wide["lead_spacer"])["width"] == 0
     assert dpg.get_item_configuration(narrow["lead_spacer"])["width"] == (slot - narrow_w) // 2 > 0
     title_w = dpg_image._text_width(dpg.get_value(narrow["title"]))
-    assert dpg.get_item_configuration(narrow["title"])["indent"] == int((slot - title_w) // 2)
+    indent = dpg.get_item_configuration(narrow["title_row"])["indent"]
+    assert indent == int((slot - title_w) // 2)
+    # the title line spans the slot: the cell is as wide as its column whatever the title
+    assert indent + title_w + dpg.get_item_configuration(narrow["title_trail"])["width"] == pytest.approx(slot, abs=1)
+
+
+@interactive(frame=(0, [0, 3]))
+def titled_frames(img, frame=0):
+    layout.style("titled", title=["ref", "frame -1 · a much longer status line", "frame -2", "x"][frame])
+    return np.zeros((40, 200, 3))
+
+
+def changing_title_pipeline(img):
+    titled = titled_frames(img)
+    side = wide_image(img)
+    return [[titled, side]]
+
+
+def test_changing_titles_keep_the_cells_in_place():
+    """A title changing at every run (a video's status line) never changes the cell's width:
+    the cells after it stay where they are (no jitter while a video plays)."""
+    gui = build_gui(changing_title_pipeline)
+    window = gui.window
+    window.refresh()
+    window.relayout()
+    cell = window.image_canvas[0][0]
+    for frame in [1, 0, 3, 2, 1, 0]:  # the long title first: the column grows once, then stays
+        window.update_parameter("frame", frame)
+        window.tick_timers()
+        window.relayout()
+        if frame == 1:
+            slot = cell["slot_w"]
+        title_w = dpg_image._text_width(dpg.get_value(cell["title"]))
+        indent = dpg.get_item_configuration(cell["title_row"])["indent"]
+        trail = dpg.get_item_configuration(cell["title_trail"])["width"]
+        assert cell["slot_w"] == slot
+        assert indent + title_w + trail == pytest.approx(slot, abs=1)
 
 
 def test_layout_grid_change_rebuilds_rows():
