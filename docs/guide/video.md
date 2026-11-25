@@ -231,6 +231,8 @@ def generated():
 generated()
 ```
 
+![A bouncing ball simulated by a filter, on the timeline](../images/generated_video_demo.png)
+
 - The timeline appears after the first run, when the filter has returned its
   video. Its length and frame rate follow the video: change `n` and the film
   strip is rebuilt, the playhead clamped to the new end.
@@ -448,6 +450,9 @@ and the timeline is created (or resized) from the video.
 - `demo/video_blend_demo.py`: two clips of different lengths and frame
   rates blended four ways (cross-fade, a dissolve following the playhead,
   difference, wipe), one lane each on the film strip.
+- `demo/generated_video_demo.py`: a bouncing ball simulated by a filter from
+  its sliders (angle, gravity, bounciness, drag, duration); the clip it
+  returns gets the timeline, a trail and an energy plot follow the playhead.
 - `demo/video_compare_demo.py`: a restoration model fed with torch tensors
   at 12 fps, compared with a 24 fps reference: wipe, error map, PSNR.
 - `demo/video_raw_sequence_demo.py`: a RAW burst in a custom file format read
