@@ -65,6 +65,7 @@ from interactive_pipe.graphical.qt_image import (
 )
 from interactive_pipe.graphical.qt_panels import QtPanelBuilder
 from interactive_pipe.graphical.qt_runner import PipelineRunner
+from interactive_pipe.graphical.qt_timeline import monospace_css
 from interactive_pipe.graphical.qt_viewer import ImageView, PointerHandler, ViewSync
 
 # Re-exported: interactive_pipe.graphical.qt_gui.CollapsibleBox etc. are public paths
@@ -655,7 +656,7 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
         # Status line: last run timings / errors, pixel readout on hover
         self.status_label = QLabel("")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        self.status_label.setStyleSheet("font-family: monospace; font-size: 11px; color: gray;")
+        self.status_label.setStyleSheet(f"font-family: {monospace_css()}; font-size: 11px; color: gray;")
         main_layout.addWidget(self.status_label)
 
         self.init_sliders(controls)
@@ -1478,6 +1479,11 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             return
         self._clear_error_style()
         self.last_error = None
+        if self.main_gui is not None:
+            self.main_gui._add_new_controls(live=True)  # a filter returned a Video: its timeline joins the window
+        timeline_widget = getattr(self, "timeline_widget", None)
+        if timeline_widget is not None:
+            timeline_widget.sync_length()
         self.refresh_display(out)
         self._run_status = format_run_status(report)
         self.set_status(self._run_status)

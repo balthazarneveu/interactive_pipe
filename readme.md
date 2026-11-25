@@ -89,6 +89,6 @@ Plus a GPU-rendered [Dear PyGui](https://github.com/hoffstadt/DearPyGui) window 
 - 🖱️ [Mouse input](https://balthazarneveu.github.io/interactive_pipe/guide/mouse-input/) — clicked points and dragged regions
 - 🎞️ [Video inputs & timeline](https://balthazarneveu.github.io/interactive_pipe/guide/video/) — a timeline for any `Video` input, temporal filters, synced videos
 - 💻 [Command line & coding agents](https://balthazarneveu.github.io/interactive_pipe/guide/command-line/) — `interactive-pipe check / snapshot / sweep / describe / skill / doctor`
-- 🗒️ [Examples](https://balthazarneveu.github.io/interactive_pipe/guide/examples/) — 30 demo scripts, a [scientific gallery](https://balthazarneveu.github.io/interactive_pipe/gallery/), Colab notebooks, a Raspberry Pi jukebox
+- 🗒️ [Examples](https://balthazarneveu.github.io/interactive_pipe/guide/examples/) — 31 demo scripts, a [scientific gallery](https://balthazarneveu.github.io/interactive_pipe/gallery/), Colab notebooks, a Raspberry Pi jukebox
 - 📋 [Changelog](https://github.com/balthazarneveu/interactive_pipe/blob/master/CHANGELOG.md)
 - 🤝 [Contributing](https://github.com/balthazarneveu/interactive_pipe/blob/master/CONTRIBUTING.md)

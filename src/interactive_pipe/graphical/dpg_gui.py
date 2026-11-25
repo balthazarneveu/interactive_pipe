@@ -230,6 +230,16 @@ class InteractivePipeDPG(InteractivePipeGUI):
             destroy_context()
         self.init_app(**self._init_app_kwargs)
 
+    def add_controls_live(self, new_controls):
+        """The timeline of a ``Video`` a filter returned joins the running window in place."""
+        others = [ctrl for ctrl in new_controls if not isinstance(ctrl, TimelineControl)]
+        for ctrl in new_controls:
+            if isinstance(ctrl, TimelineControl):
+                self.window.ctrl[ctrl.name] = ctrl
+                self.window.add_timeline(ctrl)
+        if others:
+            logging.warning(f"controls added while the window runs are not shown: {[c.name for c in others]}")
+
     def on_parameters_loaded(self):
         """sync the widgets with the imported parameters"""
         # HeadlessPipeline.parameters (set by import_tuning) writes the loaded
@@ -532,7 +542,13 @@ class MainWindow(InteractivePipeWindow):
                 width, height = self._layout_size(cell)
                 cell["title_width"] = max(40, int(width * scale), title_share)
                 title_w = set_cell_title(cell)
-                cell_widths[c] = max(cell_widths[c], int(title_w))
+                # room for the title: the widest one shown at this size (titles changing at
+                # every run, a playing video's, do not resize the column back and forth)
+                title_key = (int(width * scale), title_share)
+                if cell.get("title_key") != title_key:
+                    cell["title_key"], cell["title_reserve"] = title_key, 0
+                cell["title_reserve"] = max(cell["title_reserve"], int(title_w))
+                cell_widths[c] = max(cell_widths[c], cell["title_reserve"])
                 kind = cell.get("kind")
                 content_w, content_h = max(1, int(width * scale)), max(1, int(height * scale_h))
                 if kind == "text":
@@ -590,10 +606,24 @@ class MainWindow(InteractivePipeWindow):
         if lead is None or top is None or not dpg.does_item_exist(lead) or not dpg.does_item_exist(top):
             return
         dpg.configure_item(lead, width=max(0, (slot_w - content_w) // 2))
-        dpg.configure_item(cell["title"], indent=max(0, int((slot_w - title_w) // 2)))
+        cell["slot_w"] = slot_w
+        MainWindow._place_title(cell, title_w)
         # a shown spacer also adds one item spacing below itself
         offset = spare_h // 2 - ITEM_SPACING_Y
         dpg.configure_item(top, height=max(1, offset), show=offset > 0)
+
+    @staticmethod
+    def _place_title(cell: Dict[str, Any], title_w: float) -> None:
+        """Center the title in the cell's slot, its line padded to the slot width."""
+        slot_w = cell.get("slot_w")
+        row, trail = cell.get("title_row"), cell.get("title_trail")
+        if slot_w is None or row is None or not dpg.does_item_exist(row):
+            if slot_w is not None:  # a cell built without the title line
+                dpg.configure_item(cell["title"], indent=max(0, int((slot_w - title_w) // 2)))
+            return
+        indent = max(0, int((slot_w - title_w) // 2))
+        dpg.configure_item(row, indent=indent)
+        dpg.configure_item(trail, width=max(0, int(slot_w - indent - title_w)))
 
     # ------------------------------------------------------ zoom & pan (images)
     def image_cells(self) -> List[Dict[str, Any]]:
@@ -1254,7 +1284,11 @@ class MainWindow(InteractivePipeWindow):
         # centering in the grid slot (relayout): a spacer above the title (shorter
         # cells of a row), the title's indent, and a spacer before the content
         top_spacer = dpg.add_spacer(parent=cell_group, height=0, show=False)
-        title = dpg.add_text("", parent=cell_group)
+        # the title line spans the whole slot (indent + text + trailing spacer): a new title
+        # never changes the cell's width, so the cells after it never move
+        title_row = dpg.add_group(parent=cell_group, horizontal=True, horizontal_spacing=0)
+        title = dpg.add_text("", parent=title_row)
+        title_trail = dpg.add_spacer(parent=title_row, width=0, height=1)
         tooltip = dpg.add_tooltip(parent=title, show=False)  # full title, shown only when it is elided
         tooltip_text = dpg.add_text("", parent=tooltip)
         body = dpg.add_group(parent=cell_group, horizontal=True, horizontal_spacing=0)
@@ -1265,6 +1299,9 @@ class MainWindow(InteractivePipeWindow):
             "body": body,
             "lead_spacer": lead_spacer,
             "title": title,
+            "title_row": title_row,
+            "title_trail": title_trail,
+            "slot_w": None,
             "title_tooltip": tooltip,
             "title_tooltip_text": tooltip_text,
             "full_title": "",
@@ -1314,7 +1351,12 @@ class MainWindow(InteractivePipeWindow):
         cell["kind"] = kind
         cell["figure_natural"] = figure_natural
         self._needs_layout = self._needs_layout or changed
-        set_cell_title(cell, self.get_current_style(row, col).get("title", ""))
+        title_w = set_cell_title(cell, self.get_current_style(row, col).get("title", ""))
+        slot_w = cell.get("slot_w")
+        if slot_w is not None and title_w > slot_w:
+            self._needs_layout = True  # wider than any title shown so far: the column grows, once
+        else:
+            self._place_title(cell, title_w)  # centered again, the cell keeps its width
 
     def _heatmap_geometry(self, row: int, col: int) -> Any:
         """display.HeatmapGeometry of a heatmap drawn with a colorbar / axes in cell
@@ -1352,6 +1394,12 @@ class MainWindow(InteractivePipeWindow):
             else:
                 self._clear_error_cells()
                 self.last_error = None
+                if self.main_gui is not None:
+                    self.main_gui._add_new_controls(
+                        live=True
+                    )  # a filter returned a Video: its timeline joins the window
+                if self.timeline_panel is not None:
+                    self.timeline_panel.sync_length()
                 self.refresh_display(out)
                 self._run_status = format_run_status(self.pipeline.last_run_report)
                 self.set_status(self._run_status)

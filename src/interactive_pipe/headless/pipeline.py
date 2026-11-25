@@ -202,6 +202,12 @@ class HeadlessPipeline(PipelineCore):
         if webcams:  # removal: the inputs setter (here the inputs may be reused, not given)
             install_webcams(self, webcams)
 
+    def _on_filter_outputs(self, filters, idx, filt, outputs) -> bool:
+        """Engine hook: a filter returning a ``Video`` gets a frame filter after it and the timeline."""
+        from interactive_pipe.headless.timeline import adopt_generated_videos
+
+        return adopt_generated_videos(self, filters, idx, filt, outputs)
+
     @property
     def timeline(self):
         """The ``TimelineControl`` of the ``Video`` / ``AudioClip`` inputs (None without one)."""

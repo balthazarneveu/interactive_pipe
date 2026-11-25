@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **A filter returning a `Video` brings the timeline.** A filter can make a clip from its sliders (a simulated burst, rendered frames, a file picked in a menu) and return `Video(frames, fps=...)`: the Qt and Dear PyGui windows add the timeline after the first run, the next filters receive the frame under the playhead, and the timeline follows the video's length and frame rate when the sliders change it. With `cache=True` or `"graph"`, moving the playhead never runs the filter making the video again. ([guide](https://balthazarneveu.github.io/interactive_pipe/guide/video/#a-video-made-by-a-filter))
+- **`demo/generated_video_demo.py`**: a bouncing ball simulated by a filter from its sliders (angle, gravity, bounciness, drag, duration); the clip it returns gets the timeline, a trail and an energy plot follow the playhead.
+- Qt: the timeline and the status line use the system fixed-width font (Menlo on macOS): asking for a family named "monospace", which macOS does not have, logged a `qt.qpa.fonts` warning and cost ~50 ms.
+- Dear PyGui: a title changing length from one frame to the next (a frame counter, a status line) no longer moves the images: a cell's width only grows, and the title is centered in it.
+
 ## 0.10.2 (November 2026)
 
 - **`Webcam`: a live camera feed as a pipeline input.** Call a pipeline written for one image with `Webcam(0)` (a camera index, a device path or stream URL, an opened `cv2.VideoCapture`, or a function returning frames): the Qt and Dear PyGui windows show a new frame `fps` times per second (30 by default) and every slider applies to the live feed; <kbd>Space</kbd> freezes / resumes it, the sliders keep working on the frozen frame. The camera is read in a background thread keeping only the latest frame, so a slow pipeline skips frames instead of lagging. Headless runs, `snapshot` and the other backends read one new frame per run. Options: `width`, `height`, `fps`, `mirror`, `as_float`, `warmup`, `freeze_key`. ([guide](https://balthazarneveu.github.io/interactive_pipe/guide/webcam/))
