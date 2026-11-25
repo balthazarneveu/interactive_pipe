@@ -1478,6 +1478,11 @@ class MainWindow(QtWidgetBase, InteractivePipeWindow):  # type: ignore[reportGen
             return
         self._clear_error_style()
         self.last_error = None
+        if self.main_gui is not None:
+            self.main_gui._add_new_controls(live=True)  # a filter returned a Video: its timeline joins the window
+        timeline_widget = getattr(self, "timeline_widget", None)
+        if timeline_widget is not None:
+            timeline_widget.sync_length()
         self.refresh_display(out)
         self._run_status = format_run_status(report)
         self.set_status(self._run_status)

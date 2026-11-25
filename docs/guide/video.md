@@ -189,6 +189,60 @@ blend(first, second, frame=30)
 compare(Video("reference.mp4"), Video("encoded_15fps.mp4"))
 ```
 
+## A video made by a filter
+
+A filter may also *return* a `Video`: a burst it simulates, frames it
+renders from its sliders, a clip it loads from a path chosen in a menu. The
+window gets the same timeline as for a `Video` input, and the filters after
+it receive the frame under the playhead:
+
+```python
+import numpy as np
+
+from interactive_pipe import Video, context, interactive, interactive_pipeline, layout
+
+
+@interactive(n=(24, [2, 60]), speed=(1.0, [0.1, 4.0]), fps=(12.0, [1.0, 30.0]))
+def orbit(n=24, speed=1.0, fps=12.0):
+    """A dot circling the frame, one frame per step."""
+    yy, xx = np.mgrid[:64, :64]
+    frames = []
+    for k in range(n):
+        angle = 2 * np.pi * speed * k / n
+        cx, cy = 32 + 20 * np.cos(angle), 32 + 20 * np.sin(angle)
+        dot = ((xx - cx) ** 2 + (yy - cy) ** 2 < 25).astype(np.float32)
+        frames.append(np.stack([dot] * 3, axis=-1))
+    return Video(np.stack(frames), fps=fps)
+
+
+def label(frame):
+    timeline = context["timeline"]
+    layout.style("shown", title=f"frame {timeline.frame} / {timeline.n_frames}")
+    return frame
+
+
+@interactive_pipeline(gui="qt", cache="graph")
+def generated():
+    clip = orbit()
+    shown = label(clip)
+    return shown
+
+
+generated()
+```
+
+- The timeline appears after the first run, when the filter has returned its
+  video. Its length and frame rate follow the video: change `n` and the film
+  strip is rebuilt, the playhead clamped to the new end.
+- Moving the playhead never runs the filter making the video again (with
+  `cache=True` or `"graph"`): only what follows the frame.
+- A filter that returns a `Video` sometimes and an image other times works:
+  the image goes through as it is.
+- With `Video` inputs too, all of them share one timeline, one lane each.
+- Qt and Dear PyGui show the timeline. Headless runs and `snapshot` show the
+  frame under the playhead (the first one by default); `frame=` at the call
+  only applies to `Video` inputs.
+
 ## Temporal filters: `window=`
 
 A filter that needs the past (frame differences, temporal denoising, motion)
@@ -380,6 +434,10 @@ the frame from the `Video` and writes it in place of the input. A
 follows the frame when the playhead moves (use `cache=True` or `"graph"` so
 slider changes do not decode the frame again), and every tool that knows
 controls knows the timeline.
+
+A filter returning a `Video` gets the same treatment, made during the run:
+right after the filter has run, a `video_<output name>` filter is put after it
+and the timeline is created (or resized) from the video.
 
 ## Examples
 

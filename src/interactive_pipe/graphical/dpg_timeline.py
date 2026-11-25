@@ -273,6 +273,13 @@ class DpgTimeline(StripView):
         return float(PAD_X), float(PAD_TOP + PLAY_SIZE + ROW_GAP)
 
     # ---------------------------------------------------------------- transport
+    def sync_length(self) -> None:
+        """After a run: a ``Video`` a filter returned changed length or frame rate, show it."""
+        length = (self.timeline.n_frames, self.timeline.fps)
+        if length != getattr(self, "_synced_length", length):
+            self.reset()
+        self._synced_length = length
+
     def reset(self) -> None:
         """Sync with the control value (reset, tuning import, session restore, key step)."""
         self.follow(int(self.timeline.value))

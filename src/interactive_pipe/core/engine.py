@@ -5,7 +5,7 @@ import time
 import traceback
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Union
+from typing import Callable, Dict, List, Optional, Set, Union
 
 from interactive_pipe.core.context_tracking import GRAPH_CACHE_MODES, ContextTracker
 from interactive_pipe.core.filter import FilterCore
@@ -309,6 +309,11 @@ class PipelineEngine:
         self.global_params_tracker: Optional[ContextTracker] = None
         # timings of the last run (see RunReport), None before the first run
         self.last_run_report: Optional[RunReport] = None
+        # output_hook(filters, idx, filter, {output name: value}) -> bool, called after every
+        # filter (computed or served from the cache) with what it put in the buffers. It may
+        # insert filters in `filters` right after idx (a frame filter after a filter returning
+        # a Video) and then returns True: the run goes on through the inserted filters.
+        self.output_hook: Optional[Callable[[List[FilterCore], int, FilterCore, dict], bool]] = None
 
     def _prepare_input(self, buffer):
         """Deep copy an input buffer unless it is already protected (see class docstring)."""
@@ -462,6 +467,11 @@ class PipelineEngine:
                     # Simpler manner of defining a process fuction (do not return a list)
                     else:
                         result[ido] = out
+                if self.output_hook is not None:
+                    produced = {ido: result[ido] for ido in prc.outputs if ido is not None and ido in result}
+                    if self.output_hook(filters, idx, prc, produced) and graph_mode:
+                        # filters inserted after this one: the indexes after idx moved
+                        dependencies = _build_dependency_indexes(filters)
             toc = time.perf_counter()
             report.timings[prc.name] = 0.0 if prc.name in report.cached else toc - tic
             performances.append(f"{prc.name}: {toc - tic:0.4f} seconds")

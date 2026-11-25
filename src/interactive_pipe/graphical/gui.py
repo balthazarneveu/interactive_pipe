@@ -179,9 +179,11 @@ class InteractivePipeGUI:
         self.audio = True
         logging.info(f"{type(self).__name__}: no audio playback on this backend; the timeline still works")
 
-    def _add_new_controls(self) -> None:
+    def _add_new_controls(self, live: bool = False) -> None:
         """Show the controls the pipeline gained since the window was built:
-        the timeline of a ``Video`` input, created when the inputs are given."""
+        the timeline of a ``Video`` input, created when the inputs are given,
+        or of a ``Video`` returned by a filter, created during a run (``live``:
+        called by the window after a run, the window stays as it is)."""
         pipeline_controls = getattr(self.pipeline, "controls", None) or []
         new_controls = [ctrl for ctrl in pipeline_controls if id(ctrl) not in self._shown_pipeline_controls]
         if not new_controls:
@@ -191,7 +193,10 @@ class InteractivePipeGUI:
         if not new_controls:
             return  # a Webcam's clock on a backend without timer: nothing to show
         self.controls = list(self.controls) + new_controls
-        self.add_controls(new_controls)
+        if live:
+            self.add_controls_live(new_controls)
+        else:
+            self.add_controls(new_controls)
 
     def _backend_controls(self, controls: List) -> List:
         """The controls this backend builds widgets for: pointer controls as
@@ -207,6 +212,12 @@ class InteractivePipeGUI:
         Default: build the window again (it is not shown before ``run()``).
         Backends with a dedicated timeline widget override this."""
         self.init_app(**self._init_app_kwargs)
+
+    def add_controls_live(self, new_controls: List) -> None:
+        """Make ``new_controls`` appear in the window while it runs (the
+        timeline of a ``Video`` a filter returned). Default: ``add_controls``
+        (the Qt window adds its timeline in place); Dear PyGui overrides it."""
+        self.add_controls(new_controls)
 
     def bind_timeline_keys(self, play_pause: Callable, step: Callable[[int], None]) -> None:
         """Space plays / pauses the timeline, the left / right arrows step one frame

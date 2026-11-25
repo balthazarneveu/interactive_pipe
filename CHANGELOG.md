@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **A filter returning a `Video` brings the timeline.** A filter can make a clip from its sliders (a simulated burst, rendered frames, a file picked in a menu) and return `Video(frames, fps=...)`: the Qt and Dear PyGui windows add the timeline after the first run, the next filters receive the frame under the playhead, and the timeline follows the video's length and frame rate when the sliders change it. With `cache=True` or `"graph"`, moving the playhead never runs the filter making the video again. ([guide](https://balthazarneveu.github.io/interactive_pipe/guide/video/#a-video-made-by-a-filter))
+
 ## 0.10.2 (November 2026)
 
 - **`Webcam`: a live camera feed as a pipeline input.** Call a pipeline written for one image with `Webcam(0)` (a camera index, a device path or stream URL, an opened `cv2.VideoCapture`, or a function returning frames): the Qt and Dear PyGui windows show a new frame `fps` times per second (30 by default) and every slider applies to the live feed; <kbd>Space</kbd> freezes / resumes it, the sliders keep working on the frozen frame. The camera is read in a background thread keeping only the latest frame, so a slow pipeline skips frames instead of lagging. Headless runs, `snapshot` and the other backends read one new frame per run. Options: `width`, `height`, `fps`, `mirror`, `as_float`, `warmup`, `freeze_key`. ([guide](https://balthazarneveu.github.io/interactive_pipe/guide/webcam/))

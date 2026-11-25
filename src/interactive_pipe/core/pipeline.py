@@ -44,6 +44,8 @@ class PipelineCore:
         self.engine = PipelineEngine(
             cache, safe_input_buffer_deepcopy=safe_input_buffer_deepcopy, readonly_inputs=readonly_inputs
         )
+        # subclasses watching what the filters produce (HeadlessPipeline: a Video made by a filter)
+        self.engine.output_hook = getattr(self, "_on_filter_outputs", None)
 
         # Reject removed aliases of the 'context' parameter with a clear message
         for alias in REMOVED_CONTEXT_ALIASES:

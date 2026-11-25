@@ -230,6 +230,16 @@ class InteractivePipeDPG(InteractivePipeGUI):
             destroy_context()
         self.init_app(**self._init_app_kwargs)
 
+    def add_controls_live(self, new_controls):
+        """The timeline of a ``Video`` a filter returned joins the running window in place."""
+        others = [ctrl for ctrl in new_controls if not isinstance(ctrl, TimelineControl)]
+        for ctrl in new_controls:
+            if isinstance(ctrl, TimelineControl):
+                self.window.ctrl[ctrl.name] = ctrl
+                self.window.add_timeline(ctrl)
+        if others:
+            logging.warning(f"controls added while the window runs are not shown: {[c.name for c in others]}")
+
     def on_parameters_loaded(self):
         """sync the widgets with the imported parameters"""
         # HeadlessPipeline.parameters (set by import_tuning) writes the loaded
@@ -1352,6 +1362,12 @@ class MainWindow(InteractivePipeWindow):
             else:
                 self._clear_error_cells()
                 self.last_error = None
+                if self.main_gui is not None:
+                    self.main_gui._add_new_controls(
+                        live=True
+                    )  # a filter returned a Video: its timeline joins the window
+                if self.timeline_panel is not None:
+                    self.timeline_panel.sync_length()
                 self.refresh_display(out)
                 self._run_status = format_run_status(self.pipeline.last_run_report)
                 self.set_status(self._run_status)
