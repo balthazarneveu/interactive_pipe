@@ -18,7 +18,9 @@ refreshes are coalesced, so a pipeline slower than the video drops frames like
 a player instead of lagging.
 """
 
+import functools
 import math
+import sys
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Sequence, Tuple
 
 from interactive_pipe.graphical.qt_backend import (
@@ -102,8 +104,25 @@ def _event_x(event: Any) -> float:
     return float(position.x())
 
 
+@functools.lru_cache(maxsize=1)
+def monospace_family() -> str:
+    """The system fixed-width family (Menlo on macOS, DejaVu Sans Mono on most Linux).
+
+    Asking for ``"monospace"`` by name makes Qt scan every font family alias on
+    macOS, where no family has that name (a ``qt.qpa.fonts`` warning and ~50 ms).
+    """
+    database = sys.modules[QFont.__module__].QFontDatabase  # same binding as QFont
+    fixed = getattr(getattr(database, "SystemFont", database), "FixedFont")
+    return database.systemFont(fixed).family()
+
+
+def monospace_css() -> str:
+    """``font-family`` value for style sheets and rich text."""
+    return f'"{monospace_family()}", monospace'
+
+
 def _monospace(size: float) -> Any:
-    font = QFont("monospace")
+    font = QFont(monospace_family())
     font.setStyleHint(QFont.StyleHint.Monospace)
     font.setPointSizeF(size)
     return font
@@ -561,11 +580,11 @@ class TimelineWidget(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
         colors = self.colors
         self.frame_label.setStyleSheet(
             f"QLabel {{ background: {_hex(colors.ruler_band)}; color: {_hex(colors.text)}; border-radius: 10px;"
-            " padding: 0px 10px; font-family: monospace; font-size: 11px; }"
+            f" padding: 0px 10px; font-family: {monospace_css()}; font-size: 11px; }}"
         )
         muted = f"color: {_hex(colors.muted)}; font-size: 11px; background: transparent;"
         self.fps_label.setStyleSheet(f"QLabel {{ {muted} }}")
-        self.zoom_label.setStyleSheet(f"QLabel {{ {muted} font-family: monospace; }}")
+        self.zoom_label.setStyleSheet(f"QLabel {{ {muted} font-family: {monospace_css()}; }}")
         self.time_label.setStyleSheet("QLabel { background: transparent; }")
         for widget in self.buttons:
             widget.colors = colors
@@ -607,10 +626,11 @@ class TimelineWidget(QtWidgetBase):  # type: ignore[reportGeneralTypeIssues]
         if (self.timeline.display, self.timeline.collapsed, self.strip.n_lanes) != self._applied_display:
             self.apply_display()  # new Video inputs: another timeline=..., another number of lanes
         position = self.timeline.position
+        mono = monospace_css()
         self.time_label.setText(
-            f"<span style='font-family: monospace; font-size: 15px; font-weight: 600; color: {_hex(self.colors.text)}'>"
+            f"<span style='font-family: {mono}; font-size: 15px; font-weight: 600; color: {_hex(self.colors.text)}'>"
             f"{timecode(position.time)}</span>"
-            f"<span style='font-family: monospace; font-size: 12px; color: {_hex(self.colors.muted)}'>"
+            f"<span style='font-family: {mono}; font-size: 12px; color: {_hex(self.colors.muted)}'>"
             f"&nbsp;/&nbsp;{timecode(position.duration)}</span>"
         )
         self.frame_label.setText(f"frame {position.frame} / {position.n_frames - 1}")

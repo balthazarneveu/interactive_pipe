@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **A filter returning a `Video` brings the timeline.** A filter can make a clip from its sliders (a simulated burst, rendered frames, a file picked in a menu) and return `Video(frames, fps=...)`: the Qt and Dear PyGui windows add the timeline after the first run, the next filters receive the frame under the playhead, and the timeline follows the video's length and frame rate when the sliders change it. With `cache=True` or `"graph"`, moving the playhead never runs the filter making the video again. ([guide](https://balthazarneveu.github.io/interactive_pipe/guide/video/#a-video-made-by-a-filter))
+- Qt: the timeline and the status line use the system fixed-width font (Menlo on macOS): asking for a family named "monospace", which macOS does not have, logged a `qt.qpa.fonts` warning and cost ~50 ms.
 - Dear PyGui: a title changing length from one frame to the next (a frame counter, a status line) no longer moves the images: a cell's width only grows, and the title is centered in it.
 
 ## 0.10.2 (November 2026)
