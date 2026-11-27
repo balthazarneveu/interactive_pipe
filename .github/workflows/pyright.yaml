@@ -22,8 +22,10 @@ jobs:
 
   user-code-typing:
     # Blocking: typed user code (test/typing_usage/) must pass mypy --strict and pyright strict
-    runs-on: ubuntu-latest
+    # Pinned like pytest.yaml: ubuntu-latest (26.04) has no Python 3.9 build.
+    runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.9", "3.12"]
     steps:
