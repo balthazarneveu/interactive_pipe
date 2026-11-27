@@ -63,7 +63,7 @@ def detect(frame: np.ndarray, mask: np.ndarray, merge: int = 6, min_area: int = 
 
     binary = (mask > 0.5).astype(np.uint8)
     if merge > 0:
-        binary = cv2.dilate(binary, np.ones((2 * merge + 1, 2 * merge + 1), np.uint8))
+        binary = np.asarray(cv2.dilate(binary, np.ones((2 * merge + 1, 2 * merge + 1), np.uint8)), dtype=np.uint8)
     count, _labels, stats, _centroids = cv2.connectedComponentsWithStats(binary)
     # label 0 is the background
     boxes = [(x, y, x + w, y + h) for x, y, w, h, area in stats[1:count] if area >= min_area]

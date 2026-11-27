@@ -48,7 +48,7 @@ def zoom_clip(n_frames: int = 24) -> np.ndarray:
     image = photo("rabbit")
     frames = []
     for k in range(n_frames):
-        matrix = cv2.getRotationMatrix2D((SIZE, SIZE), 0.0, 1.0 + k / n_frames)
+        matrix = np.asarray(cv2.getRotationMatrix2D((SIZE, SIZE), 0.0, 1.0 + k / n_frames), dtype=np.float64)
         matrix[:, 2] -= SIZE / 2
         frames.append(cv2.warpAffine(image, matrix, (SIZE, SIZE), borderMode=cv2.BORDER_REFLECT))
     return np.stack(frames)

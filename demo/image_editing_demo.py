@@ -166,7 +166,7 @@ def add_text(img: np.ndarray, text: str = "nothing") -> np.ndarray:
         (0, 0, 0),
         -1,
     )
-    result_uint8 = cv2.addWeighted(result_uint8, 0.7, overlay, 0.3, 0)
+    result_uint8 = np.asarray(cv2.addWeighted(result_uint8, 0.7, overlay, 0.3, 0), dtype=np.uint8)
 
     # Draw white text
     cv2.putText(

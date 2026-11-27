@@ -42,12 +42,12 @@ def reference_clip(n_frames: int = 48, size: int = 160) -> np.ndarray:
     import cv2
 
     photo = Image.load_image(IMAGES / "rabbit.png").astype(np.float32)
-    photo = cv2.resize(photo, (2 * size, 2 * size), interpolation=cv2.INTER_AREA)
+    photo = np.asarray(cv2.resize(photo, (2 * size, 2 * size), interpolation=cv2.INTER_AREA), dtype=np.float32)
     frames = []
     for k in range(n_frames):
         angle = 30.0 * k / n_frames
         shift = 0.25 * size * k / n_frames
-        matrix = cv2.getRotationMatrix2D((size, size), angle, 1.0)
+        matrix = np.asarray(cv2.getRotationMatrix2D((size, size), angle, 1.0), dtype=np.float64)
         matrix[:, 2] += (-size / 2 + shift, -size / 2)
         frames.append(cv2.warpAffine(photo, matrix, (size, size), borderMode=cv2.BORDER_REFLECT))
     return np.stack(frames)
