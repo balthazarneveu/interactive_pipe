@@ -8,7 +8,7 @@ The state is cached in `context` keyed on the parameters, so moving the step sli
 computes the new steps; every frame is still a function of the controls (snapshots reproducible).
 """
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Tuple
 
 import numpy as np
 
@@ -17,27 +17,28 @@ from interactive_pipe import Curve, context, interactive, interactive_pipeline, 
 N = 64
 
 
-def initial_plate():
+def initial_plate() -> np.ndarray:
     plate = np.zeros((N, N))
     plate[20:44, 30:34] = 100.0  # hot bar, degrees
     return plate
 
 
-def step_once(u, r, edges):
+def step_once(u: np.ndarray, r: float, edges: str) -> np.ndarray:
     padded = np.pad(u, 1, mode="edge" if edges == "insulated" else "constant")
-    laplacian = padded[:-2, 1:-1] + padded[2:, 1:-1] + padded[1:-1, :-2] + padded[1:-1, 2:] - 4 * u
+    laplacian: np.ndarray = padded[:-2, 1:-1] + padded[2:, 1:-1] + padded[1:-1, :-2] + padded[1:-1, 2:] - 4 * u
     return u + r * laplacian
 
 
 @interactive
 def simulate(
-    plate,
+    plate: np.ndarray,
     step: Annotated[int, (0, 2000), "time step"] = 300,
     r: Annotated[float, (0.05, 0.3), "r = D dt / dx^2"] = 0.2,
     edges: Literal["cold", "insulated"] = "cold",
-):
+) -> np.ndarray:
     key = (r, edges, plate.tobytes())
     cached = context.get("heat")  # (key, step, field) of the last run, if it was the same simulation
+    u: np.ndarray
     if cached is not None and cached[0] == key and cached[1] <= step:
         done, u = cached[1], cached[2]
     else:
@@ -52,13 +53,13 @@ def simulate(
 
 
 @interactive
-def profile(temperature):
+def profile(temperature: np.ndarray) -> Curve:
     middle = Curve([[np.arange(N), temperature[N // 2], "r-", "row 32"]], xlabel="x (cells)", ylabel="deg C")
     return middle
 
 
 @interactive_pipeline(gui="auto")
-def g2_heat_diffusion(plate):
+def g2_heat_diffusion(plate: np.ndarray) -> Tuple[np.ndarray, Curve]:
     temperature = simulate(plate)
     cross_section = profile(temperature)
     return temperature, cross_section

@@ -25,7 +25,7 @@ import logging
 import threading
 import time
 import weakref
-from typing import Any, Callable, Iterator, Optional, Union
+from typing import Any, Callable, Dict, Iterator, Optional, Union, cast
 
 import numpy as np
 
@@ -112,7 +112,7 @@ class Webcam:
         freeze_key: str = " ",
     ) -> None:
         if _is_frame_iterator(device):
-            device = _next_frame_function(device)
+            device = _next_frame_function(cast(Iterator[Any], device))
         if isinstance(device, bool) or not (
             isinstance(device, (int, str)) or callable(device) or callable(getattr(device, "read", None))
         ):
@@ -130,7 +130,7 @@ class Webcam:
         self.device = device
         self.width = width
         self.height = height
-        self.fps = float(fps)
+        self.fps: float = float(fps)
         self.mirror = mirror
         self.as_float = as_float
         self.warmup = warmup
@@ -309,7 +309,7 @@ class Webcam:
     def __exit__(self, *exc: Any) -> None:
         self.release()
 
-    def __deepcopy__(self, memo: dict) -> "Webcam":
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "Webcam":
         return self  # one camera: pipelines copying their inputs share it
 
     def __repr__(self) -> str:

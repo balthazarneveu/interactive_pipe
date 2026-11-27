@@ -6,6 +6,8 @@ of (taps-1)/2 samples, a phase linear in frequency) with the Butterworth IIR (a 
 coefficients, but a curved phase, so a frequency-dependent delay). The Bode plot shows magnitude and phase on twin axes.
 """
 
+from typing import Tuple
+
 import numpy as np
 from matplotlib.figure import Figure
 
@@ -16,7 +18,7 @@ CUTOFF = Control(25.0, [2.0, 100.0], name="cutoff (Hz)")  # one slider for desig
 
 
 @interactive(noise=(0.3, [0.0, 1.0]))
-def chirp(noise=0.3):
+def chirp(noise: float = 0.3) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     t = np.arange(0, 4.0, 1 / FS)
     clean = np.sin(2 * np.pi * (2 * t + 29 / 4 * t**2))  # 2 Hz -> 60 Hz in 4 s
     noisy = clean + noise * np.random.default_rng(0).standard_normal(t.size)
@@ -24,12 +26,11 @@ def chirp(noise=0.3):
 
 
 @interactive(
-    kind=("FIR", ["FIR", "IIR"]),
-    cutoff=CUTOFF,
-    taps=(41, [3, 201], "FIR taps"),
-    iir_order=(4, [1, 8], "IIR order"),
+    kind=("FIR", ["FIR", "IIR"]), cutoff=CUTOFF, taps=(41, [3, 201], "FIR taps"), iir_order=(4, [1, 8], "IIR order")
 )
-def design(kind="FIR", cutoff=25.0, taps=41, iir_order=4):
+def design(
+    kind: str = "FIR", cutoff: float = 25.0, taps: int = 41, iir_order: int = 4
+) -> Tuple[np.ndarray, np.ndarray]:
     """Return (b, a): a Hamming windowed-sinc FIR, or a Butterworth IIR (bilinear transform)."""
     if kind == "FIR":
         n = np.arange(taps) - (taps - 1) / 2
@@ -43,7 +44,7 @@ def design(kind="FIR", cutoff=25.0, taps=41, iir_order=4):
 
 
 @interactive()
-def apply_filter(x, b, a):
+def apply_filter(x: np.ndarray, b: np.ndarray, a: np.ndarray) -> np.ndarray:
     """Direct-form difference equation (numpy only, no scipy)."""
     fir = np.convolve(x, b)[: x.size]
     y = np.zeros(a.size - 1 + x.size)  # leading zeros: past outputs before t=0
@@ -53,7 +54,7 @@ def apply_filter(x, b, a):
 
 
 @interactive()
-def plot_signals(t, noisy, filtered, clean):
+def plot_signals(t: np.ndarray, noisy: np.ndarray, filtered: np.ndarray, clean: np.ndarray) -> Curve:
     return Curve(
         [
             SingleCurve(t, noisy, style="c-", label="noisy", linewidth=1, alpha=0.4),
@@ -67,7 +68,7 @@ def plot_signals(t, noisy, filtered, clean):
 
 
 @interactive(cutoff=CUTOFF)
-def bode(b, a, cutoff=25.0):
+def bode(b: np.ndarray, a: np.ndarray, cutoff: float = 25.0) -> Figure:
     n = 4096
     f = np.fft.rfftfreq(n, 1 / FS)
     h = np.fft.rfft(b, n) / np.fft.rfft(a, n)
@@ -85,7 +86,7 @@ def bode(b, a, cutoff=25.0):
 
 
 @interactive_pipeline(gui="auto")
-def signal_filtering():
+def signal_filtering() -> Tuple[Curve, Figure]:
     t, noisy, clean = chirp()
     b, a = design()
     filtered = apply_filter(noisy, b, a)

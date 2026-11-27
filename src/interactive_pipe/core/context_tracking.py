@@ -251,11 +251,11 @@ class ContextTracker(dict):
     # ------------------------------------------------------------------
     # Instrumented dict interface
     # ------------------------------------------------------------------
-    def __getitem__(self, key):
+    def __getitem__(self, key: Any) -> Any:
         self._record_read(key)
         return self._wrap_readonly(dict.__getitem__(self, key))
 
-    def get(self, key, default=None):
+    def get(self, key: Any, default: Any = None) -> Any:
         self._record_read(key)
         if dict.__contains__(self, key):
             return self._wrap_readonly(dict.__getitem__(self, key))
@@ -269,7 +269,7 @@ class ContextTracker(dict):
         self._record_write(key, value)
         dict.__setitem__(self, key, value)
 
-    def setdefault(self, key, default=None):
+    def setdefault(self, key: Any, default: Any = None) -> Any:
         self._record_read(key)
         if not dict.__contains__(self, key):
             self._record_write(key, default)
@@ -280,7 +280,7 @@ class ContextTracker(dict):
             self._record_write(key)
         dict.__delitem__(self, key)
 
-    def pop(self, key, *args):
+    def pop(self, key: Any, *args: Any) -> Any:
         self._record_read(key)
         if dict.__contains__(self, key):
             self._record_write(key)

@@ -1,7 +1,7 @@
 import importlib.util
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union, cast, overload
 
 import numpy as np
 
@@ -20,7 +20,7 @@ def _is_dataframe(data: Any) -> bool:
     return pandas is not None and isinstance(data, pandas.DataFrame)
 
 
-def _require_pandas(feature_name: str):
+def _require_pandas(feature_name: str) -> None:
     """Raise RuntimeError if pandas is not available."""
     if not PANDAS_AVAILABLE:
         raise RuntimeError(f"{feature_name} requires pandas. Install with: pip install pandas")
@@ -64,11 +64,11 @@ class Table(Data):
 
     def __init__(
         self,
-        data: Union[Dict[str, List], List[Dict], np.ndarray, None] = None,
+        data: Union[Dict[str, Any], List[Dict[str, Any]], np.ndarray, "pd.DataFrame", Path, None] = None,
         columns: Optional[List[str]] = None,
         title: Optional[str] = None,
         precision: int = 2,
-    ):
+    ) -> None:
         if data is None:
             # Allow creation from Path (handled by parent class)
             data_dict = {"columns": [], "values": []}
@@ -78,9 +78,11 @@ class Table(Data):
             return
         elif _is_dataframe(data):
             # Handle pandas DataFrame input
-            data_dict = self._normalize_dataframe(data)  # type: ignore[arg-type]  # a DataFrame (checked by _is_dataframe)
+            data_dict = self._normalize_dataframe(cast("pd.DataFrame", data))  # checked by _is_dataframe
         else:
-            data_dict = self._normalize_data(data, columns)
+            data_dict = self._normalize_data(
+                cast(Union[Dict[str, Any], List[Dict[str, Any]], np.ndarray], data), columns
+            )
 
         internal_data = {
             "columns": data_dict["columns"],
@@ -92,7 +94,7 @@ class Table(Data):
 
     def _normalize_data(
         self,
-        data: Union[Dict[str, List], List[Dict], np.ndarray],
+        data: Union[Dict[str, Any], List[Dict[str, Any]], np.ndarray],
         columns: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Convert various input formats to internal format."""
@@ -160,7 +162,7 @@ class Table(Data):
         return self.data["columns"]
 
     @columns.setter
-    def columns(self, columns: List[str]):
+    def columns(self, columns: List[str]) -> None:
         if not isinstance(columns, list):
             raise TypeError(f"columns must be a list, got {type(columns)}")
         if not all(isinstance(c, str) for c in columns):
@@ -171,11 +173,11 @@ class Table(Data):
         self.data["columns"] = columns
 
     @property
-    def values(self) -> List[List]:
+    def values(self) -> List[List[Any]]:
         return self.data["values"]
 
     @values.setter
-    def values(self, values: List[List]):
+    def values(self, values: List[List[Any]]) -> None:
         if not isinstance(values, list):
             raise TypeError(f"values must be a list, got {type(values)}")
         self.data["values"] = values
@@ -185,7 +187,7 @@ class Table(Data):
         return self.data["title"]
 
     @title.setter
-    def title(self, title: Optional[str]):
+    def title(self, title: Optional[str]) -> None:
         if title is not None and not isinstance(title, str):
             raise TypeError(f"title must be a string or None, got {type(title)}")
         self.data["title"] = title
@@ -195,7 +197,7 @@ class Table(Data):
         return self.data["precision"]
 
     @precision.setter
-    def precision(self, precision: int):
+    def precision(self, precision: int) -> None:
         if not isinstance(precision, int):
             raise TypeError(f"precision must be an integer, got {type(precision)}")
         if precision < 0:
@@ -206,12 +208,21 @@ class Table(Data):
         """Return the number of rows in the table."""
         return len(self.values)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Dict[str, Any]]:
         """Iterate over rows as dictionaries."""
         for i in range(len(self.values)):
             yield dict(zip(self.columns, self.values[i]))
 
-    def __getitem__(self, key: Union[int, str, slice]):
+    @overload
+    def __getitem__(self, key: int) -> Dict[str, Any]: ...
+
+    @overload
+    def __getitem__(self, key: str) -> List[Any]: ...
+
+    @overload
+    def __getitem__(self, key: slice) -> List[Dict[str, Any]]: ...
+
+    def __getitem__(self, key: Union[int, str, slice]) -> Union[Dict[str, Any], List[Any], List[Dict[str, Any]]]:
         """Access data by row index, column name, or slice."""
         if isinstance(key, int):
             # Return row (support negative indexing)
@@ -231,7 +242,7 @@ class Table(Data):
         else:
             raise TypeError(f"Key must be int, str, or slice, got {type(key)}")
 
-    def _set_file_extensions(self):
+    def _set_file_extensions(self) -> None:
         self.file_extensions = [".csv", ".pkl"]
 
     def as_dataframe(self) -> "pd.DataFrame":
@@ -248,7 +259,7 @@ class Table(Data):
 
         return pd.DataFrame(self.values, columns=self.columns)  # type: ignore
 
-    def _save(self, path: Path, **kwargs):
+    def _save(self, path: Path, **kwargs: Any) -> None:
         if path.suffix == ".pkl":
             Data.save_binary(self.data, path)
         elif path.suffix == ".csv":
@@ -258,7 +269,7 @@ class Table(Data):
         else:
             raise ValueError(f"Unsupported file extension: {path.suffix}. Supported: .pkl, .csv")
 
-    def _load(self, path: Path, allow_pickle: bool = False, **kwargs) -> Dict[str, Any]:
+    def _load(self, path: Path, allow_pickle: bool = False, **kwargs: Any) -> Dict[str, Any]:
         if path.suffix == ".pkl":
             # unpickling runs code: the caller opts in for files they trust
             data = Data.load_binary(path, allow_pickle=allow_pickle)

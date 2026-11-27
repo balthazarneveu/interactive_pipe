@@ -13,6 +13,7 @@ flash with the drums at the playhead.
 
 import argparse
 from pathlib import Path
+from typing import List
 
 import numpy as np
 
@@ -35,14 +36,14 @@ def drum_loop(duration: float = 4.0) -> np.ndarray:
     """A kick on every beat and a hi-hat in between (120 bpm)."""
     t = np.arange(int(duration * RATE)) / RATE
     beat = t % 0.5
-    kick = np.sin(2 * np.pi * 55 * beat * (1 + 2 * np.exp(-beat * 30))) * np.exp(-beat * 12)
+    kick: np.ndarray = np.sin(2 * np.pi * 55 * beat * (1 + 2 * np.exp(-beat * 30))) * np.exp(-beat * 12)
     off = (t + 0.25) % 0.5
     hat = np.random.default_rng(0).standard_normal(len(t)) * np.exp(-off * 60) * 0.3
     return (0.7 * kick + hat).astype(np.float32)
 
 
 @interactive(balance=(0.7, [0.0, 1.0], "video sound ↔ drums"), delay=(0.0, [0.0, 2.0], "drums delay [s]"))
-def mix(soundtrack, drums, balance=0.7, delay=0.0):
+def mix(soundtrack: np.ndarray, drums: np.ndarray, balance: float = 0.7, delay: float = 0.0) -> np.ndarray:
     """Weighted sum of the video's soundtrack and the drums; this is what plays."""
     shift = int(delay * RATE)
     out = np.zeros(max(len(soundtrack), shift + len(drums)), np.float32)
@@ -54,7 +55,7 @@ def mix(soundtrack, drums, balance=0.7, delay=0.0):
 
 
 @interactive(strength=(0.6, [0.0, 1.0], "flash"))
-def pulse(frame, mixed, strength=0.6):
+def pulse(frame: np.ndarray, mixed: np.ndarray, strength: float = 0.6) -> np.ndarray:
     """Brighten the frame with the sound level at the playhead (only this re-runs while playing)."""
     start = int(context["timeline"].time * RATE)
     level = float(np.abs(mixed[start : start + int(0.05 * RATE)]).max(initial=0.0))
@@ -62,7 +63,7 @@ def pulse(frame, mixed, strength=0.6):
     return np.clip(frame * (1.0 + strength * 2.0 * level), 0.0, 1.0)
 
 
-def video_with_sound(frame, soundtrack, drums):
+def video_with_sound(frame: np.ndarray, soundtrack: np.ndarray, drums: np.ndarray) -> List[np.ndarray]:
     mixed = mix(soundtrack, drums)
     flashing = pulse(frame, mixed)
     return [frame, flashing]

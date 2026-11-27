@@ -6,7 +6,7 @@ step, and the actuator saturation (u_max) slows everything down and causes integ
 The open-loop Bode plot shows the gain crossover and the phase margin: a small margin = ringing.
 """
 
-from typing import Annotated
+from typing import Annotated, Any, List, Tuple
 
 import numpy as np
 from matplotlib.figure import Figure
@@ -22,7 +22,9 @@ Kd = Annotated[float, Control(0.15, [0.0, 1.0], name="Kd")]
 
 
 @interactive
-def simulate(kp: Kp = 2.0, ki: Ki = 3.0, kd: Kd = 0.15, u_max: Annotated[float, (0.5, 20.0), "u_max"] = 20.0):
+def simulate(
+    kp: Kp = 2.0, ki: Ki = 3.0, kd: Kd = 0.15, u_max: Annotated[float, (0.5, 20.0), "u_max"] = 20.0
+) -> Tuple[Curve, Curve]:
     t = np.arange(0, T_END, DT)
     ref = (t >= 0.5).astype(float)
     y = dy = integral = d_filt = prev_err = 0.0
@@ -45,7 +47,7 @@ def simulate(kp: Kp = 2.0, ki: Ki = 3.0, kd: Kd = 0.15, u_max: Annotated[float, 
 
 
 @interactive
-def bode(kp: Kp = 2.0, ki: Ki = 3.0, kd: Kd = 0.15):
+def bode(kp: Kp = 2.0, ki: Ki = 3.0, kd: Kd = 0.15) -> Figure:
     w = np.logspace(-1, 3, 800)
     s = 1j * w
     loop = (kp + ki / s + kd * s / (1 + TAU_D * s)) * WN**2 / (s**2 + 2 * ZETA * WN * s + WN**2)
@@ -68,7 +70,7 @@ def bode(kp: Kp = 2.0, ki: Ki = 3.0, kd: Kd = 0.15):
 
 
 @interactive_pipeline(gui="auto")
-def pid_control():
+def pid_control() -> List[List[Any]]:
     response, command = simulate()
     open_loop = bode()
     return [[response, open_loop], [command]]

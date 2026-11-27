@@ -18,7 +18,7 @@ and saves what the window would show.
 
 import argparse
 import time
-from typing import Callable
+from typing import Callable, List, Optional
 
 import numpy as np
 
@@ -47,30 +47,30 @@ def _box_blur(img: np.ndarray, radius: int) -> np.ndarray:
 
 
 @interactive(levels=(6, [2, 16]), smoothing=(3, [0, 8]))
-def posterize(frame, levels=6, smoothing=3):
+def posterize(frame: np.ndarray, levels: int = 6, smoothing: int = 3) -> np.ndarray:
     """Flat colour areas: blur, then quantize every channel to `levels` values."""
     smooth = _box_blur(frame, smoothing)
     return np.round(smooth * (levels - 1)) / (levels - 1)
 
 
 @interactive(threshold=(0.12, [0.02, 0.4]))
-def edges(frame, threshold=0.12):
+def edges(frame: np.ndarray, threshold: float = 0.12) -> np.ndarray:
     """Gradient magnitude of the luminance, thresholded to black lines."""
     luma = _box_blur(frame.mean(axis=-1), 1)
     gy, gx = np.gradient(luma)
-    magnitude = np.hypot(gx, gy) * 4.0
+    magnitude: np.ndarray = np.hypot(gx, gy) * 4.0
     layout.style("edge_map", title=f"edges > {threshold:.2f}")
     return (magnitude > threshold).astype(np.float32)
 
 
 @interactive()
-def ink(flat, edge_map):
+def ink(flat: np.ndarray, edge_map: np.ndarray) -> np.ndarray:
     """Draw the edge lines in black over the flat colours."""
     return flat * (1.0 - edge_map[..., None])
 
 
 @interactive_pipeline(gui="qt", cache="graph", size=(1200, 500))
-def cartoon(frame):
+def cartoon(frame: np.ndarray) -> List[np.ndarray]:
     flat = posterize(frame)
     edge_map = edges(frame)
     drawing = ink(flat, edge_map)
@@ -92,13 +92,15 @@ def synthetic_scene(width: int = 480, height: int = 360) -> Callable[[], np.ndar
         cy = height * (0.5 + 0.3 * np.sin(1.3 * t))
         disc = ((x - cx) ** 2 + (y - cy) ** 2 < (height / 5) ** 2).astype(np.float32)
         background = np.stack([x / width, y / height, 0.5 + 0.5 * np.sin(x / 40 + t) * np.cos(y / 40)], axis=-1)
-        frame = background * (1 - disc[..., None]) + disc[..., None] * np.array([1.0, 0.85, 0.2], np.float32)
+        frame: np.ndarray = background * (1 - disc[..., None]) + disc[..., None] * np.array(
+            [1.0, 0.85, 0.2], np.float32
+        )
         return frame.astype(np.float32)
 
     return next_frame
 
 
-def main(argv=None):
+def main(argv: Optional[List[str]] = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--device", default="0", help="camera index, device path or stream URL")
     parser.add_argument("--synthetic", action="store_true", help="a generated scene instead of a camera")

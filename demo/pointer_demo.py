@@ -16,6 +16,7 @@ pixel (point) or the slice bounds (region) in each filter.
 
 import argparse
 from pathlib import Path
+from typing import List, Tuple, Union
 
 import numpy as np
 
@@ -45,7 +46,7 @@ def load_image() -> np.ndarray:
 
 
 @interactive(seed=PointControl((0.65, 0.5), on="img", name="seed"))
-def row_profile(img: np.ndarray, seed=(0.65, 0.5)) -> Curve:
+def row_profile(img: np.ndarray, seed: Tuple[float, float] = (0.65, 0.5)) -> Curve:
     """Pixel values along the row under the clicked point, one curve per channel."""
     col, row = to_pixels(seed, img)
     columns = np.arange(img.shape[1])
@@ -59,7 +60,9 @@ def row_profile(img: np.ndarray, seed=(0.65, 0.5)) -> Curve:
 
 
 @interactive(roi=RegionControl((0.3, 0.25, 0.6, 0.55), on="img", name="roi"), zoom=(4, [1, 8]))
-def zoom_region(img: np.ndarray, roi=(0.3, 0.25, 0.6, 0.55), zoom: int = 4) -> np.ndarray:
+def zoom_region(
+    img: np.ndarray, roi: Tuple[float, float, float, float] = (0.3, 0.25, 0.6, 0.55), zoom: int = 4
+) -> np.ndarray:
     """The dragged region, enlarged `zoom` times (nearest neighbour: pixels stay visible)."""
     x0, y0, x1, y1 = to_pixels(roi, img)
     crop = img[y0:y1, x0:x1]
@@ -67,7 +70,7 @@ def zoom_region(img: np.ndarray, roi=(0.3, 0.25, 0.6, 0.55), zoom: int = 4) -> n
     return np.repeat(np.repeat(crop, zoom, axis=0), zoom, axis=1)
 
 
-def pointer_pipeline():
+def pointer_pipeline() -> List[List[Union[np.ndarray, Curve]]]:
     img = load_image()
     profile = row_profile(img)
     crop = zoom_region(img)

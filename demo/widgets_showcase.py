@@ -15,7 +15,7 @@ This demo demonstrates:
 
 import argparse
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 from PIL import Image as PILImage
@@ -35,7 +35,7 @@ from interactive_pipe import (
 )
 
 
-def get_image_paths(img_folder: Path = Path(__file__).parent / "images"):
+def get_image_paths(img_folder: Path = Path(__file__).parent / "images") -> List[Path]:
     """Get list of image paths"""
     img_list = sorted(list(img_folder.glob("*.png")))
     return img_list
@@ -69,7 +69,7 @@ def select_image(
     return img
 
 
-def set_layout_outputs():
+def set_layout_outputs() -> None:
     """Set pipeline.outputs based on layout_mode string in context.
 
     This function modifies pipeline.outputs to control the image layout arrangement.
@@ -109,7 +109,7 @@ def set_layout_outputs():
     levels=RangeControl((0.0, 1.0), [0.0, 1.0], name="input levels"),  # Two-handle (lo, hi) slider
 )
 def adjust_brightness_contrast(
-    img: np.ndarray, brightness: float = 0.0, contrast: float = 0.0, levels=(0.0, 1.0)
+    img: np.ndarray, brightness: float = 0.0, contrast: float = 0.0, levels: Tuple[float, float] = (0.0, 1.0)
 ) -> np.ndarray:
     """Adjust input levels, brightness and contrast"""
     # Input levels: stretch [lo, hi] to [0, 1] (the filter receives a (lo, hi) tuple)
@@ -150,7 +150,8 @@ def _box_blur_axis(img: np.ndarray, radius: int, axis: int) -> np.ndarray:
     count_shape = [1] * img.ndim
     count_shape[axis] = n
     counts = (hi - lo).reshape(count_shape)
-    return (window_sum / counts).astype(img.dtype)
+    blurred: np.ndarray = window_sum / counts
+    return blurred.astype(img.dtype)
 
 
 @interactive(
@@ -201,10 +202,10 @@ def apply_transform(img: np.ndarray, rotation: float = 0.0, scale: float = 1.0) 
     pil = PILImage.fromarray((np.clip(img, 0.0, 1.0) * 255).astype(np.uint8))
     # Zoom: resize then center crop (scale>1) or pad with mid-gray (scale<1)
     new_w, new_h = max(1, int(w * scale)), max(1, int(h * scale))
-    pil = pil.resize((new_w, new_h), PILImage.BILINEAR)
+    pil = pil.resize((new_w, new_h), PILImage.Resampling.BILINEAR)
     canvas = PILImage.new("RGB", (w, h), (128, 128, 128))
     canvas.paste(pil, ((w - new_w) // 2, (h - new_h) // 2))
-    canvas = canvas.rotate(rotation, resample=PILImage.BILINEAR, fillcolor=(128, 128, 128))
+    canvas = canvas.rotate(rotation, resample=PILImage.Resampling.BILINEAR, fillcolor=(128, 128, 128))
     transformed = np.asarray(canvas).astype(np.float32) / 255.0
 
     title = f"Rotation: {rotation:.0f}°, Scale: {scale:.2f}"
@@ -300,7 +301,7 @@ def add_noise(
 # ============================================================================
 
 
-def widgets_showcase_pipeline(img_list: List[Path]):
+def widgets_showcase_pipeline(img_list: List[Path]) -> List[np.ndarray]:
     """Main pipeline showcasing all widgets and multi-image layouts
 
     Pipeline functions must contain ONLY function calls - no control flow (if/else/for).

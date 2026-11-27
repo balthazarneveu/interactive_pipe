@@ -20,6 +20,7 @@ frame=[0, 30, 60, 90])`` draws a contact sheet.
 import argparse
 import tempfile
 from pathlib import Path
+from typing import List, Tuple, Union
 
 import numpy as np
 
@@ -28,13 +29,13 @@ from interactive_pipe import Curve, Image, Video, context, interactive, interact
 IMAGES = Path(__file__).parent / "images"
 
 
-def make_clip(path: Path, n_frames: int = 75, fps: float = 25.0, size=(320, 240)) -> Path:
+def make_clip(path: Path, n_frames: int = 75, fps: float = 25.0, size: Tuple[int, int] = (320, 240)) -> Path:
     """A slow pan and zoom over a photo (Ken Burns effect), written as an mp4 file."""
     import cv2
 
     photo = (Image.load_image(IMAGES / "elephant.png") * 255).astype(np.uint8)
     height, width = photo.shape[:2]
-    writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), fps, size)
+    writer = cv2.VideoWriter(str(path), cv2.VideoWriter.fourcc(*"mp4v"), fps, size)
     for k in range(n_frames):
         progress = k / (n_frames - 1)
         zoom = 1.0 + 0.6 * progress
@@ -53,7 +54,7 @@ def make_clip(path: Path, n_frames: int = 75, fps: float = 25.0, size=(320, 240)
     saturation=(1.0, [0.0, 2.0]),
     temperature=(0.0, [-1.0, 1.0], "warm / cool"),
 )
-def grade(frame, exposure=0.0, saturation=1.0, temperature=0.0):
+def grade(frame: np.ndarray, exposure: float = 0.0, saturation: float = 1.0, temperature: float = 0.0) -> np.ndarray:
     """Exposure in stops, saturation around the luminance, warm (+) / cool (-) balance."""
     img = frame * (2.0**exposure)
     luminance = img.mean(axis=-1, keepdims=True)
@@ -61,11 +62,12 @@ def grade(frame, exposure=0.0, saturation=1.0, temperature=0.0):
     balance = np.array([1.0 + 0.2 * temperature, 1.0, 1.0 - 0.2 * temperature], dtype=np.float32)
     timeline = context["timeline"]  # written by the pipeline for Video inputs
     layout.style("graded", title=f"graded · {timeline}")
-    return np.clip(img * balance, 0.0, 1.0)
+    graded: np.ndarray = np.clip(img * balance, 0.0, 1.0)
+    return graded
 
 
 @interactive(bins=(64, [8, 256]))
-def histogram(graded, bins=64):
+def histogram(graded: np.ndarray, bins: int = 64) -> Curve:
     """Histogram of each channel of the graded frame (a quick clipping check)."""
     edges = np.linspace(0.0, 1.0, bins + 1)
     centers = (edges[:-1] + edges[1:]) / 2
@@ -77,7 +79,7 @@ def histogram(graded, bins=64):
     return Curve(curves, xlabel="value", ylabel="pixel fraction", grid=True)
 
 
-def grading(clip):
+def grading(clip: np.ndarray) -> List[List[Union[np.ndarray, Curve]]]:
     graded = grade(clip)
     hist = histogram(graded)
     return [[clip, graded], [hist]]

@@ -7,16 +7,17 @@ run" readout and the summary table follow the chosen metric. Raise the selection
 no run passes it: the plot and the table say so instead of failing.
 """
 
-from typing import Annotated, Literal
+from typing import Annotated, Dict, Literal, Tuple
 
 import numpy as np
 
 from interactive_pipe import Curve, SingleCurve, Table, interactive, interactive_pipeline, layout
 
 STEPS = np.arange(1, 501)
+Runs = Dict[str, Dict[str, np.ndarray]]  # {run name: {metric: values}}
 
 
-def make_runs(seed=3):
+def make_runs(seed: int = 3) -> Runs:
     """{run name: {metric: values}} for a learning-rate sweep."""
     rng = np.random.default_rng(seed)
     runs = {}
@@ -35,7 +36,7 @@ def make_runs(seed=3):
     return runs
 
 
-def ema(values, smoothing):
+def ema(values: np.ndarray, smoothing: float) -> np.ndarray:
     out, acc = np.empty_like(values), values[0]
     for i, v in enumerate(values):
         acc = smoothing * acc + (1 - smoothing) * v
@@ -45,18 +46,18 @@ def ema(values, smoothing):
 
 @interactive
 def inspect_runs(
-    runs,
+    runs: Runs,
     metric: Literal["train loss", "val loss", "val accuracy"] = "val loss",
     smoothing: Annotated[float, (0.0, 0.99), "smoothing"] = 0.9,
     log_scale: Annotated[bool, "log scale"] = True,
     threshold: Annotated[float, (0.0, 1.0), "show runs with final val accuracy above"] = 0.0,
-):
+) -> Tuple[Curve, Table]:
     selected = {name: m for name, m in runs.items() if m["val accuracy"][-20:].mean() > threshold}
     lower_is_better = metric != "val accuracy"
     lines = [SingleCurve(x=STEPS, y=ema(m[metric], smoothing), label=name) for name, m in selected.items()]
     curves = Curve(lines, xlabel="step", ylabel=metric, grid=True, yscale="log" if log_scale else None)
     final = {name: float(ema(m[metric], smoothing)[-1]) for name, m in selected.items()}
-    best = (min if lower_is_better else max)(final, key=final.get) if final else None
+    best = (min if lower_is_better else max)(final, key=lambda name: final[name]) if final else None
     layout.style("curves", title=f"best: {best} ({final[best]:.3f})" if best else "no run above the threshold")
     rows = [
         {"run": name, f"final {metric}": f"{value:.3f}", "best": "*" if name == best else ""}
@@ -66,7 +67,7 @@ def inspect_runs(
 
 
 @interactive_pipeline(gui="auto")
-def g2_training_curves(runs):
+def g2_training_curves(runs: Runs) -> Tuple[Curve, Table]:
     curves, summary = inspect_runs(runs)
     return curves, summary
 

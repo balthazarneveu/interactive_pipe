@@ -1,6 +1,7 @@
 import logging
+import os
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Sequence, Type, TypeVar, Union
 
 import numpy as np
 
@@ -14,6 +15,11 @@ from interactive_pipe.data_objects.table import PANDAS_AVAILABLE, Table
 from interactive_pipe.graphical.display import FIGURE_DPI, figure_of, release_pyplot_figure
 from interactive_pipe.headless.control import Control, TimeControl
 from interactive_pipe.headless.keyboard import KeyboardControl
+
+if TYPE_CHECKING:
+    from interactive_pipe.headless.timeline import TimelineControl
+
+_PipelineT = TypeVar("_PipelineT", bound="HeadlessPipeline")
 
 _UNSAFE_FILENAME_CHARS = '<>:"/\\|?*'
 
@@ -154,12 +160,12 @@ class HeadlessPipeline(PipelineCore):
     controls: List[Control]  # List of controls connected to filters
 
     @property
-    def parameters(self):
+    def parameters(self) -> Dict[str, Dict[str, Any]]:
         """Get current parameters from all filters"""
         return super().parameters
 
     @parameters.setter
-    def parameters(self, new_parameters):
+    def parameters(self, new_parameters: Mapping[str, Dict[str, Any]]) -> None:
         """Override to also update control values when parameters are set"""
         # Call parent setter to update filter values using the descriptor protocol
         PipelineCore.parameters.__set__(self, new_parameters)
@@ -171,11 +177,12 @@ class HeadlessPipeline(PipelineCore):
                         ctrl.value = new_parameters[filt.name][param_name]
 
     @property
-    def inputs(self):
+    def inputs(self) -> Optional[Dict[Any, Any]]:
+        """The inputs of the next run, as {input name: value} (None for a pipeline without input)."""
         return PipelineCore.inputs.fget(self)  # type: ignore[attr-defined]
 
     @inputs.setter
-    def inputs(self, inputs):
+    def inputs(self, inputs: Any) -> None:
         """Set the inputs; a ``Video`` or ``AudioClip`` input gets a filter and the timeline
         (``headless/timeline.py``), a ``Webcam`` input a frame filter and the live clock (``headless/live.py``)."""
         PipelineCore.inputs.fset(self, inputs)  # type: ignore[attr-defined]
@@ -187,7 +194,7 @@ class HeadlessPipeline(PipelineCore):
         install_timeline(self, {name: value for name, value in given.items() if is_timeline_input(value)})
         install_webcams(self, {name: value for name, value in given.items() if isinstance(value, Webcam)})
 
-    def adopt_video_inputs(self, input_values: Any = None, inputs: Optional[dict] = None) -> None:
+    def adopt_video_inputs(self, input_values: Any = None, inputs: Optional[Dict[Any, Any]] = None) -> None:
         """Install the timeline of the ``Video`` / ``AudioClip`` inputs about to be given,
         before the keyword arguments naming it (``frame=10``) are checked. Nothing
         happens without one among them (the inputs may be reused)."""
@@ -203,7 +210,7 @@ class HeadlessPipeline(PipelineCore):
             install_webcams(self, webcams)
 
     @property
-    def timeline(self):
+    def timeline(self) -> Optional["TimelineControl"]:
         """The ``TimelineControl`` of the ``Video`` / ``AudioClip`` inputs (None without one)."""
         from interactive_pipe.headless.timeline import timeline_of
 
@@ -231,13 +238,22 @@ class HeadlessPipeline(PipelineCore):
         return {name: dict(style) for name, style in self.framework_state.output_styles.items()}
 
     @staticmethod
-    def routing_indexes(inputs_names, all_variables):
+    def routing_indexes(inputs_names: Optional[Sequence[Any]], all_variables: Mapping[Any, int]) -> Optional[List[int]]:
+        """Buffer indexes of ``inputs_names`` (None when there is no name)."""
         if not inputs_names:
             return None
         return [all_variables[input_name] for input_name in inputs_names]
 
     @classmethod
-    def from_function(cls, pipe: Callable[..., Any], inputs=None, *, _routing_by_indexes=False, **kwargs):
+    def from_function(
+        cls: Type[_PipelineT],
+        pipe: Callable[..., Any],
+        inputs: Optional[Sequence[Any]] = None,
+        *,
+        _routing_by_indexes: bool = False,
+        **kwargs: Any,
+    ) -> _PipelineT:
+        """Build a pipeline from a pipeline function (its body is parsed, not executed)."""
         if not isinstance(pipe, Callable):
             raise TypeError(f"pipe must be Callable, got {type(pipe)}")
         graph = get_call_graph(pipe)
@@ -296,6 +312,8 @@ class HeadlessPipeline(PipelineCore):
                 filt_name = filt_name + f"_{filters_count[filt_name]}"
             else:
                 filters_count[filt_name] = 0
+            inputs_filt: Optional[List[Any]]
+            outputs_filt: Optional[List[Any]]
             if _routing_by_indexes:
                 inputs_filt = HeadlessPipeline.routing_indexes(filt_dict["args"], all_variables)
                 outputs_filt = HeadlessPipeline.routing_indexes(filt_dict["returns"], all_variables)
@@ -476,12 +494,12 @@ class HeadlessPipeline(PipelineCore):
             renamed.append((filt, param_name, ctrl))
         return renamed
 
-    def export_tuning(self, path: Optional[Path] = None, override=False) -> None:
+    def export_tuning(self, path: Optional[Union[str, Path]] = None, override: bool = False) -> None:
         """Export the current parameters of every filter to a json/yaml file"""
         if path is not None:
             Parameters(self.parameters).save(path, override=override)
 
-    def import_tuning(self, path: Optional[Path] = None) -> None:
+    def import_tuning(self, path: Optional[Union[str, Path]] = None) -> None:
         """Open a json/yaml tuning file and set parameters"""
         try:
             self.parameters = Parameters.from_file(path).data
@@ -490,7 +508,7 @@ class HeadlessPipeline(PipelineCore):
             # must not crash the app (bound to a GUI key).
             logging.exception(f"Cannot load parameters from {path}")
 
-    def load_tuning(self, path: Path) -> None:
+    def load_tuning(self, path: Union[str, Path]) -> None:
         """Load a json/yaml tuning file written by ``export_tuning`` (alias of ``import_tuning``).
 
         Example:
@@ -501,7 +519,7 @@ class HeadlessPipeline(PipelineCore):
         """
         self.import_tuning(path)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Describe filters routing and tuning parameters"""
         ret = "\n".join(repr(filt) for filt in self.filters)
         ret += "\n{\n"
@@ -511,7 +529,8 @@ class HeadlessPipeline(PipelineCore):
         ret += "}"
         return ret
 
-    def update_parameters_from_controls(self):
+    def update_parameters_from_controls(self) -> None:
+        """Push the current value of every control to the parameters of the filters it drives."""
         if not hasattr(self, "controls"):
             # Not having .controls attribute
             # This happens for headless pipelines which have no list of controls
@@ -548,13 +567,13 @@ class HeadlessPipeline(PipelineCore):
         self._last_result_full = result_full
         return result_full
 
-    def run(self):
+    def run(self) -> Any:
         """Run once; the outputs in the display layout (``self.outputs``, which
         ``layout.grid`` and the GUIs change), as the windows and snapshots show them."""
         result_full = self._run_full()
         # read after the run: a layout.grid call during it changes the layout
         output_indexes = self.outputs if self.outputs is not None else self.filters[-1].outputs
-        self.results = self._collect(result_full, output_indexes)
+        self.results: Any = self._collect(result_full, output_indexes)
         return self.results
 
     def _returned_results(self) -> Any:
@@ -563,9 +582,9 @@ class HeadlessPipeline(PipelineCore):
 
     def save(
         self,
-        path: Optional[Path] = None,
+        path: Optional[Union[str, "os.PathLike[str]"]] = None,
         data_wrapper_fn: Optional[Callable[..., Any]] = None,
-        output_indexes: Optional[list] = None,
+        output_indexes: Optional[Sequence[Any]] = None,
         save_entire_buffer: bool = False,
     ) -> List[Path]:
         """Run the pipeline and write its outputs (and the tuning) next to ``path``.
@@ -646,7 +665,7 @@ class HeadlessPipeline(PipelineCore):
             )
         return written
 
-    def parameters_from_keyword_args(self, **kwargs) -> dict:
+    def parameters_from_keyword_args(self, **kwargs: Any) -> Dict[str, Dict[str, Any]]:
         """Map ``pipeline(img, gain=2.0)`` keyword arguments to ``{filter: {param: value}}``.
 
         Same spellings as ``snapshot`` / ``sweep``: a parameter name sets it in
@@ -665,13 +684,20 @@ class HeadlessPipeline(PipelineCore):
             caller=f"pipeline '{self.name}'",
             reserved=("inputs", "parameters", "context"),
         )
-        new_param_dict: dict = {}
+        new_param_dict: Dict[str, Dict[str, Any]] = {}
         for key, value in kwargs.items():
             for filter_name, param_name in resolved[key]:
                 new_param_dict.setdefault(filter_name, {})[param_name] = value
         return new_param_dict
 
-    def __call__(self, *inputs_tuple, inputs=None, parameters=None, context=None, **kwargs) -> Any:
+    def __call__(
+        self,
+        *inputs_tuple: Any,
+        inputs: Optional[Dict[Any, Any]] = None,
+        parameters: Optional[Mapping[str, Dict[str, Any]]] = None,
+        context: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> Any:
         """Run the pipeline once and return its outputs.
 
         Example:
@@ -732,7 +758,13 @@ class HeadlessPipeline(PipelineCore):
         # the pipeline's return order and shape, not the display layout (layout.grid)
         return self._returned_results()
 
-    def graph_representation(self, path=None, ortho=True, view=False, format=None):
+    def graph_representation(
+        self,
+        path: Optional[Union[str, "os.PathLike[str]"]] = None,
+        ortho: bool = True,
+        view: bool = False,
+        format: Optional[str] = None,
+    ) -> Any:
         """Draw the pipeline graph: inputs, filters (with their parameters), outputs.
 
         By default writes one standalone HTML page (inline SVG, no dependency,

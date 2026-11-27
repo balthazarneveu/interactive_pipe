@@ -13,6 +13,7 @@ Features demonstrated:
 
 import argparse
 from pathlib import Path
+from typing import List, Optional
 
 import numpy as np
 
@@ -33,10 +34,11 @@ def horizontal_box_blur(img: np.ndarray, radius: int) -> np.ndarray:
     start = np.clip(x - radius, 0, width)
     end = np.clip(x + radius + 1, 0, width)
     count = (end - start).reshape((1, -1) + (1,) * (img.ndim - 2))
-    return (cumulative[:, end] - cumulative[:, start]) / count
+    blurred: np.ndarray = (cumulative[:, end] - cumulative[:, start]) / count
+    return blurred
 
 
-def get_image_path():
+def get_image_path() -> Optional[Path]:
     """Get a sample image path"""
     img_folder = Path(__file__).parent / "images"
     img_list = sorted(list(img_folder.glob("*.png")))
@@ -52,7 +54,7 @@ def get_image_path():
 
 
 @interactive()
-def load_image(img_path: Path) -> np.ndarray:
+def load_image(img_path: Optional[Path]) -> np.ndarray:
     """Load the input image"""
     if img_path is None or not img_path.exists():
         # Create a simple gradient test image
@@ -194,7 +196,7 @@ def process_image(
 # ============================================================================
 
 
-def grouped_controls_pipeline(img_path: Path):
+def grouped_controls_pipeline(img_path: Optional[Path]) -> List[np.ndarray]:
     """Main pipeline demonstrating grouped controls"""
     original = load_image(img_path)
     processed = process_image(original)

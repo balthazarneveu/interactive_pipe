@@ -13,6 +13,7 @@ rather than pyplot: no global state, nothing to close.
 """
 
 import argparse
+from typing import List, Union
 
 import numpy as np
 from matplotlib.figure import Figure
@@ -34,7 +35,8 @@ def compute_potential(separation: float = 1.0, charge_ratio: float = -1.0) -> np
     r2 = np.hypot(x - separation / 2.0, y) + softening
     potential = 1.0 / r1 + charge_ratio / r2
     layout.style("potential", title="Potential (heatmap)", colormap="RdBu_r", center=0.0, colorbar=True, unit="V")
-    return np.clip(potential, -5.0, 5.0)
+    clipped: np.ndarray = np.clip(potential, -5.0, 5.0)
+    return clipped
 
 
 @interactive()
@@ -67,7 +69,7 @@ def plot_field(potential: np.ndarray) -> Figure:
     return fig
 
 
-def field_pipeline():
+def field_pipeline() -> List[Union[Figure, np.ndarray]]:
     potential = compute_potential()
     field = plot_field(potential)
     return [field, potential]

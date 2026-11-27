@@ -19,6 +19,7 @@ affects: while playing, only the cursor and the scope.
 """
 
 import argparse
+from typing import List, Union
 
 import numpy as np
 
@@ -54,7 +55,7 @@ def drums(duration: float = 4.0) -> np.ndarray:
     """A kick on every beat and a hi-hat in between (120 bpm), shorter than the melody."""
     t = np.arange(int(duration * RATE)) / RATE
     beat = t % 0.5
-    kick = np.sin(2 * np.pi * 55 * beat * (1 + 2 * np.exp(-beat * 30))) * np.exp(-beat * 12)
+    kick: np.ndarray = np.sin(2 * np.pi * 55 * beat * (1 + 2 * np.exp(-beat * 30))) * np.exp(-beat * 12)
     off = (t + 0.25) % 0.5
     hat = np.random.default_rng(0).standard_normal(len(t)) * np.exp(-off * 60) * 0.3
     return (0.7 * kick + hat).astype(np.float32)
@@ -64,7 +65,7 @@ def drums(duration: float = 4.0) -> np.ndarray:
     balance=(0.5, [0.0, 1.0], "melody ↔ drums"),
     delay=(0.0, [0.0, 2.0], "drums delay [s]"),
 )
-def mix(melody, drums, balance=0.5, delay=0.0):
+def mix(melody: np.ndarray, drums: np.ndarray, balance: float = 0.5, delay: float = 0.0) -> np.ndarray:
     """Weighted sum of the two sounds, the drums starting ``delay`` seconds later; this is what plays."""
     shift = int(delay * RATE)
     length = max(len(melody), shift + len(drums))
@@ -77,12 +78,12 @@ def mix(melody, drums, balance=0.5, delay=0.0):
 
 
 @interactive()
-def spectrogram(mixed):
+def spectrogram(mixed: np.ndarray) -> np.ndarray:
     return sound.spectrogram(mixed)
 
 
 @interactive()
-def cursor(spec, mixed):
+def cursor(spec: np.ndarray, mixed: np.ndarray) -> np.ndarray:
     """The spectrogram with a line at the playhead (only this re-runs while playing)."""
     timeline = context["timeline"]
     out = np.array(spec)
@@ -93,7 +94,7 @@ def cursor(spec, mixed):
 
 
 @interactive()
-def scope(mixed):
+def scope(mixed: np.ndarray) -> Curve:
     """The 40 ms of the mix under the playhead."""
     start = int(context["timeline"].time * RATE)
     window = mixed[start : start + int(0.04 * RATE)]
@@ -101,7 +102,7 @@ def scope(mixed):
     return Curve([SingleCurve(x=time_ms, y=window)], ylim=(-1, 1), xlabel="ms", title="under the playhead")
 
 
-def mix_two_sounds(melody, drums):
+def mix_two_sounds(melody: np.ndarray, drums: np.ndarray) -> List[Union[np.ndarray, Curve]]:
     mixed = mix(melody, drums)
     spec = spectrogram(mixed)
     marked = cursor(spec, mixed)

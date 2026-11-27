@@ -144,8 +144,13 @@ class InteractivePipeDPG(InteractivePipeGUI):
         try:
             # Dear PyGui reads .ico on Windows only; on Linux an .ico is silently ignored (PNG works)
             ico = icon_path("ico" if sys.platform == "win32" else "png")
-            icons = {"small_icon": ico, "large_icon": ico} if ico else {}
-            dpg.create_viewport(title=self.name or "interactive_pipe", width=width, height=height, **icons)
+            dpg.create_viewport(
+                title=self.name or "interactive_pipe",
+                width=width,
+                height=height,
+                small_icon=ico or "",  # "": Dear PyGui's own default, no icon
+                large_icon=ico or "",
+            )
             dpg.set_viewport_resize_callback(self.window.on_viewport_resize)
             dpg.setup_dearpygui()
             requested = self.window.window_size

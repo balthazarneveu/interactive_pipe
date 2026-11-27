@@ -20,6 +20,7 @@ Without torch installed, the "model" runs on numpy arrays (same pipeline).
 
 import argparse
 from pathlib import Path
+from typing import Any, List
 
 import numpy as np
 
@@ -32,24 +33,27 @@ try:
 except ImportError:  # the demo runs on numpy arrays instead
     torch = None
 
+#: a video frame or clip: a torch tensor (C, H, W) / (T, C, H, W), or a numpy array without torch
+Frames = Any
+
 
 def reference_clip(n_frames: int = 48, size: int = 160) -> np.ndarray:
     """``(T, H, W, 3)``: a photo slowly rotating and drifting (24 fps reference)."""
     import cv2
 
     photo = Image.load_image(IMAGES / "rabbit.png").astype(np.float32)
-    photo = cv2.resize(photo, (2 * size, 2 * size), interpolation=cv2.INTER_AREA)
+    photo = np.asarray(cv2.resize(photo, (2 * size, 2 * size), interpolation=cv2.INTER_AREA), dtype=np.float32)
     frames = []
     for k in range(n_frames):
         angle = 30.0 * k / n_frames
         shift = 0.25 * size * k / n_frames
-        matrix = cv2.getRotationMatrix2D((size, size), angle, 1.0)
+        matrix = np.asarray(cv2.getRotationMatrix2D((size, size), angle, 1.0), dtype=np.float64)
         matrix[:, 2] += (-size / 2 + shift, -size / 2)
         frames.append(cv2.warpAffine(photo, matrix, (size, size), borderMode=cv2.BORDER_REFLECT))
     return np.stack(frames)
 
 
-def noisy_capture(clean: np.ndarray, sigma: float = 0.12, seed: int = 0):
+def noisy_capture(clean: np.ndarray, sigma: float = 0.12, seed: int = 0) -> Frames:
     """Every other frame with Gaussian noise: a ``(T/2, C, H, W)`` torch tensor (numpy without torch)."""
     rng = np.random.default_rng(seed)
     frames = clean[::2] + sigma * rng.standard_normal(clean[::2].shape).astype(np.float32)
@@ -59,15 +63,15 @@ def noisy_capture(clean: np.ndarray, sigma: float = 0.12, seed: int = 0):
     return torch.from_numpy(np.ascontiguousarray(frames.transpose(0, 3, 1, 2)))  # (T, C, H, W)
 
 
-def to_hwc(frame) -> np.ndarray:
+def to_hwc(frame: Frames) -> np.ndarray:
     """A ``(C, H, W)`` tensor or an ``(H, W, C)`` array as an ``(H, W, C)`` numpy image."""
     if torch is not None and isinstance(frame, torch.Tensor):
-        return frame.detach().cpu().numpy().transpose(1, 2, 0)
+        frame = frame.detach().cpu().numpy().transpose(1, 2, 0)
     return np.asarray(frame)
 
 
 @interactive(sigma=(1.2, [0.0, 4.0], "model strength"))
-def denoise(noisy, sigma=1.2):
+def denoise(noisy: Frames, sigma: float = 1.2) -> np.ndarray:
     """The "model": a Gaussian blur (a torch conv2d on tensors). Replace it with your network."""
     if sigma <= 0:
         return to_hwc(noisy)
@@ -81,18 +85,19 @@ def denoise(noisy, sigma=1.2):
             return to_hwc(torch.nn.functional.conv2d(batch, kernel, groups=3)[0])
     import cv2
 
-    return cv2.sepFilter2D(np.asarray(noisy), -1, taps, taps, borderType=cv2.BORDER_REFLECT)
+    blurred: np.ndarray = cv2.sepFilter2D(np.asarray(noisy), -1, taps, taps, borderType=cv2.BORDER_REFLECT)
+    return blurred
 
 
 @interactive()
-def show_input(noisy):
+def show_input(noisy: Frames) -> np.ndarray:
     """The model input as an image (a tensor is not displayable as such)."""
     layout.style("noisy_view", title="model input (12 fps, noisy)")
     return to_hwc(noisy)
 
 
 @interactive(split=(0.5, [0.0, 1.0], "wipe"))
-def wipe(clean, restored, split=0.5):
+def wipe(clean: np.ndarray, restored: np.ndarray, split: float = 0.5) -> np.ndarray:
     """Reference on the left of the wipe line, model output on the right."""
     column = int(split * clean.shape[1])
     out = np.array(restored)
@@ -103,16 +108,16 @@ def wipe(clean, restored, split=0.5):
 
 
 @interactive()
-def error_map(clean, restored):
+def error_map(clean: np.ndarray, restored: np.ndarray) -> np.ndarray:
     """Per-pixel absolute error, its PSNR in the title."""
-    error = np.abs(restored - clean).mean(axis=-1)
+    error: np.ndarray = np.abs(restored - clean).mean(axis=-1)
     mse = float(np.mean((restored - clean) ** 2))
     psnr = 10 * np.log10(1.0 / max(mse, 1e-10))
     layout.style("error", title=f"|error| · PSNR {psnr:.1f} dB", colormap="magma", vmin=0.0, vmax=0.25, colorbar=True)
     return error
 
 
-def compare(clean, noisy):
+def compare(clean: np.ndarray, noisy: Frames) -> List[List[np.ndarray]]:
     restored = denoise(noisy)
     noisy_view = show_input(noisy)
     comparison = wipe(clean, restored)

@@ -9,6 +9,7 @@ This demo demonstrates:
 """
 
 import argparse
+from typing import List, Union
 
 import numpy as np
 
@@ -182,7 +183,7 @@ def change_layout(layout_mode: str = "horizontal") -> None:
         layout.grid([["image"], ["profile"], ["histogram"]])
 
 
-def image_analysis_pipeline():
+def image_analysis_pipeline() -> List[Union[np.ndarray, Curve]]:
     """Main pipeline function showcasing image with dependent curves"""
     image = generate_image()
     profile = extract_profile(image)

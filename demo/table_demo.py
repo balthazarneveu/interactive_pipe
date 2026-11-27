@@ -14,6 +14,7 @@ This demo demonstrates:
 """
 
 import argparse
+from typing import List, Union
 
 import numpy as np
 
@@ -33,7 +34,7 @@ except ImportError:
     brightness=(0.5, [0.0, 1.0]),  # Float slider for brightness
     image_size=(200, [100, 400]),  # Int slider for image size
 )
-def generate_noisy_image(noise_level: float = 0.1, brightness: float = 0.5, image_size: int = 200):
+def generate_noisy_image(noise_level: float = 0.1, brightness: float = 0.5, image_size: int = 200) -> np.ndarray:
     """Generate a test image with adjustable noise and brightness."""
     img = np.ones((image_size, image_size, 3)) * brightness
     img += np.random.randn(*img.shape) * noise_level
@@ -41,7 +42,7 @@ def generate_noisy_image(noise_level: float = 0.1, brightness: float = 0.5, imag
 
 
 @interactive()
-def compute_statistics(img):
+def compute_statistics(img: np.ndarray) -> Table:
     """Compute per-channel statistics and return as Table."""
     channels = ["Red", "Green", "Blue"]
     stats = {
@@ -61,7 +62,7 @@ def compute_statistics(img):
 @interactive(
     grid_size=(5, [3, 10]),  # Size of the grid
 )
-def create_coordinate_grid(grid_size: int = 5):
+def create_coordinate_grid(grid_size: int = 5) -> Table:
     """Create a coordinate grid table from numpy array."""
     # Create a grid of (x, y) coordinates
     x_coords = np.arange(grid_size).repeat(grid_size)
@@ -82,7 +83,7 @@ def create_coordinate_grid(grid_size: int = 5):
 @interactive(
     table_size=(10, [5, 20]),  # Size of multiplication table
 )
-def create_multiplication_table(table_size: int = 10):
+def create_multiplication_table(table_size: int = 10) -> Table:
     """Create a multiplication table from numpy array."""
     # Create multiplication table as numpy grid
     rows = np.arange(1, table_size + 1).reshape(-1, 1)
@@ -103,7 +104,7 @@ def create_multiplication_table(table_size: int = 10):
 @interactive(
     matrix_size=(4, [3, 8]),  # Size of transformation matrix demo
 )
-def create_transformation_matrix(matrix_size: int = 4):
+def create_transformation_matrix(matrix_size: int = 4) -> Table:
     """Create a transformation matrix example from numpy array."""
     # Create a rotation/scaling matrix example
     angle = np.pi / 4
@@ -140,7 +141,7 @@ def create_transformation_matrix(matrix_size: int = 4):
 @interactive(
     num_entries=(8, [5, 15]),  # Number of entries in the list
 )
-def create_list_of_dicts_table(num_entries: int = 8):
+def create_list_of_dicts_table(num_entries: int = 8) -> Table:
     """Create a table from a list of dictionaries."""
     # Simulate some data records
     records = []
@@ -165,7 +166,7 @@ def create_list_of_dicts_table(num_entries: int = 8):
     num_samples=(10, [5, 20]),  # Number of data samples
     show_aggregated=(True,),  # Whether to show aggregated statistics
 )
-def create_pandas_table(num_samples: int = 10, show_aggregated: bool = True):
+def create_pandas_table(num_samples: int = 10, show_aggregated: bool = True) -> Table:
     """Create a table from a pandas DataFrame with data analysis."""
     if not PANDAS_AVAILABLE:
         # Fallback: create a simple table explaining pandas is needed
@@ -236,7 +237,7 @@ def create_pandas_table(num_samples: int = 10, show_aggregated: bool = True):
     return table
 
 
-def table_pipeline():
+def table_pipeline() -> List[List[Union[np.ndarray, Table]]]:
     """Main pipeline function showcasing multiple table types."""
     img = generate_noisy_image()
     stats = compute_statistics(img)

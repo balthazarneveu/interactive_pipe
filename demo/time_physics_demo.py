@@ -1,6 +1,7 @@
 """Physics animation demo showcasing TimeControl with bouncing balls."""
 
 import argparse
+from typing import List
 
 import cv2
 import numpy as np
@@ -14,7 +15,7 @@ from interactive_pipe import TimeControl, interactive, interactive_pipeline
     n_balls=(5, [1, 10]),
     speed=(1.0, [0.1, 3.0]),
 )
-def bouncing_balls(time=0.0, gravity=1.0, n_balls=5, speed=1.0):
+def bouncing_balls(time: float = 0.0, gravity: float = 1.0, n_balls: int = 5, speed: float = 1.0) -> np.ndarray:
     """Simulate bouncing balls with gravity and elastic collisions."""
     # Canvas setup
     size = 512
@@ -46,7 +47,7 @@ def bouncing_balls(time=0.0, gravity=1.0, n_balls=5, speed=1.0):
 
         # Color based on index (in [0, 1] range)
         hue = (i * 40) % 180
-        color = cv2.cvtColor(np.uint8([[[hue, 255, 255]]]), cv2.COLOR_HSV2BGR)[0, 0] / 255.0
+        color = cv2.cvtColor(np.array([[[hue, 255, 255]]], dtype=np.uint8), cv2.COLOR_HSV2BGR)[0, 0] / 255.0
         color = tuple(float(c) for c in color)
 
         balls.append((int(x), int(y), color))
@@ -64,7 +65,7 @@ def bouncing_balls(time=0.0, gravity=1.0, n_balls=5, speed=1.0):
     return canvas
 
 
-def pipeline():
+def pipeline() -> List[np.ndarray]:
     result = bouncing_balls()
     return [result]
 

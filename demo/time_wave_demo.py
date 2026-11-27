@@ -1,6 +1,7 @@
 """Wave interference demo showcasing TimeControl with sine wave patterns."""
 
 import argparse
+from typing import List, Tuple
 
 import cv2
 import numpy as np
@@ -14,7 +15,9 @@ from interactive_pipe import TimeControl, interactive, interactive_pipeline, lay
     freq2=(3.0, [0.5, 5.0]),
     amplitude=(1.0, [0.1, 2.0]),
 )
-def wave_interference(time=0.0, freq1=2.0, freq2=3.0, amplitude=1.0):
+def wave_interference(
+    time: float = 0.0, freq1: float = 2.0, freq2: float = 3.0, amplitude: float = 1.0
+) -> Tuple[np.ndarray, np.ndarray]:
     """Generate wave interference patterns with multiple visualizations."""
     # 1D Wave plot
     width, height_1d = 512, 200
@@ -86,7 +89,7 @@ def wave_interference(time=0.0, freq1=2.0, freq2=3.0, amplitude=1.0):
     return canvas_1d, canvas_2d_color
 
 
-def pipeline():
+def pipeline() -> List[np.ndarray]:
     wave_1d, wave_2d = wave_interference()
     return [wave_1d, wave_2d]
 

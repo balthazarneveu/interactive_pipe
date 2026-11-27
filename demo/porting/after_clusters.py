@@ -1,7 +1,10 @@
 """K-means and PCA scatter with sliders (port of before_clusters.py)."""
 
+from typing import Tuple
+
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.figure import Figure
 
 from interactive_pipe import interactive, interactive_pipeline
 
@@ -9,13 +12,13 @@ CENTERS = np.array([[0, 0], [3, 1], [1, 3]])
 
 
 @interactive(n_points=(300, [30, 1000]), spread=(0.6, [0.1, 2.0]))
-def make_blobs(n_points=300, spread=0.6):
+def make_blobs(n_points: int = 300, spread: float = 0.6) -> np.ndarray:
     rng = np.random.default_rng(7)
     return np.concatenate([c + spread * rng.normal(size=(n_points // 3, 2)) for c in CENTERS])
 
 
 @interactive(n_clusters=(3, [1, 8]), iterations=(10, [1, 30]))
-def kmeans(x, n_clusters=3, iterations=10):
+def kmeans(x: np.ndarray, n_clusters: int = 3, iterations: int = 10) -> Tuple[np.ndarray, np.ndarray]:
     rng = np.random.default_rng(0)
     means = x[rng.choice(len(x), n_clusters, replace=False)]
     for _ in range(iterations):
@@ -25,7 +28,7 @@ def kmeans(x, n_clusters=3, iterations=10):
 
 
 @interactive()
-def scatter(points, labels, means):
+def scatter(points: np.ndarray, labels: np.ndarray, means: np.ndarray) -> Figure:
     centered = points - points.mean(0)
     _, s, vt = np.linalg.svd(centered, full_matrices=False)
     projected = centered @ vt.T
@@ -39,7 +42,7 @@ def scatter(points, labels, means):
 
 
 @interactive_pipeline(gui="auto")
-def clusters():
+def clusters() -> Figure:
     points = make_blobs()
     labels, means = kmeans(points)
     fig = scatter(points, labels, means)

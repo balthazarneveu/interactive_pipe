@@ -6,3 +6,4 @@ PyQt6>=6.5.2
 PyQt6_sip>=13.5.2
 pytest>=6.2.5
 PyYAML>=5.4.1
+typing_extensions>=4.0; python_version < '3.10'

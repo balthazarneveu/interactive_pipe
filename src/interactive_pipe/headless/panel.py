@@ -1,4 +1,7 @@
-from typing import List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, List, Optional, Sequence, Tuple, Union, cast
+
+if TYPE_CHECKING:
+    from interactive_pipe.headless.control import Control
 
 
 class Panel:
@@ -38,7 +41,7 @@ class Panel:
         collapsible: bool = False,
         collapsed: bool = False,
         detached: bool = False,
-        detached_size: Optional[tuple] = None,
+        detached_size: Optional[Tuple[int, int]] = None,
         position: Optional[str] = None,
     ) -> None:
         """Initialize a Panel.
@@ -55,15 +58,16 @@ class Panel:
         valid_positions = {None, "left", "right", "top", "bottom"}
         if position not in valid_positions:
             raise ValueError(f"position must be one of {valid_positions}, got {position}")
-        self.name = name
-        self.collapsible = collapsible
-        self.collapsed = collapsed
-        self.detached = detached
-        self.detached_size = detached_size
-        self.position = position
-        self.elements = []  # List of Panels or list of lists (grid)
-        self.parent = None  # Parent panel in hierarchy
-        self._controls = []  # Controls assigned to this panel
+        self.name: Optional[str] = name
+        self.collapsible: bool = collapsible
+        self.collapsed: bool = collapsed
+        self.detached: bool = detached
+        self.detached_size: Optional[Tuple[int, int]] = detached_size
+        self.position: Optional[str] = position
+        # List of Panels (or Controls placed directly) or list of lists (grid)
+        self.elements: Union[List[Any], List[List[Any]]] = []
+        self.parent: Optional[Panel] = None  # Parent panel in hierarchy
+        self._controls: List[Control] = []  # Controls assigned to this panel
 
     def add_elements(self, elements: Union[List["Panel"], List[List["Panel"]]]) -> "Panel":
         """Add child panels with optional grid layout.
@@ -108,7 +112,7 @@ class Panel:
                 if isinstance(panel, Panel):
                     panel.parent = self
 
-    def _register_control(self, control) -> None:
+    def _register_control(self, control: "Control") -> None:
         """Called when a control is assigned to this panel.
 
         Args:
@@ -117,7 +121,7 @@ class Panel:
         if control not in self._controls:
             self._controls.append(control)
 
-    def controls_among(self, controls: list) -> list:
+    def controls_among(self, controls: Sequence["Control"]) -> List["Control"]:
         """The controls of ``controls`` (a window's own list) placed in this panel, in that order.
 
         GUIs build a panel's widgets from this, not from ``_controls``: a
@@ -127,7 +131,7 @@ class Panel:
         return [ctrl for ctrl in controls if getattr(ctrl, "panel", None) is self]
 
     @staticmethod
-    def resolve_control(element, controls: list):
+    def resolve_control(element: object, controls: Sequence["Control"]) -> Optional["Control"]:
         """The control of ``controls`` standing for ``element`` (a control placed
         directly in ``Panel.elements``): the pipeline clone of that declaration,
         None if the pipeline does not use it."""
@@ -152,7 +156,7 @@ class Panel:
             f"controls={controls_count}, elements={elements_count})"
         )
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Panels are equal if they're the same object (for deduplication)."""
         return self is other
 

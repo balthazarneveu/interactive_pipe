@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from interactive_pipe.core.filter import FilterCore
 from interactive_pipe.data_objects.audio_clip import AudioClip
@@ -142,16 +142,16 @@ class TimelineControl(Control):
             step=1,
             tooltip=tooltip if tooltip is not None else "video frame: space plays / pauses, ← → step",
         )
-        self.fps = float(fps)
-        self.loop = loop
-        self.autoplay = autoplay
-        self.playing = autoplay
+        self.fps: float = float(fps)
+        self.loop: bool = loop
+        self.autoplay: bool = autoplay
+        self.playing: bool = autoplay
         self.videos: List[Video] = []
         self.audio_clips: List[AudioClip] = []
         self.track_names: List[Any] = []
         self._tracks: Optional[List[Tuple[Any, Any]]] = None
-        self.display = "shown"
-        self.collapsed = False
+        self.display: str = "shown"
+        self.collapsed: bool = False
         self.set_display(display)
 
     @property
@@ -193,7 +193,7 @@ class TimelineControl(Control):
 
     def set_length(self, n_frames: int, fps: float) -> None:
         """Resize the timeline (new videos given to the pipeline); the frame is kept when it still exists."""
-        self.value_range = [0, max(int(n_frames), 1) - 1]
+        self.value_range: Optional[Sequence[Union[int, float, str]]] = [0, max(int(n_frames), 1) - 1]
         self.fps = float(fps)
         if self._value > self.value_range[1]:
             self._value = self.value_range[1]
@@ -225,7 +225,7 @@ class TimelineControl(Control):
         return self.videos[0].buffered()
 
     @property
-    def background_version(self) -> tuple:
+    def background_version(self) -> Tuple[Tuple[int, int], ...]:
         """Changes when a video decoded a frame or built a thumbnail (redraw the film strip)."""
         return tuple(video.background_version for video in self.videos)
 

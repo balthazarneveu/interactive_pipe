@@ -1,11 +1,25 @@
 import importlib.util
 import logging
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union, cast, overload
 
 import numpy as np
 
-from interactive_pipe.data_objects.data import Data
+from interactive_pipe.data_objects.data import Data, PathInput
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+#: x or y values of a curve: a numpy array or a sequence of numbers
+CurveValues = Union[np.ndarray, Sequence[Any]]
+#: one curve of ``Curve(curves=[...])``: a ``SingleCurve``, ``[x, y]`` / ``[x, y, style]`` /
+#: ``[x, y, style, label]`` / ``[x, y, {keyword arguments}]``, a dict of
+#: ``SingleCurve`` keyword arguments, or a numpy array of y values
+CurveSpec = Union["SingleCurve", Sequence[Any], Dict[str, Any], np.ndarray]
+#: axis limits ``(low, high)``
+AxisLimits = Sequence[float]
+#: figure size in inches ``(width, height)``
+FigureSize = Tuple[float, float]
 
 SIGNAL_BACKEND_MPL = "matplotlib"
 SIGNAL_BACKEND_PD = "pandas"
@@ -14,7 +28,7 @@ SIGNAL_BACKENDS = [SIGNAL_BACKEND_PICKLE, SIGNAL_BACKEND_PD, SIGNAL_BACKEND_MPL]
 AXIS_SCALES = ("linear", "log", "symlog")
 
 
-signal_backends = [SIGNAL_BACKEND_PICKLE]  # automatically available
+signal_backends: List[str] = [SIGNAL_BACKEND_PICKLE]  # automatically available
 
 # Availability is checked without importing: matplotlib and pandas are imported
 # when a curve is plotted or exported, so ``import interactive_pipe`` stays light.
@@ -43,21 +57,23 @@ class SingleCurve(Data):
         - .pkl (dict)
     """
 
+    path: Optional[Path]
+
     def __init__(
         self,
-        x: Optional[Union[List[np.ndarray], np.ndarray]] = None,
-        y: Optional[Union[List[np.ndarray], np.ndarray]] = None,
+        x: Optional[CurveValues] = None,
+        y: Optional[CurveValues] = None,
         style: Optional[str] = None,
         label: Optional[str] = None,
         linestyle: Optional[str] = None,
-        linewidth: Optional[int] = None,
-        markersize: Optional[int] = None,
+        linewidth: Optional[float] = None,
+        markersize: Optional[float] = None,
         alpha: Optional[float] = None,
-    ):
+    ) -> None:
         if x is not None and y is not None:
             if len(x) != len(y):
                 raise ValueError(f"x and y lengths must match: x has {len(x)} elements, y has {len(y)} elements")
-        data = {
+        data: Dict[str, Any] = {
             "x": x,
             "y": y,
             "label": label,
@@ -74,7 +90,7 @@ class SingleCurve(Data):
         return self.data["x"]
 
     @x.setter
-    def x(self, x: np.ndarray):
+    def x(self, x: Optional[CurveValues]) -> None:
         self.data["x"] = x
 
     @property
@@ -82,35 +98,35 @@ class SingleCurve(Data):
         return self.data["y"]
 
     @y.setter
-    def y(self, y: np.ndarray):
+    def y(self, y: Optional[CurveValues]) -> None:
         self.data["y"] = y
 
     @property
-    def label(self) -> str:
+    def label(self) -> Optional[str]:
         return self.data["label"]
 
     @label.setter
-    def label(self, label):
+    def label(self, label: Optional[str]) -> None:
         if label is not None and not isinstance(label, str):
             raise TypeError(f"label must be a string or None, got {type(label)}")
         self.data["label"] = label
 
     @property
-    def style(self) -> str:
+    def style(self) -> Optional[str]:
         return self.data["style"]
 
     @style.setter
-    def style(self, style):
+    def style(self, style: Optional[str]) -> None:
         if style is not None and not isinstance(style, str):
             raise TypeError(f"style must be a string or None, got {type(style)}")
         self.data["style"] = style
 
     @property
-    def alpha(self) -> float:
+    def alpha(self) -> Optional[float]:
         return self.data["alpha"]
 
     @alpha.setter
-    def alpha(self, alpha):
+    def alpha(self, alpha: Optional[float]) -> None:
         if alpha is None:
             self.data["alpha"] = None
         else:
@@ -120,19 +136,19 @@ class SingleCurve(Data):
                 raise ValueError(f"alpha must be between [0, 1], got {alpha}")
             self.data["alpha"] = alpha
 
-    def _set_file_extensions(self):
+    def _set_file_extensions(self) -> None:
         self.file_extensions = [".png", ".jpg", ".csv", ".pkl"]
 
     def _save(
         self,
         path: Path,
-        backend=None,
-        figsize=None,
+        backend: Optional[str] = None,
+        figsize: Optional[FigureSize] = None,
         xlabel: Optional[str] = None,
         ylabel: Optional[str] = None,
         title: Optional[str] = None,
         grid: Optional[bool] = None,
-    ):
+    ) -> None:
         if path is None:
             raise ValueError("Save requires a path")
         self.path = path
@@ -157,7 +173,7 @@ class SingleCurve(Data):
         markersize: Optional[int] = None,
         alpha: Optional[float] = None,
         allow_pickle: bool = False,
-    ) -> dict:
+    ) -> Dict[str, Any]:
         if path.suffix not in [".csv", ".pkl"]:
             raise ValueError(f"Unsupported file extension: {path.suffix}, expected .csv or .pkl")
         self.path = path
@@ -194,22 +210,22 @@ class SingleCurve(Data):
 
     def show(
         self,
-        figsize=None,
+        figsize: Optional[FigureSize] = None,
         xlabel: Optional[str] = None,
         ylabel: Optional[str] = None,
         title: Optional[str] = None,
         grid: Optional[bool] = None,
-    ):
+    ) -> None:
         crv = Curve([self], xlabel=xlabel, ylabel=ylabel, title=title, grid=grid)
         crv.show(figsize=figsize)
 
-    def as_dataframe(self):  # -> pd.DataFrame
+    def as_dataframe(self) -> "pd.DataFrame":
         df = SingleCurve.dataframe_from_data(self.data)
-        self.df = df
+        self.df: "pd.DataFrame" = df
         return df
 
     @staticmethod
-    def dataframe_from_data(data):  # -> pd.DataFrame
+    def dataframe_from_data(data: Mapping[str, Any]) -> "pd.DataFrame":
         if SIGNAL_BACKEND_PD not in signal_backends:
             raise RuntimeError("pandas backend is not available. Install pandas to use this feature.")
         import pandas as pd
@@ -218,7 +234,7 @@ class SingleCurve(Data):
         return df
 
     @staticmethod
-    def save_tabular(data, path: Path):
+    def save_tabular(data: Mapping[str, Any], path: Path) -> None:
         if path.suffix != ".csv":
             raise ValueError(f"save_tabular requires .csv extension, got {path.suffix}")
         df = SingleCurve.dataframe_from_data(data)
@@ -242,22 +258,17 @@ class Curve(Data):
 
     """
 
+    path: Optional[Path]
+
     def __init__(
         self,
-        curves: Union[
-            None,
-            SingleCurve,
-            np.ndarray,
-            dict,
-            List[Union[SingleCurve, list, tuple, dict, np.ndarray]],
-            Tuple[Union[SingleCurve, list, tuple, dict, np.ndarray], ...],
-        ],
+        curves: Union[None, SingleCurve, np.ndarray, Dict[str, Any], Sequence[CurveSpec]],
         xlabel: Optional[str] = None,
         ylabel: Optional[str] = None,
         title: Optional[str] = None,
         grid: Optional[bool] = None,
-        xlim: Optional[Tuple[Union[int, float], Union[int, float]]] = None,
-        ylim: Optional[Tuple[Union[int, float], Union[int, float]]] = None,
+        xlim: Optional[AxisLimits] = None,
+        ylim: Optional[AxisLimits] = None,
         xscale: Optional[str] = None,
         yscale: Optional[str] = None,
     ) -> None:
@@ -266,6 +277,7 @@ class Curve(Data):
                 raise ValueError(
                     f"Curve({axis_name}={scale!r}): expected one of {', '.join(repr(s) for s in AXIS_SCALES)}"
                 )
+        curve_list: List[SingleCurve]
         if curves is None:
             curve_list = []
         elif isinstance(curves, SingleCurve):
@@ -275,13 +287,13 @@ class Curve(Data):
             curve_list = [SingleCurve(y=curves)]
             logging.debug("Empty curve")
         elif isinstance(curves, dict):
-            curve_list = [SingleCurve(**curves)]  # type: ignore
+            curve_list = [SingleCurve(**curves)]
             logging.debug("Empty curve")
         elif isinstance(curves, (list, tuple)):
             curve_list = [self.__create_curve_from_abbreviation(curve) for curve in curves]
         else:
             raise TypeError(f"Unsupported curves declaration: {type(curves)}")
-        data = {
+        data: Dict[str, Any] = {
             "curves": curve_list,
             "xlabel": xlabel,
             "ylabel": ylabel,
@@ -294,7 +306,7 @@ class Curve(Data):
         }
         super().__init__(data)
 
-    def __create_curve_from_abbreviation(self, curve: Union[list, tuple, dict, SingleCurve, np.ndarray]):
+    def __create_curve_from_abbreviation(self, curve: CurveSpec) -> SingleCurve:
         current_curve = None
         if isinstance(curve, (list, tuple)):
             if len(curve) < 2:
@@ -328,39 +340,39 @@ class Curve(Data):
     # ---------------------------------------
 
     @property
-    def grid(self) -> bool:
+    def grid(self) -> Optional[bool]:
         return self.data["grid"]
 
     @grid.setter
-    def grid(self, grid: bool):
+    def grid(self, grid: Optional[bool]) -> None:
         self.data["grid"] = grid
 
     # .title
     # ---------------------------------------
     @property
-    def title(self) -> str:
+    def title(self) -> Optional[str]:
         return self.data["title"]
 
     @title.setter
-    def title(self, title: str):
+    def title(self, title: Optional[str]) -> None:
         self.data["title"] = title
 
     # .xlim / .ylim
     # ---------------------------------------
     @property
-    def xlim(self) -> Optional[Tuple[Union[int, float], Union[int, float]]]:
+    def xlim(self) -> Optional[AxisLimits]:
         return self.data["xlim"]
 
     @xlim.setter
-    def xlim(self, xlim: Optional[Tuple[Union[int, float], Union[int, float]]]):
+    def xlim(self, xlim: Optional[AxisLimits]) -> None:
         self.data["xlim"] = xlim
 
     @property
-    def ylim(self) -> Optional[Tuple[Union[int, float], Union[int, float]]]:
+    def ylim(self) -> Optional[AxisLimits]:
         return self.data["ylim"]
 
     @ylim.setter
-    def ylim(self, ylim: Optional[Tuple[Union[int, float], Union[int, float]]]):
+    def ylim(self, ylim: Optional[AxisLimits]) -> None:
         self.data["ylim"] = ylim
 
     # .xlabel / .ylabel
@@ -374,19 +386,19 @@ class Curve(Data):
         return self.data.get("yscale")
 
     @property
-    def xlabel(self) -> str:
+    def xlabel(self) -> Optional[str]:
         return self.data["xlabel"]
 
     @xlabel.setter
-    def xlabel(self, xlabel: str):
+    def xlabel(self, xlabel: Optional[str]) -> None:
         self.data["xlabel"] = xlabel
 
     @property
-    def ylabel(self) -> str:
+    def ylabel(self) -> Optional[str]:
         return self.data["ylabel"]
 
     @ylabel.setter
-    def ylabel(self, ylabel: str):
+    def ylabel(self, ylabel: Optional[str]) -> None:
         self.data["ylabel"] = ylabel
 
     # .curves
@@ -396,12 +408,18 @@ class Curve(Data):
         return self.data["curves"]
 
     @curves.setter
-    def curves(self, curves: List[SingleCurve]):
+    def curves(self, curves: List[SingleCurve]) -> None:
         self.data["curves"] = curves
 
     # brackets []
     # ---------------------------------------
-    def __getitem__(self, key: int) -> SingleCurve:
+    @overload
+    def __getitem__(self, key: int) -> SingleCurve: ...
+
+    @overload
+    def __getitem__(self, key: slice) -> List[SingleCurve]: ...
+
+    def __getitem__(self, key: Union[int, slice]) -> Union[SingleCurve, List[SingleCurve]]:
         if isinstance(key, slice):
             return [self.data["curves"][idx] for idx in range(*key.indices(len(self.data["curves"])))]
         if not isinstance(key, int):
@@ -410,12 +428,19 @@ class Curve(Data):
             raise IndexError(f"curve index {key} out of range (max: {len(self.data['curves']) - 1})")
         return self.data["curves"][key]
 
-    def __setitem__(self, key: int, value):
+    @overload
+    def __setitem__(self, key: int, value: SingleCurve) -> None: ...
+
+    @overload
+    def __setitem__(self, key: slice, value: Sequence[SingleCurve]) -> None: ...
+
+    def __setitem__(self, key: Union[int, slice], value: Union[SingleCurve, Sequence[SingleCurve]]) -> None:
         if isinstance(key, slice):
+            new_curves = cast(Sequence[SingleCurve], value)
             indices = range(*key.indices(len(self.data["curves"])))
-            if len(indices) != len(value):
-                raise ValueError(f"cannot assign {len(value)} curves to a slice of {len(indices)} curves")
-            for idx, new_curve in zip(indices, value):
+            if len(indices) != len(new_curves):
+                raise ValueError(f"cannot assign {len(new_curves)} curves to a slice of {len(indices)} curves")
+            for idx, new_curve in zip(indices, new_curves):
                 if not isinstance(new_curve, SingleCurve):
                     raise TypeError(f"value must be a SingleCurve instance, got {type(new_curve)}")
                 self.data["curves"][idx] = new_curve
@@ -428,23 +453,23 @@ class Curve(Data):
             raise TypeError(f"value must be a SingleCurve instance, got {type(value)}")
         self.data["curves"][key] = value
 
-    def append(self, new_curve: SingleCurve):
+    def append(self, new_curve: SingleCurve) -> None:
         self.data["curves"].append(new_curve)
 
-    def prepend(self, new_curve: SingleCurve):
+    def prepend(self, new_curve: SingleCurve) -> None:
         self.data["curves"].insert(0, new_curve)
 
-    def _set_file_extensions(self):
+    def _set_file_extensions(self) -> None:
         self.file_extensions = [".png", ".jpg", ".pkl"]
 
-    def _load(self, path: Path, allow_pickle: bool = False) -> dict:
+    def _load(self, path: Path, allow_pickle: bool = False) -> Dict[str, Any]:
         if path.suffix != ".pkl":
             raise ValueError(f"Unsupported file extension: {path.suffix}, expected .pkl")
         self.path = path
         # unpickling runs code: the caller opts in for files they trust
         return Data.load_binary(path, allow_pickle=allow_pickle)
 
-    def _save(self, path: Path, backend=None, figsize=None):
+    def _save(self, path: Path, backend: Optional[str] = None, figsize: Optional[FigureSize] = None) -> None:
         if path is None:
             raise ValueError("Save requires a path")
         self.path = path
@@ -456,7 +481,12 @@ class Curve(Data):
             raise ValueError(f"Unsupported file extension: {path.suffix}, expected one of {self.file_extensions}")
 
     @staticmethod
-    def save_figure(data, path: Path, backend=None, figsize=None):
+    def save_figure(
+        data: Mapping[str, Any],
+        path: PathInput,
+        backend: Optional[str] = None,
+        figsize: Optional[FigureSize] = None,
+    ) -> None:
         if backend is None:
             backend = SIGNAL_BACKEND_MPL
         if backend not in [SIGNAL_BACKEND_MPL]:
@@ -465,7 +495,7 @@ class Curve(Data):
             Curve.save_figure_mpl(data, path, figsize=figsize)
 
     @staticmethod
-    def save_figure_mpl(data, path: Path, figsize=None):
+    def save_figure_mpl(data: Mapping[str, Any], path: PathInput, figsize: Optional[FigureSize] = None) -> None:
         from matplotlib.figure import Figure
 
         # object API: no pyplot state, no GUI backend involved in a file export
@@ -474,11 +504,11 @@ class Curve(Data):
         Curve._plot_curve(data, ax=ax)
         fig.savefig(path)
 
-    def create_plot(self, ax=None):
+    def create_plot(self, ax: Optional[Any] = None) -> List[Any]:
         plt_obj = Curve._plot_curve(self.data, ax=ax)
         return plt_obj
 
-    def update_plot(self, plt_obj, ax=None):
+    def update_plot(self, plt_obj: List[Any], ax: Optional[Any] = None) -> List[Any]:
         """Update an existing plot in place; returns the (possibly recreated) plot objects.
 
         Callers should keep the returned value for the next update: when the number
@@ -487,7 +517,7 @@ class Curve(Data):
         return Curve._update_plot(self.data, plt_obj, ax=ax)
 
     @staticmethod
-    def _update_plot(data, plt_obj, ax=None):
+    def _update_plot(data: Mapping[str, Any], plt_obj: List[Any], ax: Optional[Any] = None) -> List[Any]:
         if ax is not None and len(plt_obj) != len(data["curves"]):
             # the set of lines changed: rebuild instead of updating line by line
             ax.clear()
@@ -531,7 +561,7 @@ class Curve(Data):
         return plt_obj
 
     @staticmethod
-    def _set_scales(data, ax) -> None:
+    def _set_scales(data: Mapping[str, Any], ax: Any) -> None:
         """Axis scales, set only when they change (setting one resets the axis locators)."""
         for scale, get, set_ in (
             (data.get("xscale"), ax.get_xscale, ax.set_xscale),
@@ -542,7 +572,7 @@ class Curve(Data):
                 set_(scale)
 
     @staticmethod
-    def _plot_curve(data, ax=None):
+    def _plot_curve(data: Mapping[str, Any], ax: Optional[Any] = None) -> List[Any]:
         legend_flag = False
         plt_obj = []
         for curve in data["curves"]:
@@ -602,7 +632,7 @@ class Curve(Data):
                 ax.set_ylim(data["ylim"])
         return plt_obj
 
-    def show(self, figsize=None):
+    def show(self, figsize: Optional[FigureSize] = None) -> None:
         import matplotlib.pyplot as plt
 
         fig, ax = plt.subplots(figsize=figsize)

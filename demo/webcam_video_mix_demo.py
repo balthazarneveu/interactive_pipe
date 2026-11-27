@@ -14,6 +14,7 @@ record the microphone.
 
 import argparse
 from pathlib import Path
+from typing import List, Optional, Union
 
 import numpy as np
 
@@ -32,13 +33,14 @@ def demo_clip(n_frames: int = 75) -> np.ndarray:
 
 
 @interactive(mix=(0.5, [0.0, 1.0]), mode=(["cross-fade", "picture-in-picture", "difference"], "mode"))
-def mix(video, cam, mix=0.5, mode="cross-fade"):
+def mix(video: np.ndarray, cam: np.ndarray, mix: float = 0.5, mode: str = "cross-fade") -> np.ndarray:
     """Combine the video frame and the camera frame (resized to the video's size)."""
     import cv2
 
     cam = cv2.resize(cam, (video.shape[1], video.shape[0]), interpolation=cv2.INTER_AREA)
     if mode == "difference":
-        return np.clip(2.0 * np.abs(video - cam), 0.0, 1.0)
+        difference: np.ndarray = np.clip(2.0 * np.abs(video - cam), 0.0, 1.0)
+        return difference
     if mode == "picture-in-picture":
         out = np.array(video)
         h, w = int(mix * video.shape[0]), int(mix * video.shape[1])
@@ -47,18 +49,18 @@ def mix(video, cam, mix=0.5, mode="cross-fade"):
     return (1.0 - mix) * video + mix * cam
 
 
-def webcam_video_mix(video, cam):
+def webcam_video_mix(video: np.ndarray, cam: np.ndarray) -> List[np.ndarray]:
     return [video, cam, mix(video, cam)]
 
 
-def main(argv=None):
+def main(argv: Optional[List[str]] = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--video", help="video file (default: a built-in clip, silent)")
     parser.add_argument("--device", default="0", help="camera index, device path or stream URL")
     parser.add_argument("--synthetic", action="store_true", help="a generated scene instead of a camera")
     args = parser.parse_args(argv)
 
-    inputs = [Video(args.video if args.video else demo_clip(), fps=25)]
+    inputs: List[Union[Video, Webcam, AudioClip]] = [Video(args.video if args.video else demo_clip(), fps=25)]
     cam = None
     if not args.synthetic:
         device = int(args.device) if args.device.isdigit() else args.device

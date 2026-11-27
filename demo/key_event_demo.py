@@ -7,6 +7,7 @@ proxy. Press [F1] to list all key bindings.
 """
 
 import argparse
+from typing import Tuple
 
 import numpy as np
 
@@ -14,7 +15,7 @@ from interactive_pipe import events, interactive, interactive_pipeline, layout
 
 
 @interactive(brightness=(1.0, [0.0, 2.0]))
-def brighten(img: np.ndarray, brightness=1.0) -> np.ndarray:
+def brighten(img: np.ndarray, brightness: float = 1.0) -> np.ndarray:
     return img * brightness
 
 
@@ -28,13 +29,13 @@ def noise_burst(img: np.ndarray) -> np.ndarray:
     return img
 
 
-def key_event_pipeline(img):
+def key_event_pipeline(img: np.ndarray) -> np.ndarray:
     bright = brighten(img)
     out = noise_burst(bright)
     return out
 
 
-def make_gradient(size=(256, 256)) -> np.ndarray:
+def make_gradient(size: Tuple[int, int] = (256, 256)) -> np.ndarray:
     h, w = size
     y, x = np.mgrid[0:h, 0:w]
     img = np.stack(
@@ -44,7 +45,7 @@ def make_gradient(size=(256, 256)) -> np.ndarray:
     return img.astype(np.float32)
 
 
-def launch(backend="qt"):
+def launch(backend: str = "qt") -> None:
     demo = interactive_pipeline(gui=backend, cache=False, name="key event demo")(key_event_pipeline)
     # demo.pipeline is the GUI object attached by @interactive_pipeline
     demo.pipeline.bind_key_to_context("n", "noise_burst", "one-shot noise burst")

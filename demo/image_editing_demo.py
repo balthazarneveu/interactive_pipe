@@ -1,6 +1,7 @@
 """Image editing demo: tone & color knobs organized in collapsible/detached panels"""
 
 import argparse
+from typing import Tuple
 
 import cv2
 import numpy as np
@@ -23,9 +24,9 @@ def apply_knobs(
     brightness: float = 0.0,
     saturation: float = 1.0,
     hue: float = 0.0,
-):
+) -> np.ndarray:
     """Apply various image adjustments: black/white point, gamma, contrast, brightness, saturation, and hue."""
-    result = img.copy()
+    result: np.ndarray = img.copy()
 
     # Apply black and white point (contrast stretching)
     # Map values from [black_point, white_point] to [0, 1]
@@ -86,10 +87,10 @@ def apply_knobs(
     return result
 
 
-def create_colorful_chart(size=(512, 512)) -> np.ndarray:
+def create_colorful_chart(size: Tuple[int, int] = (512, 512)) -> np.ndarray:
     """Create a pretty colored synthetic chart with gradients and patterns."""
     h, w = size
-    img = np.zeros((h, w, 3), dtype=np.float32)
+    img: np.ndarray = np.zeros((h, w, 3), dtype=np.float32)
 
     # Create coordinate grids
     y, x = np.ogrid[:h, :w]
@@ -138,7 +139,7 @@ def add_text(img: np.ndarray, text: str = "nothing") -> np.ndarray:
     if text == "nothing" or not text:
         return img
 
-    result = img.copy()
+    result: np.ndarray = img.copy()
     h, w = img.shape[:2]
 
     # Convert to uint8 for cv2
@@ -165,7 +166,7 @@ def add_text(img: np.ndarray, text: str = "nothing") -> np.ndarray:
         (0, 0, 0),
         -1,
     )
-    result_uint8 = cv2.addWeighted(result_uint8, 0.7, overlay, 0.3, 0)
+    result_uint8 = np.asarray(cv2.addWeighted(result_uint8, 0.7, overlay, 0.3, 0), dtype=np.uint8)
 
     # Draw white text
     cv2.putText(
@@ -184,13 +185,13 @@ def add_text(img: np.ndarray, text: str = "nothing") -> np.ndarray:
     return result
 
 
-def image_editing_pipeline(img: np.ndarray):
+def image_editing_pipeline(img: np.ndarray) -> np.ndarray:
     output = apply_knobs(img)
     output = add_text(output)
     return output
 
 
-def add_interactivity():
+def add_interactivity() -> None:
     lighting_panel = Panel(
         "Lighting",
         collapsible=False,
@@ -262,7 +263,7 @@ def add_interactivity():
     )(add_text)
 
 
-def launch(backend="qt"):
+def launch(backend: str = "qt") -> None:
     add_interactivity()
     colorful_chart = create_colorful_chart(size=(512, 512))
     interactive_pipeline(
